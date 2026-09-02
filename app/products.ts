@@ -7,6 +7,8 @@ export type Product = {
   vendor: string;
   sellingPricePkr: number;
   originalPrice: string;
+  originalPricePkr?: number;
+  details?: string[];
   sourceUrl: string;
   description: string;
 };
@@ -21,6 +23,7 @@ export const products: Product[] = [
     "vendor": "Sasify Solutions",
     "sellingPricePkr": 3499,
     "originalPrice": "PKR 5,700",
+    "originalPricePkr": 5700,
     "sourceUrl": "https://openai.com/chatgpt/pricing/",
     "description": "One-month ChatGPT Plus access for advanced models, higher limits, file analysis, image generation and productivity workflows."
   },
@@ -182,27 +185,29 @@ export const products: Product[] = [
   },
   {
     "id": "p012",
-    "slug": "claude-premium",
+    "slug": "claude-team-plan-premium",
     "category": "AI Assistants & Research",
-    "name": "Claude Premium",
+    "name": "Claude Team Plan Premium",
     "duration": "1 Month",
     "vendor": "Zoom Store",
     "sellingPricePkr": 24999,
-    "originalPrice": "Claude Max from $100/month",
-    "sourceUrl": "https://www.anthropic.com/pricing",
-    "description": "Higher-tier Claude access intended for heavier AI usage, analysis, writing and productivity workloads."
+    "originalPrice": "US$125 per seat/month, billed monthly (before tax)",
+    "sourceUrl": "https://claude.com/pricing",
+    "description": "One-month Claude Team Premium seat for demanding writing, research, coding and document-analysis workflows, with higher usage capacity than a Standard seat.",
+    "details": ["Premium is the higher-usage seat type within Claude Team, not an API credit package.", "Claude Team includes Claude Code and Cowork. Feature access remains subject to the workspace settings and provider limits.", "The original price shown is Anthropic's monthly US per-seat reference. Provider minimum-seat requirements and regional taxes may apply when purchasing directly."]
   },
   {
     "id": "p013",
-    "slug": "claude-standard",
+    "slug": "claude-team-plan-standard",
     "category": "AI Assistants & Research",
-    "name": "Claude Standard",
+    "name": "Claude Team Plan Standard",
     "duration": "1 Month",
     "vendor": "Zoom Store / Alternate Supplier",
     "sellingPricePkr": 4999,
-    "originalPrice": "Claude Pro $20/month",
-    "sourceUrl": "https://www.anthropic.com/pricing",
-    "description": "Claude AI subscription access for conversational assistance, writing, analysis and productivity."
+    "originalPrice": "US$25 per seat/month, billed monthly (before tax)",
+    "sourceUrl": "https://claude.com/pricing",
+    "description": "One-month Claude Team Standard seat for AI-assisted writing, research, document analysis and coding in a team workspace.",
+    "details": ["Standard is the entry seat type within Claude Team, with usage limits set by Anthropic.", "Claude Team includes Claude Code and Cowork. Feature access remains subject to the workspace settings and provider limits.", "The original price shown is Anthropic's monthly US per-seat reference. Provider minimum-seat requirements and regional taxes may apply when purchasing directly."]
   },
   {
     "id": "p014",

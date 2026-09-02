@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
 import './globals.css';
+import { siteOrigin } from './product-utils';
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -13,6 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(siteOrigin),
   title: 'Sasify Solutions Inventory',
   description:
     'Browse Sasify Solutions digital tools, compare PKR prices, read verified Google reviews, and order through WhatsApp.',

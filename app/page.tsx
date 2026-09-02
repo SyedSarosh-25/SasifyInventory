@@ -6,7 +6,6 @@ import {
   ChevronRight,
   ExternalLink,
   Filter,
-  MapPin,
   MessageCircle,
   Search,
   ShieldCheck,
@@ -16,15 +15,14 @@ import {
 } from 'lucide-react';
 import { useMemo, useState, type CSSProperties } from 'react';
 import { products, type Product } from './products';
+import { claudeLogoUrl, favicon, formatPkr, initials, isAnnualPlan, productHref, whatsappLink } from './product-utils';
+import { ProductLogo } from './components/product-logo';
+import { SiteFooter, SiteHeader } from './components/site-chrome';
 
-const phoneNumber = '923116185711';
 const categories = ['All', ...Array.from(new Set(products.map((p) => p.category)))];
 const lowestPrice = Math.min(...products.map((p) => p.sellingPricePkr));
 const googleReviewsUrl =
   'https://www.google.com/maps/place/Sasify+Digital+Solutions/@33.5298115,73.1663875,16z/data=!4m18!1m9!3m8!1s0x38dfed9bda8bf345:0xb57a60ba54b9be1e!2sSasify+Digital+Solutions!8m2!3d33.5298115!4d73.1663875!9m1!1b1!16s%2Fg%2F11yzclp9ps!3m7!1s0x38dfed9bda8bf345:0xb57a60ba54b9be1e!8m2!3d33.5298115!4d73.1663875!9m1!1b1!16s%2Fg%2F11yzclp9ps!18m1!1e1?entry=ttu';
-const founderLinkedinUrl = 'https://pk.linkedin.com/in/syedsarosh2';
-const claudeLogoUrl =
-  'https://www.google.com/s2/favicons?domain_url=https%3A%2F%2Fclaude.ai&sz=128';
 
 const categoryColors: Record<string, string> = {
   'API & Credit Packages': '#2563ff',
@@ -88,70 +86,36 @@ const reviews = [
   },
 ];
 
-function formatPkr(value: number) {
-  return `PKR ${value.toLocaleString('en-PK')}`;
-}
-
-function whatsappLink(productName?: string) {
-  const text = productName
-    ? `Hi, I want to buy ${productName} from Sasify Solutions Inventory. Please share availability and payment details.`
-    : 'Hi, I would like help choosing a digital product from Sasify Solutions.';
-  return `https://wa.me/${phoneNumber}?text=${encodeURIComponent(text)}`;
-}
-
-function initials(name: string) {
-  return name
-    .replace(/[^a-zA-Z0-9 ]/g, ' ')
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((word) => word[0])
-    .join('')
-    .toUpperCase();
-}
-
-function favicon(domainOrUrl: string) {
-  return `https://www.google.com/s2/favicons?domain_url=${encodeURIComponent(domainOrUrl)}&sz=128`;
-}
-
-function productLogo(product: Product) {
-  if (/claude/i.test(product.name)) return claudeLogoUrl;
-  if (/gemini/i.test(product.name)) return favicon('gemini.google.com');
-  return product.sourceUrl ? favicon(product.sourceUrl) : '';
-}
-
 const highlightedOffers = [
   {
     name: 'ChatGPT Plus 1 Month',
-    product: products.find((product) => product.slug === 'chatgpt-plus-1-month'),
+    product: products.find((product) => product.id === 'p093')!,
     logoUrl: favicon('openai.com'),
   },
   {
-    name: 'Claude Team Plan',
-    product: undefined,
+    name: 'Claude Team Plan Standard',
+    product: products.find((product) => product.id === 'p013')!,
     logoUrl: claudeLogoUrl,
   },
   {
     name: 'Canva Pro',
-    product: products.find((product) => product.slug === 'canva-pro-panel'),
+    product: products.find((product) => product.id === 'p063')!,
     logoUrl: favicon('canva.com'),
   },
   {
     name: 'CapCut',
-    product: products.find((product) => product.slug === 'capcut-pro-team'),
+    product: products.find((product) => product.id === 'p028')!,
     logoUrl: favicon('capcut.com'),
   },
   {
     name: 'Cursor',
-    product: products.find((product) => product.slug === 'cursor-pro-api-2-600-credits'),
+    product: products.find((product) => product.id === 'p088')!,
     logoUrl: favicon('cursor.com'),
   },
 ];
 
 function ProductArtwork({ product }: { product: Product }) {
   const color = categoryColors[product.category] ?? '#2563ff';
-  const logoUrl = productLogo(product);
-  const [failedLogo, setFailedLogo] = useState<string | null>(null);
 
   return (
     <div
@@ -159,19 +123,7 @@ function ProductArtwork({ product }: { product: Product }) {
       style={{ '--product-color': color } as CSSProperties}
     >
       <div className="product-logo-frame">
-        {logoUrl && failedLogo !== logoUrl ? (
-          <img
-            src={logoUrl}
-            alt={`${product.name} logo`}
-            className="product-logo"
-            loading="lazy"
-            onError={() => setFailedLogo(logoUrl)}
-          />
-        ) : (
-          <span className="product-monogram" aria-hidden="true">
-            {initials(product.name)}
-          </span>
-        )}
+        <ProductLogo product={product} />
       </div>
       <span className="product-category">{product.category}</span>
     </div>
@@ -211,33 +163,11 @@ export default function Home() {
 
   return (
     <main>
-      <header className="site-header">
-        <nav className="nav-inner" aria-label="Main navigation">
-          <a href="#top" className="brand">
-            <img src="/sasify-logo.png" alt="Sasify Solutions logo" />
-            <span className="brand-name">
-              <strong>SASIFY</strong>
-              <small>SOLUTIONS</small>
-            </span>
-            <span className="brand-line" />
-            <span className="brand-tagline">Digital tools.<br />Human support.</span>
-          </a>
-
-          <div className="nav-links">
-            <a href="#catalog">Tools</a>
-            <a href="#reviews">Reviews</a>
-            <a href="#faq">FAQ</a>
-            <a href="#contact">Contact</a>
-          </div>
-
-          <div className="nav-actions">
-            <span className="currency">PKR</span>
-            <a href="#catalog" className="primary-button compact">
-              Browse tools <ArrowRight className="h-4 w-4" />
-            </a>
-          </div>
-        </nav>
-      </header>
+      <SiteHeader />
+      <div className="warranty-banner">
+        <ShieldCheck className="h-5 w-5" />
+        <p><strong>Full 25-day warranty</strong> on all 30-day products and one-month plans.</p>
+      </div>
 
       <section id="top" className="hero">
         <div className="hero-accent" aria-hidden="true" />
@@ -253,7 +183,7 @@ export default function Home() {
             </h1>
             <p>
               Access leading AI, coding, design, productivity and SaaS tools
-              with clear pricing, quick activation and human support.
+              with clear pricing and quick activation.
             </p>
 
             <label className="hero-search">
@@ -279,9 +209,7 @@ export default function Home() {
               {highlightedOffers.map((offer, index) => (
                 <a
                   key={offer.name}
-                  href={whatsappLink(offer.name)}
-                  target="_blank"
-                  rel="noreferrer"
+                  href={productHref(offer.product)}
                   className={index === 0 ? 'active' : ''}
                 >
                   <img src={offer.logoUrl} alt="" />
@@ -341,31 +269,19 @@ export default function Home() {
           </div>
           <div className="featured-grid">
             {highlightedOffers.map((offer) => (
-              <article key={offer.name} className="featured-card">
+              <a key={offer.name} className="featured-card" href={productHref(offer.product)}>
                 <div className="featured-logo">
                   <img src={offer.logoUrl} alt={`${offer.name} logo`} />
                 </div>
                 <div className="featured-copy">
                   <h3>{offer.name}</h3>
-                  <p>{offer.product?.duration ?? 'Team access'}</p>
+                  <p>{offer.product.duration}</p>
                 </div>
                 <div className="featured-action">
-                  {offer.product ? (
-                    <strong>{formatPkr(offer.product.sellingPricePkr)}</strong>
-                  ) : (
-                    <strong>Ask for price</strong>
-                  )}
-                  <a
-                    href={whatsappLink(offer.name)}
-                    target="_blank"
-                    rel="noreferrer"
-                    aria-label={`Buy ${offer.name} on WhatsApp`}
-                    title={`Buy ${offer.name} on WhatsApp`}
-                  >
-                    <MessageCircle className="h-4 w-4" />
-                  </a>
+                  <strong>{formatPkr(offer.product.sellingPricePkr)}</strong>
+                  <span className="featured-arrow" aria-hidden="true"><ArrowRight className="h-4 w-4" /></span>
                 </div>
-              </article>
+              </a>
             ))}
           </div>
         </div>
@@ -417,9 +333,10 @@ export default function Home() {
             {filteredProducts.map((product) => {
               const color = categoryColors[product.category] ?? '#2563ff';
               return (
-                <article
+                <a
                   key={product.id}
                   className="product-card"
+                  href={productHref(product)}
                   style={{ '--product-color': color } as CSSProperties}
                 >
                   <ProductArtwork product={product} />
@@ -428,6 +345,7 @@ export default function Home() {
                       <span>{product.duration}</span>
                       <span className="available"><i /> Available</span>
                     </div>
+                    {isAnnualPlan(product) && <span className="annual-card-note">One-time payment. No monthly payments.</span>}
                     <h3>{product.name}</h3>
                     <p className="product-description">{product.description}</p>
                     <div className="price-panel">
@@ -438,18 +356,11 @@ export default function Home() {
                       <div className="original-price">
                         <span>Original price</span>
                         <p>{product.originalPrice}</p>
-                        {product.sourceUrl && (
-                          <a href={product.sourceUrl} target="_blank" rel="noreferrer">
-                            Verify price <ExternalLink className="h-3 w-3" />
-                          </a>
-                        )}
                       </div>
                     </div>
-                    <a href={whatsappLink(product.name)} target="_blank" rel="noreferrer" className="buy-button">
-                      <MessageCircle className="h-4 w-4" /> Buy now
-                    </a>
+                    <span className="buy-button">View details <ArrowRight className="h-4 w-4" /></span>
                   </div>
-                </article>
+                </a>
               );
             })}
           </div>
@@ -518,11 +429,19 @@ export default function Home() {
           <div className="faq-list">
             <details open>
               <summary>How do I place an order?</summary>
-              <p>Tap Buy now on any product. WhatsApp opens with the product name already included.</p>
+              <p>Open a product to see its full details, then choose Buy now. WhatsApp opens with the product and plan duration already included.</p>
             </details>
             <details>
               <summary>Are the original prices current?</summary>
               <p>They are public provider references and may vary by region, billing term, tax, credits or promotions.</p>
+            </details>
+            <details>
+              <summary>Do one-year plans need monthly payments?</summary>
+              <p>No. For every one-year or 12-month plan, the listed amount is a one-time payment to Sasify Solutions for the full year. No monthly payments to us are needed during that year.</p>
+            </details>
+            <details>
+              <summary>What is the warranty for a 30-day plan?</summary>
+              <p>All 30-day products and one-month plans come with a full 25-day warranty from Sasify Solutions. Contact our team on WhatsApp for warranty support.</p>
             </details>
             <details>
               <summary>When is availability confirmed?</summary>
@@ -532,27 +451,7 @@ export default function Home() {
         </div>
       </section>
 
-      <footer id="contact" className="site-footer">
-        <div className="footer-inner">
-          <div className="footer-brand">
-            <img src="/sasify-logo.png" alt="Sasify Solutions logo" />
-            <div>
-              <strong>Sasify Solutions</strong>
-              <span>Digital tools. Human support.</span>
-            </div>
-          </div>
-          <div className="footer-contact">
-            <MapPin className="h-4 w-4" />
-            Sasify Digital Solutions
-          </div>
-          <a href={founderLinkedinUrl} target="_blank" rel="noreferrer" className="founder-link" title="View Syed Sarosh on LinkedIn">
-            <ExternalLink className="h-4 w-4" /> Founder: <strong>Syed Sarosh</strong>
-          </a>
-          <a href={whatsappLink()} target="_blank" rel="noreferrer" className="primary-button">
-            <MessageCircle className="h-4 w-4" /> WhatsApp us
-          </a>
-        </div>
-      </footer>
+      <SiteFooter />
     </main>
   );
 }
