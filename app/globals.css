@@ -315,8 +315,8 @@ a { color: inherit; }
   border-radius: 50%;
   transform: translate(-50%, -50%);
 }
-.ring-one { width: 315px; height: 315px; }
-.ring-two { width: 430px; height: 430px; }
+.ring-one { width: 430px; height: 430px; }
+.ring-two { display: none; }
 .center-logo {
   position: absolute;
   top: 50%;
@@ -357,34 +357,34 @@ a { color: inherit; }
 .orbit-tool img { width: 36px; height: 36px; object-fit: contain; }
 .orbit-tool small { display: block; margin-top: 5px; color: #3e4860; font-size: 0.68rem; font-weight: 800; }
 .orbit-figma {
-  --orbit-radius: 158px;
-  --orbit-speed: 20s;
-  animation-delay: -1s;
+  --orbit-radius: 216px;
+  --orbit-speed: 28s;
+  animation-delay: 0s;
 }
 .orbit-chatgpt {
-  --orbit-radius: 158px;
-  --orbit-speed: 20s;
-  animation-delay: -7.65s;
+  --orbit-radius: 216px;
+  --orbit-speed: 28s;
+  animation-delay: -9.34s;
 }
 .orbit-cursor {
-  --orbit-radius: 158px;
-  --orbit-speed: 20s;
-  animation-delay: -14.3s;
+  --orbit-radius: 216px;
+  --orbit-speed: 28s;
+  animation-delay: -18.67s;
 }
 .orbit-capcut {
   --orbit-radius: 216px;
   --orbit-speed: 28s;
-  animation-delay: -3s;
+  animation-delay: -4.67s;
 }
 .orbit-claude {
   --orbit-radius: 216px;
   --orbit-speed: 28s;
-  animation-delay: -12.3s;
+  animation-delay: -14s;
 }
 .orbit-gemini {
   --orbit-radius: 216px;
   --orbit-speed: 28s;
-  animation-delay: -21.6s;
+  animation-delay: -23.34s;
 }
 
 .brand-constellation:hover .orbit-tool {
