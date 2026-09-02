@@ -22,6 +22,9 @@ const categories = ['All', ...Array.from(new Set(products.map((p) => p.category)
 const lowestPrice = Math.min(...products.map((p) => p.sellingPricePkr));
 const googleReviewsUrl =
   'https://www.google.com/maps/place/Sasify+Digital+Solutions/@33.5298115,73.1663875,16z/data=!4m18!1m9!3m8!1s0x38dfed9bda8bf345:0xb57a60ba54b9be1e!2sSasify+Digital+Solutions!8m2!3d33.5298115!4d73.1663875!9m1!1b1!16s%2Fg%2F11yzclp9ps!3m7!1s0x38dfed9bda8bf345:0xb57a60ba54b9be1e!8m2!3d33.5298115!4d73.1663875!9m1!1b1!16s%2Fg%2F11yzclp9ps!18m1!1e1?entry=ttu';
+const founderLinkedinUrl = 'https://pk.linkedin.com/in/syedsarosh2';
+const claudeLogoUrl =
+  'https://www.google.com/s2/favicons?domain_url=https%3A%2F%2Fclaude.ai&sz=128';
 
 const categoryColors: Record<string, string> = {
   'API & Credit Packages': '#2563ff',
@@ -41,7 +44,7 @@ const orbitTools = [
   { name: 'Figma', domain: 'figma.com', className: 'orbit-figma' },
   { name: 'CapCut', domain: 'capcut.com', className: 'orbit-capcut' },
   { name: 'ChatGPT', domain: 'openai.com', className: 'orbit-chatgpt' },
-  { name: 'Claude', domain: 'anthropic.com', className: 'orbit-claude' },
+  { name: 'Claude', domain: 'claude.ai', logoUrl: claudeLogoUrl, className: 'orbit-claude' },
   { name: 'Cursor', domain: 'cursor.com', className: 'orbit-cursor' },
   { name: 'Gemini', domain: 'gemini.google.com', className: 'orbit-gemini' },
 ];
@@ -72,10 +75,10 @@ const reviews = [
       'Quickly responded to my situation and gave me my account promptly. Smoothest onboarding I have had with buying a service.',
   },
   {
-    name: 'alex',
-    time: '3 weeks ago',
+    name: 'Muhammad Abdullah',
+    time: '2 months ago',
     quote:
-      'Very trusted and reliable, delivered exactly what was finalized. Great service, recommended.',
+      'It was great talking to Adeen. He is lovely and explains everything well.',
   },
   {
     name: 'Asim Ali',
@@ -111,9 +114,44 @@ function favicon(domainOrUrl: string) {
   return `https://www.google.com/s2/favicons?domain_url=${encodeURIComponent(domainOrUrl)}&sz=128`;
 }
 
+function productLogo(product: Product) {
+  if (/claude/i.test(product.name)) return claudeLogoUrl;
+  if (/gemini/i.test(product.name)) return favicon('gemini.google.com');
+  return product.sourceUrl ? favicon(product.sourceUrl) : '';
+}
+
+const highlightedOffers = [
+  {
+    name: 'ChatGPT Plus 1 Month',
+    product: products.find((product) => product.slug === 'chatgpt-plus-1-month'),
+    logoUrl: favicon('openai.com'),
+  },
+  {
+    name: 'Claude Team Plan',
+    product: undefined,
+    logoUrl: claudeLogoUrl,
+  },
+  {
+    name: 'Canva Pro',
+    product: products.find((product) => product.slug === 'canva-pro-panel'),
+    logoUrl: favicon('canva.com'),
+  },
+  {
+    name: 'CapCut',
+    product: products.find((product) => product.slug === 'capcut-pro-team'),
+    logoUrl: favicon('capcut.com'),
+  },
+  {
+    name: 'Cursor',
+    product: products.find((product) => product.slug === 'cursor-pro-api-2-600-credits'),
+    logoUrl: favicon('cursor.com'),
+  },
+];
+
 function ProductArtwork({ product }: { product: Product }) {
   const color = categoryColors[product.category] ?? '#2563ff';
-  const logoUrl = product.sourceUrl ? favicon(product.sourceUrl) : '';
+  const logoUrl = productLogo(product);
+  const [failedLogo, setFailedLogo] = useState<string | null>(null);
 
   return (
     <div
@@ -121,19 +159,18 @@ function ProductArtwork({ product }: { product: Product }) {
       style={{ '--product-color': color } as CSSProperties}
     >
       <div className="product-logo-frame">
-        <span className="product-monogram" aria-hidden="true">
-          {initials(product.name)}
-        </span>
-        {logoUrl && (
+        {logoUrl && failedLogo !== logoUrl ? (
           <img
             src={logoUrl}
             alt={`${product.name} logo`}
             className="product-logo"
             loading="lazy"
-            onError={(event) => {
-              event.currentTarget.style.display = 'none';
-            }}
+            onError={() => setFailedLogo(logoUrl)}
           />
+        ) : (
+          <span className="product-monogram" aria-hidden="true">
+            {initials(product.name)}
+          </span>
         )}
       </div>
       <span className="product-category">{product.category}</span>
@@ -238,14 +275,19 @@ export default function Home() {
               )}
             </label>
 
-            <div className="hero-categories">
-              {['All Tools', 'AI Tools', 'Productivity', 'Design', 'Video'].map(
-                (label, index) => (
-                  <a key={label} href="#catalog" className={index === 0 ? 'active' : ''}>
-                    {label}
-                  </a>
-                ),
-              )}
+            <div className="hero-categories" aria-label="Highlighted products">
+              {highlightedOffers.map((offer, index) => (
+                <a
+                  key={offer.name}
+                  href={whatsappLink(offer.name)}
+                  target="_blank"
+                  rel="noreferrer"
+                  className={index === 0 ? 'active' : ''}
+                >
+                  <img src={offer.logoUrl} alt="" />
+                  {offer.name.replace(' 1 Month', '').replace(' Plan', '')}
+                </a>
+              ))}
             </div>
 
             <div className="hero-actions">
@@ -269,7 +311,7 @@ export default function Home() {
                 <div className="orbit-position">
                   <div className="orbit-content">
                     <span>
-                      <img src={favicon(tool.domain)} alt="" />
+                      <img src={'logoUrl' in tool ? tool.logoUrl : favicon(tool.domain)} alt="" />
                     </span>
                     <small>{tool.name}</small>
                   </div>
@@ -285,6 +327,47 @@ export default function Home() {
           <a href={googleReviewsUrl} target="_blank" rel="noreferrer">
             <Stars /> 5.0 from 148 Google reviews
           </a>
+        </div>
+      </section>
+
+      <section className="featured-section" aria-labelledby="featured-title">
+        <div className="featured-inner">
+          <div className="featured-heading">
+            <div>
+              <span className="section-kicker">Highlighted products</span>
+              <h2 id="featured-title">Featured digital tools</h2>
+            </div>
+            <a href="#catalog">View full inventory <ChevronRight className="h-4 w-4" /></a>
+          </div>
+          <div className="featured-grid">
+            {highlightedOffers.map((offer) => (
+              <article key={offer.name} className="featured-card">
+                <div className="featured-logo">
+                  <img src={offer.logoUrl} alt={`${offer.name} logo`} />
+                </div>
+                <div className="featured-copy">
+                  <h3>{offer.name}</h3>
+                  <p>{offer.product?.duration ?? 'Team access'}</p>
+                </div>
+                <div className="featured-action">
+                  {offer.product ? (
+                    <strong>{formatPkr(offer.product.sellingPricePkr)}</strong>
+                  ) : (
+                    <strong>Ask for price</strong>
+                  )}
+                  <a
+                    href={whatsappLink(offer.name)}
+                    target="_blank"
+                    rel="noreferrer"
+                    aria-label={`Buy ${offer.name} on WhatsApp`}
+                    title={`Buy ${offer.name} on WhatsApp`}
+                  >
+                    <MessageCircle className="h-4 w-4" />
+                  </a>
+                </div>
+              </article>
+            ))}
+          </div>
         </div>
       </section>
 
@@ -388,7 +471,7 @@ export default function Home() {
         <div className="section-inner">
           <div className="reviews-heading">
             <div>
-              <span className="section-kicker">Verified customer feedback</span>
+              <span className="section-kicker">Customer feedback on Google</span>
               <h2>Trusted by digital buyers</h2>
               <p>Recent public reviews from the Sasify Digital Solutions Google Maps listing.</p>
             </div>
@@ -462,6 +545,9 @@ export default function Home() {
             <MapPin className="h-4 w-4" />
             Sasify Digital Solutions
           </div>
+          <a href={founderLinkedinUrl} target="_blank" rel="noreferrer" className="founder-link" title="View Syed Sarosh on LinkedIn">
+            <ExternalLink className="h-4 w-4" /> Founder: <strong>Syed Sarosh</strong>
+          </a>
           <a href={whatsappLink()} target="_blank" rel="noreferrer" className="primary-button">
             <MessageCircle className="h-4 w-4" /> WhatsApp us
           </a>

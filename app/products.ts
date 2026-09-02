@@ -13,6 +13,42 @@ export type Product = {
 
 export const products: Product[] = [
   {
+    "id": "p093",
+    "slug": "chatgpt-plus-1-month",
+    "category": "AI Assistants & Research",
+    "name": "ChatGPT Plus",
+    "duration": "1 Month",
+    "vendor": "Sasify Solutions",
+    "sellingPricePkr": 3499,
+    "originalPrice": "PKR 5,700",
+    "sourceUrl": "https://openai.com/chatgpt/pricing/",
+    "description": "One-month ChatGPT Plus access for advanced models, higher limits, file analysis, image generation and productivity workflows."
+  },
+  {
+    "id": "p094",
+    "slug": "chatgpt-plus-shared",
+    "category": "AI Assistants & Research",
+    "name": "ChatGPT Plus Shared",
+    "duration": "1 Month",
+    "vendor": "Sasify Solutions",
+    "sellingPricePkr": 999,
+    "originalPrice": "ChatGPT Plus PKR 5,700/month",
+    "sourceUrl": "https://openai.com/chatgpt/pricing/",
+    "description": "Budget-friendly shared ChatGPT Plus access for everyday writing, research, image generation and AI assistance."
+  },
+  {
+    "id": "p095",
+    "slug": "codex-single-person",
+    "category": "AI Coding & Development",
+    "name": "Codex Single Person",
+    "duration": "1 Month",
+    "vendor": "Sasify Solutions",
+    "sellingPricePkr": 1499,
+    "originalPrice": "Included with eligible ChatGPT plans",
+    "sourceUrl": "https://openai.com/codex/",
+    "description": "Single-person Codex access for AI-assisted coding, debugging, code review and software-development workflows."
+  },
+  {
     "id": "p001",
     "slug": "antigravity-x20-ultra-25k-flow-credits",
     "category": "API & Credit Packages",
