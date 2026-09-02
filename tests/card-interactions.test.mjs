@@ -6,11 +6,11 @@ import postcss from 'postcss';
 const css = postcss.parse(readFileSync(new URL('../app/globals.css', import.meta.url), 'utf8'));
 const cards = ['.featured-card', '.product-card', '.related-product'];
 
-test('3D card hover is gated to precise pointers without reduced motion', () => {
+test('subtle card lift is gated to precise pointers without reduced motion', () => {
   let hover;
   css.walkRules((rule) => {
     if (!cards.every((card) => rule.selector.includes(`${card}:hover`))) return;
-    rule.walkDecls('transform', (decl) => { if (decl.value.includes('perspective')) hover = rule; });
+    rule.walkDecls('transform', () => { hover = rule; });
   });
   assert.ok(hover);
   assert.equal(hover.parent.type, 'atrule');
@@ -19,9 +19,18 @@ test('3D card hover is gated to precise pointers without reduced motion', () => 
     assert.ok(hover.parent.params.includes(condition));
   }
   const transform = hover.nodes.find((node) => node.prop === 'transform').value;
-  for (const effect of ['perspective(', 'translateY(', 'rotateX(', 'rotateY(']) assert.ok(transform.includes(effect));
+  assert.equal(transform, 'translateY(-2px)');
   assert.ok(hover.nodes.some((node) => node.prop === 'box-shadow'));
   assert.ok(!hover.nodes.some((node) => ['width', 'height', 'padding', 'margin'].includes(node.prop)));
+});
+
+test('product cards and their content never use tilt or 3D transforms', () => {
+  css.walkRules((rule) => {
+    if (![...cards, '.featured-logo', '.featured-action'].some((selector) => rule.selector.includes(selector))) return;
+    rule.walkDecls((decl) => {
+      assert.doesNotMatch(decl.value, /perspective\(|rotate[XYZ]?\(|translateZ\(|matrix3d\(|preserve-3d/);
+    });
+  });
 });
 
 test('touch feedback stays flat and reduced motion disables card transitions', () => {

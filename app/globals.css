@@ -1120,21 +1120,16 @@ svg { flex-shrink: 0; }
 
 .featured-card, .product-card, .related-product {
   position: relative;
-  transform-origin: center;
-  transition: transform 240ms ease, box-shadow 240ms ease, border-color 240ms ease;
+  transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease;
 }
-.featured-card { transform-style: preserve-3d; }
-.featured-logo, .featured-action { transition: transform 240ms ease; }
 
 @media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
   .featured-card:hover, .product-card:hover, .related-product:hover {
     z-index: 2;
-    transform: perspective(1100px) translateY(-8px) rotateX(4deg) rotateY(-3deg);
+    transform: translateY(-2px);
     border-color: #c5d3ee;
-    box-shadow: 3px 6px 0 #e1e8f7, 8px 20px 30px rgba(37, 59, 113, 0.18);
+    box-shadow: 0 10px 24px rgba(37, 59, 113, 0.1);
   }
-  .featured-card:hover .featured-logo { transform: translateZ(24px); }
-  .featured-card:hover .featured-action { transform: translateZ(12px); }
 }
 
 @media (hover: none) {
@@ -1147,6 +1142,6 @@ svg { flex-shrink: 0; }
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
   .primary-button, .secondary-button, .buy-button, .featured-card, .product-card,
-  .related-product, .featured-logo, .featured-action { transition: none; }
+  .related-product { transition: none; }
   .orbit-tool, .orbit-content { animation-play-state: paused; }
 }
