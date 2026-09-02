@@ -13,14 +13,21 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'Smart TechOne Digital Product Catalog',
+  title: 'Sasify Solutions Inventory',
   description:
-    'Browse Smart TechOne digital products, listed PKR prices, public original price references, and WhatsApp purchase links.',
+    'Browse Sasify Solutions digital products, listed PKR prices, public original price references, and one-tap WhatsApp ordering.',
   openGraph: {
-    title: 'Smart TechOne Digital Product Catalog',
+    title: 'Sasify Solutions Inventory',
     description:
-      'Client-ready catalog with listed prices, original price references, and one-tap WhatsApp ordering.',
+      'Premium digital subscriptions, software and credits with listed prices and direct WhatsApp ordering.',
+    images: [{ url: '/sasify-3d-hero.png', width: 1536, height: 1024 }],
     type: 'website',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Sasify Solutions Inventory',
+    description: 'Explore premium digital products and order directly on WhatsApp.',
+    images: ['/sasify-3d-hero.png'],
   },
 };
 
@@ -31,9 +38,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
+      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         {children}
       </body>
     </html>
