@@ -5,48 +5,21 @@ import {
   BadgeCheck,
   ChevronRight,
   ExternalLink,
-  Filter,
   MessageCircle,
   Search,
   ShieldCheck,
   Star,
-  Tag,
-  X,
 } from 'lucide-react';
-import { useMemo, useState, type CSSProperties } from 'react';
-import { products, type Product } from './products';
-import { claudeLogoUrl, favicon, initials, isAnnualPlan, productHref, whatsappLink } from './product-utils';
+import { products } from './products';
+import { initials, productHref, savingsPkr, whatsappLink } from './product-utils';
+import { featuredProducts, orbitTools } from './catalog-selection';
 import { ProductLogo } from './components/product-logo';
 import { SiteFooter, SiteHeader } from './components/site-chrome';
-import { Money, OriginalPrice } from './components/currency';
+import { Money, ProductOriginalPrice } from './components/currency';
 
-const categories = ['All', ...Array.from(new Set(products.map((p) => p.category)))];
 const lowestPrice = Math.min(...products.map((p) => p.sellingPricePkr));
 const googleReviewsUrl =
   'https://www.google.com/maps/place/Sasify+Digital+Solutions/@33.5298115,73.1663875,16z/data=!4m18!1m9!3m8!1s0x38dfed9bda8bf345:0xb57a60ba54b9be1e!2sSasify+Digital+Solutions!8m2!3d33.5298115!4d73.1663875!9m1!1b1!16s%2Fg%2F11yzclp9ps!3m7!1s0x38dfed9bda8bf345:0xb57a60ba54b9be1e!8m2!3d33.5298115!4d73.1663875!9m1!1b1!16s%2Fg%2F11yzclp9ps!18m1!1e1?entry=ttu';
-
-const categoryColors: Record<string, string> = {
-  'API & Credit Packages': '#2563ff',
-  'AI Assistants & Research': '#7047eb',
-  'AI Video, Image & Creative': '#ea4aa4',
-  'AI Coding & Development': '#00a6bb',
-  'Productivity & Business': '#f08b32',
-  'Design & UI/UX': '#8754f3',
-  'Education & Learning': '#20a66a',
-  'Entertainment & Streaming': '#ef426f',
-  'VPN & Privacy': '#2574df',
-  'Professional & Career': '#145ec7',
-  'Other Tools': '#9b5bd2',
-};
-
-const orbitTools = [
-  { name: 'Figma', domain: 'figma.com', className: 'orbit-figma' },
-  { name: 'CapCut', domain: 'capcut.com', className: 'orbit-capcut' },
-  { name: 'ChatGPT', domain: 'openai.com', className: 'orbit-chatgpt' },
-  { name: 'Claude', domain: 'claude.ai', logoUrl: claudeLogoUrl, className: 'orbit-claude' },
-  { name: 'Cursor', domain: 'cursor.com', className: 'orbit-cursor' },
-  { name: 'Gemini', domain: 'gemini.google.com', className: 'orbit-gemini' },
-];
 
 const reviews = [
   {
@@ -87,50 +60,6 @@ const reviews = [
   },
 ];
 
-const highlightedOffers = [
-  {
-    name: 'ChatGPT Plus 1 Month',
-    product: products.find((product) => product.id === 'p093')!,
-    logoUrl: favicon('openai.com'),
-  },
-  {
-    name: 'Claude Team Plan Standard',
-    product: products.find((product) => product.id === 'p013')!,
-    logoUrl: claudeLogoUrl,
-  },
-  {
-    name: 'Canva Pro',
-    product: products.find((product) => product.id === 'p063')!,
-    logoUrl: favicon('canva.com'),
-  },
-  {
-    name: 'CapCut',
-    product: products.find((product) => product.id === 'p028')!,
-    logoUrl: favicon('capcut.com'),
-  },
-  {
-    name: 'Cursor',
-    product: products.find((product) => product.id === 'p088')!,
-    logoUrl: favicon('cursor.com'),
-  },
-];
-
-function ProductArtwork({ product }: { product: Product }) {
-  const color = categoryColors[product.category] ?? '#2563ff';
-
-  return (
-    <div
-      className="product-art"
-      style={{ '--product-color': color } as CSSProperties}
-    >
-      <div className="product-logo-frame">
-        <ProductLogo product={product} />
-      </div>
-      <span className="product-category">{product.category}</span>
-    </div>
-  );
-}
-
 function Stars() {
   return (
     <span className="stars" aria-label="5 out of 5 stars">
@@ -142,26 +71,6 @@ function Stars() {
 }
 
 export default function Home() {
-  const [query, setQuery] = useState('');
-  const [activeCategory, setActiveCategory] = useState('All');
-
-  const filteredProducts = useMemo(() => {
-    const needle = query.trim().toLowerCase();
-    return products.filter((product) => {
-      const matchesCategory =
-        activeCategory === 'All' || product.category === activeCategory;
-      const searchable = [
-        product.name,
-        product.category,
-        product.duration,
-        product.description,
-      ]
-        .join(' ')
-        .toLowerCase();
-      return matchesCategory && (!needle || searchable.includes(needle));
-    });
-  }, [activeCategory, query]);
-
   return (
     <main>
       <SiteHeader />
@@ -187,41 +96,20 @@ export default function Home() {
               with clear pricing and quick activation.
             </p>
 
-            <label className="hero-search">
+            <form className="hero-search" action="/inventory" role="search">
               <Search className="h-5 w-5" />
               <input
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
+                name="q"
+                type="search"
                 placeholder="Search ChatGPT, Claude, Canva, Cursor..."
                 aria-label="Search products"
               />
-              {query ? (
-                <button type="button" onClick={() => setQuery('')} aria-label="Clear search">
-                  <X className="h-4 w-4" />
-                </button>
-              ) : (
-                <a href="#catalog" aria-label="Go to catalog">
-                  <ArrowRight className="h-5 w-5" />
-                </a>
-              )}
-            </label>
-
-            <div className="hero-categories" aria-label="Highlighted products">
-              {highlightedOffers.map((offer, index) => (
-                <a
-                  key={offer.name}
-                  href={productHref(offer.product)}
-                  className={index === 0 ? 'active' : ''}
-                >
-                  <img src={offer.logoUrl} alt="" />
-                  {offer.name.replace(' 1 Month', '').replace(' Plan', '')}
-                </a>
-              ))}
-            </div>
+              <button type="submit" aria-label="Search inventory"><ArrowRight className="h-5 w-5" /></button>
+            </form>
 
             <div className="hero-actions">
               <a href="#catalog" className="primary-button">
-                View all products <ArrowRight className="h-4 w-4" />
+                Explore top products <ArrowRight className="h-4 w-4" />
               </a>
               <a href={whatsappLink()} target="_blank" rel="noreferrer" className="secondary-button">
                 <MessageCircle className="h-4 w-4" /> Request a tool
@@ -238,12 +126,12 @@ export default function Home() {
             {orbitTools.map((tool) => (
               <div key={tool.name} className={`orbit-tool ${tool.className}`}>
                 <div className="orbit-position">
-                  <div className="orbit-content">
+                  <a className="orbit-content" href={productHref(tool.product)} aria-label={`View ${tool.product.name}`}>
                     <span>
-                      <img src={'logoUrl' in tool ? tool.logoUrl : favicon(tool.domain)} alt="" />
+                      <ProductLogo product={tool.product} eager />
                     </span>
                     <small>{tool.name}</small>
-                  </div>
+                  </a>
                 </div>
               </div>
             ))}
@@ -259,123 +147,35 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="featured-section" aria-labelledby="featured-title">
+      <section id="catalog" className="featured-section" aria-labelledby="featured-title">
         <div className="featured-inner">
           <div className="featured-heading">
             <div>
-              <span className="section-kicker">Highlighted products</span>
-              <h2 id="featured-title">Featured digital tools</h2>
+              <span className="section-kicker">Sasify Solutions Inventory</span>
+              <h2 id="featured-title">Top 10 products</h2>
             </div>
-            <a href="#catalog">View full inventory <ChevronRight className="h-4 w-4" /></a>
           </div>
           <div className="featured-grid">
-            {highlightedOffers.map((offer) => (
-              <a key={offer.name} className="featured-card" href={productHref(offer.product)}>
+            {featuredProducts.map((product) => (
+              <a key={product.id} className="featured-card" href={productHref(product)}>
                 <div className="featured-logo">
-                  <img src={offer.logoUrl} alt={`${offer.name} logo`} />
+                  <ProductLogo product={product} />
                 </div>
                 <div className="featured-copy">
-                  <h3>{offer.name}</h3>
-                  <p>{offer.product.duration}</p>
+                  <h3>{product.name}</h3>
+                  <p>{product.duration}</p>
                 </div>
+                <div className="featured-reference"><span>Original price</span><ProductOriginalPrice product={product} /></div>
                 <div className="featured-action">
-                  <strong><Money amount={offer.product.sellingPricePkr} /></strong>
+                  <div><span className="featured-price-label">Our price</span><strong><Money amount={product.sellingPricePkr} /></strong></div>
                   <span className="featured-arrow" aria-hidden="true"><ArrowRight className="h-4 w-4" /></span>
                 </div>
+                {savingsPkr(product) !== null && <p className="card-savings">Your Savings: <strong><Money amount={savingsPkr(product)!} /></strong></p>}
               </a>
             ))}
           </div>
-        </div>
-      </section>
-
-      <section id="catalog" className="catalog-section">
-        <div className="section-inner">
-          <div className="section-heading">
-            <div>
-              <span className="section-kicker">Explore the inventory</span>
-              <h2>Digital tools for every workflow</h2>
-              <p>Compare our prices with public original price references.</p>
-            </div>
-            <div className="results-badge">
-              <Filter className="h-4 w-4" /> {filteredProducts.length} products
-            </div>
-          </div>
-
-          <div className="catalog-controls">
-            <label className="catalog-search">
-              <Search className="h-4 w-4" />
-              <input
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                placeholder="Search products, categories or features"
-                aria-label="Search catalog"
-              />
-              {query && (
-                <button type="button" onClick={() => setQuery('')} aria-label="Clear search">
-                  <X className="h-4 w-4" />
-                </button>
-              )}
-            </label>
-            <div className="category-strip">
-              {categories.map((category) => (
-                <button
-                  type="button"
-                  key={category}
-                  onClick={() => setActiveCategory(category)}
-                  className={activeCategory === category ? 'active' : ''}
-                >
-                  {category}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="product-grid">
-            {filteredProducts.map((product) => {
-              const color = categoryColors[product.category] ?? '#2563ff';
-              return (
-                <a
-                  key={product.id}
-                  className="product-card"
-                  href={productHref(product)}
-                  style={{ '--product-color': color } as CSSProperties}
-                >
-                  <ProductArtwork product={product} />
-                  <div className="product-content">
-                    <div className="product-meta">
-                      <span>{product.duration}</span>
-                      <span className="available"><i /> Available</span>
-                    </div>
-                    {isAnnualPlan(product) && <span className="annual-card-note">One-time payment. No monthly payments.</span>}
-                    <h3>{product.name}</h3>
-                    <p className="product-description">{product.description}</p>
-                    <div className="price-panel">
-                      <div className="our-price">
-                        <span><Tag className="h-3.5 w-3.5" /> Our price</span>
-                        <strong><Money amount={product.sellingPricePkr} /></strong>
-                      </div>
-                      <div className="original-price">
-                        <span>Original price</span>
-                        <p><OriginalPrice reference={product.originalPrice} /></p>
-                      </div>
-                    </div>
-                    <span className="buy-button">View details <ArrowRight className="h-4 w-4" /></span>
-                  </div>
-                </a>
-              );
-            })}
-          </div>
-
-          {filteredProducts.length === 0 && (
-            <div className="empty-state">
-              <Search className="h-6 w-6" />
-              <h3>No products found</h3>
-              <p>Try another search or category.</p>
-              <button type="button" onClick={() => { setQuery(''); setActiveCategory('All'); }}>
-                Show all products
-              </button>
-            </div>
-          )}
+          <div className="inventory-action"><a href="/inventory" className="primary-button">View full inventory <ArrowRight className="h-4 w-4" /></a></div>
+          <p className="comparison-note">Savings are price differences from listed provider references. Billing terms and access may differ; see each product for details.</p>
         </div>
       </section>
 

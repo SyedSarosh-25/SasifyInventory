@@ -17,12 +17,12 @@ export function SiteHeader() {
           <span className="brand-name"><strong>SASIFY</strong><small>SOLUTIONS</small></span>
         </a>
         <div className="nav-links">
-          <a href="/#catalog">Tools</a><a href="/#reviews">Reviews</a>
+          <a href="/inventory">Tools</a><a href="/#reviews">Reviews</a>
           <a href="/#faq">FAQ</a><a href="#contact">Contact</a>
         </div>
         <div className="nav-actions">
           <CurrencyToggle />
-          <a href="/#catalog" className="primary-button compact" aria-label="Browse tools">
+          <a href="/inventory" className="primary-button compact" aria-label="Browse tools">
             Browse tools <ArrowRight className="h-4 w-4" />
           </a>
         </div>

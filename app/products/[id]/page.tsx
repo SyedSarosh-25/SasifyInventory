@@ -5,7 +5,7 @@ import { products } from '../../products';
 import { ProductLogo } from '../../components/product-logo';
 import { SiteFooter, SiteHeader } from '../../components/site-chrome';
 import { Money, OriginalPrice } from '../../components/currency';
-import { formatPkr, has25DayWarranty, isAnnualPlan, productHref, productLogo, savingsPkr, siteOrigin, whatsappLink } from '../../product-utils';
+import { formatPkr, has25DayWarranty, isAnnualPlan, originalPricePkr, productHref, productLogo, savingsPkr, siteOrigin, whatsappLink } from '../../product-utils';
 
 type Props = { params: Promise<{ id: string }> };
 
@@ -36,6 +36,7 @@ export default async function ProductPage({ params }: Props) {
   const annual = isAnnualPlan(product);
   const warranty = has25DayWarranty(product);
   const savings = savingsPkr(product);
+  const original = originalPricePkr(product);
   const related = products.filter((item) => item.id !== id && item.category === product.category)
     .sort((a, b) => Number(b.name.split(' ')[0] === product.name.split(' ')[0]) - Number(a.name.split(' ')[0] === product.name.split(' ')[0]))
     .slice(0, 3);
@@ -44,7 +45,7 @@ export default async function ProductPage({ params }: Props) {
     <main>
       <SiteHeader />
       <div className="detail-shell">
-        <a href="/#catalog" className="back-link"><ArrowLeft className="h-4 w-4" /> All products</a>
+        <a href="/inventory" className="back-link"><ArrowLeft className="h-4 w-4" /> All products</a>
         <div className="detail-layout">
           <article className="detail-content">
             <div className="detail-identity">
@@ -95,14 +96,14 @@ export default async function ProductPage({ params }: Props) {
             <span className="section-kicker">Your selected plan</span>
             <div className="purchase-heading"><div className="product-logo-frame"><ProductLogo product={product} eager /></div><h2>{product.name}</h2></div>
             <dl className="detail-prices">
-              <div><dt>Original Pricing</dt><dd><OriginalPrice reference={product.originalPrice} /></dd></div>
+              <div><dt>Original Pricing</dt><dd>{original === null ? <OriginalPrice reference={product.originalPrice} /> : <Money amount={original} />}</dd></div>
               <div className="selling-price"><dt>Our Pricing</dt><dd><Money amount={product.sellingPricePkr} /></dd></div>
-              <div className="savings-price"><dt>Your Savings</dt><dd>{savings === null ? 'Not directly comparable' : savings > 0 ? <Money amount={savings} /> : 'No saving at this reference'}</dd></div>
+              <div className="savings-price"><dt>Your Savings</dt><dd>{savings === null ? 'Original price unavailable' : <Money amount={savings} />}</dd></div>
             </dl>
             {savings === null ? (
-              <p className="price-explanation">The provider reference may use a different billing term or access package. We do not estimate a saving from unmatched plans. Converted prices are estimates; payment is confirmed in PKR.</p>
+              <p className="price-explanation">A numeric original price in PKR or USD is needed to calculate savings. Ask our team for the current provider reference.</p>
             ) : (
-              <p className="price-explanation">Savings against the listed original-price reference for this plan. Converted amounts are estimates; payment is confirmed in PKR.</p>
+              <p className="price-explanation">Original price minus our price. Reference: <OriginalPrice reference={product.originalPrice} />. Provider billing terms and access may differ from this package.</p>
             )}
             {product.sourceUrl && (
               <a href={product.sourceUrl} target="_blank" rel="noreferrer" className="price-source">Provider pricing reference <ExternalLink className="h-3.5 w-3.5" /></a>

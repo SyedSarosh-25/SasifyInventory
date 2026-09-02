@@ -2,6 +2,8 @@
 
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import { formatMoney, formatPriceReference, isCurrency, type Currency } from '../currency-utils';
+import type { Product } from '../products';
+import { originalPricePkr } from '../product-utils';
 
 const preferenceKey = 'sasify-currency';
 const CurrencyContext = createContext<{
@@ -59,4 +61,9 @@ export function Money({ amount }: { amount: number }) {
 export function OriginalPrice({ reference }: { reference: string }) {
   const { currency } = useCurrency();
   return <>{formatPriceReference(reference, currency)}</>;
+}
+
+export function ProductOriginalPrice({ product }: { product: Product }) {
+  const amount = originalPricePkr(product);
+  return amount === null ? <OriginalPrice reference={product.originalPrice} /> : <Money amount={amount} />;
 }
