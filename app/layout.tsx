@@ -4,6 +4,8 @@ import './globals.css';
 import { siteOrigin } from './product-utils';
 import { CurrencyProvider } from './components/currency';
 
+const siteTitle = 'Sasify Solutions | Digital Tools and Services Marketplace';
+
 const geistSans = Geist({
   variable: '--font-geist-sans',
   subsets: ['latin'],
@@ -22,11 +24,15 @@ export const viewport: Viewport = {
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteOrigin),
-  title: 'Sasify Solutions Inventory',
+  title: siteTitle,
+  icons: {
+    icon: [{ url: '/sasify-logo.png', type: 'image/png', sizes: '200x200' }],
+    apple: [{ url: '/sasify-logo.png', type: 'image/png', sizes: '200x200' }],
+  },
   description:
     'Browse Sasify Solutions digital tools, compare PKR prices, read verified Google reviews, and order through WhatsApp.',
   openGraph: {
-    title: 'Sasify Solutions Inventory',
+    title: siteTitle,
     description:
       'Your one-stop destination for trusted digital tools, subscriptions and direct WhatsApp ordering.',
     images: [{ url: '/sasify-logo.png', width: 200, height: 200 }],
@@ -34,7 +40,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Sasify Solutions Inventory',
+    title: siteTitle,
     description: 'Explore trusted digital products and order directly on WhatsApp.',
     images: ['/sasify-logo.png'],
   },

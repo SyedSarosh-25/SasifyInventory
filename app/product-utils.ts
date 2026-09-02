@@ -1,7 +1,7 @@
 import type { Product } from './products';
 import { USD_TO_PKR } from './currency-utils.ts';
 
-export const siteOrigin = 'https://sasify-solutions-inventory.morrisboyle861417684.chatgpt.site';
+export const siteOrigin = process.env.NEXT_PUBLIC_SITE_ORIGIN || 'https://sasify-solutions-inventory.morrisboyle861417684.chatgpt.site';
 export const claudeLogoUrl = 'https://www.google.com/s2/favicons?domain_url=https%3A%2F%2Fclaude.ai&sz=128';
 
 export function formatPkr(value: number) {

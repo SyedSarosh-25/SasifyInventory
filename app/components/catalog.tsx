@@ -1,7 +1,7 @@
 'use client';
 
 import { ArrowRight, Filter, Search, Tag, X } from 'lucide-react';
-import { useMemo, useState, type CSSProperties } from 'react';
+import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { products, type Product } from '../products';
 import { filterProducts } from '../catalog-selection';
 import { isAnnualPlan, productHref, savingsPkr } from '../product-utils';
@@ -43,6 +43,12 @@ function ProductCard({ product }: { product: Product }) {
 export function Catalog({ initialQuery = '' }: { initialQuery?: string }) {
   const [query, setQuery] = useState(initialQuery);
   const [activeCategory, setActiveCategory] = useState('All');
+  useEffect(() => {
+    const syncQuery = () => setQuery(new URLSearchParams(window.location.search).get('q') ?? initialQuery);
+    syncQuery();
+    window.addEventListener('popstate', syncQuery);
+    return () => window.removeEventListener('popstate', syncQuery);
+  }, [initialQuery]);
   const filtered = useMemo(() => filterProducts(query, activeCategory), [query, activeCategory]);
 
   return <section id="catalog" className="catalog-section">

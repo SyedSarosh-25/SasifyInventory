@@ -9,7 +9,6 @@ export const metadata: Metadata = {
   alternates: { canonical: `${siteOrigin}/inventory` },
 };
 
-export default async function InventoryPage({ searchParams }: { searchParams: Promise<{ q?: string | string[] }> }) {
-  const { q } = await searchParams;
-  return <main><SiteHeader /><Catalog initialQuery={typeof q === 'string' ? q : ''} /><SiteFooter /></main>;
+export default function InventoryPage() {
+  return <main><SiteHeader /><Catalog /><SiteFooter /></main>;
 }

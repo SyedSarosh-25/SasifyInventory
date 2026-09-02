@@ -12,7 +12,7 @@ export function SiteHeader() {
   return (
     <header className="site-header">
       <nav className="nav-inner" aria-label="Main navigation">
-        <a href="/" className="brand">
+        <a href="/" className="brand" title="Sasify Solutions | Digital Tools and Services Marketplace">
           <img src="/sasify-logo.png" alt="Sasify Solutions logo" />
           <span className="brand-name"><strong>SASIFY</strong><small>SOLUTIONS</small></span>
         </a>
@@ -35,7 +35,7 @@ export function SiteFooter() {
   return (
     <footer id="contact" className="site-footer">
       <div className="footer-inner">
-        <a href="/" className="footer-brand">
+        <a href="/" className="footer-brand" title="Sasify Solutions | Digital Tools and Services Marketplace">
           <img src="/sasify-logo.png" alt="Sasify Solutions logo" />
           <div>
             <strong>Sasify Solutions</strong>
