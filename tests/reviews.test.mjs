@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import { pickReviews } from '../app/review-utils.ts';
 import { reviews as customerReviews, reviewsVerifiedAt } from '../app/reviews.ts';
@@ -18,6 +19,18 @@ test('six sourced reviews include three original Roman Urdu excerpts', () => {
 });
 
 const reviews = Object.freeze(Array.from({ length: 6 }, (_, id) => Object.freeze({ id, name: `Reviewer ${id}`, quote: `Review ${id}` })));
+
+test('each Google profile has its own bundled high-resolution profile picture', () => {
+  assert.equal(new Set(customerReviews.map((review) => review.photoPath)).size, 6);
+  for (const review of customerReviews) {
+    const profileId = new URL(review.profileUrl).pathname.split('/')[3];
+    assert.equal(review.photoPath, `/reviews/google-${profileId}.png`);
+    const image = readFileSync(new URL(`../public${review.photoPath}`, import.meta.url));
+    assert.equal(image.subarray(0, 8).toString('hex'), '89504e470d0a1a0a');
+    assert.equal(image.readUInt32BE(16), 128);
+    assert.equal(image.readUInt32BE(20), 128);
+  }
+});
 
 test('each selection contains six unique reviews from the saved pool', () => {
   const selected = pickReviews(reviews);

@@ -15,13 +15,12 @@ export function ThemeToggle() {
   }
 
   useEffect(() => {
-    const media = window.matchMedia('(prefers-color-scheme: dark)');
     try {
       const saved = localStorage.getItem(themeStorageKey);
       preference.current = isTheme(saved) ? saved : null;
-    } catch { /* Use the device theme when storage is unavailable. */ }
+    } catch { /* Default to light mode when storage is unavailable. */ }
 
-    function syncTheme() { applyTheme(resolveTheme(preference.current, media.matches)); }
+    function syncTheme() { applyTheme(resolveTheme(preference.current)); }
     function syncStorage(event: StorageEvent) {
       if (event.key !== themeStorageKey && event.key !== null) return;
       preference.current = isTheme(event.newValue) ? event.newValue : null;
@@ -29,10 +28,8 @@ export function ThemeToggle() {
     }
 
     syncTheme();
-    media.addEventListener('change', syncTheme);
     window.addEventListener('storage', syncStorage);
     return () => {
-      media.removeEventListener('change', syncTheme);
       window.removeEventListener('storage', syncStorage);
     };
   }, []);

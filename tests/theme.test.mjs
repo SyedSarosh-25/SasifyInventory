@@ -28,13 +28,11 @@ test('only light and dark are accepted as saved preferences', () => {
   for (const value of [null, undefined, 'system', 'DARK', '', '<script>', {}]) assert.equal(isTheme(value), false);
 });
 
-test('explicit preferences override the device while unset preferences follow it', () => {
-  for (const prefersDark of [false, true]) {
-    assert.equal(resolveTheme('light', prefersDark), 'light');
-    assert.equal(resolveTheme('dark', prefersDark), 'dark');
-    for (const preference of [null, undefined, 'invalid']) {
-      assert.equal(resolveTheme(preference, prefersDark), prefersDark ? 'dark' : 'light');
-    }
+test('light is the default and an explicit dark preference is retained', () => {
+  assert.equal(resolveTheme('light'), 'light');
+  assert.equal(resolveTheme('dark'), 'dark');
+  for (const preference of [null, undefined, 'invalid']) {
+    assert.equal(resolveTheme(preference), 'light');
   }
 });
 
@@ -42,7 +40,7 @@ test('before-paint initialization matches the hydrated theme and preserves other
   for (const preference of ['light', 'dark', null, 'invalid']) {
     for (const prefersDark of [false, true]) {
       const result = bootstrap(preference, prefersDark);
-      const theme = resolveTheme(preference, prefersDark);
+      const theme = resolveTheme(preference);
       assert.equal(result.classes.has('dark'), theme === 'dark');
       assert.equal(result.colorScheme, theme);
       assert.ok(result.classes.has('existing-class'));
@@ -50,8 +48,8 @@ test('before-paint initialization matches the hydrated theme and preserves other
   }
 });
 
-test('blocked storage still applies the device theme before paint', () => {
-  assert.equal(bootstrap(null, true, true).colorScheme, 'dark');
+test('blocked storage defaults to light even on a dark-mode device', () => {
+  assert.equal(bootstrap(null, true, true).colorScheme, 'light');
   assert.equal(bootstrap(null, false, true).colorScheme, 'light');
 });
 

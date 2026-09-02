@@ -1184,8 +1184,14 @@ html.dark .hero-search input::placeholder, html.dark .catalog-search input::plac
 html.dark .hero-search:focus-within, html.dark .catalog-search:focus-within,
 html.dark .hero-top-products a:hover, html.dark .featured-card:hover { border-color: var(--blue); }
 html.dark .hero-search .hero-search-clear { color: var(--muted); }
-html.dark .hero-mini-logo { border-radius: 4px; background: #fff; }
-html.dark .hero-mini-logo .product-monogram, html.dark .featured-logo .product-monogram,
+html.dark .hero-top-products a, html.dark .hero-actions .secondary-button { border-color: transparent; }
+html.dark .hero-top-products a:hover, html.dark .hero-actions .secondary-button:hover { background: var(--soft-blue); }
+html.dark .hero-mini-logo { background: transparent; }
+html.dark .hero-mini-logo .product-monogram { color: var(--blue); }
+html.dark .hero-top-products a[href='/products/p093'] .product-logo,
+html.dark .hero-top-products a[href='/products/p028'] .product-logo,
+html.dark .hero-top-products a[href='/products/p088'] .product-logo { filter: grayscale(1) invert(1); mix-blend-mode: screen; }
+html.dark .featured-logo .product-monogram,
 html.dark .detail-logo-frame .product-monogram, html.dark .product-logo-frame .product-monogram,
 html.dark .orbit-content .product-monogram { color: #243b75; }
 

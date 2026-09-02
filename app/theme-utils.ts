@@ -6,16 +6,15 @@ export function isTheme(value: unknown): value is Theme {
   return value === 'light' || value === 'dark';
 }
 
-export function resolveTheme(preference: unknown, prefersDark: boolean): Theme {
-  return isTheme(preference) ? preference : prefersDark ? 'dark' : 'light';
+export function resolveTheme(preference: unknown): Theme {
+  return isTheme(preference) ? preference : 'light';
 }
 
 // Runs in the document head before paint; it only reads our theme preference.
 export const themeInitScript = `(() => {
   let preference;
   try { preference = localStorage.getItem('${themeStorageKey}'); } catch {}
-  const prefersDark = typeof window.matchMedia === 'function' && window.matchMedia('(prefers-color-scheme: dark)').matches;
-  const dark = preference === 'dark' || (preference !== 'light' && prefersDark);
+  const dark = preference === 'dark';
   document.documentElement.classList.toggle('dark', dark);
   document.documentElement.style.colorScheme = dark ? 'dark' : 'light';
 })();`;

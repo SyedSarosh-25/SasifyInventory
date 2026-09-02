@@ -7,6 +7,7 @@ export type CustomerReview = {
   sourceUrl: string;
   profileUrl: string;
   photoUrl: string;
+  photoPath: string;
 };
 
 // Read directly from the Google Maps listing with automatic translation switched off.
@@ -14,6 +15,7 @@ export const reviewsVerifiedAt = '2026-09-02';
 export const reviews: CustomerReview[] = [
   {
     name: 'Pak Tv',
+    photoPath: '/reviews/google-102685183417402336435.png',
     quote: 'Mera sasify k sath buhat acha Response raha mainy multiple service  ly hai insy Sabi Mai quality service mily Hai',
     language: 'ur-Latn', rating: 5, excerpt: true,
     sourceUrl: 'https://maps.app.goo.gl/Q1fZf59YHo6XkYeg8',
@@ -22,6 +24,7 @@ export const reviews: CustomerReview[] = [
   },
   {
     name: 'ZaYn Ali',
+    photoPath: '/reviews/google-102703850365111014376.png',
     quote: 'Meri in k sath deal rahi hai aur honestly experience bohat acha raha. Banda bohat professional, cooperative aur committed hai.',
     language: 'ur-Latn', rating: 5, excerpt: true,
     sourceUrl: 'https://maps.app.goo.gl/JoWi3P1zypwVDMDm9',
@@ -30,6 +33,7 @@ export const reviews: CustomerReview[] = [
   },
   {
     name: 'Abdulrehman Jamil',
+    photoPath: '/reviews/google-102865231170218305988.png',
     quote: 'Honest aur Trusted banda hai sarosh\nmaine unse Chatgpt plus liya plus Gemini pro 18 month liya',
     language: 'ur-Latn', rating: 5, excerpt: true,
     sourceUrl: 'https://maps.app.goo.gl/efS9nz913C23k838A',
@@ -38,6 +42,7 @@ export const reviews: CustomerReview[] = [
   },
   {
     name: 'AQIB IJAZ',
+    photoPath: '/reviews/google-113729102562578452636.png',
     quote: 'A very trustable man. I have been using their services from previous few months. Highly satisfying',
     language: 'en', rating: 5, excerpt: false,
     sourceUrl: 'https://maps.app.goo.gl/L8FNVVC7gMj6yV2S7',
@@ -46,6 +51,7 @@ export const reviews: CustomerReview[] = [
   },
   {
     name: 'Asim Ali',
+    photoPath: '/reviews/google-100700733301348018730.png',
     quote: 'Genuine person and excellent service with affordable price, highly recommended',
     language: 'en', rating: 5, excerpt: false,
     sourceUrl: 'https://maps.app.goo.gl/kHYXfjGG18L5fzTN8',
@@ -54,6 +60,7 @@ export const reviews: CustomerReview[] = [
   },
   {
     name: 'alex',
+    photoPath: '/reviews/google-107068706401332092825.png',
     quote: 'Very trusted and reliable, delivered exactly what was finalized. Great service, recommended.',
     language: 'en', rating: 5, excerpt: false,
     sourceUrl: 'https://maps.app.goo.gl/dA5TxTVttKXLGcqs9',
