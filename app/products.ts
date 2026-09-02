@@ -1140,7 +1140,7 @@ export const products: Product[] = [
     "name": "Discord Nitro Basic",
     "duration": "3 Months",
     "vendor": "Dodi Store",
-    "sellingPricePkr": 9999,
+    "sellingPricePkr": 999,
     "originalPrice": "$2.99/month",
     "sourceUrl": "https://discord.com/nitro",
     "description": "Discord premium tier with enhanced chat and profile features beyond the standard free experience."
