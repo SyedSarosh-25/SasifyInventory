@@ -22,6 +22,7 @@
 }
 
 :root {
+  color-scheme: light;
   --page: #f7f9ff;
   --surface: #ffffff;
   --ink: #090d1c;
@@ -129,6 +130,11 @@ svg { flex-shrink: 0; }
 .nav-links a:hover { color: var(--blue); }
 
 .nav-actions { display: flex; align-items: center; gap: 13px; }
+.theme-toggle { display: grid; place-items: center; width: 44px; height: 44px; flex: 0 0 auto; border: 1px solid var(--line); border-radius: 7px; background: var(--surface); color: var(--copy); cursor: pointer; }
+.theme-toggle:hover { border-color: var(--blue); color: var(--blue); }
+.theme-icon-sun { display: none; }
+html.dark .theme-icon-sun { display: block; }
+html.dark .theme-icon-moon { display: none; }
 .currency-toggle {
   display: grid;
   grid-template-columns: repeat(2, 44px);
@@ -1067,6 +1073,7 @@ svg { flex-shrink: 0; }
   .brand > img { width: 40px; height: 40px; }
   .brand-name strong { font-size: 0.84rem; }
   .nav-actions { grid-column: 2; grid-row: 1; gap: 8px; }
+  .nav-actions .primary-button.compact { display: none; }
   .brand { gap: 8px; }
   .currency-toggle { grid-template-columns: repeat(2, 44px); }
   .currency-toggle button { font-size: 0.67rem; }
@@ -1124,6 +1131,90 @@ svg { flex-shrink: 0; }
 @media (max-width: 900px) and (max-height: 500px) {
   .site-header { position: relative; }
 }
+
+html.dark {
+  color-scheme: dark;
+  --page: #111315;
+  --surface: #1c1f23;
+  --ink: #f3f5f7;
+  --copy: #d1d5dc;
+  --muted: #abb3bf;
+  --line: #41464e;
+  --blue: #9cbaff;
+  --blue-dark: #9cbaff;
+  --violet: #b4a0ff;
+  --cyan: #68d5d2;
+  --soft-blue: #292f3b;
+  --soft-violet: #302b3c;
+  --background: var(--page);
+  --foreground: var(--ink);
+  --card: var(--surface);
+  --card-foreground: var(--ink);
+  --primary: #315bd8;
+  --primary-foreground: #ffffff;
+  --border: var(--line);
+  --input: var(--line);
+  --ring: var(--blue);
+}
+
+html.dark .site-header { background: rgba(17, 19, 21, 0.96); border-top-color: #39443e; }
+html.dark .hero { background: #15171b; border-color: var(--line); }
+html.dark .hero::after { opacity: 0.25; }
+html.dark .hero-accent { background: var(--line); opacity: 0.35; }
+html.dark .hero h1 { color: var(--ink); }
+html.dark .hero h1 span { background-image: linear-gradient(110deg, #8bb8ff, #c1a6ff); }
+html.dark .nav-links a, html.dark .orbit-content small, html.dark .hero-proof { color: var(--copy); }
+html.dark .nav-links a:hover { color: var(--blue); }
+html.dark .constellation-ring { border-color: #586276; }
+html.dark .center-logo { box-shadow: 0 0 0 12px rgba(255, 255, 255, 0.04); }
+
+html.dark .catalog-section, html.dark .faq-section { background: var(--page); }
+html.dark .featured-section, html.dark .reviews-section { background: #17191d; }
+html.dark .hero-search, html.dark .hero-top-products a, html.dark .hero-search-results,
+html.dark .secondary-button, html.dark .currency-toggle, html.dark .category-strip button,
+html.dark .featured-card, html.dark .product-card, html.dark .review-card,
+html.dark .google-score, html.dark .purchase-summary, html.dark .related-product {
+  background: var(--surface);
+  border-color: var(--line);
+  color: var(--ink);
+  box-shadow: none;
+}
+html.dark .hero-search input, html.dark .catalog-search input { background: transparent; color: var(--ink); }
+html.dark .hero-search input::placeholder, html.dark .catalog-search input::placeholder { color: var(--muted); }
+html.dark .hero-search:focus-within, html.dark .catalog-search:focus-within,
+html.dark .hero-top-products a:hover, html.dark .featured-card:hover { border-color: var(--blue); }
+html.dark .hero-search .hero-search-clear { color: var(--muted); }
+html.dark .hero-mini-logo { border-radius: 4px; background: #fff; }
+html.dark .hero-mini-logo .product-monogram, html.dark .featured-logo .product-monogram,
+html.dark .detail-logo-frame .product-monogram, html.dark .product-logo-frame .product-monogram,
+html.dark .orbit-content .product-monogram { color: #243b75; }
+
+html.dark .primary-button, html.dark .buy-button,
+html.dark .hero-search button[type='submit'], html.dark .featured-arrow {
+  background: linear-gradient(115deg, #315bd8, #6940d6);
+  color: #fff;
+  box-shadow: none;
+}
+html.dark .category-strip button.active, html.dark .currency-toggle button[aria-pressed='true'],
+html.dark .empty-state button { background: #315bd8; border-color: #315bd8; color: #fff; }
+html.dark .catalog-search button { background: var(--soft-blue); color: var(--copy); }
+html.dark .featured-reference { color: var(--copy); }
+html.dark .featured-reference > span, html.dark .featured-price-label,
+html.dark .comparison-note, html.dark .hero-result-copy small,
+html.dark .detail-duration, html.dark .package-facts dt, html.dark .detail-prices dt,
+html.dark .price-explanation, html.dark .order-footnote, html.dark .related-product p { color: var(--muted); }
+
+html.dark .product-art { background: color-mix(in srgb, var(--product-color) 12%, var(--surface)); }
+html.dark .product-category { color: color-mix(in srgb, var(--product-color) 50%, #fff); }
+html.dark .product-meta > span:first-child { background: color-mix(in srgb, var(--product-color) 18%, var(--surface)); color: color-mix(in srgb, var(--product-color) 40%, #fff); }
+html.dark .price-panel { background: var(--surface); }
+html.dark .our-price { background: color-mix(in srgb, var(--product-color) 8%, var(--surface)); }
+html.dark .available, html.dark .card-savings, html.dark .annual-card-note,
+html.dark .detail-prices .savings-price dd, html.dark .plan-notice, html.dark .order-checks svg { color: #87d9af; }
+html.dark .warranty-banner { background: #122d23; border-color: #305947; color: #a0e5c2; }
+html.dark .site-footer { background: #101214; border-color: var(--line); }
+html.dark .footer-socials { border-color: var(--line); }
+html.dark .footer-brand span, html.dark .founder-link, html.dark .footer-socials small { color: var(--muted); }
 
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }

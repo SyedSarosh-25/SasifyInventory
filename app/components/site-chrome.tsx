@@ -1,6 +1,7 @@
 import { ArrowRight, MessageCircle } from 'lucide-react';
 import { favicon, whatsappLink } from '../product-utils';
 import { CurrencyToggle } from './currency';
+import { ThemeToggle } from './theme-toggle';
 
 const socials = [
   { name: 'Instagram', domain: 'instagram.com', href: 'https://www.instagram.com/sasify_solutions/' },
@@ -21,6 +22,7 @@ export function SiteHeader() {
           <a href="/#faq">FAQ</a><a href="#contact">Contact</a>
         </div>
         <div className="nav-actions">
+          <ThemeToggle />
           <CurrencyToggle />
           <a href="/inventory" className="primary-button compact" aria-label="Browse tools" title="Browse tools">
             Browse tools <ArrowRight className="h-4 w-4" />
