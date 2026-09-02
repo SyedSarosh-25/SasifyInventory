@@ -10,12 +10,14 @@ import {
   ShieldCheck,
   Star,
 } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { products } from './products';
 import { initials, productHref, savingsPkr, whatsappLink } from './product-utils';
 import { featuredProducts, orbitTools } from './catalog-selection';
 import { ProductLogo } from './components/product-logo';
 import { SiteFooter, SiteHeader } from './components/site-chrome';
 import { Money, ProductOriginalPrice } from './components/currency';
+import { pickReviews } from './review-utils';
 
 const lowestPrice = Math.min(...products.map((p) => p.sellingPricePkr));
 const googleReviewsUrl =
@@ -71,6 +73,13 @@ function Stars() {
 }
 
 export default function Home() {
+  const [visibleReviews, setVisibleReviews] = useState(() => reviews.slice(0, 3));
+
+  useEffect(() => {
+    // Randomize after hydration, then keep the same cards for this visit.
+    setVisibleReviews(pickReviews(reviews));
+  }, []);
+
   return (
     <main>
       <SiteHeader />
@@ -185,7 +194,7 @@ export default function Home() {
             <div>
               <span className="section-kicker">Customer feedback on Google</span>
               <h2>Trusted by digital buyers</h2>
-              <p>Recent public reviews from the Sasify Digital Solutions Google Maps listing.</p>
+              <p>Review excerpts from the Sasify Digital Solutions Google Maps listing.</p>
             </div>
             <a href={googleReviewsUrl} target="_blank" rel="noreferrer" className="google-score">
               <span className="google-g">G</span>
@@ -196,13 +205,13 @@ export default function Home() {
           </div>
 
           <div className="reviews-grid">
-            {reviews.map((review) => (
+            {visibleReviews.map((review) => (
               <article key={review.name} className="review-card">
                 <div className="review-top">
                   <div className="review-avatar">{initials(review.name)}</div>
                   <div>
                     <h3>{review.name}</h3>
-                    <span>{review.time}</span>
+                    <span>Google review</span>
                   </div>
                 </div>
                 <Stars />
