@@ -15,9 +15,10 @@ import {
 } from 'lucide-react';
 import { useMemo, useState, type CSSProperties } from 'react';
 import { products, type Product } from './products';
-import { claudeLogoUrl, favicon, formatPkr, initials, isAnnualPlan, productHref, whatsappLink } from './product-utils';
+import { claudeLogoUrl, favicon, initials, isAnnualPlan, productHref, whatsappLink } from './product-utils';
 import { ProductLogo } from './components/product-logo';
 import { SiteFooter, SiteHeader } from './components/site-chrome';
+import { Money, OriginalPrice } from './components/currency';
 
 const categories = ['All', ...Array.from(new Set(products.map((p) => p.category)))];
 const lowestPrice = Math.min(...products.map((p) => p.sellingPricePkr));
@@ -166,7 +167,7 @@ export default function Home() {
       <SiteHeader />
       <div className="warranty-banner">
         <ShieldCheck className="h-5 w-5" />
-        <p><strong>Full 25-day warranty</strong> on all 30-day products and one-month plans.</p>
+        <p><strong>All products come with a warranty period.</strong></p>
       </div>
 
       <section id="top" className="hero">
@@ -251,7 +252,7 @@ export default function Home() {
 
         <div className="hero-proof">
           <span><BadgeCheck className="h-4 w-4" /> {products.length} products</span>
-          <span><BadgeCheck className="h-4 w-4" /> Starting at {formatPkr(lowestPrice)}</span>
+          <span><BadgeCheck className="h-4 w-4" /> Starting at <Money amount={lowestPrice} /></span>
           <a href={googleReviewsUrl} target="_blank" rel="noreferrer">
             <Stars /> 5.0 from 148 Google reviews
           </a>
@@ -278,7 +279,7 @@ export default function Home() {
                   <p>{offer.product.duration}</p>
                 </div>
                 <div className="featured-action">
-                  <strong>{formatPkr(offer.product.sellingPricePkr)}</strong>
+                  <strong><Money amount={offer.product.sellingPricePkr} /></strong>
                   <span className="featured-arrow" aria-hidden="true"><ArrowRight className="h-4 w-4" /></span>
                 </div>
               </a>
@@ -293,7 +294,7 @@ export default function Home() {
             <div>
               <span className="section-kicker">Explore the inventory</span>
               <h2>Digital tools for every workflow</h2>
-              <p>Compare our PKR prices with public original price references.</p>
+              <p>Compare our prices with public original price references.</p>
             </div>
             <div className="results-badge">
               <Filter className="h-4 w-4" /> {filteredProducts.length} products
@@ -351,11 +352,11 @@ export default function Home() {
                     <div className="price-panel">
                       <div className="our-price">
                         <span><Tag className="h-3.5 w-3.5" /> Our price</span>
-                        <strong>{formatPkr(product.sellingPricePkr)}</strong>
+                        <strong><Money amount={product.sellingPricePkr} /></strong>
                       </div>
                       <div className="original-price">
                         <span>Original price</span>
-                        <p>{product.originalPrice}</p>
+                        <p><OriginalPrice reference={product.originalPrice} /></p>
                       </div>
                     </div>
                     <span className="buy-button">View details <ArrowRight className="h-4 w-4" /></span>
@@ -440,8 +441,8 @@ export default function Home() {
               <p>No. For every one-year or 12-month plan, the listed amount is a one-time payment to Sasify Solutions for the full year. No monthly payments to us are needed during that year.</p>
             </details>
             <details>
-              <summary>What is the warranty for a 30-day plan?</summary>
-              <p>All 30-day products and one-month plans come with a full 25-day warranty from Sasify Solutions. Contact our team on WhatsApp for warranty support.</p>
+              <summary>Do all products come with a warranty?</summary>
+              <p>Yes, all products come with a warranty period. Our 30-day products and one-month plans include a full 25-day warranty. Warranty periods for other plans vary by product; confirm the duration with our team before payment.</p>
             </details>
             <details>
               <summary>When is availability confirmed?</summary>

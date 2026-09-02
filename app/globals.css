@@ -123,18 +123,29 @@ a { color: inherit; }
 .nav-links a:hover { color: var(--blue); }
 
 .nav-actions { display: flex; align-items: center; gap: 13px; }
-.currency {
-  display: inline-grid;
-  height: 36px;
-  place-items: center;
-  padding: 0 12px;
+.currency-toggle {
+  display: grid;
+  grid-template-columns: repeat(2, 44px);
+  flex: 0 0 auto;
+  height: 38px;
+  padding: 3px;
   border: 1px solid #cfd9f2;
   border-radius: 7px;
-  background: var(--soft-blue);
+  background: #fff;
+}
+.currency-toggle button {
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
   color: var(--blue-dark);
   font-size: 0.72rem;
   font-weight: 900;
+  cursor: pointer;
 }
+.currency-toggle button[aria-pressed='true'] { background: var(--blue); color: #fff; }
+.currency-toggle button:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
 
 .primary-button, .secondary-button, .buy-button {
   display: inline-flex;
@@ -856,6 +867,9 @@ a { color: inherit; }
 .footer-socials strong { font-size: 0.8rem; }
 .footer-socials small { color: #c5cee2; font-size: 0.73rem; }
 .footer-socials a:hover small { color: #fff; }
+.whatsapp-icon { color: #51df9b; }
+.exchange-rate-note { max-width: 1280px; margin: 0 auto; padding: 0 32px 25px; color: #b7c3dd; font-size: 0.7rem; line-height: 1.7; }
+.exchange-rate-note a { color: #d2ddf4; text-underline-offset: 3px; }
 
 .detail-shell { max-width: 1280px; margin: 0 auto; padding: 30px 32px 68px; }
 .back-link { display: inline-flex; align-items: center; gap: 7px; color: var(--blue); font-size: 0.82rem; font-weight: 800; text-decoration: none; }
@@ -962,7 +976,12 @@ a { color: inherit; }
   .nav-inner { min-height: 68px; padding: 0 16px; }
   .brand > img { width: 40px; height: 40px; }
   .brand-name strong { font-size: 0.84rem; }
-  .currency { display: none; }
+  .nav-inner { gap: 8px; }
+  .nav-actions { gap: 8px; }
+  .brand { gap: 8px; }
+  .currency-toggle { grid-template-columns: repeat(2, 39px); }
+  .currency-toggle button { font-size: 0.67rem; }
+  .exchange-rate-note { padding-inline: 18px; }
   .primary-button.compact { width: 42px; padding: 0; font-size: 0; }
   .hero-grid { padding: 38px 18px 20px; }
   .hero h1 { font-size: clamp(2.75rem, 14vw, 4rem); }

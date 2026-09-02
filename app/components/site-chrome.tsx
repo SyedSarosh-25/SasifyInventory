@@ -1,5 +1,6 @@
 import { ArrowRight, MessageCircle } from 'lucide-react';
 import { favicon, whatsappLink } from '../product-utils';
+import { CurrencyRateNote, CurrencyToggle } from './currency';
 
 const socials = [
   { name: 'Instagram', domain: 'instagram.com', href: 'https://www.instagram.com/sasify_solutions/' },
@@ -20,7 +21,7 @@ export function SiteHeader() {
           <a href="/#faq">FAQ</a><a href="#contact">Contact</a>
         </div>
         <div className="nav-actions">
-          <span className="currency">PKR</span>
+          <CurrencyToggle />
           <a href="/#catalog" className="primary-button compact" aria-label="Browse tools">
             Browse tools <ArrowRight className="h-4 w-4" />
           </a>
@@ -48,6 +49,10 @@ export function SiteFooter() {
         </a>
       </div>
       <div className="footer-socials" aria-label="Sasify Solutions social media">
+        <a href={whatsappLink()} target="_blank" rel="noreferrer">
+          <MessageCircle className="social-logo whatsapp-icon" />
+          <span><strong>WhatsApp</strong><small>+923116185711</small></span>
+        </a>
         {socials.map((social) => (
           <a key={social.name} href={social.href} target="_blank" rel="noreferrer">
             <img src={favicon(social.domain)} alt="" className="social-logo" />
@@ -55,6 +60,7 @@ export function SiteFooter() {
           </a>
         ))}
       </div>
+      <CurrencyRateNote />
     </footer>
   );
 }

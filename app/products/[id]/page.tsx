@@ -4,6 +4,7 @@ import { ArrowLeft, ArrowRight, CalendarDays, Check, ExternalLink, MessageCircle
 import { products } from '../../products';
 import { ProductLogo } from '../../components/product-logo';
 import { SiteFooter, SiteHeader } from '../../components/site-chrome';
+import { Money, OriginalPrice } from '../../components/currency';
 import { formatPkr, has25DayWarranty, isAnnualPlan, productHref, productLogo, savingsPkr, siteOrigin, whatsappLink } from '../../product-utils';
 
 type Props = { params: Promise<{ id: string }> };
@@ -69,14 +70,14 @@ export default async function ProductPage({ params }: Props) {
             <section className="description-section">
               <h2>Payment &amp; warranty</h2>
               {annual ? (
-                <p><strong>Pay {formatPkr(product.sellingPricePkr)} once for the full year.</strong> This is a one-time payment to Sasify Solutions. No monthly payments to us are needed during your one-year plan.</p>
+                <p><strong>Pay <Money amount={product.sellingPricePkr} /> once for the full year.</strong> This is a one-time payment to Sasify Solutions. No monthly payments to us are needed during your one-year plan.</p>
               ) : (
-                <p>The listed Sasify price is <strong>{formatPkr(product.sellingPricePkr)}</strong> for this package. Confirm the access period, activation requirements and payment details with our team before ordering.</p>
+                <p>The listed Sasify price is <strong><Money amount={product.sellingPricePkr} /></strong> for this package. Confirm the access period, activation requirements and payment details with our team before ordering.</p>
               )}
               {warranty ? (
                 <p><strong>Full 25-day warranty included.</strong> This 30-day / one-month product comes with a full 25-day warranty from Sasify Solutions. Contact us on WhatsApp for warranty support.</p>
               ) : (
-                <p>Our full 25-day warranty applies to 30-day products and one-month plans. For this package, confirm the applicable warranty with our team before payment.</p>
+                <p><strong>Warranty included.</strong> All products come with a warranty period. Confirm this package&apos;s warranty duration with our team before payment.</p>
               )}
             </section>
 
@@ -94,20 +95,20 @@ export default async function ProductPage({ params }: Props) {
             <span className="section-kicker">Your selected plan</span>
             <div className="purchase-heading"><div className="product-logo-frame"><ProductLogo product={product} eager /></div><h2>{product.name}</h2></div>
             <dl className="detail-prices">
-              <div><dt>Original Pricing</dt><dd>{product.originalPrice}</dd></div>
-              <div className="selling-price"><dt>Our Pricing</dt><dd>{formatPkr(product.sellingPricePkr)}</dd></div>
-              <div className="savings-price"><dt>Your Savings</dt><dd>{savings === null ? 'Not directly comparable' : savings > 0 ? formatPkr(savings) : 'No saving at this reference'}</dd></div>
+              <div><dt>Original Pricing</dt><dd><OriginalPrice reference={product.originalPrice} /></dd></div>
+              <div className="selling-price"><dt>Our Pricing</dt><dd><Money amount={product.sellingPricePkr} /></dd></div>
+              <div className="savings-price"><dt>Your Savings</dt><dd>{savings === null ? 'Not directly comparable' : savings > 0 ? <Money amount={savings} /> : 'No saving at this reference'}</dd></div>
             </dl>
             {savings === null ? (
-              <p className="price-explanation">The provider reference may use a different currency, billing term or access package. Ask us for a comparable PKR quote; we do not estimate a saving from unmatched prices.</p>
+              <p className="price-explanation">The provider reference may use a different billing term or access package. We do not estimate a saving from unmatched plans. Converted prices are estimates; payment is confirmed in PKR.</p>
             ) : (
-              <p className="price-explanation">Savings against the listed PKR original-price reference for this plan.</p>
+              <p className="price-explanation">Savings against the listed original-price reference for this plan. Converted amounts are estimates; payment is confirmed in PKR.</p>
             )}
             {product.sourceUrl && (
               <a href={product.sourceUrl} target="_blank" rel="noreferrer" className="price-source">Provider pricing reference <ExternalLink className="h-3.5 w-3.5" /></a>
             )}
             {annual && <div className="plan-notice"><CalendarDays className="h-5 w-5" /><span><strong>One-time payment for the full year</strong>No monthly payments to Sasify Solutions.</span></div>}
-            {warranty && <div className="plan-notice"><ShieldCheck className="h-5 w-5" /><span><strong>Full 25-day warranty</strong>Included with this one-month plan.</span></div>}
+            <div className="plan-notice"><ShieldCheck className="h-5 w-5" /><span><strong>{warranty ? 'Full 25-day warranty' : 'Warranty included'}</strong>{warranty ? 'Included with this one-month plan.' : 'Confirm this plan\'s warranty period before payment.'}</span></div>
             <a href={whatsappLink(product.name, product.duration)} target="_blank" rel="noreferrer" className="primary-button detail-buy"><MessageCircle className="h-5 w-5" /> Buy now on WhatsApp</a>
             <p className="order-footnote">Availability and activation details are confirmed before payment.</p>
           </aside>
@@ -120,7 +121,7 @@ export default async function ProductPage({ params }: Props) {
               {related.map((item) => (
                 <a key={item.id} href={productHref(item)} className="related-product">
                   <div className="product-logo-frame"><ProductLogo product={item} /></div>
-                  <div><h3>{item.name}</h3><p>{item.duration}</p><strong>{formatPkr(item.sellingPricePkr)}</strong></div>
+                  <div><h3>{item.name}</h3><p>{item.duration}</p><strong><Money amount={item.sellingPricePkr} /></strong></div>
                   <ArrowRight className="h-4 w-4" />
                 </a>
               ))}
