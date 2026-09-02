@@ -37,7 +37,10 @@ export function SiteFooter() {
       <div className="footer-inner">
         <a href="/" className="footer-brand">
           <img src="/sasify-logo.png" alt="Sasify Solutions logo" />
-          <strong>Sasify Solutions</strong>
+          <div>
+            <strong>Sasify Solutions</strong>
+            <span>Your Satisfaction is Our Priority</span>
+          </div>
         </a>
         <a href="https://pk.linkedin.com/in/syedsarosh2" target="_blank" rel="noreferrer"
           className="founder-link" title="View Syed Sarosh on LinkedIn">
