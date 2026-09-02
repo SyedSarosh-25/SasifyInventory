@@ -332,7 +332,18 @@ a { color: inherit; }
   transform: translate(-50%, -50%);
 }
 .center-logo img { width: 145px; height: 145px; border-radius: 50%; object-fit: cover; }
-.orbit-tool { position: absolute; z-index: 4; text-align: center; }
+.orbit-tool {
+  position: absolute;
+  z-index: 4;
+  top: 50%;
+  left: 50%;
+  text-align: center;
+  offset-path: circle(var(--orbit-radius) at 0 0);
+  offset-distance: 0%;
+  offset-rotate: 0deg;
+  animation: orbit-path var(--orbit-speed, 22s) linear infinite;
+  will-change: offset-distance;
+}
 .orbit-tool span {
   display: grid;
   width: 64px;
@@ -345,12 +356,44 @@ a { color: inherit; }
 }
 .orbit-tool img { width: 36px; height: 36px; object-fit: contain; }
 .orbit-tool small { display: block; margin-top: 5px; color: #3e4860; font-size: 0.68rem; font-weight: 800; }
-.orbit-figma { top: 0; left: 205px; }
-.orbit-capcut { top: 45px; right: 5px; }
-.orbit-chatgpt { top: 195px; right: -5px; }
-.orbit-claude { right: 48px; bottom: 8px; }
-.orbit-cursor { bottom: -10px; left: 185px; }
-.orbit-gemini { bottom: 68px; left: 6px; }
+.orbit-figma {
+  --orbit-radius: 158px;
+  --orbit-speed: 20s;
+  animation-delay: -1s;
+}
+.orbit-chatgpt {
+  --orbit-radius: 158px;
+  --orbit-speed: 20s;
+  animation-delay: -7.65s;
+}
+.orbit-cursor {
+  --orbit-radius: 158px;
+  --orbit-speed: 20s;
+  animation-delay: -14.3s;
+}
+.orbit-capcut {
+  --orbit-radius: 216px;
+  --orbit-speed: 28s;
+  animation-delay: -3s;
+}
+.orbit-claude {
+  --orbit-radius: 216px;
+  --orbit-speed: 28s;
+  animation-delay: -12.3s;
+}
+.orbit-gemini {
+  --orbit-radius: 216px;
+  --orbit-speed: 28s;
+  animation-delay: -21.6s;
+}
+
+.brand-constellation:hover .orbit-tool {
+  animation-play-state: paused;
+}
+
+@keyframes orbit-path {
+  to { offset-distance: 100%; }
+}
 
 .hero-proof {
   position: relative;
@@ -721,4 +764,5 @@ a { color: inherit; }
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
   .primary-button, .secondary-button, .buy-button, .product-card { transition: none; }
+  .orbit-tool { animation-play-state: paused; }
 }
