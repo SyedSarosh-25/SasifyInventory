@@ -1,6 +1,6 @@
 import { ArrowRight, MessageCircle } from 'lucide-react';
 import { favicon, whatsappLink } from '../product-utils';
-import { CurrencyRateNote, CurrencyToggle } from './currency';
+import { CurrencyToggle } from './currency';
 
 const socials = [
   { name: 'Instagram', domain: 'instagram.com', href: 'https://www.instagram.com/sasify_solutions/' },
@@ -60,7 +60,6 @@ export function SiteFooter() {
           </a>
         ))}
       </div>
-      <CurrencyRateNote />
     </footer>
   );
 }
