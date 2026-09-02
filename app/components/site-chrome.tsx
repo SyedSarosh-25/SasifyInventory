@@ -22,7 +22,7 @@ export function SiteHeader() {
         </div>
         <div className="nav-actions">
           <CurrencyToggle />
-          <a href="/inventory" className="primary-button compact" aria-label="Browse tools">
+          <a href="/inventory" className="primary-button compact" aria-label="Browse tools" title="Browse tools">
             Browse tools <ArrowRight className="h-4 w-4" />
           </a>
         </div>

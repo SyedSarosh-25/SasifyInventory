@@ -47,8 +47,10 @@ export default function Home() {
     <main>
       <SiteHeader />
       <div className="warranty-banner">
-        <ShieldCheck className="h-5 w-5" />
-        <p><strong>All products come with a warranty period.</strong></p>
+        <div className="warranty-content">
+          <ShieldCheck aria-hidden="true" />
+          <p><strong>All products come with a warranty period.</strong></p>
+        </div>
       </div>
 
       <section id="top" className="hero">
