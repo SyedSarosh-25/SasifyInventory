@@ -15,19 +15,19 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: 'Sasify Solutions Inventory',
   description:
-    'Browse Sasify Solutions digital products, listed PKR prices, public original price references, and one-tap WhatsApp ordering.',
+    'Browse Sasify Solutions digital tools, compare PKR prices, read verified Google reviews, and order through WhatsApp.',
   openGraph: {
     title: 'Sasify Solutions Inventory',
     description:
-      'Premium digital subscriptions, software and credits with listed prices and direct WhatsApp ordering.',
-    images: [{ url: '/sasify-3d-hero.png', width: 1536, height: 1024 }],
+      'Your one-stop destination for trusted digital tools, subscriptions and direct WhatsApp ordering.',
+    images: [{ url: '/sasify-logo.png', width: 200, height: 200 }],
     type: 'website',
   },
   twitter: {
     card: 'summary_large_image',
     title: 'Sasify Solutions Inventory',
-    description: 'Explore premium digital products and order directly on WhatsApp.',
-    images: ['/sasify-3d-hero.png'],
+    description: 'Explore trusted digital products and order directly on WhatsApp.',
+    images: ['/sasify-logo.png'],
   },
 };
 
