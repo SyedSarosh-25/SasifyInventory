@@ -1166,7 +1166,6 @@ html.dark .hero h1 span { background-image: linear-gradient(110deg, #8bb8ff, #c1
 html.dark .nav-links a, html.dark .orbit-content small, html.dark .hero-proof { color: var(--copy); }
 html.dark .nav-links a:hover { color: var(--blue); }
 html.dark .constellation-ring { border-color: #586276; }
-html.dark .center-logo { box-shadow: 0 0 0 12px rgba(255, 255, 255, 0.04); }
 
 html.dark .catalog-section, html.dark .faq-section { background: var(--page); }
 html.dark .featured-section, html.dark .reviews-section { background: #17191d; }
@@ -1188,12 +1187,10 @@ html.dark .hero-top-products a, html.dark .hero-actions .secondary-button { bord
 html.dark .hero-top-products a:hover, html.dark .hero-actions .secondary-button:hover { background: var(--soft-blue); }
 html.dark .hero-mini-logo { background: transparent; }
 html.dark .hero-mini-logo .product-monogram { color: var(--blue); }
-html.dark .hero-top-products a[href='/products/p093'] .product-logo,
-html.dark .hero-top-products a[href='/products/p028'] .product-logo,
-html.dark .hero-top-products a[href='/products/p088'] .product-logo { filter: grayscale(1) invert(1); mix-blend-mode: screen; }
+html.dark .product-logo[data-dark-monochrome='true'] { filter: grayscale(1) invert(1); mix-blend-mode: screen; }
 html.dark .featured-logo .product-monogram,
 html.dark .detail-logo-frame .product-monogram, html.dark .product-logo-frame .product-monogram,
-html.dark .orbit-content .product-monogram { color: #243b75; }
+html.dark .orbit-content .product-monogram { color: var(--blue); }
 
 html.dark .primary-button, html.dark .buy-button,
 html.dark .hero-search button[type='submit'], html.dark .featured-arrow {
@@ -1221,6 +1218,30 @@ html.dark .warranty-banner { background: #122d23; border-color: #305947; color: 
 html.dark .site-footer { background: #101214; border-color: var(--line); }
 html.dark .footer-socials { border-color: var(--line); }
 html.dark .footer-brand span, html.dark .founder-link, html.dark .footer-socials small { color: var(--muted); }
+
+/* Keep border widths for stable layouts; focus outlines remain separate. */
+html.dark :is(
+  .site-header, .hero, .featured-section, .reviews-section, .site-footer, .footer-socials,
+  .warranty-banner, .theme-toggle, .theme-toggle:hover, .currency-toggle,
+  .hero-search, .hero-search:focus-within, .hero-top-products a, .hero-top-products a:hover,
+  .hero-search-results, .hero-search-results li, .hero-search-empty button,
+  .hero-categories a, .secondary-button, .secondary-button:hover,
+  .featured-card, .featured-card:hover, .product-card, .product-card:hover,
+  .catalog-search, .catalog-search:focus-within, .category-strip button,
+  .results-badge, .price-panel, .our-price, .empty-state,
+  .review-card, .google-score, .faq-list details,
+  .purchase-summary, .description-section, .package-facts > div, .detail-prices > div,
+  .related-section, .related-product, .constellation-ring,
+  .center-logo, .orbit-content > span, .featured-logo, .product-logo-frame, .detail-logo-frame
+) { border-color: transparent; }
+html.dark :is(.center-logo, .orbit-content > span, .featured-logo, .product-logo-frame, .detail-logo-frame, .google-g) {
+  background: transparent;
+  box-shadow: none;
+}
+html.dark .google-g { color: var(--blue); }
+html.dark .hero-accent { background: transparent; }
+html.dark .product-art::after { border-color: transparent; }
+html.dark .hero-search:focus-within, html.dark .catalog-search:focus-within { outline: 2px solid var(--blue); outline-offset: 2px; }
 
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }

@@ -79,3 +79,22 @@ test('dark body, secondary text, prices and key actions meet normal-text contras
   assert.ok(contrast('#87d9af', tokens.get('--surface')) >= 4.5);
   assert.ok(contrast('#a0e5c2', '#122d23') >= 4.5);
 });
+
+test('dark-only border reset covers shared surfaces and preserves search focus outlines', () => {
+  const css = postcss.parse(readFileSync(new URL('../app/globals.css', import.meta.url), 'utf8'));
+  let borderReset;
+  let focusOutline;
+  css.walkRules((rule) => {
+    if (rule.selector.startsWith('html.dark :is(') && rule.selector.includes('.purchase-summary')) borderReset = rule;
+    if (rule.selector.includes('html.dark .catalog-search:focus-within')) {
+      rule.walkDecls('outline', (decl) => { focusOutline = decl.value; });
+    }
+  });
+  assert.ok(borderReset);
+  const border = borderReset.nodes.find((node) => node.type === 'decl' && node.prop === 'border-color');
+  assert.equal(border.value, 'transparent');
+  for (const selector of ['.site-header', '.featured-card', '.product-card', '.review-card', '.faq-list details', '.detail-prices > div', '.footer-socials', '.orbit-content > span', '.product-logo-frame', '.detail-logo-frame']) {
+    assert.ok(borderReset.selector.includes(selector), selector);
+  }
+  assert.equal(focusOutline, '2px solid var(--blue)');
+});
