@@ -1,4 +1,4 @@
-export function pickReviews<T>(reviews: readonly T[], count = 3, random = Math.random): T[] {
+export function pickReviews<T>(reviews: readonly T[], count = 6, random = Math.random): T[] {
   const shuffled = [...reviews];
   for (let index = shuffled.length - 1; index > 0; index--) {
     const other = Math.floor(random() * (index + 1));

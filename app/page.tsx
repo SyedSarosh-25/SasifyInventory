@@ -73,7 +73,7 @@ function Stars() {
 }
 
 export default function Home() {
-  const [visibleReviews, setVisibleReviews] = useState(() => reviews.slice(0, 3));
+  const [visibleReviews, setVisibleReviews] = useState(() => reviews.slice(0, 6));
 
   useEffect(() => {
     // Randomize after hydration, then keep the same cards for this visit.

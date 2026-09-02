@@ -4,16 +4,16 @@ import { pickReviews } from '../app/review-utils.ts';
 
 const reviews = Object.freeze(Array.from({ length: 6 }, (_, id) => Object.freeze({ id, name: `Reviewer ${id}`, quote: `Review ${id}` })));
 
-test('each selection contains three unique reviews from the saved pool', () => {
+test('each selection contains six unique reviews from the saved pool', () => {
   const selected = pickReviews(reviews);
-  assert.equal(selected.length, 3);
-  assert.equal(new Set(selected).size, 3);
+  assert.equal(selected.length, 6);
+  assert.equal(new Set(selected).size, 6);
   selected.forEach((review) => assert.ok(reviews.includes(review)));
 });
 
 test('random input changes the selection without modifying names, text or source order', () => {
   const before = JSON.stringify(reviews);
-  assert.notDeepEqual(pickReviews(reviews, 3, () => 0), pickReviews(reviews, 3, () => 0.99));
+  assert.notDeepEqual(pickReviews(reviews, 6, () => 0), pickReviews(reviews, 6, () => 0.99));
   assert.equal(JSON.stringify(reviews), before);
 });
 
