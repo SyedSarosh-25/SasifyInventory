@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { products } from '../app/products.ts';
-import { has25DayWarranty, isAnnualPlan, originalPricePkr, productHref, productLogo, savingsPkr, whatsappLink } from '../app/product-utils.ts';
+import { has25DayWarranty, isAnnualPlan, originalPriceComparison, originalPricePkr, planMonths, productHref, productLogo, savingsPkr, whatsappLink } from '../app/product-utils.ts';
 import { featuredProducts, filterProducts, orbitTools } from '../app/catalog-selection.ts';
 
 test('every inventory variant has a unique detail URL', () => {
@@ -41,7 +41,39 @@ test('savings subtract our price from the listed original with the fixed USD rat
   assert.equal(savingsPkr(products.find((p) => p.id === 'p013')), 2126);
   assert.equal(savingsPkr(products.find((p) => p.id === 'p094')), 4701);
   assert.equal(savingsPkr(products.find((p) => p.id === 'p012')), 10626);
-  assert.equal(originalPricePkr(products.find((p) => p.id === 'p014')), 62700);
+  assert.equal(originalPricePkr(products.find((p) => p.id === 'p014')), 75240);
+});
+
+test('monthly references are multiplied by the complete plan duration', () => {
+  const linear = products.find((p) => p.id === 'p040');
+  assert.equal(originalPricePkr(linear), 15 * 285 * 12);
+  assert.equal(savingsPkr(linear), 36301);
+  const base = { ...linear, originalPrice: '$10/month', sellingPricePkr: 999 };
+  for (const [duration, months] of [['1 Month', 1], ['3 Months', 3], ['6 Months', 6], ['12 Months', 12], ['18 Months', 18], ['1 Year', 12], ['2 Years', 24], ['3 Years', 36], ['30 Days', 1], ['365 Days', 12]]) {
+    const product = { ...base, duration };
+    assert.equal(planMonths(product), months);
+    assert.equal(originalPricePkr(product), 2850 * months);
+    assert.equal(savingsPkr(product), 2850 * months - 999);
+  }
+});
+
+test('monthly quotes take priority over annual alternatives and annual-only prices are not multiplied by twelve', () => {
+  const base = products.find((p) => p.id === 'p040');
+  assert.equal(originalPricePkr({ ...base, originalPrice: '$20/month or $192/year' }), 68400);
+  assert.equal(originalPricePkr({ ...base, originalPrice: '$192/year or $20/month' }), 68400);
+  assert.equal(originalPricePkr(products.find((p) => p.id === 'p056')), 28497.15);
+  assert.equal(originalPricePkr({ ...base, duration: '2 Years', originalPrice: '$100/year' }), 57000);
+});
+
+test('credit face values remain package totals and ambiguous durations do not invent terms', () => {
+  const credit = { ...products.find((p) => p.id === 'p004'), duration: '12 Months' };
+  assert.equal(originalPriceComparison(credit).period, 'package');
+  assert.equal(originalPricePkr(credit), 28500);
+  const monthly = products.find((p) => p.id === 'p040');
+  for (const duration of ['-', '1-3 Years', '499 Invites', 'Lifetime Credits', '7 Days', '0 Months']) {
+    assert.equal(planMonths({ ...monthly, duration }), null);
+    assert.equal(savingsPkr({ ...monthly, duration }), null);
+  }
 });
 
 test('missing, unsupported-currency and free references do not invent prices', () => {
@@ -64,7 +96,21 @@ test('savings preserve zero and negative differences and match all available ref
 test('landing selection has exactly ten distinct products with the requested first five', () => {
   assert.equal(featuredProducts.length, 10);
   assert.equal(new Set(featuredProducts.map((product) => product.id)).size, 10);
-  assert.deepEqual(featuredProducts.slice(0, 5).map((product) => product.id), ['p093', 'p013', 'p063', 'p028', 'p088']);
+  assert.deepEqual(featuredProducts.slice(0, 5).map((product) => product.id), ['p093', 'p013', 'p096', 'p028', 'p088']);
+});
+
+test('featured Canva offer is a one-year invite for 999 while existing variants stay in inventory', () => {
+  const canva = featuredProducts.find((product) => product.id === 'p096');
+  assert.equal(canva.name, 'Canva Pro Invite');
+  assert.equal(canva.sellingPricePkr, 999);
+  assert.equal(canva.duration, '1 Year');
+  assert.equal(isAnnualPlan(canva), true);
+  assert.equal(originalPricePkr(canva), 51300);
+  assert.equal(savingsPkr(canva), 50301);
+  assert.equal(featuredProducts.some((product) => product.id === 'p063'), false);
+  assert.equal(products.find((product) => product.id === 'p063').name, 'Canva Pro Panel');
+  assert.equal(products.find((product) => product.id === 'p064').duration, '3 Years');
+  assert.match(new URL(whatsappLink(canva.name, canva.duration)).searchParams.get('text'), /Canva Pro Invite \(1 Year\)/);
 });
 
 test('all orbit logos link to the corresponding tool detail page', () => {

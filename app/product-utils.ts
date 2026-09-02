@@ -43,15 +43,31 @@ export function has25DayWarranty(product: Product) {
   return /^(1 month|30 days)$/i.test(product.duration.trim());
 }
 
-export function originalPricePkr(product: Product) {
-  if (product.originalPricePkr != null) return product.originalPricePkr;
-  // Prefer an explicitly listed annual option for annual plans; never invent a provider quote.
+export function planMonths(product: Product) {
+  const duration = product.duration.trim();
+  if (/^30 days$/i.test(duration)) return 1;
+  if (/^365 days$/i.test(duration)) return 12;
+  const match = duration.match(/^(\d+)\s+(month|year)s?$/i);
+  if (!match || Number(match[1]) <= 0) return null;
+  return Number(match[1]) * (match[2].toLowerCase() === 'year' ? 12 : 1);
+}
+
+export function originalPriceComparison(product: Product) {
+  // Compare monthly subscription prices over the whole offered term, not just one month.
   const references = product.originalPrice.split(/\s+or\s+|;/i);
-  const reference = (isAnnualPlan(product) && references.find((part) => /\/year\b/i.test(part))) || references[0];
+  const reference = references.find((part) => /\/month\b/i.test(part)) || references[0];
   const price = reference.match(/(US\$|\$|PKR\s+)(\d+(?:,\d{3})*(?:\.\d+)?)/i);
-  if (!price) return null;
-  const amount = Number(price[2].replaceAll(',', ''));
-  return Math.round(amount * (price[1].toUpperCase().startsWith('PKR') ? 1 : USD_TO_PKR) * 100) / 100;
+  if (!price && product.originalPricePkr == null) return null;
+  const unitAmountPkr = product.originalPricePkr ?? Number(price![2].replaceAll(',', '')) * (price![1].toUpperCase().startsWith('PKR') ? 1 : USD_TO_PKR);
+  const period = /\/month\b/i.test(reference) ? 'month' : /\/year\b/i.test(reference) ? 'year' : 'package';
+  const months = planMonths(product);
+  if (period !== 'package' && months === null) return null;
+  const quantity = period === 'month' ? months! : period === 'year' ? months! / 12 : 1;
+  return { unitAmountPkr, period, quantity, totalPkr: Math.round(unitAmountPkr * quantity * 100) / 100 };
+}
+
+export function originalPricePkr(product: Product) {
+  return originalPriceComparison(product)?.totalPkr ?? null;
 }
 
 export function savingsPkr(product: Product) {

@@ -32,7 +32,7 @@ function ProductCard({ product }: { product: Product }) {
       <p className="product-description">{product.description}</p>
       <div className="price-panel">
         <div className="our-price"><span><Tag className="h-3.5 w-3.5" /> Our price</span><strong><Money amount={product.sellingPricePkr} /></strong></div>
-        <div className="original-price"><span>Original price</span><p><ProductOriginalPrice product={product} /></p></div>
+        <div className="original-price"><span>Original price for plan</span><p><ProductOriginalPrice product={product} /></p></div>
       </div>
       {savings !== null && <p className="card-savings">Your Savings: <strong><Money amount={savings} /></strong></p>}
       <span className="buy-button">View details <ArrowRight className="h-4 w-4" /></span>
@@ -51,7 +51,7 @@ export function Catalog({ initialQuery = '' }: { initialQuery?: string }) {
         <div><span className="section-kicker">Sasify Solutions Inventory</span><h1>Full inventory</h1><p>Digital tools, plans and subscriptions.</p></div>
         <div className="results-badge" role="status"><Filter className="h-4 w-4" /> {filtered.length} products</div>
       </div>
-      <p className="comparison-note">Savings are price differences from listed provider references. Billing terms and access may differ; see each product for details.</p>
+      <p className="comparison-note">Savings compare the original price for the full plan duration with our price. Monthly references are multiplied by the number of months. Access and provider billing options may differ.</p>
       <div className="catalog-controls">
         <label className="catalog-search">
           <Search className="h-4 w-4" />

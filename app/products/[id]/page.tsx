@@ -5,7 +5,7 @@ import { products } from '../../products';
 import { ProductLogo } from '../../components/product-logo';
 import { SiteFooter, SiteHeader } from '../../components/site-chrome';
 import { Money, OriginalPrice } from '../../components/currency';
-import { formatPkr, has25DayWarranty, isAnnualPlan, originalPricePkr, productHref, productLogo, savingsPkr, siteOrigin, whatsappLink } from '../../product-utils';
+import { formatPkr, has25DayWarranty, isAnnualPlan, originalPriceComparison, originalPricePkr, productHref, productLogo, savingsPkr, siteOrigin, whatsappLink } from '../../product-utils';
 
 type Props = { params: Promise<{ id: string }> };
 
@@ -37,6 +37,7 @@ export default async function ProductPage({ params }: Props) {
   const warranty = has25DayWarranty(product);
   const savings = savingsPkr(product);
   const original = originalPricePkr(product);
+  const comparison = originalPriceComparison(product);
   const related = products.filter((item) => item.id !== id && item.category === product.category)
     .sort((a, b) => Number(b.name.split(' ')[0] === product.name.split(' ')[0]) - Number(a.name.split(' ')[0] === product.name.split(' ')[0]))
     .slice(0, 3);
@@ -96,14 +97,17 @@ export default async function ProductPage({ params }: Props) {
             <span className="section-kicker">Your selected plan</span>
             <div className="purchase-heading"><div className="product-logo-frame"><ProductLogo product={product} eager /></div><h2>{product.name}</h2></div>
             <dl className="detail-prices">
-              <div><dt>Original Pricing</dt><dd>{original === null ? <OriginalPrice reference={product.originalPrice} /> : <Money amount={original} />}</dd></div>
+              <div><dt>Original Pricing {comparison && comparison.period !== 'package' ? '(full plan)' : ''}</dt><dd>{original === null ? <OriginalPrice reference={product.originalPrice} /> : <Money amount={original} />}</dd></div>
               <div className="selling-price"><dt>Our Pricing</dt><dd><Money amount={product.sellingPricePkr} /></dd></div>
-              <div className="savings-price"><dt>Your Savings</dt><dd>{savings === null ? 'Original price unavailable' : <Money amount={savings} />}</dd></div>
+              <div className="savings-price"><dt>Your Savings</dt><dd>{savings === null ? 'Price or duration unavailable' : <Money amount={savings} />}</dd></div>
             </dl>
             {savings === null ? (
-              <p className="price-explanation">A numeric original price in PKR or USD is needed to calculate savings. Ask our team for the current provider reference.</p>
+              <p className="price-explanation">A numeric original price and a confirmed plan duration are needed to calculate savings. Ask our team for the current provider reference.</p>
             ) : (
-              <p className="price-explanation">Original price minus our price. Reference: <OriginalPrice reference={product.originalPrice} />. Provider billing terms and access may differ from this package.</p>
+              <div className="price-explanation">
+                {comparison && <p><Money amount={comparison.unitAmountPkr} />{comparison.period !== 'package' && <> &times; {comparison.quantity} {comparison.period}{comparison.quantity === 1 ? '' : 's'}</>} &minus; <Money amount={product.sellingPricePkr} /> = <strong><Money amount={savings} /></strong></p>}
+                <p>Reference: <OriginalPrice reference={product.originalPrice} />. Monthly rates are multiplied by the plan&apos;s months; annual-only rates use the plan&apos;s years. Access and provider billing options may differ.</p>
+              </div>
             )}
             {product.sourceUrl && (
               <a href={product.sourceUrl} target="_blank" rel="noreferrer" className="price-source">Provider pricing reference <ExternalLink className="h-3.5 w-3.5" /></a>

@@ -22,7 +22,7 @@ export const products: Product[] = [
     "duration": "1 Month",
     "vendor": "Sasify Solutions",
     "sellingPricePkr": 3499,
-    "originalPrice": "PKR 5,700",
+    "originalPrice": "PKR 5,700/month",
     "originalPricePkr": 5700,
     "sourceUrl": "https://openai.com/chatgpt/pricing/",
     "description": "One-month ChatGPT Plus access for advanced models, higher limits, file analysis, image generation and productivity workflows."
@@ -796,6 +796,22 @@ export const products: Product[] = [
     "originalPrice": "Teams from $10/user/month annual billing",
     "sourceUrl": "https://www.canva.com/pricing/",
     "description": "Business-oriented Canva access for collaborative design, brand content, templates and team workflows."
+  },
+  {
+    "id": "p096",
+    "slug": "canva-pro-invite-1-year",
+    "category": "Design & UI/UX",
+    "name": "Canva Pro Invite",
+    "duration": "1 Year",
+    "vendor": "Sasify Solutions",
+    "sellingPricePkr": 999,
+    "originalPrice": "Pro from $15/month",
+    "sourceUrl": "https://www.canva.com/pricing/",
+    "description": "One-year Canva Pro invite for creating designs, presentations and social-media content with Canva's design tools.",
+    "details": [
+      "One invite for one year of access. Confirm your account email and activation requirements with Sasify Solutions before payment.",
+      "PKR 999 is a one-time payment to Sasify Solutions for the full year. No monthly payments to us are required."
+    ]
   },
   {
     "id": "p063",

@@ -165,7 +165,7 @@ export default function Home() {
                   <h3>{product.name}</h3>
                   <p>{product.duration}</p>
                 </div>
-                <div className="featured-reference"><span>Original price</span><ProductOriginalPrice product={product} /></div>
+                <div className="featured-reference"><span>Original price for plan</span><ProductOriginalPrice product={product} /></div>
                 <div className="featured-action">
                   <div><span className="featured-price-label">Our price</span><strong><Money amount={product.sellingPricePkr} /></strong></div>
                   <span className="featured-arrow" aria-hidden="true"><ArrowRight className="h-4 w-4" /></span>
@@ -175,7 +175,7 @@ export default function Home() {
             ))}
           </div>
           <div className="inventory-action"><a href="/inventory" className="primary-button">View full inventory <ArrowRight className="h-4 w-4" /></a></div>
-          <p className="comparison-note">Savings are price differences from listed provider references. Billing terms and access may differ; see each product for details.</p>
+          <p className="comparison-note">Savings compare the original price for the full plan duration with our price. Monthly references are multiplied by the number of months. Access and provider billing options may differ.</p>
         </div>
       </section>
 
