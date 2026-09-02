@@ -1,6 +1,21 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { pickReviews } from '../app/review-utils.ts';
+import { reviews as customerReviews, reviewsVerifiedAt } from '../app/reviews.ts';
+
+test('six sourced reviews include three original Roman Urdu excerpts', () => {
+  assert.equal(customerReviews.length, 6);
+  assert.equal(customerReviews.filter((review) => review.language === 'ur-Latn').length, 3);
+  assert.equal(new Set(customerReviews.map((review) => review.sourceUrl)).size, 6);
+  assert.equal(reviewsVerifiedAt, '2026-09-02');
+  for (const review of customerReviews) {
+    assert.equal(new URL(review.sourceUrl).hostname, 'maps.app.goo.gl');
+    assert.match(review.profileUrl, /^https:\/\/www.google.com\/maps\/contrib\/\d+\/reviews/);
+    assert.equal(new URL(review.photoUrl).hostname, 'lh3.googleusercontent.com');
+    assert.ok(review.quote.trim().split(/\s+/).length <= 25);
+    assert.ok(review.rating >= 1 && review.rating <= 5);
+  }
+});
 
 const reviews = Object.freeze(Array.from({ length: 6 }, (_, id) => Object.freeze({ id, name: `Reviewer ${id}`, quote: `Review ${id}` })));
 

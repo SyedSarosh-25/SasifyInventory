@@ -7,6 +7,8 @@ export const featuredProducts = ['p093', 'p013', 'p096', 'p028', 'p088', 'p094',
     return product;
   });
 
+export const heroProducts = featuredProducts.slice(0, 5);
+
 export const orbitTools = [
   { name: 'Figma', id: 'p066', className: 'orbit-figma' },
   { name: 'CapCut', id: 'p028', className: 'orbit-capcut' },

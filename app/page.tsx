@@ -6,67 +6,30 @@ import {
   ChevronRight,
   ExternalLink,
   MessageCircle,
-  Search,
   ShieldCheck,
   Star,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { products } from './products';
-import { initials, productHref, savingsPkr, whatsappLink } from './product-utils';
+import { productHref, savingsPkr, whatsappLink } from './product-utils';
 import { featuredProducts, orbitTools } from './catalog-selection';
 import { ProductLogo } from './components/product-logo';
 import { SiteFooter, SiteHeader } from './components/site-chrome';
 import { Money, ProductOriginalPrice } from './components/currency';
 import { pickReviews } from './review-utils';
+import { reviews } from './reviews';
+import { ReviewAvatar } from './components/review-avatar';
+import { HeroProductSearch } from './components/hero-product-search';
 
 const lowestPrice = Math.min(...products.map((p) => p.sellingPricePkr));
 const googleReviewsUrl =
   'https://www.google.com/maps/place/Sasify+Digital+Solutions/@33.5298115,73.1663875,16z/data=!4m18!1m9!3m8!1s0x38dfed9bda8bf345:0xb57a60ba54b9be1e!2sSasify+Digital+Solutions!8m2!3d33.5298115!4d73.1663875!9m1!1b1!16s%2Fg%2F11yzclp9ps!3m7!1s0x38dfed9bda8bf345:0xb57a60ba54b9be1e!8m2!3d33.5298115!4d73.1663875!9m1!1b1!16s%2Fg%2F11yzclp9ps!18m1!1e1?entry=ttu';
 
-const reviews = [
-  {
-    name: 'Haider Ali',
-    time: 'A month ago',
-    quote:
-      'They were very helpful, kind, and professional. Everything was handled smoothly.',
-  },
-  {
-    name: 'Laiba Aamir',
-    time: '2 months ago',
-    quote:
-      'They understood exactly what I needed and delivered a solution that exceeded my expectations.',
-  },
-  {
-    name: 'AQIB IJAZ',
-    time: '2 months ago',
-    quote:
-      'A very trustable man. I have been using their services from previous few months. Highly satisfying.',
-  },
-  {
-    name: 'Mouhib Amin',
-    time: '2 months ago',
-    quote:
-      'Quickly responded to my situation and gave me my account promptly. Smoothest onboarding I have had with buying a service.',
-  },
-  {
-    name: 'Muhammad Abdullah',
-    time: '2 months ago',
-    quote:
-      'It was great talking to Adeen. He is lovely and explains everything well.',
-  },
-  {
-    name: 'Asim Ali',
-    time: 'A month ago',
-    quote:
-      'Genuine person and excellent service with affordable price, highly recommended.',
-  },
-];
-
-function Stars() {
+function Stars({ rating = 5 }: { rating?: number }) {
   return (
-    <span className="stars" aria-label="5 out of 5 stars">
+    <span className="stars" aria-label={`${rating} out of 5 stars`}>
       {Array.from({ length: 5 }, (_, index) => (
-        <Star key={index} className="h-4 w-4" fill="currentColor" />
+        <Star key={index} className="h-4 w-4" fill={index < rating ? 'currentColor' : 'none'} />
       ))}
     </span>
   );
@@ -105,16 +68,7 @@ export default function Home() {
               with clear pricing and quick activation.
             </p>
 
-            <form className="hero-search" action="/inventory" role="search">
-              <Search className="h-5 w-5" />
-              <input
-                name="q"
-                type="search"
-                placeholder="Search ChatGPT, Claude, Canva, Cursor..."
-                aria-label="Search products"
-              />
-              <button type="submit" aria-label="Search inventory"><ArrowRight className="h-5 w-5" /></button>
-            </form>
+            <HeroProductSearch />
 
             <div className="hero-actions">
               <a href="#catalog" className="primary-button">
@@ -194,7 +148,7 @@ export default function Home() {
             <div>
               <span className="section-kicker">Customer feedback on Google</span>
               <h2>Trusted by digital buyers</h2>
-              <p>Review excerpts from the Sasify Digital Solutions Google Maps listing.</p>
+              <p>Customers&apos; own words from Google Maps. Short excerpts are shown in their original language.</p>
             </div>
             <a href={googleReviewsUrl} target="_blank" rel="noreferrer" className="google-score">
               <span className="google-g">G</span>
@@ -208,17 +162,17 @@ export default function Home() {
             {visibleReviews.map((review) => (
               <article key={review.name} className="review-card">
                 <div className="review-top">
-                  <div className="review-avatar">{initials(review.name)}</div>
+                  <ReviewAvatar review={review} />
                   <div>
-                    <h3>{review.name}</h3>
-                    <span>Google review</span>
+                    <h3><a href={review.profileUrl} target="_blank" rel="noreferrer">{review.name}</a></h3>
+                    <span>{review.language === 'ur-Latn' ? 'Roman Urdu' : 'English'}{review.excerpt ? ' excerpt' : ' review'}</span>
                   </div>
                 </div>
-                <Stars />
-                <p>&ldquo;{review.quote}&rdquo;</p>
-                <span className="google-source">
-                  <span className="google-g small">G</span> Google review
-                </span>
+                <Stars rating={review.rating} />
+                <p lang={review.language} dir="auto">&ldquo;{review.quote}&rdquo;</p>
+                <a href={review.sourceUrl} target="_blank" rel="noreferrer" className="google-source">
+                  <span className="google-g small">G</span> Read original on Google <ExternalLink className="h-3.5 w-3.5" />
+                </a>
               </article>
             ))}
           </div>
