@@ -266,10 +266,14 @@ export default function Home() {
             </div>
             {orbitTools.map((tool) => (
               <div key={tool.name} className={`orbit-tool ${tool.className}`}>
-                <span>
-                  <img src={favicon(tool.domain)} alt="" />
-                </span>
-                <small>{tool.name}</small>
+                <div className="orbit-position">
+                  <div className="orbit-content">
+                    <span>
+                      <img src={favicon(tool.domain)} alt="" />
+                    </span>
+                    <small>{tool.name}</small>
+                  </div>
+                </div>
               </div>
             ))}
           </div>

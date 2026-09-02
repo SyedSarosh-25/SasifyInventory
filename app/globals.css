@@ -315,7 +315,7 @@ a { color: inherit; }
   border-radius: 50%;
   transform: translate(-50%, -50%);
 }
-.ring-one { width: 430px; height: 430px; }
+.ring-one { width: 380px; height: 380px; }
 .ring-two { display: none; }
 .center-logo {
   position: absolute;
@@ -337,14 +337,27 @@ a { color: inherit; }
   z-index: 4;
   top: 50%;
   left: 50%;
+  width: 0;
+  height: 0;
   text-align: center;
-  offset-path: circle(var(--orbit-radius) at 0 0);
-  offset-distance: 0%;
-  offset-rotate: 0deg;
-  animation: orbit-path var(--orbit-speed, 22s) linear infinite;
-  will-change: offset-distance;
+  animation: orbit-spin var(--orbit-speed, 28s) linear infinite;
+  animation-delay: var(--orbit-delay, 0s);
+  transform-origin: 0 0;
+  will-change: transform;
 }
-.orbit-tool span {
+.orbit-position {
+  transform: translateX(var(--orbit-radius));
+}
+.orbit-content {
+  display: flex;
+  align-items: center;
+  flex-direction: column;
+  transform: translate(-50%, -50%);
+  animation: orbit-counter-spin var(--orbit-speed, 28s) linear infinite;
+  animation-delay: var(--orbit-delay, 0s);
+  will-change: transform;
+}
+.orbit-content span {
   display: grid;
   width: 64px;
   height: 64px;
@@ -354,45 +367,51 @@ a { color: inherit; }
   background: #fff;
   box-shadow: 0 10px 28px rgba(50, 67, 128, 0.16);
 }
-.orbit-tool img { width: 36px; height: 36px; object-fit: contain; }
-.orbit-tool small { display: block; margin-top: 5px; color: #3e4860; font-size: 0.68rem; font-weight: 800; }
+.orbit-content img { width: 36px; height: 36px; object-fit: contain; }
+.orbit-content small { display: block; margin-top: 5px; color: #3e4860; font-size: 0.68rem; font-weight: 800; }
 .orbit-figma {
-  --orbit-radius: 216px;
+  --orbit-radius: 190px;
   --orbit-speed: 28s;
-  animation-delay: 0s;
+  --orbit-delay: 0s;
 }
 .orbit-chatgpt {
-  --orbit-radius: 216px;
+  --orbit-radius: 190px;
   --orbit-speed: 28s;
-  animation-delay: -9.34s;
+  --orbit-delay: -9.34s;
 }
 .orbit-cursor {
-  --orbit-radius: 216px;
+  --orbit-radius: 190px;
   --orbit-speed: 28s;
-  animation-delay: -18.67s;
+  --orbit-delay: -18.67s;
 }
 .orbit-capcut {
-  --orbit-radius: 216px;
+  --orbit-radius: 190px;
   --orbit-speed: 28s;
-  animation-delay: -4.67s;
+  --orbit-delay: -4.67s;
 }
 .orbit-claude {
-  --orbit-radius: 216px;
+  --orbit-radius: 190px;
   --orbit-speed: 28s;
-  animation-delay: -14s;
+  --orbit-delay: -14s;
 }
 .orbit-gemini {
-  --orbit-radius: 216px;
+  --orbit-radius: 190px;
   --orbit-speed: 28s;
-  animation-delay: -23.34s;
+  --orbit-delay: -23.34s;
 }
 
-.brand-constellation:hover .orbit-tool {
+.brand-constellation:hover .orbit-tool,
+.brand-constellation:hover .orbit-content {
   animation-play-state: paused;
 }
 
-@keyframes orbit-path {
-  to { offset-distance: 100%; }
+@keyframes orbit-spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes orbit-counter-spin {
+  from { transform: translate(-50%, -50%) rotate(0deg); }
+  to { transform: translate(-50%, -50%) rotate(-360deg); }
 }
 
 .hero-proof {
@@ -764,5 +783,5 @@ a { color: inherit; }
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
   .primary-button, .secondary-button, .buy-button, .product-card { transition: none; }
-  .orbit-tool { animation-play-state: paused; }
+  .orbit-tool, .orbit-content { animation-play-state: paused; }
 }
