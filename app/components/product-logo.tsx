@@ -9,7 +9,7 @@ export function ProductLogo({ product, eager = false }: { product: Product; eage
   const [failedLogo, setFailedLogo] = useState<string | null>(null);
   return src && src !== failedLogo ? (
     <img src={src} alt={`${product.name} logo`} className="product-logo"
-      loading={eager ? 'eager' : 'lazy'} onError={() => setFailedLogo(src)} />
+      width={128} height={128} decoding="async" loading={eager ? 'eager' : 'lazy'} onError={() => setFailedLogo(src)} />
   ) : (
     <span className="product-monogram" aria-label={product.name}>{initials(product.name)}</span>
   );

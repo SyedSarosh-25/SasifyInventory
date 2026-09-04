@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { products } from '../app/products.ts';
-import { has25DayWarranty, isAnnualPlan, originalPriceComparison, originalPricePkr, planMonths, productHref, productLogo, savingsPkr, whatsappLink } from '../app/product-utils.ts';
+import { accessTypeLabel, has25DayWarranty, isAnnualPlan, originalPriceComparison, originalPricePkr, planMonths, productHref, productLogo, savingsPkr, whatsappLink } from '../app/product-utils.ts';
 import { featuredProducts, filterProducts, heroProducts, orbitTools } from '../app/catalog-selection.ts';
 
 test('every inventory variant has a unique detail URL', () => {
@@ -113,6 +113,14 @@ test('featured Canva offer is a one-year invite for 999 while existing variants 
   assert.match(new URL(whatsappLink(canva.name, canva.duration)).searchParams.get('text'), /Canva Pro Invite \(1 Year\)/);
 });
 
+test('featured Gemini offer uses the 18-month plan instead of the 3-month plan', () => {
+  const gemini = featuredProducts.find((product) => product.name === 'Gemini AI Pro');
+  assert.equal(gemini.id, 'p016');
+  assert.equal(gemini.duration, '18 Months');
+  assert.equal(gemini.sellingPricePkr, 2999);
+  assert.equal(featuredProducts.some((product) => product.id === 'p017'), false);
+});
+
 test('all orbit logos link to the corresponding tool detail page', () => {
   assert.equal(orbitTools.length, 6);
   for (const tool of orbitTools) {
@@ -155,4 +163,12 @@ test('WhatsApp orders retain the selected variant and correct recipient', () => 
 test('Gemini and Claude logos resolve to product identities', () => {
   assert.match(decodeURIComponent(productLogo(products.find((p) => p.id === 'p016'))), /gemini.google.com/);
   assert.match(decodeURIComponent(productLogo(products.find((p) => p.id === 'p013'))), /claude.ai/);
+});
+
+test('access labels distinguish shared, team, invite, personal and credit packages', () => {
+  assert.equal(accessTypeLabel(products.find((p) => p.id === 'p094')), 'Shared access');
+  assert.equal(accessTypeLabel(products.find((p) => p.id === 'p013')), 'Team seat or team access');
+  assert.equal(accessTypeLabel(products.find((p) => p.id === 'p096')), 'Invite-based access');
+  assert.equal(accessTypeLabel(products.find((p) => p.id === 'p095')), 'Single-person access');
+  assert.equal(accessTypeLabel(products.find((p) => p.id === 'p088')), 'Credit allocation');
 });

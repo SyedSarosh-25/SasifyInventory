@@ -1115,15 +1115,15 @@ export const products: Product[] = [
   },
   {
     "id": "p088",
-    "slug": "cursor-pro-api-2-600-credits",
+    "slug": "cursor-pro-12-month-plan",
     "category": "Other Tools",
-    "name": "Cursor Pro API - 2,600 Credits",
-    "duration": "1 Month",
-    "vendor": "PiggyAi_Bot",
-    "sellingPricePkr": 4999,
-    "originalPrice": "Cursor Pro from $20/month; API credit value depends on bundle",
+    "name": "Cursor Pro 12 Month Plan",
+    "duration": "12 Months",
+    "vendor": "Sasify Solutions",
+    "sellingPricePkr": 29999,
+    "originalPrice": "Cursor Pro from $20/month",
     "sourceUrl": "https://cursor.com/pricing",
-    "description": "Cursor-related API credit package for AI-assisted coding and developer productivity workflows."
+    "description": "Twelve-month Cursor Pro access for AI-assisted coding, development and productivity workflows, available with one payment for the full 12-month plan."
   },
   {
     "id": "p089",

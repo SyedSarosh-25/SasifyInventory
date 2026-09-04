@@ -5,7 +5,9 @@ import { products } from '../../products';
 import { ProductLogo } from '../../components/product-logo';
 import { SiteFooter, SiteHeader } from '../../components/site-chrome';
 import { Money, OriginalPrice } from '../../components/currency';
-import { formatPkr, has25DayWarranty, isAnnualPlan, originalPriceComparison, originalPricePkr, productHref, productLogo, savingsPkr, siteOrigin, whatsappLink } from '../../product-utils';
+import { StructuredData } from '../../components/structured-data';
+import { breadcrumbData, productData, productDescription, productQuestions, productTitle } from '../../seo';
+import { accessTypeLabel, has25DayWarranty, isAnnualPlan, originalPriceComparison, originalPricePkr, productHref, productLogo, savingsPkr, siteOrigin, whatsappLink } from '../../product-utils';
 
 type Props = { params: Promise<{ id: string }> };
 
@@ -17,8 +19,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id } = await params;
   const product = products.find((item) => item.id === id);
   if (!product) return { title: 'Product not found | Sasify Solutions', robots: { index: false } };
-  const title = `${product.name} - ${product.duration} | Sasify Solutions`;
-  const description = `${product.description} Our price: ${formatPkr(product.sellingPricePkr)}. Order on WhatsApp.`;
+  const title = productTitle(product);
+  const description = productDescription(product);
   const logo = productLogo(product);
   const images = logo ? [{ url: logo, alt: product.name }] : [];
   return {
@@ -38,6 +40,7 @@ export default async function ProductPage({ params }: Props) {
   const savings = savingsPkr(product);
   const original = originalPricePkr(product);
   const comparison = originalPriceComparison(product);
+  const questions = productQuestions(product);
   const related = products.filter((item) => item.id !== id && item.category === product.category)
     .sort((a, b) => Number(b.name.split(' ')[0] === product.name.split(' ')[0]) - Number(a.name.split(' ')[0] === product.name.split(' ')[0]))
     .slice(0, 3);
@@ -45,7 +48,12 @@ export default async function ProductPage({ params }: Props) {
   return (
     <main>
       <SiteHeader />
+      <StructuredData data={productData(product)} />
+      <StructuredData data={breadcrumbData([{ name: 'Home', path: '/' }, { name: 'Full inventory', path: '/inventory' }, { name: product.name, path: productHref(product) }])} />
       <div className="detail-shell">
+        <nav className="breadcrumbs" aria-label="Breadcrumb">
+          <a href="/">Home</a><span aria-hidden="true">/</span><a href="/inventory">Full inventory</a><span aria-hidden="true">/</span><span aria-current="page">{product.name}</span>
+        </nav>
         <a href="/inventory" className="back-link"><ArrowLeft className="h-4 w-4" /> All products</a>
         <div className="detail-layout">
           <article className="detail-content">
@@ -64,8 +72,10 @@ export default async function ProductPage({ params }: Props) {
               {product.details?.map((detail) => <p key={detail}>{detail}</p>)}
               <dl className="package-facts">
                 <div><dt>Package</dt><dd>{product.name}</dd></div>
+                <div><dt>Access type</dt><dd>{accessTypeLabel(product)}</dd></div>
                 <div><dt>Access period / allocation</dt><dd>{product.duration === '-' ? 'Confirm before purchase' : product.duration}</dd></div>
                 <div><dt>Order support</dt><dd>Sasify Solutions on WhatsApp</dd></div>
+                <div><dt>Listing reference</dt><dd>{product.id}</dd></div>
               </dl>
             </section>
 
@@ -90,6 +100,15 @@ export default async function ProductPage({ params }: Props) {
                 <li><Check className="h-4 w-4" /> Review any account, device or invitation requirements before payment.</li>
                 <li><Check className="h-4 w-4" /> Provider feature and usage limits still apply to the selected plan.</li>
               </ul>
+            </section>
+            <section className="description-section">
+              <h2>Questions about this plan</h2>
+              <div className="faq-list">
+                {questions.map(({ question, answer }, index) => <details key={question} open={index === 0}>
+                  <summary>{question}</summary><p>{answer}</p>
+                </details>)}
+              </div>
+              <p><a href="/buying-guide">Compare plans and access types</a>, read the <a href="/warranty">warranty policy</a> and <a href="/refunds">refund policy</a>, or <a href="/about">learn about Sasify Solutions</a> before ordering.</p>
             </section>
           </article>
 

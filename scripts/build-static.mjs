@@ -1,14 +1,16 @@
 import { spawnSync } from 'node:child_process';
-import { cp, lstat, mkdir, readFile, realpath, rm } from 'node:fs/promises';
+import { cp, lstat, mkdir, readFile, realpath, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { defaultSiteOrigin } from '../app/site-config.ts';
+import { robotsText, sitemapXml } from '../app/seo.ts';
 
 const root = await realpath(fileURLToPath(new URL('../', import.meta.url)));
 const out = path.join(root, 'out');
 const env = {
   ...process.env,
   SASIFY_STATIC_EXPORT: '1',
-  NEXT_PUBLIC_SITE_ORIGIN: process.env.NEXT_PUBLIC_SITE_ORIGIN || 'https://royalblue-meerkat-205788.hostingersite.com',
+  NEXT_PUBLIC_SITE_ORIGIN: process.env.NEXT_PUBLIC_SITE_ORIGIN || defaultSiteOrigin,
 };
 const origin = new URL(env.NEXT_PUBLIC_SITE_ORIGIN);
 if (!['http:', 'https:'].includes(origin.protocol) || origin.pathname !== '/' || origin.search || origin.hash || origin.username || origin.password) {
@@ -35,6 +37,9 @@ await rm(out, { recursive: true, force: true });
 await mkdir(out);
 await cp(path.join(root, 'dist/client'), out, { recursive: true });
 await cp(path.join(root, 'scripts/static.htaccess'), path.join(out, '.htaccess'));
+await cp(path.join(root, 'scripts/static.vercel.json'), path.join(out, 'vercel.json'));
+await writeFile(path.join(out, 'sitemap.xml'), sitemapXml());
+await writeFile(path.join(out, 'robots.txt'), robotsText());
 
 const check = spawnSync(process.execPath, ['--experimental-strip-types', '--test', 'tests/static-build.test.mjs'], {
   cwd: root, env, stdio: 'inherit',

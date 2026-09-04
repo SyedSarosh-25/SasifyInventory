@@ -1,7 +1,7 @@
 import type { Product } from './products';
 import { USD_TO_PKR } from './currency-utils.ts';
 
-export const siteOrigin = process.env.NEXT_PUBLIC_SITE_ORIGIN || 'https://sasify-solutions-inventory.morrisboyle861417684.chatgpt.site';
+export { siteOrigin } from './site-config.ts';
 export const claudeLogoUrl = 'https://www.google.com/s2/favicons?domain_url=https%3A%2F%2Fclaude.ai&sz=128';
 
 export function formatPkr(value: number) {
@@ -37,6 +37,15 @@ export function productLogo(product: Product) {
 
 export function isAnnualPlan(product: Product) {
   return /^(1 year|12 months|365 days)$/i.test(product.duration.trim());
+}
+
+export function accessTypeLabel(product: Product) {
+  if (/shared/i.test(product.name)) return 'Shared access';
+  if (/single person/i.test(product.name)) return 'Single-person access';
+  if (/team/i.test(product.name)) return 'Team seat or team access';
+  if (/invite/i.test(product.name)) return 'Invite-based access';
+  if (/credits?|api/i.test(`${product.name} ${product.duration}`)) return 'Credit allocation';
+  return 'Plan access - confirm account arrangement';
 }
 
 export function has25DayWarranty(product: Product) {

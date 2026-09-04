@@ -1,7 +1,7 @@
 'use client';
 
 import { ArrowRight, Search, X } from 'lucide-react';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { filterProducts, heroProducts } from '../catalog-selection';
 import { productHref } from '../product-utils';
 import { Money } from './currency';
@@ -9,10 +9,43 @@ import { ProductLogo } from './product-logo';
 
 export function HeroProductSearch() {
   const [query, setQuery] = useState('');
+  const [animatedPlaceholder, setAnimatedPlaceholder] = useState('Search ');
   const inputRef = useRef<HTMLInputElement>(null);
   const resultsRef = useRef<HTMLDivElement>(null);
   const searching = query.trim().length > 0;
   const matches = searching ? filterProducts(query, 'All') : [];
+
+  useEffect(() => {
+    const prompt = 'Search Canva';
+    const prefixLength = 'Search '.length;
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      setAnimatedPlaceholder(prompt);
+      return;
+    }
+
+    let length = prefixLength;
+    let direction: 1 | -1 = 1;
+    let timer: ReturnType<typeof setTimeout>;
+    const typePrompt = () => {
+      length += direction;
+      setAnimatedPlaceholder(prompt.slice(0, length));
+
+      if (length === prompt.length) {
+        direction = -1;
+        timer = setTimeout(typePrompt, 1500);
+        return;
+      }
+      if (length === prefixLength) {
+        direction = 1;
+        timer = setTimeout(typePrompt, 650);
+        return;
+      }
+      timer = setTimeout(typePrompt, direction > 0 ? 105 : 60);
+    };
+
+    timer = setTimeout(typePrompt, 500);
+    return () => clearTimeout(timer);
+  }, []);
 
   function clearSearch() {
     setQuery('');
@@ -33,7 +66,7 @@ export function HeroProductSearch() {
         value={query}
         onChange={(event) => setQuery(event.target.value)}
         onKeyDown={(event) => { if (event.key === 'Escape') clearSearch(); }}
-        placeholder="Search ChatGPT, Canva, VPN..."
+        placeholder={animatedPlaceholder}
         aria-label="Search products"
         aria-controls="hero-product-results"
         autoComplete="off"

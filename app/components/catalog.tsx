@@ -7,6 +7,7 @@ import { filterProducts } from '../catalog-selection';
 import { isAnnualPlan, productHref, savingsPkr } from '../product-utils';
 import { ProductLogo } from './product-logo';
 import { Money, ProductOriginalPrice } from './currency';
+import { CategoryNavigation } from './category-navigation';
 
 const categories = ['All', ...new Set(products.map((product) => product.category))];
 const categoryColors: Record<string, string> = {
@@ -64,10 +65,7 @@ export function Catalog({ initialQuery = '' }: { initialQuery?: string }) {
           <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search products, categories or features" aria-label="Search catalog" />
           {query && <button type="button" onClick={() => setQuery('')} aria-label="Clear search"><X className="h-4 w-4" /></button>}
         </label>
-        <div className="category-strip" aria-label="Product categories">
-          {categories.map((category) => <button type="button" key={category} onClick={() => setActiveCategory(category)}
-            aria-pressed={activeCategory === category} className={activeCategory === category ? 'active' : ''}>{category}</button>)}
-        </div>
+        <CategoryNavigation categories={categories} activeCategory={activeCategory} onChange={setActiveCategory} />
       </div>
       <div className="product-grid">{filtered.map((product) => <ProductCard key={product.id} product={product} />)}</div>
       {filtered.length === 0 && <div className="empty-state">
