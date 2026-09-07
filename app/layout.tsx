@@ -1,12 +1,12 @@
 import type { Metadata, Viewport } from 'next';
 import { Geist, Plus_Jakarta_Sans } from 'next/font/google';
-import { Analytics } from '@vercel/analytics/react';
 import './globals.css';
 import { siteDescription, siteOrigin, siteTitle } from './site-config';
 import { CurrencyProvider } from './components/currency';
 import { StructuredData } from './components/structured-data';
-import { PerformanceInsights } from './components/performance-insights';
+import { SiteTelemetry } from './components/site-telemetry';
 import { MotionSystem } from './components/motion-system';
+import { AdminShortcut } from './components/admin-shortcut';
 import { organizationData } from './seo';
 
 const geistSans = Geist({
@@ -77,8 +77,8 @@ export default function RootLayout({
         <StructuredData data={organizationData} />
         <CurrencyProvider>{children}</CurrencyProvider>
         <MotionSystem />
-        <Analytics />
-        <PerformanceInsights />
+        <AdminShortcut />
+        <SiteTelemetry />
       </body>
     </html>
   );

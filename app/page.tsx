@@ -272,10 +272,39 @@ function DealProofGallery() {
     window.addEventListener('pointerup', endInteraction, { passive: true });
     window.addEventListener('pointercancel', endInteraction, { passive: true });
 
+    let depthFrame = 0;
+    const updateCardDepth = () => {
+      const trackRect = track.getBoundingClientRect();
+      const viewportCenter = trackRect.left + trackRect.width / 2;
+      const mobile = window.matchMedia('(max-width: 640px)').matches;
+      const depthRange = Math.max(trackRect.width * 0.55, 1);
+
+      track.querySelectorAll<HTMLElement>('.deal-proof-card').forEach((card) => {
+        const cardRect = card.getBoundingClientRect();
+        const cardCenter = cardRect.left + cardRect.width / 2;
+        const offset = Math.max(-1, Math.min(1, (cardCenter - viewportCenter) / depthRange));
+        const distance = Math.abs(offset);
+        card.style.setProperty('--proof-rotate-y', `${offset * (mobile ? -7 : -13)}deg`);
+        card.style.setProperty('--proof-rotate-z', `${offset * (mobile ? 0.8 : 1.8)}deg`);
+        card.style.setProperty('--proof-lift', `${distance * (mobile ? 8 : 16)}px`);
+        card.style.setProperty('--proof-scale', String(1 - distance * (mobile ? 0.035 : 0.075)));
+      });
+    };
+    const queueCardDepth = () => {
+      window.cancelAnimationFrame(depthFrame);
+      depthFrame = window.requestAnimationFrame(updateCardDepth);
+    };
+    track.addEventListener('scroll', queueCardDepth, { passive: true });
+    window.addEventListener('resize', queueCardDepth, { passive: true });
+    queueCardDepth();
+
     const removeInteractionListeners = () => {
       track.removeEventListener('pointerdown', startInteraction);
       window.removeEventListener('pointerup', endInteraction);
       window.removeEventListener('pointercancel', endInteraction);
+      track.removeEventListener('scroll', queueCardDepth);
+      window.removeEventListener('resize', queueCardDepth);
+      window.cancelAnimationFrame(depthFrame);
     };
     const isPaused = () => {
       const focused = document.activeElement as HTMLElement | null;
@@ -362,19 +391,33 @@ function DealProofGallery() {
           </div>
         </div>
 
-        <div className="deal-proofs-toolbar">
-          <span>Successful delivery screenshots</span>
+        <div className="deal-proof-assurance" aria-label="Delivery assurance">
+          <div><BadgeCheck aria-hidden="true" /><span>Delivery confirmations</span></div>
+          <div><ShieldCheck aria-hidden="true" /><span>Private details hidden</span></div>
+          <div><Headphones aria-hidden="true" /><span>After-sales support</span></div>
         </div>
 
-        <div className="deal-proofs-track" ref={trackRef} role="region" aria-label="Successful deliveries carousel" tabIndex={0}>
-          {dealProofs.map((proof, index) => (
-            <figure key={proof.src} className="deal-proof-card">
-              <button type="button" onClick={() => setActiveProof(index)} aria-label="Open delivery screenshot" title="Open full screenshot">
-                <img src={proof.src} alt="Customer delivery confirmation" width={592} height={1052} loading="lazy" decoding="async" />
-                <span className="deal-proof-expand" aria-hidden="true"><Maximize2 className="h-4 w-4" /></span>
-              </button>
-            </figure>
-          ))}
+        <div className="deal-proofs-stage">
+          <div className="deal-proofs-toolbar">
+            <span>Successful delivery screenshots</span>
+          </div>
+
+          <div className="deal-proofs-viewport">
+            <div className="deal-proofs-track" ref={trackRef} role="region" aria-label="Successful deliveries carousel" tabIndex={0}>
+              {dealProofs.map((proof, index) => (
+                <figure key={proof.src} className="deal-proof-card">
+                  <button type="button" onClick={() => setActiveProof(index)} aria-label="Open delivery screenshot" title="Open full screenshot">
+                    <img src={proof.src} alt="Customer delivery confirmation" width={592} height={1052} loading="lazy" decoding="async" />
+                    <span className="deal-proof-expand" aria-hidden="true"><Maximize2 className="h-4 w-4" /></span>
+                  </button>
+                  <figcaption className="deal-proof-status">
+                    <BadgeCheck className="h-4 w-4" aria-hidden="true" />
+                    <span>Successfully delivered</span>
+                  </figcaption>
+                </figure>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
 
@@ -460,10 +503,13 @@ export default function Home() {
         const gap = Number.parseFloat(styles.columnGap || styles.gap || '0');
         const step = firstCard.getBoundingClientRect().width + gap;
         const loopWidth = duplicateStart.offsetLeft - track.offsetLeft;
-        if (loopWidth > 0 && track.scrollLeft >= loopWidth - step * 0.25) track.scrollLeft -= loopWidth;
-        track.scrollBy({ left: step, behavior: 'smooth' });
+        if (loopWidth <= 0 || step <= 0) return;
+        if (track.scrollLeft >= loopWidth - step * 0.25) track.scrollLeft -= loopWidth;
+        const currentIndex = Math.round(track.scrollLeft / step);
+        const nextIndex = currentIndex + 1;
+        track.scrollTo({ left: nextIndex * step, behavior: 'smooth' });
       };
-      const timer = window.setInterval(autoAdvance, 2600);
+      const timer = window.setInterval(autoAdvance, 1000);
       return () => {
         window.clearInterval(timer);
         removeInteractionListeners();

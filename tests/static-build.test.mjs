@@ -55,12 +55,12 @@ test('inventory includes category navigation arrows and selected category state'
 
 test('Vercel Analytics is bundled and included once on every exported page', async () => {
   const manifest = JSON.parse(await read('.vite/manifest.json'));
-  const analytics = manifest['node_modules/@vercel/analytics/dist/react/index.mjs'];
+  const analytics = manifest['app/components/site-telemetry.tsx'];
   assert.ok(analytics?.file, 'Analytics client bundle missing');
   assert.match(await read(analytics.file), /\/_vercel\/insights\/script\.js/);
   for (const file of canonicalPages) {
     const payload = await read(`${file}.rsc`);
-    const references = [...payload.matchAll(/^([^:]+):I\[[^\n]*"Analytics"[^\n]*\]$/gm)];
+    const references = [...payload.matchAll(/^([^:]+):I\[[^\n]*"SiteTelemetry"[^\n]*\]$/gm)];
     assert.equal(references.length, 1, `Analytics reference missing or duplicated: ${file}`);
     const reference = references[0][1];
     assert.equal(payload.split(`"$L${reference}"`).length - 1, 1, `Analytics mount missing or duplicated: ${file}`);
@@ -69,12 +69,12 @@ test('Vercel Analytics is bundled and included once on every exported page', asy
 
 test('Speed Insights is bundled and mounted once on every canonical page', async () => {
   const manifest = JSON.parse(await read('.vite/manifest.json'));
-  const insights = manifest['app/components/performance-insights.tsx'];
+  const insights = manifest['app/components/site-telemetry.tsx'];
   assert.ok(insights?.file, 'Speed Insights client bundle missing');
   assert.match(await read(insights.file), /\/_vercel\/speed-insights\/script\.js/);
   for (const file of canonicalPages) {
     const payload = await read(`${file}.rsc`);
-    const references = [...payload.matchAll(/^([^:]+):I\[[^\n]*"PerformanceInsights"[^\n]*\]$/gm)];
+    const references = [...payload.matchAll(/^([^:]+):I\[[^\n]*"SiteTelemetry"[^\n]*\]$/gm)];
     assert.equal(references.length, 1, `Speed Insights reference missing or duplicated: ${file}`);
     assert.equal(payload.split(`"$L${references[0][1]}"`).length - 1, 1, `Speed Insights mount missing or duplicated: ${file}`);
   }

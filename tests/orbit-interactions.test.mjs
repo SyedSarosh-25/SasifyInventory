@@ -40,7 +40,12 @@ test('beam shares the orbit pivot and radius and cannot block product links', ()
   assert.equal(beam.left, '0');
   assert.equal(beam.width, 'var(--orbit-radius)');
   assert.equal(beam['pointer-events'], 'none');
-  assert.equal(beam.opacity, '0');
+  assert.equal(beam.opacity, '0.42');
+  const movingBeam = declarations('.orbit-tool::after');
+  assert.equal(movingBeam.left, '0');
+  assert.equal(movingBeam.width, '13cqw');
+  assert.equal(movingBeam['pointer-events'], 'none');
+  assert.match(movingBeam.animation, /orbit-beam/);
   assert.ok(Number(declarations('.center-logo')['z-index']) > Number(orbit['z-index']));
 });
 
@@ -51,5 +56,6 @@ test('only the hovered or keyboard-focused tool lights up and scales its inner b
   assert.equal(declarations('.orbit-tool:has(.orbit-content:focus-visible)::before').opacity, '1');
   assert.equal(declarations('.orbit-content:focus-visible > span').transform, 'scale(1.12)');
   assert.equal(declarations('.orbit-content:hover', hover).transform, undefined);
-  assert.equal(declarations('.orbit-tool::before, .orbit-content > span', '(prefers-reduced-motion: reduce)').transition, 'none');
+  assert.equal(declarations('.orbit-tool::before, .orbit-tool::after, .orbit-content > span', '(prefers-reduced-motion: reduce)').transition, 'none');
+  assert.equal(declarations('.orbit-tool::after', '(prefers-reduced-motion: reduce)').animation, 'none');
 });

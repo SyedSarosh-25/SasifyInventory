@@ -21,7 +21,7 @@ export const products: Product[] = [
     "name": "ChatGPT Plus",
     "duration": "1 Month",
     "vendor": "Sasify Solutions",
-    "sellingPricePkr": 3499,
+    "sellingPricePkr": 3250,
     "originalPrice": "PKR 5,700/month",
     "originalPricePkr": 5700,
     "sourceUrl": "https://openai.com/chatgpt/pricing/",
@@ -46,7 +46,7 @@ export const products: Product[] = [
     "name": "Codex Single Person",
     "duration": "1 Month",
     "vendor": "Sasify Solutions",
-    "sellingPricePkr": 1499,
+    "sellingPricePkr": 1999,
     "originalPrice": "Included with eligible ChatGPT plans",
     "sourceUrl": "https://openai.com/codex/",
     "description": "Single-person Codex access for AI-assisted coding, debugging, code review and software-development workflows."

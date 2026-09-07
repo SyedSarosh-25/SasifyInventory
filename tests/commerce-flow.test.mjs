@@ -1,0 +1,82 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
+import { randomBytes } from 'node:crypto';
+import { PGlite } from '@electric-sql/pglite';
+import pg from 'pg';
+import { createHandler } from '../commerce/handler.mjs';
+import { hash, signature } from '../commerce/core.mjs';
+
+test('checkout, signed payment delivery, duplicate prevention and recovery authorization',async()=>{
+  const remote = process.env.COMMERCE_TEST_POSTGRES === '1';
+  const schema = `commerce_test_${randomBytes(8).toString('hex')}`;
+  const remoteUrl = process.env.DATABASE_URL_UNPOOLED || process.env.DATABASE_URL;
+  const setup = remote ? new pg.Client({connectionString:remoteUrl}) : null;
+  if(setup){await setup.connect();await setup.query(`CREATE SCHEMA ${schema}`);}
+  const remotePool = remote ? new pg.Pool({connectionString:remoteUrl,options:`-c search_path=${schema}`,max:5}) : null;
+  const database = remote ? {query:(...args)=>remotePool.query(...args),exec:(sql)=>remotePool.query(sql),close:()=>remotePool.end()} : new PGlite();
+  await database.exec(await readFile(new URL('../commerce/schema.sql',import.meta.url),'utf8'));
+  const env = {DATABASE_URL:'test',COMMERCE_ENCRYPTION_KEY:randomBytes(32).toString('hex'),COMMERCE_ADMIN_KEY:randomBytes(32).toString('hex'),COMMERCE_ADMIN_EMAIL:'admin@test.invalid',COMMERCE_ADMIN_PASSWORD_HASH:hash('test-password'),PAYMENT_ACCOUNT_TITLE:'Syed Adeen Sarosh',NAYAPAY_WEBHOOK_SECRET:'test-secret',NAYAPAY_SIGNING_KEY:randomBytes(32).toString('hex'),NAYAPAY_AUTO_VERIFY:'true',NAYAPAY_SENDER:'service@nayapay.com',NAYAPAY_RECEIVER_MARKER:'Syed Adeen Sarosh'};
+  Object.assign(process.env,env);
+  // Serialize connections as PGlite is single-process; SQL transactions still execute in PostgreSQL.
+  let tail=Promise.resolve();
+  const handler=createHandler(()=>remotePool || ({async connect(){const previous=tail;let release;tail=new Promise((r)=>{release=r;});await previous;return {async query(sql,args){const r=await database.query(sql,args);return {...r,rowCount:r.affectedRows ?? r.rows.length};},release};}}));
+  async function request(action,body,token='',id='',cookie=''){
+    let result;
+    const req={method:body?'POST':'GET',query:{action,id},url:'/api/commerce',headers:{authorization:token?'Bearer '+token:'',cookie},body,socket:{remoteAddress:randomBytes(4).toString('hex')}};
+    const res={statusCode:200,setHeader(){},end(text){result={code:this.statusCode,data:JSON.parse(text)};}};
+    await handler(req,res);return result;
+  }
+  try{
+    assert.equal((await request('admin-login',{email:env.COMMERCE_ADMIN_EMAIL,password:'wrong'})).code,401);
+    const login=await request('admin-login',{email:env.COMMERCE_ADMIN_EMAIL,password:'test-password'});assert.equal(login.code,200,JSON.stringify(login));
+    assert.equal((await request('admin-list',undefined,login.data.token)).code,200);
+    assert.equal((await request('admin-import',{productId:'p093',accounts:'a@test.invalid|test-pass|test-2fa'},'wrong')).code,401);
+    const imported=await request('admin-import',{productId:'p093',accounts:'a@test.invalid|test-pass|test-2fa',purchaseCost:1000},env.COMMERCE_ADMIN_KEY);assert.equal(imported.code,200,JSON.stringify(imported));
+    assert.equal((await request('stock')).data.products[0].available,1);
+    const orders=await Promise.all([request('create',{productId:'p093'}),request('create',{productId:'p093'})]);
+    assert.deepEqual(orders.map((r)=>r.code).sort(),[200,409]);
+    const order=orders.find((r)=>r.code===200).data;
+    assert.equal((await request('status',undefined,'wrong',order.id)).code,404);
+    assert.equal((await request('status',undefined,order.recovery,order.id)).data.credentials,undefined);
+    const claim=await request('claim',{id:order.id,transactionId:'247854'},order.recovery);assert.equal(claim.code,200,JSON.stringify(claim));
+    const payload={subject:'You got Rs. 3,250 from Bank Alfalah-0388 🎉',text:'Amount Received\nRs. 3,250\nTransaction ID\n247854\nSource Acc. Number\n****0388\nDestination Acc. Title\nSyed Adeen Sarosh',from:'NayaPay <service@nayapay.com>',date:new Date().toISOString(),sentAt:String(Date.now()),messageId:'integration-test',secret:env.NAYAPAY_WEBHOOK_SECRET};
+    payload.signature=signature(payload,env.NAYAPAY_SIGNING_KEY);
+    const delivered=await request('email-webhook',payload);assert.equal(delivered.code,200,JSON.stringify(delivered));
+    const status=await request('status',undefined,order.recovery,order.id);assert.equal(status.data.status,'delivered',JSON.stringify(status));assert.equal(status.data.credentials.password,'test-pass');
+    const financials=await request('admin-list',undefined,env.COMMERCE_ADMIN_KEY);
+    assert.equal(financials.data.metrics.income,3250);assert.equal(financials.data.metrics.cost,1000);assert.equal(financials.data.metrics.profit,2250);
+    assert.equal((await request('email-webhook',payload)).data.status,'duplicate');
+    assert.equal((await database.query("SELECT count(*)::int AS n FROM commerce_inventory WHERE state='delivered'")).rows[0].n,1);
+    assert.equal((await request('create',{productId:'p093'})).code,409);
+    await request('admin-import',{productId:'p093',accounts:'b@test.invalid|test-pass-2|test-2fa'},env.COMMERCE_ADMIN_KEY);
+    const second=(await request('create',{productId:'p093'})).data;
+    await request('claim',{id:second.id,transactionId:'727274'},second.recovery);
+    await database.query("UPDATE commerce_orders SET created_at=now()-interval '5 minutes',expires_at=now()-interval '1 minute' WHERE id=$1",[second.id]);
+    const differentIds={subject:'You got Rs. 3,250 from Test Sender 🎉',text:'Amount Received\nRs. 3,250\nTransaction ID\n311274\nSource Acc. Number\n****5711\nDestination Acc. Title\nSyed Adeen Sarosh',from:'NayaPay <service@nayapay.com>',date:new Date(Date.now()-120000).toISOString(),sentAt:String(Date.now()),messageId:'different-sender-id',secret:env.NAYAPAY_WEBHOOK_SECRET};
+    differentIds.signature=signature(differentIds,env.NAYAPAY_SIGNING_KEY);
+    assert.equal((await request('email-webhook',differentIds)).code,200);
+    const secondStatus=await request('status',undefined,second.recovery,second.id);
+    assert.equal(secondStatus.data.status,'delivered',JSON.stringify(secondStatus));
+    assert.equal(secondStatus.data.credentials.password,'test-pass-2');
+    await request('admin-import',{productId:'p093',accounts:'c@test.invalid|test-pass-3|test-2fa'},env.COMMERCE_ADMIN_KEY);
+    const third=(await request('create',{productId:'p093'})).data;
+    await request('claim',{id:third.id,transactionId:'247854'},third.recovery);
+    assert.equal((await request('status',undefined,third.recovery,third.id)).data.status,'review');
+    const p=(await database.query('SELECT id FROM commerce_payments WHERE transaction_id=$1',['247854'])).rows[0];
+    assert.equal((await request('admin-approve',{orderId:third.id,paymentId:p.id,confirmed:true},env.COMMERCE_ADMIN_KEY)).code,409);
+    await database.query("UPDATE commerce_orders SET expires_at=now()-interval '1 second' WHERE id=$1",[third.id]);
+    await request('stock');
+    assert.equal((await request('status',undefined,third.recovery,third.id)).data.status,'expired');
+    assert.equal((await database.query('SELECT state FROM commerce_inventory i JOIN commerce_orders o ON o.inventory_id=i.id WHERE o.id=$1',[third.id])).rows[0].state,'available');
+    await request('admin-import',{productId:'p093',accounts:'crud@test.invalid|old-pass|old-2fa',purchaseCost:700},env.COMMERCE_ADMIN_KEY);
+    let dashboard=await request('admin-list',undefined,env.COMMERCE_ADMIN_KEY);
+    const crud=dashboard.data.inventory.find((item)=>item.email==='crud@test.invalid');assert.ok(crud);
+    assert.equal((await request('admin-inventory-update',{inventoryId:crud.id,purchaseCost:800,state:'quarantined',email:'crud-new@test.invalid',password:'new-pass',twoFactor:'new-2fa'},env.COMMERCE_ADMIN_KEY)).code,200);
+    dashboard=await request('admin-list',undefined,env.COMMERCE_ADMIN_KEY);
+    assert.equal(dashboard.data.inventory.find((item)=>item.id===crud.id).email,'crud-new@test.invalid');
+    assert.equal((await request('admin-inventory-delete',{inventoryId:crud.id,confirmed:true},env.COMMERCE_ADMIN_KEY)).code,200);
+    dashboard=await request('admin-list',undefined,env.COMMERCE_ADMIN_KEY);
+    assert.equal(dashboard.data.inventory.some((item)=>item.id===crud.id),false);
+  } finally { await database.close();if(setup){await setup.query(`DROP SCHEMA ${schema} CASCADE`);await setup.end();} }
+});

@@ -37,7 +37,7 @@ test('25-day warranty is scoped to 30-day and one-month products', () => {
 });
 
 test('savings subtract our price from the listed original with the fixed USD rate', () => {
-  assert.equal(savingsPkr(products.find((p) => p.id === 'p093')), 2201);
+  assert.equal(savingsPkr(products.find((p) => p.id === 'p093')), 2450);
   assert.equal(savingsPkr(products.find((p) => p.id === 'p013')), 2126);
   assert.equal(savingsPkr(products.find((p) => p.id === 'p094')), 4701);
   assert.equal(savingsPkr(products.find((p) => p.id === 'p012')), 10626);
@@ -170,5 +170,5 @@ test('access labels distinguish shared, team, invite, personal and credit packag
   assert.equal(accessTypeLabel(products.find((p) => p.id === 'p013')), 'Team seat or team access');
   assert.equal(accessTypeLabel(products.find((p) => p.id === 'p096')), 'Invite-based access');
   assert.equal(accessTypeLabel(products.find((p) => p.id === 'p095')), 'Single-person access');
-  assert.equal(accessTypeLabel(products.find((p) => p.id === 'p088')), 'Credit allocation');
+  assert.equal(accessTypeLabel(products.find((p) => p.id === 'p088')), 'Plan access - confirm account arrangement');
 });

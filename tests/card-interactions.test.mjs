@@ -61,13 +61,21 @@ test('delivery proofs render in a swipeable carousel with a full-size dialog', (
   assert.doesNotMatch(page, /aria-label="Previous delivery proof"/);
   assert.doesNotMatch(page, /aria-label="Next delivery proof"/);
   assert.match(page, /aria-label="Successful deliveries carousel"/);
+  assert.match(page, /Delivery confirmations/);
+  assert.doesNotMatch(page, /<strong>21<\/strong>/);
+  assert.match(page, /Private details hidden/);
+  assert.match(page, /After-sales support/);
   assert.match(page, /<dialog/);
   assert.match(page, /dialog\.showModal\(\)/);
   assert.match(page, /isInteractingRef/);
   assert.match(page, /pointerdown/);
+  assert.match(page, /--proof-rotate-y/);
+  assert.match(page, /--proof-rotate-z/);
+  assert.match(page, /const updateCardDepth/);
   assert.doesNotMatch(page, /delivery proofs<\/span>/);
   assert.doesNotMatch(page, /Successful delivery proof/);
-  assert.doesNotMatch(page, /Successfully delivered/);
+  assert.match(page, /Successfully delivered/);
+  assert.doesNotMatch(page, /Successfully delivered\s*\{?index/);
   assert.doesNotMatch(page, /deal-proof-preview-count/);
 
   let desktopCard;
@@ -95,7 +103,9 @@ test('mobile carousels support native touch scrolling and resume after interacti
   assert.match(page, /reviewInteractingRef/);
   assert.match(page, /pointercancel/);
   assert.match(page, /matches\(':focus-visible'\)/);
-  assert.equal((page.match(/setInterval\(autoAdvance, 2600\)/g) || []).length, 2);
+  assert.equal((page.match(/setInterval\(autoAdvance, 1000\)/g) || []).length, 1);
+  assert.equal((page.match(/setInterval\(autoAdvance, 2600\)/g) || []).length, 1);
+  assert.match(page, /track\.scrollTo\(\{ left: nextIndex \* step, behavior: 'smooth' \}\)/);
   assert.equal((page.match(/track\.scrollLeft -= loopWidth/g) || []).length, 3);
   assert.match(page, /const maxPosition = track\.scrollWidth - track\.clientWidth/);
 
