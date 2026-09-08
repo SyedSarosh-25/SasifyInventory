@@ -4,6 +4,7 @@ import { hash, same, signature, encrypt, decrypt, parseEmail, parseInventory, no
 import { createSupplierOrder, fetchSupplierProducts, supplierDelivery, supplierOrderId } from './supplier.mjs';
 import { createQamifyOrder, fetchQamifyBalance, fetchQamifyProducts, normalizeQamifyProduct, qamifyDelivery, qamifyOrderId } from './qamify.mjs';
 import { createMkeOrder, fetchMkeBalance, fetchMkeProducts, mkeDelivery, mkeOrderId, normalizeMkeProduct } from './mke.mjs';
+import { createPiggyAiOrder, fetchPiggyAiBalance, fetchPiggyAiProducts, normalizePiggyAiProduct, piggyAiDelivery, piggyAiOrderId } from './piggyai.mjs';
 import catalog from './catalog.json' with { type: 'json' };
 
 const fail = (status, message) => Object.assign(new Error(message), { status });
@@ -51,6 +52,13 @@ function supplierProviders() {
       async catalog() {
         const [products, state] = await Promise.all([fetchMkeProducts(), fetchMkeBalance()]);
         return { ...state, products: products.map((product) => normalizeMkeProduct(product, state.currency)).filter(Boolean) };
+      },
+    },
+    {
+      id: 'piggyai', name: 'PiggyAi', configured: !!process.env.PIGGYAI_API_KEY,
+      async catalog() {
+        const [products, state] = await Promise.all([fetchPiggyAiProducts(), fetchPiggyAiBalance()]);
+        return { ...state, products: products.map((product) => normalizePiggyAiProduct(product, state.currency)).filter(Boolean) };
       },
     },
   ];
@@ -125,6 +133,11 @@ async function placeSupplierOrder(product, order) {
     if (!/^\d+$/.test(String(product.external_product_id || ''))) throw fail(503, 'MKE Shop product ID is invalid.');
     const result = await createMkeOrder({ productId: Number(product.external_product_id), idempotencyKey: `sasify-${order.id}-${product.external_product_id}` });
     return { delivery: mkeDelivery(result), supplierId: mkeOrderId(result, order.id) };
+  }
+  if (product.provider_id === 'piggyai') {
+    if (!String(product.external_product_id || '').trim()) throw fail(503, 'PiggyAi product ID is invalid.');
+    const result = await createPiggyAiOrder({ productId: product.external_product_id, idempotencyKey: `sasify-${order.id}-${product.external_product_id}` });
+    return { delivery: piggyAiDelivery(result), supplierId: piggyAiOrderId(result, order.id) };
   }
   if (['dodi','dody'].includes(product.provider_id)) {
     const result = await createSupplierOrder({ productId: product.external_product_id || product.id, externalOrderId: order.id });

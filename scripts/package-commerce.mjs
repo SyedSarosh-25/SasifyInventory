@@ -17,7 +17,7 @@ for (const entry of await readdir(path.join(root, 'out'), { withFileTypes: true 
   if (entry.name.startsWith('.') || entry.name === 'vercel.json') continue;
   await cp(path.join(root, 'out', entry.name), path.join(staticDir, entry.name), { recursive: true });
 }
-for (const name of ['handler.mjs','core.mjs','supplier.mjs','qamify.mjs','mke.mjs']) await cp(path.join(root,'commerce',name),path.join(func,name));
+for (const name of ['handler.mjs','core.mjs','supplier.mjs','qamify.mjs','mke.mjs','piggyai.mjs']) await cp(path.join(root,'commerce',name),path.join(func,name));
 const catalog = products.filter((p) => p.id === 'p093').map((p) => ({ id:p.id,name:p.name,price:p.sellingPricePkr }));
 await writeFile(path.join(root,'commerce/catalog.json'),JSON.stringify(catalog));
 await writeFile(path.join(func,'catalog.json'),JSON.stringify(catalog));
