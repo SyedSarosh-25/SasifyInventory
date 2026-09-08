@@ -637,7 +637,8 @@ svg { flex-shrink: 0; }
   min-width: 0;
   min-height: 164px;
   padding: 16px;
-  border: 0;
+  border: none;
+  outline: none;
   border-radius: 18px;
   background: #fff;
   box-shadow: none;
