@@ -637,10 +637,10 @@ svg { flex-shrink: 0; }
   min-width: 0;
   min-height: 164px;
   padding: 16px;
-  border: 1px solid #dbe3f3;
+  border: 2px solid #b7c9e8;
   border-radius: 8px;
   background: #fff;
-  box-shadow: 0 7px 18px rgba(39, 54, 104, 0.06);
+  box-shadow: 0 7px 18px rgba(39, 54, 104, 0.08), 0 0 0 2px rgba(40, 92, 255, 0.08);
 }
 .featured-logo {
   position: relative;
