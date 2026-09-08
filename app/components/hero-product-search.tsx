@@ -7,13 +7,22 @@ import { productHref } from '../product-utils';
 import { Money } from './currency';
 import { ProductLogo } from './product-logo';
 
+type LiveSupplierResult = { id:string; name:string; description?:string; price:number; available:number };
+
+function supplierLogo(product: LiveSupplierResult) {
+  if (/telegram/i.test(product.name)) return 'https://www.google.com/s2/favicons?domain_url=https%3A%2F%2Ftelegram.org&sz=128';
+  return '';
+}
+
 export function HeroProductSearch() {
   const [query, setQuery] = useState('');
   const [animatedPlaceholder, setAnimatedPlaceholder] = useState('Search ');
+  const [supplierProducts, setSupplierProducts] = useState<LiveSupplierResult[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
   const resultsRef = useRef<HTMLDivElement>(null);
   const searching = query.trim().length > 0;
   const matches = searching ? filterProducts(query, 'All') : [];
+  const supplierMatches = searching ? supplierProducts.filter((product) => `${product.name} ${product.description || ''}`.toLowerCase().includes(query.trim().toLowerCase())) : [];
 
   useEffect(() => {
     const prompt = 'Search Canva';
@@ -47,6 +56,8 @@ export function HeroProductSearch() {
     return () => clearTimeout(timer);
   }, []);
 
+  useEffect(() => { let active = true; fetch('/api/commerce?action=stock',{cache:'no-store'}).then((response) => response.ok ? response.json() : Promise.reject()).then((data:any) => { if (active) setSupplierProducts((data.products || []).filter((product:LiveSupplierResult & {source?:string}) => product.source === 'supplier' && product.available > 0)); }).catch(() => {}); return () => { active = false; }; }, []);
+
   function clearSearch() {
     setQuery('');
     inputRef.current?.focus();
@@ -76,16 +87,24 @@ export function HeroProductSearch() {
     </form>
 
     <p className="hero-discovery-label" role="status" aria-live="polite" aria-atomic="true">
-      {searching ? `${matches.length} ${matches.length === 1 ? 'product' : 'products'} found` : 'Top selling products'}
+      {searching ? `${matches.length + supplierMatches.length} ${matches.length + supplierMatches.length === 1 ? 'product' : 'products'} found` : 'Top selling products'}
     </p>
     <div id="hero-product-results" ref={resultsRef} tabIndex={-1} aria-label={searching ? 'Matching products' : 'Top selling products'}>
       {searching ? <div className="hero-search-results">
-        {matches.length > 0 ? <ul>
+        {matches.length + supplierMatches.length > 0 ? <ul>
           {matches.map((product) => <li key={product.id}>
             <a href={productHref(product)} className="hero-search-result">
               <span className="hero-mini-logo"><ProductLogo product={product} /></span>
               <span className="hero-result-copy"><strong>{product.name}</strong><small>{product.duration}</small></span>
               <strong className="hero-result-price"><Money amount={product.sellingPricePkr} /></strong>
+              <ArrowRight className="h-4 w-4 hero-result-arrow" aria-hidden="true" />
+              </a>
+            </li>)}
+          {supplierMatches.map((product) => <li key={product.id}>
+            <a href={`/supplier-product?product=${encodeURIComponent(product.id)}`} className="hero-search-result">
+              <span className="hero-mini-logo">{supplierLogo(product) ? <img src={supplierLogo(product)} alt="" /> : '⚡'}</span>
+              <span className="hero-result-copy"><strong>{product.name}</strong><small>Instant delivery</small></span>
+              <strong className="hero-result-price">PKR {Number(product.price).toLocaleString('en-PK')}</strong>
               <ArrowRight className="h-4 w-4 hero-result-arrow" aria-hidden="true" />
             </a>
           </li>)}

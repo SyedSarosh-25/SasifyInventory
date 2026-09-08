@@ -345,6 +345,7 @@ svg { flex-shrink: 0; }
 .hero-top-products a:hover { border-color: var(--blue); color: var(--blue); }
 .hero-mini-logo { position: relative; display: grid; place-items: center; width: 28px; height: 28px; flex: 0 0 auto; }
 .hero-mini-logo .product-logo { width: 24px; height: 24px; }
+.hero-mini-logo img { width: 24px; height: 24px; border-radius: 7px; }
 .hero-mini-logo .product-monogram { font-size: 0.65rem; color: var(--blue); }
 .hero-search-results { max-height: 340px; max-height: min(340px, 55svh); overflow-y: auto; overscroll-behavior: contain; scroll-padding-block: 5px; border: 1px solid var(--line); border-radius: 8px; background: #fff; }
 .hero-search-results ul { margin: 0; padding: 4px; list-style: none; }
