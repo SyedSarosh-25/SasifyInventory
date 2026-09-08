@@ -2,12 +2,12 @@
 
 import { ArrowRight, Search, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
-import { filterProducts, heroProducts } from '../catalog-selection';
+import { filterProducts, heroProducts, normalizeSearchText } from '../catalog-selection';
 import { productHref } from '../product-utils';
 import { Money } from './currency';
 import { ProductLogo } from './product-logo';
 
-type LiveSupplierResult = { id:string; name:string; description?:string; price:number; available:number };
+type LiveSupplierResult = { id:string; name:string; description?:string; price:number; available:number; provider_name?:string };
 
 function supplierLogo(product: LiveSupplierResult) {
   if (/telegram/i.test(product.name)) return 'https://www.google.com/s2/favicons?domain_url=https%3A%2F%2Ftelegram.org&sz=128';
@@ -22,7 +22,7 @@ export function HeroProductSearch() {
   const resultsRef = useRef<HTMLDivElement>(null);
   const searching = query.trim().length > 0;
   const matches = searching ? filterProducts(query, 'All') : [];
-  const supplierMatches = searching ? supplierProducts.filter((product) => `${product.name} ${product.description || ''}`.toLowerCase().includes(query.trim().toLowerCase())) : [];
+  const supplierMatches = searching ? supplierProducts.filter((product) => normalizeSearchText(`${product.name} ${product.id} ${product.provider_name || ''}`).includes(normalizeSearchText(query))) : [];
 
   useEffect(() => {
     const prompt = 'Search Canva';
@@ -56,7 +56,7 @@ export function HeroProductSearch() {
     return () => clearTimeout(timer);
   }, []);
 
-  useEffect(() => { let active = true; fetch('/api/commerce?action=stock',{cache:'no-store'}).then((response) => response.ok ? response.json() : Promise.reject()).then((data:any) => { if (active) setSupplierProducts((data.products || []).filter((product:LiveSupplierResult & {source?:string}) => product.source === 'supplier' && product.available > 0)); }).catch(() => {}); return () => { active = false; }; }, []);
+  useEffect(() => { let active = true; fetch('/api/commerce?action=stock',{cache:'no-store'}).then((response) => response.ok ? response.json() : Promise.reject()).then((data:any) => { if (active) setSupplierProducts((data.products || []).filter((product:LiveSupplierResult & {source?:string}) => product.source === 'supplier')); }).catch(() => {}); return () => { active = false; }; }, []);
 
   function clearSearch() {
     setQuery('');

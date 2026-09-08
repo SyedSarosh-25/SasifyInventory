@@ -22,8 +22,12 @@ export const orbitTools = [
   return { ...tool, product };
 });
 
+export function normalizeSearchText(value: string) {
+  return value.toLowerCase().replace(/[^a-z0-9]+/g, '');
+}
+
 export function filterProducts(query: string, category: string) {
-  const needle = query.trim().toLowerCase();
+  const needle = normalizeSearchText(query.trim());
   return products.filter((product) => (category === 'All' || product.category === category)
-    && (!needle || [product.name, product.category, product.duration, product.description].join(' ').toLowerCase().includes(needle)));
+    && (!needle || normalizeSearchText([product.name, product.slug, product.category, product.duration].join(' ')).includes(needle)));
 }
