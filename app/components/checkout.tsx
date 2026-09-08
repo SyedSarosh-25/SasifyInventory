@@ -120,7 +120,7 @@ function SupplierProductRow({ item, busy, save }: { item:any; busy:boolean; save
 export function CommerceAdmin() {
   const [key,setKey] = useState(''), [email,setEmail] = useState(''), [password,setPassword] = useState(''), [data,setData] = useState<any>(null), [error,setError] = useState(''), [notice,setNotice] = useState('');
   const [accounts,setAccounts] = useState(''), [productId,setProduct] = useState('p093'), [purchaseCost,setPurchaseCost] = useState('2000'), [orderId,setOrderId] = useState(''), [paymentId,setPaymentId] = useState(''), [confirmed,setConfirmed] = useState(false), [busy,setBusy] = useState(false), [receipt,setReceipt] = useState<any>(null);
-  const [tab,setTab] = useState<'overview'|'inventory'|'supplier'|'orders'|'payments'>('overview'), [inventorySearch,setInventorySearch] = useState(''), [supplierProvider,setSupplierProvider] = useState<'all'|'dodi'|'qamify'>('all'), [editing,setEditing] = useState<any>(null), [picked,setPicked] = useState<{ inventoryId:string; credentials:AccountCredentials } | null>(null), [checkingSession,setCheckingSession] = useState(true);
+  const [tab,setTab] = useState<'overview'|'inventory'|'supplier'|'orders'|'payments'>('overview'), [inventorySearch,setInventorySearch] = useState(''), [supplierSearch,setSupplierSearch] = useState(''), [supplierProvider,setSupplierProvider] = useState<'all'|'dodi'|'qamify'>('all'), [editing,setEditing] = useState<any>(null), [picked,setPicked] = useState<{ inventoryId:string; credentials:AccountCredentials } | null>(null), [checkingSession,setCheckingSession] = useState(true);
   const [editCost,setEditCost] = useState('0'), [editState,setEditState] = useState('available'), [editEmail,setEditEmail] = useState(''), [editPassword,setEditPassword] = useState(''), [editTwoFactor,setEditTwoFactor] = useState('');
   useEffect(()=>{let active=true;void api('admin-list').then((dashboard)=>{if(active)setData(dashboard);}).catch(()=>{}).finally(()=>{if(active)setCheckingSession(false);});return()=>{active=false;};},[]);
   async function run(fn: () => Promise<void>) { setBusy(true); setError(''); try { await fn(); } catch(e) { const problem=e as Error&{status?:number};if(problem.status===401){setData(null);setKey('');setPicked(null);setReceipt(null);}setError(problem.message); } finally { setBusy(false); } }
@@ -130,7 +130,7 @@ export function CommerceAdmin() {
   const money=(value:any)=>`PKR ${Number(value || 0).toLocaleString()}`;
   const available=Number(data?.stock?.find((row:any)=>row.state==='available')?.count || 0);
   const filteredInventory=(data?.inventory || []).filter((item:any)=>`${item.email} ${item.state}`.toLowerCase().includes(inventorySearch.toLowerCase()));
-  const supplierProducts=(data?.supplierProducts || []).filter((item:any)=>supplierProvider==='all' || (item.provider_id==='dody'?'dodi':item.provider_id)===supplierProvider);
+  const supplierProducts=(data?.supplierProducts || []).filter((item:any)=>{const provider=(item.provider_id==='dody'?'dodi':item.provider_id);const query=supplierSearch.trim().toLowerCase();return (supplierProvider==='all' || provider===supplierProvider) && (!query || `${item.name} ${item.external_product_id || ''} ${item.canonical_key || ''}`.toLowerCase().includes(query));});
   const supplierCount=(provider:'all'|'dodi'|'qamify')=>provider==='all'?(data?.supplierProducts || []).length:(data?.supplierProducts || []).filter((item:any)=>(item.provider_id==='dody'?'dodi':item.provider_id)===provider).length;
   const beginEdit=(item:any)=>{setEditing(item);setEditCost(String(item.purchaseCost));setEditState(item.state);setEditEmail('');setEditPassword('');setEditTwoFactor('');};
   const copyCredential=async(value:string)=>{try{await navigator.clipboard.writeText(value);setNotice('Credential copied.');}catch{setNotice('Select the credential and copy it.');}};
@@ -142,6 +142,7 @@ export function CommerceAdmin() {
     <nav className="admin-tabs" aria-label="Admin sections">{[
       ['overview','Overview',LayoutDashboard],['inventory','Inventory',Package],['supplier','Supplier Store',ShoppingCart],['orders','Orders',ClipboardList],['payments','Payments',WalletCards]
     ].map(([value,label,Icon]:any)=><button key={value} className={tab===value?'active':''} onClick={()=>setTab(value)}><Icon size={18}/>{label}</button>)}</nav>
+    {tab==='supplier'&&<label className="admin-search supplier-search"><Search size={17}/><input aria-label="Search supplier products" placeholder="Search supplier products" value={supplierSearch} onChange={(e)=>setSupplierSearch(e.target.value)}/>{supplierSearch&&<button type="button" title="Clear supplier search" aria-label="Clear supplier search" onClick={()=>setSupplierSearch('')}>×</button>}</label>}
 
     {tab==='overview'&&<div className="admin-workspace"><section className="metric-grid">
       <article><span>Total income</span><strong>{money(data.metrics.income)}</strong><small>{data.metrics.delivered_orders} delivered orders</small></article>
