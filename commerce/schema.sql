@@ -1,9 +1,11 @@
 CREATE TABLE IF NOT EXISTS commerce_inventory (
  id uuid PRIMARY KEY, product_id text NOT NULL, email_hash text NOT NULL UNIQUE,
  credentials text NOT NULL, purchase_cost integer NOT NULL DEFAULT 0 CHECK(purchase_cost>=0), state text NOT NULL DEFAULT 'available'
- CHECK (state IN ('available','reserved','delivered','quarantined')), created_at timestamptz NOT NULL DEFAULT now()
+ CHECK (state IN ('available','reserved','delivered','quarantined','withdrawn')), created_at timestamptz NOT NULL DEFAULT now()
 );
 ALTER TABLE commerce_inventory ADD COLUMN IF NOT EXISTS purchase_cost integer NOT NULL DEFAULT 0 CHECK(purchase_cost>=0);
+ALTER TABLE commerce_inventory DROP CONSTRAINT IF EXISTS commerce_inventory_state_check;
+ALTER TABLE commerce_inventory ADD CONSTRAINT commerce_inventory_state_check CHECK (state IN ('available','reserved','delivered','quarantined','withdrawn'));
 CREATE TABLE IF NOT EXISTS commerce_orders (
  id uuid PRIMARY KEY, product_id text NOT NULL, amount integer NOT NULL CHECK(amount>0),
  recovery_hash text NOT NULL, session_hash text NOT NULL, inventory_id uuid REFERENCES commerce_inventory(id),

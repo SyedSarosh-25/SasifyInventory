@@ -343,6 +343,16 @@ return async function handler(req, res) {
       for (const row of rows) await db.query('INSERT INTO commerce_inventory(id,product_id,email_hash,credentials,purchase_cost) VALUES($1,$2,$3,$4,$5)', [randomUUID(),body.productId,hash(row.email),encrypt(row,key),purchaseCost]);
       await db.query("INSERT INTO commerce_audit(action,object_id) VALUES('stock_import',$1)", [String(rows.length)]);
       output = { ok: true, imported: rows.length };
+    } else if (action === 'admin-inventory-pick') {
+      if (!idOk(body.inventoryId) || body.confirmed !== true) throw fail(400, 'Confirm the inventory withdrawal.');
+      const item = (await db.query('SELECT * FROM commerce_inventory WHERE id=$1 FOR UPDATE',[body.inventoryId])).rows[0];
+      if (!item) throw fail(404, 'Inventory account not found.');
+      if (item.state !== 'available') throw fail(409, 'Only available inventory can be picked.');
+      const credentials = decrypt(item.credentials,key);
+      const changed = await db.query("UPDATE commerce_inventory SET state='withdrawn' WHERE id=$1 AND state='available' RETURNING id",[item.id]);
+      if (!changed.rowCount) throw fail(409, 'This account is no longer available.');
+      await db.query("INSERT INTO commerce_audit(action,object_id) VALUES('inventory_admin_pick',$1)",[item.id]);
+      output={ok:true,inventoryId:item.id,credentials};
     } else if (action === 'admin-inventory-update') {
       if (!idOk(body.inventoryId)) throw fail(400, 'Invalid inventory ID.');
       const item = (await db.query('SELECT * FROM commerce_inventory WHERE id=$1 FOR UPDATE',[body.inventoryId])).rows[0];
@@ -351,6 +361,7 @@ return async function handler(req, res) {
       if (!Number.isSafeInteger(purchaseCost) || purchaseCost < 0) throw fail(400, 'Enter a valid purchase cost.');
       const nextState = String(body.state || item.state);
       if (item.state === 'reserved') throw fail(409, 'Reserved stock cannot be edited. Cancel its order first.');
+      if (item.state === 'withdrawn') throw fail(409, 'Withdrawn stock cannot be reopened or edited.');
       if (item.state === 'delivered' && nextState !== 'delivered') throw fail(409, 'Delivered stock history cannot be reopened.');
       if (!['available','quarantined','delivered'].includes(nextState)) throw fail(400, 'Invalid inventory state.');
       const replacingCredentials = [body.email,body.password,body.twoFactor].some((value) => String(value || '').trim());

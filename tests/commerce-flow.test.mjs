@@ -35,7 +35,7 @@ test('checkout, signed payment delivery, duplicate prevention and recovery autho
     const imported=await request('admin-import',{productId:'p093',accounts:'a@test.invalid|test-pass|test-2fa',purchaseCost:1000},env.COMMERCE_ADMIN_KEY);assert.equal(imported.code,200,JSON.stringify(imported));
     assert.equal((await request('stock')).data.products[0].available,1);
     const orders=await Promise.all([request('create',{productId:'p093'}),request('create',{productId:'p093'})]);
-    assert.deepEqual(orders.map((r)=>r.code).sort(),[200,409]);
+    assert.deepEqual(orders.map((r)=>r.code).sort((a,b)=>a-b),[200,409]);
     const order=orders.find((r)=>r.code===200).data;
     assert.equal((await request('status',undefined,'wrong',order.id)).code,404);
     assert.equal((await request('status',undefined,order.recovery,order.id)).data.credentials,undefined);
@@ -78,5 +78,15 @@ test('checkout, signed payment delivery, duplicate prevention and recovery autho
     assert.equal((await request('admin-inventory-delete',{inventoryId:crud.id,confirmed:true},env.COMMERCE_ADMIN_KEY)).code,200);
     dashboard=await request('admin-list',undefined,env.COMMERCE_ADMIN_KEY);
     assert.equal(dashboard.data.inventory.some((item)=>item.id===crud.id),false);
+    await request('admin-import',{productId:'p093',accounts:'picked@test.invalid|picked-pass|picked-2fa',purchaseCost:900},env.COMMERCE_ADMIN_KEY);
+    dashboard=await request('admin-list',undefined,env.COMMERCE_ADMIN_KEY);
+    const picked=dashboard.data.inventory.find((item)=>item.email==='picked@test.invalid');assert.ok(picked);
+    assert.equal((await request('admin-inventory-pick',{inventoryId:picked.id,confirmed:false},env.COMMERCE_ADMIN_KEY)).code,400);
+    const withdrawal=await request('admin-inventory-pick',{inventoryId:picked.id,confirmed:true},env.COMMERCE_ADMIN_KEY);
+    assert.equal(withdrawal.code,200,JSON.stringify(withdrawal));
+    assert.deepEqual(withdrawal.data.credentials,{email:'picked@test.invalid',password:'picked-pass',twoFactor:'picked-2fa'});
+    assert.equal((await database.query('SELECT state FROM commerce_inventory WHERE id=$1',[picked.id])).rows[0].state,'withdrawn');
+    assert.equal((await request('admin-inventory-pick',{inventoryId:picked.id,confirmed:true},env.COMMERCE_ADMIN_KEY)).code,409);
+    assert.equal((await database.query("SELECT count(*)::int AS n FROM commerce_audit WHERE action='inventory_admin_pick' AND object_id=$1",[picked.id])).rows[0].n,1);
   } finally { await database.close();if(setup){await setup.query(`DROP SCHEMA ${schema} CASCADE`);await setup.end();} }
 });

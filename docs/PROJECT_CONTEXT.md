@@ -84,6 +84,7 @@ The `action` query parameter drives the handler:
 - `email-webhook`: receive and parse NayaPay receipt events.
 - `admin-login`: authenticate the admin and issue an expiring signed token.
 - `admin-import`, `admin-inventory-update`, `admin-inventory-delete`: manage local account inventory.
+- `admin-inventory-pick`: securely withdraw one available account for admin use, reveal its credentials once in the active UI, and audit the withdrawal without creating income or a paid order.
 - `admin-supplier-sync`, `admin-supplier-update`: synchronize and configure supplier products.
 - `admin-list`, `admin-payment`, `admin-approve`, `admin-cancel`: dashboard, receipt review, manual delivery, and order cancellation.
 
@@ -145,7 +146,7 @@ Automatic NayaPay verification is controlled by configuration and is visibly des
 
 `commerce/schema.sql` defines or migrates:
 
-- `commerce_inventory`: encrypted local credentials and inventory state.
+- `commerce_inventory`: encrypted local credentials and inventory state, including an audited `withdrawn` state for accounts picked directly by an admin.
 - `commerce_orders`: reservations, payments, delivery status, supplier references, and financial values.
 - `commerce_supplier_products`: synchronized supplier catalog, costs, selling prices, and enablement.
 - `commerce_provider_state` and `commerce_freebie_claims`: provider-generalization/future-flow tables.
@@ -173,7 +174,7 @@ The repository also contains an ignored `.env.commerce.local`; only its variable
 
 The test suite consists of Node test files covering catalog rules, currency, SEO, reviews, UI source behavior, static export, motion, and commerce security/flow behavior.
 
-Explicitly running all `tests/*.test.mjs` produced 89 passing tests and 0 failures in the inspected working tree. The earlier attempt to run `node --test tests` was invalid because Node treated the directory as a module; it was not a product failure.
+The full Node suite covers catalog rules, currency, SEO, reviews, UI behavior, static export, commerce security, paid delivery, and direct admin inventory withdrawal. The 2026-09-08 verification produced 89 passing tests and 0 failures after the withdrawal flow was added.
 
 Qamify has a mocked end-to-end test covering catalog sync, provider-scoped IDs, pricing/enablement, checkout creation, paid fulfilment, delivery storage, and the idempotency header. No real supplier order is placed by tests.
 
