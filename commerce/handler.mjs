@@ -60,14 +60,23 @@ function supplierProviders() {
       },
     },
     {
-      id: 'piggyai', name: 'Fat Bunny Hub', configured: !!process.env.PIGGYAI_API_KEY,
+      id: 'fatbunny', name: 'Fat Bunny Hub', configured: !!process.env.FATBUNNY_API_KEY,
       async catalog() {
-        const products = await fetchPiggyAiProducts();
+        const products = await fetchPiggyAiProducts('FATBUNNY_API_KEY');
         let state = { balance: null, currency: 'USD' };
-        try { state = await fetchPiggyAiBalance(); } catch (error) { console.error('fat-bunny-balance-error', error.status || error.name, error.code || ''); }
+        try { state = await fetchPiggyAiBalance('FATBUNNY_API_KEY'); } catch (error) { console.error('fat-bunny-balance-error', error.status || error.name, error.code || ''); }
         const normalized = products.map((product) => normalizePiggyAiProduct(product, state.currency)).filter(Boolean);
         console.error('fat-bunny-catalog-count', products.length, normalized.length);
         return { ...state, products: normalized };
+      },
+    },
+    {
+      id: 'piggyai', name: 'PiggyAi', configured: !!process.env.PIGGYAI_API_KEY,
+      async catalog() {
+        const products = await fetchPiggyAiProducts();
+        let state = { balance: null, currency: 'USD' };
+        try { state = await fetchPiggyAiBalance(); } catch (error) { console.error('piggyai-balance-error', error.status || error.name, error.code || ''); }
+        return { ...state, products: products.map((product) => normalizePiggyAiProduct(product, state.currency)).filter(Boolean) };
       },
     },
     {
@@ -100,6 +109,8 @@ async function rate(db, key, max) {
   if (result.rows[0].hits > max) throw fail(429, 'Too many requests. Please wait a minute.');
 }
 async function syncSupplierCatalog(db, force = false) {
+  await db.query("UPDATE commerce_supplier_products SET id='fatbunny:'||external_product_id, provider_id='fatbunny' WHERE provider_id='piggyai' AND provider_name='Fat Bunny Hub'");
+  await db.query("UPDATE commerce_provider_state SET provider_id='fatbunny' WHERE provider_id='piggyai' AND provider_name='Fat Bunny Hub'");
   const results = [];
   for (const provider of supplierProviders().filter((item) => item.configured)) {
     const lockKey = `supplier-catalog-sync:${provider.id}`;
@@ -150,9 +161,10 @@ async function placeSupplierOrder(product, order) {
     const result = await createMkeOrder({ productId: Number(product.external_product_id), idempotencyKey: `sasify-${order.id}-${product.external_product_id}` });
     return { delivery: mkeDelivery(result), supplierId: mkeOrderId(result, order.id) };
   }
-  if (product.provider_id === 'piggyai') {
-    if (!String(product.external_product_id || '').trim()) throw fail(503, 'PiggyAi product ID is invalid.');
-    const result = await createPiggyAiOrder({ productId: product.external_product_id, idempotencyKey: `sasify-${order.id}-${product.external_product_id}` });
+  if (['piggyai','fatbunny'].includes(product.provider_id)) {
+    if (!String(product.external_product_id || '').trim()) throw fail(503, `${product.provider_name || 'PiggyAi'} product ID is invalid.`);
+    const envName = product.provider_id === 'fatbunny' ? 'FATBUNNY_API_KEY' : 'PIGGYAI_API_KEY';
+    const result = await createPiggyAiOrder({ productId: product.external_product_id, idempotencyKey: `sasify-${order.id}-${product.external_product_id}`, envName });
     return { delivery: piggyAiDelivery(result), supplierId: piggyAiOrderId(result, order.id) };
   }
   if (product.provider_id === 'zoomstore') {

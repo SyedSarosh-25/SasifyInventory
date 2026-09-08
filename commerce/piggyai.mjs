@@ -4,15 +4,15 @@ function configured() {
   if (!process.env.PIGGYAI_API_KEY) throw Object.assign(new Error('PiggyAi API is not configured.'), { status: 503 });
 }
 
-async function request(path, init = {}) {
-  configured();
+async function request(path, init = {}, envName = 'PIGGYAI_API_KEY') {
+  if (!process.env[envName]) throw Object.assign(new Error(`${envName} is not configured.`), { status: 503 });
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 20000);
   try {
     const response = await fetch(`${endpoint}${path}`, {
       ...init,
       headers: {
-        'X-API-Key': process.env.PIGGYAI_API_KEY,
+        'X-API-Key': process.env[envName],
         Accept: 'application/json',
         ...(init.body ? { 'Content-Type': 'application/json' } : {}),
         ...init.headers,
@@ -39,8 +39,8 @@ function unwrap(data, key) {
   return [];
 }
 
-export async function fetchPiggyAiProducts() {
-  const data = await request('/api/v2/telegram-buyer/products');
+export async function fetchPiggyAiProducts(envName = 'PIGGYAI_API_KEY') {
+  const data = await request('/api/v2/telegram-buyer/products', {}, envName);
   return unwrap(data, 'products');
 }
 
@@ -55,14 +55,14 @@ export function normalizePiggyAiProduct(product, defaultCurrency = 'USD') {
   return { id, name, description: String(product?.description_en ?? product?.description ?? ''), delivery_instruction: product?.activation_url ? String(product.activation_url) : null, wholesale_price: wholesalePrice, currency: currency.slice(0, 12), stock, canonical_key: String(product?.sku || product?.slug || `piggyai:${id}`).slice(0, 200) };
 }
 
-export async function fetchPiggyAiBalance() {
-  const data = await request('/api/v2/telegram-buyer/balance');
+export async function fetchPiggyAiBalance(envName = 'PIGGYAI_API_KEY') {
+  const data = await request('/api/v2/telegram-buyer/balance', {}, envName);
   const value = data.balance ?? data.data?.balance ?? data.wallet_balance ?? 0;
   return { balance: Number(value), currency: String(data.currency || data.walletCurrency || data.data?.currency || 'USD') };
 }
 
-export async function createPiggyAiOrder({ productId, quantity = 1, idempotencyKey }) {
-  return request('/api/v2/telegram-buyer/purchase', { method: 'POST', headers: { 'Idempotency-Key': idempotencyKey }, body: JSON.stringify({ product_id: productId, quantity }) });
+export async function createPiggyAiOrder({ productId, quantity = 1, idempotencyKey, envName = 'PIGGYAI_API_KEY' }) {
+  return request('/api/v2/telegram-buyer/purchase', { method: 'POST', headers: { 'Idempotency-Key': idempotencyKey }, body: JSON.stringify({ product_id: productId, quantity }) }, envName);
 }
 
 export function piggyAiDelivery(data) {
