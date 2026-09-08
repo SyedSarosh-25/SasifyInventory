@@ -13,7 +13,6 @@ async function request(path, init = {}) {
       ...init,
       headers: {
         'X-API-Key': process.env.PIGGYAI_API_KEY,
-        Authorization: `Bearer ${process.env.PIGGYAI_API_KEY}`,
         Accept: 'application/json',
         ...(init.body ? { 'Content-Type': 'application/json' } : {}),
         ...init.headers,
