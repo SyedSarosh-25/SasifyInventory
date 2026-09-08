@@ -137,6 +137,7 @@ export default async function ProductPage({ params }: Props) {
             {product.id === 'p093' && <StockBuy productId={product.id} />}
             <a href={`/checkout?product=${encodeURIComponent(product.id)}`} className="primary-button detail-buy"><ShoppingCart className="h-5 w-5" /> Buy online</a>
             <p className="order-footnote">Availability and activation details are confirmed before payment.</p>
+            <p className="support-note">If you face any issue after purchase, WhatsApp Support will be available on your order screen.</p>
           </aside>
         </div>
 
