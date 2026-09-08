@@ -43,10 +43,17 @@ function ProductCard({ product }: { product: Product }) {
 
 type LiveSupplierProduct = { id:string; name:string; description?:string; price:number; available:number; provider_name?:string };
 
+function supplierVisual(product: LiveSupplierProduct) {
+  if (/telegram/i.test(product.name)) return { label: 'Telegram groups', image: 'https://www.google.com/s2/favicons?domain_url=https%3A%2F%2Ftelegram.org&sz=128' };
+  if (/amazon|netflix|prime video|stream/i.test(product.name)) return { label: 'Streaming access', image: 'https://www.google.com/s2/favicons?domain_url=https%3A%2F%2Fprimevideo.com&sz=128' };
+  return { label: 'Digital product', image: '' };
+}
+
 function SupplierSearchCard({ product }: { product: LiveSupplierProduct }) {
-  return <a className="product-card supplier-search-card" href={`/checkout?product=${encodeURIComponent(product.id)}`}>
-    <div className="product-art supplier-search-art"><div className="supplier-search-icon">⚡</div><span className="product-category">{product.provider_name || 'Instant delivery'}</span></div>
-    <div className="product-content"><div className="product-meta"><span>Supplier product</span><span className="available"><i /> {product.available} in stock</span></div><h3>{product.name}</h3><p className="product-description">{product.description || 'Instant delivery product available after payment verification.'}</p><div className="price-panel"><div className="our-price"><span><Tag className="h-3.5 w-3.5" /> Our price</span><strong>PKR {Number(product.price).toLocaleString('en-PK')}</strong></div></div><span className="buy-button">Buy online <ArrowRight className="h-4 w-4" /></span></div>
+  const visual = supplierVisual(product);
+  return <a className="product-card supplier-search-card" href={`/supplier-product?product=${encodeURIComponent(product.id)}`}>
+    <div className="product-art supplier-search-art"><div className="supplier-search-icon">{visual.image ? <img src={visual.image} alt="" /> : '⚡'}</div><span className="product-category">{visual.label}</span></div>
+    <div className="product-content"><div className="product-meta"><span>Instant delivery</span><span className="available"><i /> {product.available} in stock</span></div><h3>{product.name}</h3><p className="product-description">{product.description || 'Product description is currently unavailable.'}</p><div className="price-panel"><div className="our-price"><span><Tag className="h-3.5 w-3.5" /> Our price</span><strong>PKR {Number(product.price).toLocaleString('en-PK')}</strong></div></div><span className="buy-button">Buy online <ArrowRight className="h-4 w-4" /></span></div>
   </a>;
 }
 
