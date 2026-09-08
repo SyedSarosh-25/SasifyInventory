@@ -487,6 +487,13 @@ return async function handler(req, res) {
       const payment = (await db.query('SELECT * FROM commerce_payments WHERE id=$1', [body.paymentId])).rows[0];
       if (!payment) throw fail(404, 'Payment not found.');
       output = { text:receiptText(decrypt(payment.encrypted_body, key)), subject: payment.subject };
+    } else if (action === 'admin-order-delivery') {
+      if (!idOk(body.orderId)) throw fail(400, 'Invalid order ID.');
+      const row = (await db.query(`SELECT o.id,o.status,o.product_id,o.delivered_at,o.supplier_delivery,i.credentials
+        FROM commerce_orders o LEFT JOIN commerce_inventory i ON i.id=o.inventory_id WHERE o.id=$1`, [body.orderId])).rows[0];
+      if (!row) throw fail(404, 'Order not found.');
+      if (row.status !== 'delivered') throw fail(409, 'This order has no recorded delivery yet.');
+      output = { orderId: row.id, deliveredAt: row.delivered_at, productId: row.product_id, delivery: row.supplier_delivery ? decrypt(row.supplier_delivery, key) : null, credentials: row.credentials ? decrypt(row.credentials, key) : null };
     } else if (action === 'admin-approve') {
       if (!idOk(body.orderId) || !idOk(body.paymentId) || body.confirmed !== true) throw fail(400, 'Confirm payment in NayaPay before approval.');
       await fulfill(db,body.orderId,body.paymentId,true); output = { ok: true };
