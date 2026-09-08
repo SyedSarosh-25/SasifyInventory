@@ -163,7 +163,7 @@ async function placeSupplierOrder(product, order) {
   }
   if (['piggyai','fatbunny'].includes(product.provider_id)) {
     if (!String(product.external_product_id || '').trim()) throw fail(503, `${product.provider_name || 'PiggyAi'} product ID is invalid.`);
-    const envName = product.provider_id === 'fatbunny' ? 'FATBUNNY_API_KEY' : 'PIGGYAI_API_KEY';
+    const envName = product.provider_id === 'fatbunny' || product.provider_name === 'Fat Bunny Hub' ? 'FATBUNNY_API_KEY' : 'PIGGYAI_API_KEY';
     const result = await createPiggyAiOrder({ productId: product.external_product_id, idempotencyKey: `sasify-${order.id}-${product.external_product_id}`, envName });
     return { delivery: piggyAiDelivery(result), supplierId: piggyAiOrderId(result, order.id) };
   }
