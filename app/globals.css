@@ -2067,10 +2067,20 @@ svg { flex-shrink: 0; }
 .admin-workspace { display: grid; min-width: 0; gap: 20px; padding: 24px 0 50px; }
 .metric-grid { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 14px; }
 .metric-grid article { display: grid; min-width: 0; gap: 7px; padding: 20px; border: 1px solid #d5e1f1; border-radius: 8px; background: #fff; box-shadow: 0 10px 25px rgba(37,67,118,.07); }
+.metric-grid .metric-card { width: 100%; text-align: left; font: inherit; cursor: pointer; }
+.metric-grid .metric-card:hover { border-color: #8eaef0; box-shadow: 0 12px 28px rgba(37,67,118,.12); }
 .metric-grid span,.snapshot-grid span { color: #66768d; font-size: 13px; font-weight: 700; }
 .metric-grid strong { overflow-wrap: anywhere; color: #172237; font-size: 25px; }
 .metric-grid .metric-profit { color: #087d53; }
 .metric-grid small { color: #718096; line-height: 1.4; }
+.profit-breakdown-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 16px; margin-top: 22px; }
+.profit-breakdown-card { display: grid; gap: 10px; padding: 22px; border: 1px solid #d5e1f1; border-radius: 12px; background: #fff; }
+.profit-breakdown-card.local { border-top: 4px solid #285cff; }
+.profit-breakdown-card.supplier { border-top: 4px solid #0b8e68; }
+.profit-breakdown-card h3 { margin: 0 0 8px; font-size: 1.15rem; }
+.profit-breakdown-card > div { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-top: 10px; border-top: 1px solid #e1e8f3; }
+.profit-breakdown-card > div span,.profit-breakdown-card > small { color: #687990; }
+.profit-breakdown-card > div strong { color: #172237; }
 .admin-warning { margin: 0; padding: 13px 15px; border: 1px solid #efd58c; border-left: 4px solid #c78a08; background: #fff8df; color: #6f4d06; }
 .admin-panel { min-width: 0; padding: 22px; border: 1px solid #d5e1f1; border-radius: 8px; background: #fff; box-shadow: 0 12px 30px rgba(37,67,118,.06); }
 .admin-panel h2,.admin-panel h3 { margin: 4px 0 0; }
@@ -2125,6 +2135,7 @@ svg { flex-shrink: 0; }
   .metric-grid { grid-template-columns: 1fr 1fr; gap: 10px; }
   .metric-grid article { padding: 15px; }
   .metric-grid strong { font-size: 19px; }
+  .profit-breakdown-grid { grid-template-columns: 1fr; }
   .admin-panel { padding: 17px 14px; }
   .panel-heading { align-items: stretch; flex-direction: column; }
   .admin-search { min-width: 0; width: 100%; }

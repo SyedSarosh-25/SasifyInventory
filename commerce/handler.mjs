@@ -477,12 +477,19 @@ return async function handler(req, res) {
         COUNT(*) FILTER (WHERE o.status IN ('pending','review'))::int AS active_orders,
         COUNT(*) FILTER (WHERE o.status='delivered' AND COALESCE(i.purchase_cost,o.supplier_cost_pkr,0)=0)::int AS missing_costs
         FROM commerce_orders o LEFT JOIN commerce_inventory i ON i.id=o.inventory_id`)).rows[0];
+      const profitBreakdown=(await db.query(`SELECT CASE WHEN o.supplier_product_id IS NULL THEN 'local' ELSE 'supplier' END AS source,
+        COALESCE(SUM(o.amount),0)::int AS income,
+        COALESCE(SUM(COALESCE(i.purchase_cost,o.supplier_cost_pkr,0)),0)::int AS cost,
+        COALESCE(SUM(o.amount-COALESCE(i.purchase_cost,o.supplier_cost_pkr,0)),0)::int AS profit,
+        COUNT(*)::int AS orders
+        FROM commerce_orders o LEFT JOIN commerce_inventory i ON i.id=o.inventory_id
+        WHERE o.status='delivered' GROUP BY 1 ORDER BY 1`)).rows;
       output = { metrics, inventory, supplierProducts:(await db.query('SELECT * FROM commerce_supplier_products ORDER BY provider_name,name')).rows,
         providerStates:(await db.query('SELECT * FROM commerce_provider_state ORDER BY provider_name')).rows,
         orders: (await db.query('SELECT o.id,o.product_id,o.amount,o.status,o.transaction_id,o.payer_name,o.supplier_order_id,o.supplier_status,sp.provider_name AS supplier_name,sp.name AS supplier_product_name,o.created_at,o.delivered_at FROM commerce_orders o LEFT JOIN commerce_supplier_products sp ON sp.id=o.supplier_product_id ORDER BY o.created_at DESC LIMIT 100')).rows,
         payments: (await db.query('SELECT id,amount,subject,transaction_id,verified,order_id,created_at FROM commerce_payments ORDER BY created_at DESC LIMIT 100')).rows,
         stock: (await db.query('SELECT product_id,state,count(*)::int AS count FROM commerce_inventory GROUP BY product_id,state')).rows,
-        autoVerify: process.env.NAYAPAY_AUTO_VERIFY === 'true', supplierUsdtPkrRate:supplierUsdtRate(), supplierUsdPkrRate:supplierUsdRate() };
+        autoVerify: process.env.NAYAPAY_AUTO_VERIFY === 'true', supplierUsdtPkrRate:supplierUsdtRate(), supplierUsdPkrRate:supplierUsdRate(), profitBreakdown };
     } else if (action === 'admin-payment') {
       if (!idOk(body.paymentId)) throw fail(400, 'Invalid payment ID.');
       const payment = (await db.query('SELECT * FROM commerce_payments WHERE id=$1', [body.paymentId])).rows[0];
