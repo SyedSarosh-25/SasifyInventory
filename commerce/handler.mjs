@@ -255,7 +255,7 @@ return async function handler(req, res) {
       output = { ok:true };
     } else if (action === 'stock') {
       await db.query('SAVEPOINT supplier_sync');
-      try { await syncSupplierCatalog(db); } catch (error) { await db.query('ROLLBACK TO SAVEPOINT supplier_sync'); console.error('supplier-sync-error', error.status || error.name); }
+      try { await syncSupplierCatalog(db); } catch (error) { await db.query('ROLLBACK TO SAVEPOINT supplier_sync'); console.error('supplier-sync-error', error.status || error.name, error.code || '', error.message || ''); }
       const counts = (await db.query("SELECT product_id,count(*)::int AS available FROM commerce_inventory WHERE state='available' GROUP BY product_id")).rows;
       const supplierProducts = (await db.query(`WITH ranked AS (
         SELECT id,name,description,delivery_instruction,selling_price AS price,supplier_stock AS available,provider_id,provider_name,canonical_key,
