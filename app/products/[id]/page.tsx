@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import { ArrowLeft, ArrowRight, CalendarDays, Check, ExternalLink, ShieldCheck, ShoppingCart } from 'lucide-react';
+import { ArrowLeft, ArrowRight, CalendarDays, Check, ExternalLink, MessageCircle, ShieldCheck, ShoppingCart } from 'lucide-react';
 import { products } from '../../products';
 import { ProductLogo } from '../../components/product-logo';
 import { StockBuy } from '../../components/checkout';
@@ -137,7 +137,7 @@ export default async function ProductPage({ params }: Props) {
             {product.id === 'p093' && <StockBuy productId={product.id} />}
             <a href={`/checkout?product=${encodeURIComponent(product.id)}`} className="primary-button detail-buy"><ShoppingCart className="h-5 w-5" /> Buy online</a>
             <p className="order-footnote">Availability and activation details are confirmed before payment.</p>
-            <p className="support-note">If you face any issue after purchase, WhatsApp Support will be available on your order screen.</p>
+            <button type="button" className="whatsapp-purchase detail-buy" disabled><MessageCircle className="h-5 w-5" /> WhatsApp support <span>(after payment)</span></button>
           </aside>
         </div>
 

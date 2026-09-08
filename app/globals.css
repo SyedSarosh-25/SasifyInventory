@@ -2027,6 +2027,7 @@ svg { flex-shrink: 0; }
 .alternate-payment p { margin: 5px 0 0; color: #5b6b82; font-size: 14px; line-height: 1.45; }
 .whatsapp-purchase { display: inline-flex; min-height: 46px; flex: 0 0 auto; align-items: center; justify-content: center; gap: 8px; padding: 0 16px; border: 1px solid #0b8e68; border-radius: 6px; color: #fff; background: #0b8e68; font-size: 14px; font-weight: 800; text-decoration: none; }
 .whatsapp-purchase:hover { background: #087b5b; transform: translateY(-1px); }
+.whatsapp-purchase:disabled { cursor: not-allowed; opacity: .58; filter: grayscale(.2); transform: none; }
 .checkout-page .commerce-shell input:not([type=checkbox]),.checkout-page .commerce-shell select { min-height: 50px; border-color: #aebed5; }
 .checkout-page .primary-button { min-height: 52px; box-shadow: 0 12px 28px rgba(52,91,255,.25); }
 .checkout-page .verification-state { color: #172237; box-shadow: 0 16px 45px rgba(0,8,35,.2); }

@@ -89,6 +89,7 @@ export function Checkout() {
       {order.status === 'pending' && <section className="description-section"><h2>Pay with NayaPay for automatic instant delivery</h2>
         <p className="payment-callout">Send exactly <strong>PKR {order.amount.toLocaleString()}</strong> to the NayaPay account below.</p>
         <p className="payment-source-note"><strong>This number is for NayaPay payments.</strong> You can transfer to it from any bank account, Easypaisa, JazzCash or NayaPay.</p>
+        <p className="support-note">WhatsApp support will be enabled after you have successfully paid.</p>
         <dl className="commerce-details"><dt>Account title</dt><dd>{order.payment.title}</dd><dt>NayaPay number</dt><dd><strong>{order.payment.number}</strong> <button title="Copy payment number" aria-label="Copy payment number" onClick={() => void copy(order.payment.number)}><Copy size={16} /></button></dd><dt>Payment timer</dt><dd><strong className="payment-timer">{countdown}</strong></dd></dl>
       </section>}
       {['pending','expired'].includes(order.status) && !order.transactionId && <form className="description-section" onSubmit={(e) => { e.preventDefault(); void run(async () => { await api('claim',key,{ id,transactionId }); setOrder(await api('status',key,undefined,id)); }); }}>
