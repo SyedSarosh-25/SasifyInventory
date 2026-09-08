@@ -478,7 +478,7 @@ return async function handler(req, res) {
         FROM commerce_orders o LEFT JOIN commerce_inventory i ON i.id=o.inventory_id`)).rows[0];
       output = { metrics, inventory, supplierProducts:(await db.query('SELECT * FROM commerce_supplier_products ORDER BY provider_name,name')).rows,
         providerStates:(await db.query('SELECT * FROM commerce_provider_state ORDER BY provider_name')).rows,
-        orders: (await db.query('SELECT id,product_id,amount,status,transaction_id,payer_name,supplier_order_id,supplier_status,created_at,delivered_at FROM commerce_orders ORDER BY created_at DESC LIMIT 100')).rows,
+        orders: (await db.query('SELECT o.id,o.product_id,o.amount,o.status,o.transaction_id,o.payer_name,o.supplier_order_id,o.supplier_status,sp.provider_name AS supplier_name,sp.name AS supplier_product_name,o.created_at,o.delivered_at FROM commerce_orders o LEFT JOIN commerce_supplier_products sp ON sp.id=o.supplier_product_id ORDER BY o.created_at DESC LIMIT 100')).rows,
         payments: (await db.query('SELECT id,amount,subject,transaction_id,verified,order_id,created_at FROM commerce_payments ORDER BY created_at DESC LIMIT 100')).rows,
         stock: (await db.query('SELECT product_id,state,count(*)::int AS count FROM commerce_inventory GROUP BY product_id,state')).rows,
         autoVerify: process.env.NAYAPAY_AUTO_VERIFY === 'true', supplierUsdtPkrRate:supplierUsdtRate(), supplierUsdPkrRate:supplierUsdRate() };
