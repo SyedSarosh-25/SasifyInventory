@@ -35,6 +35,7 @@ async function request(path, init = {}) {
 function unwrap(data, key) {
   if (Array.isArray(data)) return data;
   if (Array.isArray(data?.[key])) return data[key];
+  if (Array.isArray(data?.data?.[key])) return data.data[key];
   if (Array.isArray(data?.data)) return data.data;
   return [];
 }
@@ -47,8 +48,8 @@ export async function fetchPiggyAiProducts() {
 export function normalizePiggyAiProduct(product, defaultCurrency = 'USD') {
   const id = String(product?.id ?? product?.product_id ?? '').trim();
   const name = String(product?.name_en ?? product?.name ?? product?.title ?? '').trim();
-  const wholesalePrice = Number(product?.price_usd ?? product?.price ?? product?.cost ?? product?.amount);
-  const rawStock = product?.stock ?? product?.quantity ?? product?.available_stock ?? product?.available;
+  const wholesalePrice = Number(product?.price_usd ?? product?.unit_price ?? product?.wholesale_price ?? product?.price ?? product?.cost ?? product?.amount);
+  const rawStock = product?.stock ?? product?.quantity ?? product?.available_stock ?? product?.available ?? product?.in_stock;
   const stock = rawStock === null || rawStock === undefined ? 0 : Number(rawStock);
   const currency = String(product?.currency || defaultCurrency || 'USD').trim().toUpperCase();
   if (!id || !name || !Number.isFinite(wholesalePrice) || wholesalePrice < 0 || !Number.isSafeInteger(stock) || stock < 0) return null;
