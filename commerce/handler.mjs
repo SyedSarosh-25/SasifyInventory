@@ -65,7 +65,9 @@ function supplierProviders() {
         const products = await fetchPiggyAiProducts();
         let state = { balance: null, currency: 'USD' };
         try { state = await fetchPiggyAiBalance(); } catch (error) { console.error('fat-bunny-balance-error', error.status || error.name, error.code || ''); }
-        return { ...state, products: products.map((product) => normalizePiggyAiProduct(product, state.currency)).filter(Boolean) };
+        const normalized = products.map((product) => normalizePiggyAiProduct(product, state.currency)).filter(Boolean);
+        console.error('fat-bunny-catalog-count', products.length, normalized.length);
+        return { ...state, products: normalized };
       },
     },
     {
