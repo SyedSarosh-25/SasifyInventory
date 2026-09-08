@@ -1867,6 +1867,11 @@ svg { flex-shrink: 0; }
   .payment-method:active { border-color: #b9c9eb; background: #f9fbff; }
 }
 
+.featured-card:hover, .featured-card:active, .featured-card:focus-visible {
+  border-color: transparent;
+  box-shadow: none;
+}
+
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
   .primary-button, .secondary-button, .buy-button, .featured-card, .product-card,
