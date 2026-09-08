@@ -27,6 +27,10 @@ function automaticCostPkr(price, currency) {
   if (currency === 'USD' && supplierUsdRate()) return Math.ceil(price * supplierUsdRate());
   return null;
 }
+function automaticProductKey(name) {
+  const normalized = String(name || '').normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 180);
+  return normalized ? `auto:${normalized}` : null;
+}
 function supplierProviders() {
   return [
     {
@@ -116,7 +120,7 @@ async function syncSupplierCatalog(db, force = false) {
         provider_id=excluded.provider_id,provider_name=excluded.provider_name,external_product_id=excluded.external_product_id,
         canonical_key=CASE WHEN commerce_supplier_products.canonical_manual THEN commerce_supplier_products.canonical_key ELSE excluded.canonical_key END,
         cost_pkr=CASE WHEN commerce_supplier_products.cost_manual THEN commerce_supplier_products.cost_pkr ELSE excluded.cost_pkr END,synced_at=now()`,
-        [id,String(product.name).slice(0,200),String(product.description || '').slice(0,10000),product.delivery_instruction ? String(product.delivery_instruction).slice(0,10000) : null,wholesale,currency,stock,automaticCostPkr(wholesale,currency),provider.id,provider.name,externalId,String(product.canonical_key || `${provider.id}:${externalId}`).slice(0,200)]);
+        [id,String(product.name).slice(0,200),String(product.description || '').slice(0,10000),product.delivery_instruction ? String(product.delivery_instruction).slice(0,10000) : null,wholesale,currency,stock,automaticCostPkr(wholesale,currency),provider.id,provider.name,externalId,String(automaticProductKey(product.name) || product.canonical_key || `${provider.id}:${externalId}`).slice(0,200)]);
       accepted++;
     }
     await db.query(`INSERT INTO commerce_provider_state(provider_id,provider_name,balance,currency,synced_at) VALUES($1,$2,$3,$4,now())
