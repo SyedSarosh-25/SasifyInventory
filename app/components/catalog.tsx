@@ -41,22 +41,34 @@ function ProductCard({ product }: { product: Product }) {
   </a>;
 }
 
+type LiveSupplierProduct = { id:string; name:string; description?:string; price:number; available:number; provider_name?:string };
+
+function SupplierSearchCard({ product }: { product: LiveSupplierProduct }) {
+  return <a className="product-card supplier-search-card" href={`/checkout?product=${encodeURIComponent(product.id)}`}>
+    <div className="product-art supplier-search-art"><div className="supplier-search-icon">⚡</div><span className="product-category">{product.provider_name || 'Instant delivery'}</span></div>
+    <div className="product-content"><div className="product-meta"><span>Supplier product</span><span className="available"><i /> {product.available} in stock</span></div><h3>{product.name}</h3><p className="product-description">{product.description || 'Instant delivery product available after payment verification.'}</p><div className="price-panel"><div className="our-price"><span><Tag className="h-3.5 w-3.5" /> Our price</span><strong>PKR {Number(product.price).toLocaleString('en-PK')}</strong></div></div><span className="buy-button">Buy online <ArrowRight className="h-4 w-4" /></span></div>
+  </a>;
+}
+
 export function Catalog({ initialQuery = '' }: { initialQuery?: string }) {
   const [query, setQuery] = useState(initialQuery);
   const [activeCategory, setActiveCategory] = useState('All');
+  const [supplierProducts, setSupplierProducts] = useState<LiveSupplierProduct[]>([]);
   useEffect(() => {
     const syncQuery = () => setQuery(new URLSearchParams(window.location.search).get('q') ?? initialQuery);
     syncQuery();
     window.addEventListener('popstate', syncQuery);
     return () => window.removeEventListener('popstate', syncQuery);
   }, [initialQuery]);
+  useEffect(() => { let active = true; fetch('/api/commerce?action=stock',{cache:'no-store'}).then((response) => response.ok ? response.json() : Promise.reject()).then((data:any) => { if (active) setSupplierProducts((data.products || []).filter((product:LiveSupplierProduct & {source?:string}) => product.source === 'supplier')); }).catch(() => {}); return () => { active = false; }; }, []);
   const filtered = useMemo(() => filterProducts(query, activeCategory), [query, activeCategory]);
+  const supplierMatches = useMemo(() => { const normalized = query.trim().toLowerCase(); if (activeCategory !== 'All') return []; return supplierProducts.filter((product) => !normalized || `${product.name} ${product.description || ''} ${product.provider_name || ''}`.toLowerCase().includes(normalized)); }, [query, activeCategory, supplierProducts]);
 
   return <section id="catalog" className="catalog-section">
     <div className="section-inner">
       <div className="section-heading">
         <div><span className="section-kicker">Sasify Solutions Inventory</span><h1>Full inventory</h1><p>Digital tools, plans and subscriptions.</p></div>
-        <div className="results-badge" role="status"><Filter className="h-4 w-4" /> {filtered.length} products</div>
+        <div className="results-badge" role="status"><Filter className="h-4 w-4" /> {filtered.length + supplierMatches.length} products</div>
       </div>
       <p className="comparison-note">Savings compare the original price for the full plan duration with our price. Monthly references are multiplied by the number of months. Access and provider billing options may differ.</p>
       <div className="catalog-controls">
@@ -67,8 +79,8 @@ export function Catalog({ initialQuery = '' }: { initialQuery?: string }) {
         </label>
         <CategoryNavigation categories={categories} activeCategory={activeCategory} onChange={setActiveCategory} />
       </div>
-      <div className="product-grid">{filtered.map((product) => <ProductCard key={product.id} product={product} />)}</div>
-      {filtered.length === 0 && <div className="empty-state">
+      <div className="product-grid">{filtered.map((product) => <ProductCard key={product.id} product={product} />)}{supplierMatches.map((product) => <SupplierSearchCard key={product.id} product={product} />)}</div>
+      {filtered.length === 0 && supplierMatches.length === 0 && <div className="empty-state">
         <Search className="h-6 w-6" /><h2>No products found</h2><p>Try another search or category.</p>
         <button type="button" onClick={() => { setQuery(''); setActiveCategory('All'); }}>Show all products</button>
       </div>}
