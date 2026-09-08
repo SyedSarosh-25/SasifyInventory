@@ -23,7 +23,7 @@ export function StockBuy({ productId }: { productId: string }) {
     return () => { active = false; clearInterval(timer); };
   }, [productId]);
   if (!stock) return null;
-  return <div className="online-stock"><p>{stock.available > 0 ? `${stock.available} accounts available` : 'Online stock sold out'}</p>{stock.available > 0 && <a className="primary-button detail-buy" href={`/checkout?product=${productId}`}><ShoppingCart size={18} /> Buy online</a>}</div>;
+  return <div className="online-stock"><p>{stock.available > 0 ? `${stock.available} accounts available` : 'Online stock sold out'}</p></div>;
 }
 export function Checkout() {
   const [products, setProducts] = useState<Stock[]>([]), [selected, setSelected] = useState('p093');
@@ -90,7 +90,6 @@ export function Checkout() {
         <p className="payment-callout">Send exactly <strong>PKR {order.amount.toLocaleString()}</strong> to the NayaPay account below.</p>
         <p className="payment-source-note"><strong>This number is for NayaPay payments.</strong> You can transfer to it from any bank account, Easypaisa, JazzCash or NayaPay.</p>
         <dl className="commerce-details"><dt>Account title</dt><dd>{order.payment.title}</dd><dt>NayaPay number</dt><dd><strong>{order.payment.number}</strong> <button title="Copy payment number" aria-label="Copy payment number" onClick={() => void copy(order.payment.number)}><Copy size={16} /></button></dd><dt>Payment timer</dt><dd><strong className="payment-timer">{countdown}</strong></dd></dl>
-        <div className="alternate-payment"><div><strong>Want to use another payment method?</strong><p>Purchase directly on WhatsApp and our team will guide you.</p></div><a className="whatsapp-purchase" href={`https://wa.me/923116185711?text=${encodeURIComponent(`Hi Sasify Solutions, I want to purchase ${order.product} using another payment method.`)}`} target="_blank" rel="noreferrer"><MessageCircle size={18} /> Buy on WhatsApp</a></div>
       </section>}
       {['pending','expired'].includes(order.status) && !order.transactionId && <form className="description-section" onSubmit={(e) => { e.preventDefault(); void run(async () => { await api('claim',key,{ id,transactionId }); setOrder(await api('status',key,undefined,id)); }); }}>
         {order.status === 'expired' && <p>This reservation expired. If you already paid, enter the transaction ID for review.</p>}
@@ -103,6 +102,7 @@ export function Checkout() {
         {Object.entries(order.credentials).map(([field,value]) => <label key={field}>{field === 'twoFactor' ? '2FA' : field}<div className="commerce-secret"><code>{value}</code><button title={`Copy ${field}`} aria-label={`Copy ${field}`} onClick={() => void copy(value)}><Copy size={18} /></button></div></label>)}
       </section>}
       {order.delivery && <section className="description-section supplier-delivery"><h2><ShieldCheck size={20} /> Your purchase is ready</h2><p>Keep this information private and follow the activation instructions below.</p><div className="commerce-secret"><pre>{order.delivery.content}</pre><button title="Copy delivery" aria-label="Copy delivery" onClick={() => void copy(order.delivery!.content)}><Copy size={18} /></button></div>{order.delivery.instructions && <div className="delivery-instructions"><strong>Activation instructions</strong><p>{order.delivery.instructions}</p></div>}</section>}
+      {['review','delivered'].includes(order.status) && <section className="description-section support-callout"><h2><MessageCircle size={20} /> Need help with this order?</h2><p>If your credentials do not work or you have any delivery or activation issue, contact our support team on WhatsApp. Your order reference is included automatically.</p><a className="whatsapp-purchase" href={`https://wa.me/923116185711?text=${encodeURIComponent(`Hi Sasify Solutions, I need support with order ${order.id} for ${order.product}.`)}`} target="_blank" rel="noreferrer"><MessageCircle size={18} /> WhatsApp support</a></section>}
       {['cancelled','expired','delivered'].includes(order.status) && <button className="secondary-button" onClick={clear}>Start a new order</button>}
     </>}
   </div>;

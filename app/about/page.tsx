@@ -33,7 +33,7 @@ export default function AboutPage() {
       </section>
       <section className="description-section">
         <h2>Orders, payment and warranty</h2>
-        <p>Open a product page and choose Buy now on WhatsApp. The message includes the selected product and plan duration. Our team confirms availability, payment instructions and activation requirements before purchase.</p>
+        <p>Open a product page and choose Buy online. After payment verification, your digital purchase is delivered automatically. If you have a delivery or activation issue, use the WhatsApp support button shown with your order.</p>
         <p>All products come with a warranty period. One-month and 30-day packages include a full 25-day warranty. For other packages, confirm the warranty duration and coverage with our team before payment.</p>
         <p>For one-year / 12-month plans, the listed Sasify amount is a one-time payment for the full year. No monthly payments to us are needed during that year.</p>
         <a href="/inventory" className="back-link">Browse the full inventory</a>

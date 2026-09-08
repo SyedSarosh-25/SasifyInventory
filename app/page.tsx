@@ -818,7 +818,7 @@ export default function Home() {
           <div className="faq-list">
             <details open>
               <summary>How do I place an order?</summary>
-              <p>Open a product to see its full details, then choose Buy now. WhatsApp opens with the product and plan duration already included.</p>
+              <p>Open a product to see its full details, then choose Buy online. After payment verification, delivery appears automatically; use the WhatsApp support button on the order screen if you need help.</p>
             </details>
             <details>
               <summary>Are the original prices current?</summary>

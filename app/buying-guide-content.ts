@@ -35,6 +35,6 @@ export const guideQuestions = [
   },
   {
     question: 'How do I confirm and buy a plan?',
-    answer: 'Choose the exact product page and select Buy now on WhatsApp. Contact Sasify Solutions at +923116185711 to confirm availability, access arrangement, payment instructions, activation requirements and warranty coverage before paying. There is no checkout payment taken on this website.',
+    answer: 'Choose the exact product page and select Buy online. Send the exact payment shown at checkout, then submit the transaction ID. Your digital purchase is delivered automatically after payment verification. If you have a delivery or activation issue, use the WhatsApp support button shown with your order.',
   },
 ];

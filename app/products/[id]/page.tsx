@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import { ArrowLeft, ArrowRight, CalendarDays, Check, ExternalLink, MessageCircle, ShieldCheck } from 'lucide-react';
+import { ArrowLeft, ArrowRight, CalendarDays, Check, ExternalLink, ShieldCheck, ShoppingCart } from 'lucide-react';
 import { products } from '../../products';
 import { ProductLogo } from '../../components/product-logo';
 import { StockBuy } from '../../components/checkout';
@@ -8,7 +8,7 @@ import { SiteFooter, SiteHeader } from '../../components/site-chrome';
 import { Money, OriginalPrice } from '../../components/currency';
 import { StructuredData } from '../../components/structured-data';
 import { breadcrumbData, productData, productDescription, productQuestions, productTitle } from '../../seo';
-import { accessTypeLabel, has25DayWarranty, isAnnualPlan, originalPriceComparison, originalPricePkr, productHref, productLogo, savingsPkr, siteOrigin, whatsappLink } from '../../product-utils';
+import { accessTypeLabel, has25DayWarranty, isAnnualPlan, originalPriceComparison, originalPricePkr, productHref, productLogo, savingsPkr, siteOrigin } from '../../product-utils';
 
 type Props = { params: Promise<{ id: string }> };
 
@@ -135,7 +135,7 @@ export default async function ProductPage({ params }: Props) {
             {annual && <div className="plan-notice"><CalendarDays className="h-5 w-5" /><span><strong>One-time payment for the full year</strong>No monthly payments to Sasify Solutions.</span></div>}
             <div className="plan-notice"><ShieldCheck className="h-5 w-5" /><span><strong>{warranty ? 'Full 25-day warranty' : 'Warranty included'}</strong>{warranty ? 'Included with this one-month plan.' : 'Confirm this plan\'s warranty period before payment.'}</span></div>
             {product.id === 'p093' && <StockBuy productId={product.id} />}
-            <a href={whatsappLink(product.name, product.duration)} target="_blank" rel="noreferrer" className="primary-button detail-buy"><MessageCircle className="h-5 w-5" /> Buy now on WhatsApp</a>
+            <a href={`/checkout?product=${encodeURIComponent(product.id)}`} className="primary-button detail-buy"><ShoppingCart className="h-5 w-5" /> Buy online</a>
             <p className="order-footnote">Availability and activation details are confirmed before payment.</p>
           </aside>
         </div>

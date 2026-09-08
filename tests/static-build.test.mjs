@@ -36,7 +36,7 @@ test('homepage, inventory and every product have populated static HTML', async (
   assert.match(inventory, /Full inventory/);
   for (const product of products) {
     const html = await read(`products/${product.id}.html`);
-    assert.match(html, /Buy now on WhatsApp/);
+    assert.match(html, /Buy online/);
     assert.match(html, /wa\.me\/923116185711/);
     assert.ok(html.includes(`${origin}/products/${product.id}`), `Canonical URL missing: ${product.id}`);
     assert.ok(inventory.includes(`/products/${product.id}`), `Inventory product missing: ${product.id}`);
