@@ -15,7 +15,7 @@ const supplierUsdtRate = () => {
   return Number.isFinite(rate) && rate > 0 ? rate : 285;
 };
 const supplierUsdRate = () => {
-  const rate = Number(process.env.QAMIFY_USD_PKR_RATE || process.env.SUPPLIER_USD_PKR_RATE || 0);
+  const rate = Number(process.env.QAMIFY_USD_PKR_RATE || process.env.SUPPLIER_USD_PKR_RATE || process.env.SUPPLIER_USDT_PKR_RATE || 0);
   return Number.isFinite(rate) && rate > 0 ? rate : null;
 };
 function automaticCostPkr(price, currency) {
