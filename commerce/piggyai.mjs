@@ -23,7 +23,7 @@ async function request(path, init = {}) {
     const data = await response.json().catch(() => ({}));
     if (!response.ok || data.success === false) {
       const message = data.message || data.error || `PiggyAi request failed (${response.status}).`;
-      throw Object.assign(new Error(message), { status: response.status >= 400 && response.status < 500 && response.status !== 429 ? 409 : 503 });
+      throw Object.assign(new Error(message), { status: response.status >= 400 && response.status < 500 && response.status !== 429 ? 409 : 503, code: data.code || null, retryAfter: Number(response.headers.get('retry-after') || 0) });
     }
     return data;
   } catch (error) {
@@ -41,8 +41,26 @@ function unwrap(data, key) {
 }
 
 export async function fetchPiggyAiProducts() {
-  const data = await request('/api/v2/telegram-buyer/products');
-  return unwrap(data, 'products');
+  const products = [], seen = new Set();
+  for (let page = 1; page <= 20; page++) {
+    let data;
+    try {
+      data = await request(`/api/v2/telegram-buyer/products?limit=5&page=${page}`);
+    } catch (error) {
+      if (error.status === 503 && error.code === 'RATE_LIMITED' && error.retryAfter > 0 && error.retryAfter <= 60) {
+        await new Promise((resolve) => setTimeout(resolve, error.retryAfter * 1000));
+        data = await request(`/api/v2/telegram-buyer/products?limit=5&page=${page}`);
+      } else throw error;
+    }
+    const batch = unwrap(data, 'products');
+    let added = 0;
+    for (const product of batch) {
+      const id = String(product?.id ?? product?.product_id ?? '').trim();
+      if (id && !seen.has(id)) { seen.add(id); products.push(product); added++; }
+    }
+    if (batch.length < 5 || added === 0) break;
+  }
+  return products;
 }
 
 export function normalizePiggyAiProduct(product, defaultCurrency = 'USD') {
