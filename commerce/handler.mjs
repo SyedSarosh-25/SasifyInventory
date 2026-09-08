@@ -3,6 +3,7 @@ import { createHmac, randomBytes, randomUUID } from 'node:crypto';
 import { hash, same, signature, encrypt, decrypt, parseEmail, parseInventory, normalizeTransaction, receiptText } from './core.mjs';
 import { createSupplierOrder, fetchSupplierProducts, supplierDelivery, supplierOrderId } from './supplier.mjs';
 import { createQamifyOrder, fetchQamifyBalance, fetchQamifyProducts, normalizeQamifyProduct, qamifyDelivery, qamifyOrderId } from './qamify.mjs';
+import { createMkeOrder, fetchMkeBalance, fetchMkeProducts, mkeDelivery, mkeOrderId, normalizeMkeProduct } from './mke.mjs';
 import catalog from './catalog.json' with { type: 'json' };
 
 const fail = (status, message) => Object.assign(new Error(message), { status });
@@ -43,6 +44,13 @@ function supplierProviders() {
       async catalog() {
         const [products, state] = await Promise.all([fetchQamifyProducts(), fetchQamifyBalance()]);
         return { ...state, products: products.map((product) => normalizeQamifyProduct(product, state.currency)).filter(Boolean) };
+      },
+    },
+    {
+      id: 'mke', name: 'MKE Shop', configured: !!process.env.MKE_API_KEY,
+      async catalog() {
+        const [products, state] = await Promise.all([fetchMkeProducts(), fetchMkeBalance()]);
+        return { ...state, products: products.map((product) => normalizeMkeProduct(product, state.currency)).filter(Boolean) };
       },
     },
   ];
@@ -112,6 +120,11 @@ async function placeSupplierOrder(product, order) {
     if (!/^\d+$/.test(String(product.external_product_id || ''))) throw fail(503, 'Qamify product ID is invalid.');
     const result = await createQamifyOrder({ productId: Number(product.external_product_id), idempotencyKey: `sasify-${order.id}-${product.external_product_id}` });
     return { delivery: qamifyDelivery(result), supplierId: qamifyOrderId(result, order.id) };
+  }
+  if (product.provider_id === 'mke') {
+    if (!/^\d+$/.test(String(product.external_product_id || ''))) throw fail(503, 'MKE Shop product ID is invalid.');
+    const result = await createMkeOrder({ productId: Number(product.external_product_id), idempotencyKey: `sasify-${order.id}-${product.external_product_id}` });
+    return { delivery: mkeDelivery(result), supplierId: mkeOrderId(result, order.id) };
   }
   if (['dodi','dody'].includes(product.provider_id)) {
     const result = await createSupplierOrder({ productId: product.external_product_id || product.id, externalOrderId: order.id });
