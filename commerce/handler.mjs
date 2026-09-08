@@ -5,6 +5,7 @@ import { createSupplierOrder, fetchSupplierProducts, supplierDelivery, supplierO
 import { createQamifyOrder, fetchQamifyBalance, fetchQamifyProducts, normalizeQamifyProduct, qamifyDelivery, qamifyOrderId } from './qamify.mjs';
 import { createMkeOrder, fetchMkeBalance, fetchMkeProducts, mkeDelivery, mkeOrderId, normalizeMkeProduct } from './mke.mjs';
 import { createPiggyAiOrder, fetchPiggyAiBalance, fetchPiggyAiProducts, normalizePiggyAiProduct, piggyAiDelivery, piggyAiOrderId } from './piggyai.mjs';
+import { createZoomStoreOrder, fetchZoomStoreBalance, fetchZoomStoreProducts, normalizeZoomStoreProduct, zoomStoreDelivery, zoomStoreOrderId } from './zoomstore.mjs';
 import catalog from './catalog.json' with { type: 'json' };
 
 const fail = (status, message) => Object.assign(new Error(message), { status });
@@ -59,6 +60,13 @@ function supplierProviders() {
       async catalog() {
         const [products, state] = await Promise.all([fetchPiggyAiProducts(), fetchPiggyAiBalance()]);
         return { ...state, products: products.map((product) => normalizePiggyAiProduct(product, state.currency)).filter(Boolean) };
+      },
+    },
+    {
+      id: 'zoomstore', name: 'Zoom Store', configured: !!process.env.ZOOMSTORE_API_KEY,
+      async catalog() {
+        const [products, state] = await Promise.all([fetchZoomStoreProducts(), fetchZoomStoreBalance()]);
+        return { ...state, products: products.map((product) => normalizeZoomStoreProduct(product, state.currency)).filter(Boolean) };
       },
     },
   ];
@@ -138,6 +146,11 @@ async function placeSupplierOrder(product, order) {
     if (!String(product.external_product_id || '').trim()) throw fail(503, 'PiggyAi product ID is invalid.');
     const result = await createPiggyAiOrder({ productId: product.external_product_id, idempotencyKey: `sasify-${order.id}-${product.external_product_id}` });
     return { delivery: piggyAiDelivery(result), supplierId: piggyAiOrderId(result, order.id) };
+  }
+  if (product.provider_id === 'zoomstore') {
+    if (!String(product.external_product_id || '').trim()) throw fail(503, 'Zoom Store product ID is invalid.');
+    const result = await createZoomStoreOrder({ productId: product.external_product_id, idempotencyKey: `sasify-${order.id}-${product.external_product_id}` });
+    return { delivery: zoomStoreDelivery(result), supplierId: zoomStoreOrderId(result, order.id) };
   }
   if (['dodi','dody'].includes(product.provider_id)) {
     const result = await createSupplierOrder({ productId: product.external_product_id || product.id, externalOrderId: order.id });
