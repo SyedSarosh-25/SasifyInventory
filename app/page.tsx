@@ -447,9 +447,21 @@ function DealProofGallery() {
 }
 
 export default function Home() {
+  const [liveProductCount, setLiveProductCount] = useState(products.length);
   const reviewsTrackRef = useRef<HTMLDivElement>(null);
   const reviewManualPauseUntilRef = useRef(0);
   const reviewInteractingRef = useRef(false);
+
+  useEffect(() => {
+    let active = true;
+    fetch('/api/commerce?action=stock', { cache: 'no-store' })
+      .then((response) => response.ok ? response.json() : Promise.reject())
+      .then((data: any) => {
+        if (active && Array.isArray(data.products)) setLiveProductCount(data.products.length);
+      })
+      .catch(() => {});
+    return () => { active = false; };
+  }, []);
 
   useEffect(() => {
     const track = reviewsTrackRef.current;
@@ -615,7 +627,7 @@ export default function Home() {
         </div>
 
         <div className="hero-proof">
-          <span><BadgeCheck className="h-4 w-4" /> {products.length} products</span>
+          <span><BadgeCheck className="h-4 w-4" /> {liveProductCount} products</span>
           <span><BadgeCheck className="h-4 w-4" /> Starting at <Money amount={lowestPrice} /></span>
           <a href={googleReviewsUrl} target="_blank" rel="noreferrer">
             <Stars /> 5.0 from 148 Google reviews
