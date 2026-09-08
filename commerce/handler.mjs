@@ -7,6 +7,7 @@ import catalog from './catalog.json' with { type: 'json' };
 
 const fail = (status, message) => Object.assign(new Error(message), { status });
 const bearer = (req) => String(req.headers.authorization || '').replace(/^Bearer /, '');
+const adminCookie = (req) => String(req.headers.cookie || '').match(/(?:^|;\s*)sasify_admin=([^;]+)/)?.[1] || '';
 const idOk = (value) => /^[a-f0-9-]{36}$/i.test(String(value || ''));
 const json = (res, status, body) => { res.statusCode = status; res.setHeader('Content-Type', 'application/json'); res.end(JSON.stringify(body)); };
 const supplierUsdtRate = () => {
@@ -206,10 +207,10 @@ return async function handler(req, res) {
     let body = req.body || {};
     if (typeof body === 'string') body = JSON.parse(body);
     if (JSON.stringify(body).length > 200000) throw fail(413, 'Request too large.');
-    const adminBearer = bearer(req);
-    const admin = same(adminBearer, process.env.COMMERCE_ADMIN_KEY) || validAdminToken(adminBearer, process.env.COMMERCE_ADMIN_KEY);
+    const adminBearer = bearer(req), adminSession = adminCookie(req);
+    const admin = same(adminBearer, process.env.COMMERCE_ADMIN_KEY) || validAdminToken(adminBearer, process.env.COMMERCE_ADMIN_KEY) || validAdminToken(adminSession, process.env.COMMERCE_ADMIN_KEY);
     await rate(db, hash(`${action}:${req.headers['x-vercel-forwarded-for'] || req.socket?.remoteAddress || 'unknown'}`), action === 'status' ? 60 : action === 'admin-login' ? 5 : 20);
-    if (action?.startsWith('admin-') && action !== 'admin-login' && !admin) throw fail(401, 'Your admin session is invalid or has expired.');
+    if (action?.startsWith('admin-') && !['admin-login','admin-logout'].includes(action) && !admin) throw fail(401, 'Your admin session is invalid or has expired.');
     if (action === 'email-webhook' && !same(body.secret, process.env.NAYAPAY_WEBHOOK_SECRET)) throw fail(401, 'Invalid webhook secret.');
     if (['stock','status','admin-list'].includes(action) ? req.method !== 'GET' : req.method !== 'POST') throw fail(405, 'Method not allowed.');
     await db.query('BEGIN');
@@ -221,7 +222,11 @@ return async function handler(req, res) {
       const passwordHash = hash(String(body.password || ''));
       if (!same(email, String(process.env.COMMERCE_ADMIN_EMAIL || '').trim().toLowerCase()) || !same(passwordHash, process.env.COMMERCE_ADMIN_PASSWORD_HASH)) throw fail(401, 'Invalid email or password.');
       output = adminToken(process.env.COMMERCE_ADMIN_KEY);
+      res.setHeader('Set-Cookie', `sasify_admin=${output.token}; HttpOnly; Secure; SameSite=Strict; Path=/api/commerce; Max-Age=28800`);
       await db.query("INSERT INTO commerce_audit(action,object_id) VALUES('admin_login',$1)", [hash(email).slice(0,16)]);
+    } else if (action === 'admin-logout') {
+      res.setHeader('Set-Cookie', 'sasify_admin=; HttpOnly; Secure; SameSite=Strict; Path=/api/commerce; Max-Age=0');
+      output = { ok:true };
     } else if (action === 'stock') {
       await db.query('SAVEPOINT supplier_sync');
       try { await syncSupplierCatalog(db); } catch (error) { await db.query('ROLLBACK TO SAVEPOINT supplier_sync'); console.error('supplier-sync-error', error.status || error.name); }

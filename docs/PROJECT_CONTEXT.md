@@ -82,7 +82,7 @@ The `action` query parameter drives the handler:
 - `claim`: submit a payment transaction ID and attempt matching/delivery.
 - `cancel`: cancel an eligible customer order and release local inventory.
 - `email-webhook`: receive and parse NayaPay receipt events.
-- `admin-login`: authenticate the admin and issue an expiring signed token.
+- `admin-login`, `admin-logout`: authenticate the admin, issue an expiring signed token in a secure `HttpOnly` cookie, and explicitly clear that cookie on sign-out.
 - `admin-import`, `admin-inventory-update`, `admin-inventory-delete`: manage local account inventory.
 - `admin-inventory-pick`: securely withdraw one available account for admin use, reveal its credentials once in the active UI, and audit the withdrawal without creating income or a paid order.
 - `admin-supplier-sync`, `admin-supplier-update`: synchronize and configure supplier products.
@@ -137,7 +137,8 @@ Automatic NayaPay verification is controlled by configuration and is visibly des
 ### Admin authentication
 
 - Admin login compares a normalized email and hashed password against server environment values.
-- Successful login returns an eight-hour HMAC-signed token.
+- Successful login returns an eight-hour HMAC-signed token and sets the same session in a host-only, `HttpOnly`, `Secure`, `SameSite=Strict` cookie scoped to the commerce endpoint.
+- The admin UI validates that cookie on load, so refreshes and navigation restore the dashboard until the eight-hour session expires. Tokens are not persisted in `localStorage` or `sessionStorage`.
 - Admin actions require the bearer token or the signed admin token.
 - Customer order actions use a recovery token hash; the raw token is not stored.
 - There is no external authentication framework visible in the repository.

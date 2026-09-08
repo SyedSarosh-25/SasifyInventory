@@ -22,14 +22,20 @@ test('checkout, signed payment delivery, duplicate prevention and recovery autho
   let tail=Promise.resolve();
   const handler=createHandler(()=>remotePool || ({async connect(){const previous=tail;let release;tail=new Promise((r)=>{release=r;});await previous;return {async query(sql,args){const r=await database.query(sql,args);return {...r,rowCount:r.affectedRows ?? r.rows.length};},release};}}));
   async function request(action,body,token='',id='',cookie=''){
-    let result;
+    let result;const headers={};
     const req={method:body?'POST':'GET',query:{action,id},url:'/api/commerce',headers:{authorization:token?'Bearer '+token:'',cookie},body,socket:{remoteAddress:randomBytes(4).toString('hex')}};
-    const res={statusCode:200,setHeader(){},end(text){result={code:this.statusCode,data:JSON.parse(text)};}};
+    const res={statusCode:200,setHeader(name,value){headers[String(name).toLowerCase()]=value;},end(text){result={code:this.statusCode,data:JSON.parse(text),headers};}};
     await handler(req,res);return result;
   }
   try{
     assert.equal((await request('admin-login',{email:env.COMMERCE_ADMIN_EMAIL,password:'wrong'})).code,401);
     const login=await request('admin-login',{email:env.COMMERCE_ADMIN_EMAIL,password:'test-password'});assert.equal(login.code,200,JSON.stringify(login));
+    assert.match(String(login.headers['set-cookie']),/^sasify_admin=.+; HttpOnly; Secure; SameSite=Strict; Path=\/api\/commerce; Max-Age=28800$/);
+    const adminCookie=String(login.headers['set-cookie']).split(';')[0];
+    assert.equal((await request('admin-list',undefined,'','',adminCookie)).code,200);
+    const logout=await request('admin-logout',{},'','',adminCookie);assert.equal(logout.code,200);
+    assert.match(String(logout.headers['set-cookie']),/Max-Age=0$/);
+    assert.equal((await request('admin-list',undefined,'','','sasify_admin=invalid')).code,401);
     assert.equal((await request('admin-list',undefined,login.data.token)).code,200);
     assert.equal((await request('admin-import',{productId:'p093',accounts:'a@test.invalid|test-pass|test-2fa'},'wrong')).code,401);
     const imported=await request('admin-import',{productId:'p093',accounts:'a@test.invalid|test-pass|test-2fa',purchaseCost:1000},env.COMMERCE_ADMIN_KEY);assert.equal(imported.code,200,JSON.stringify(imported));

@@ -8,10 +8,10 @@ type Order = { id: string; product: string; amount: number; status: string; expi
 async function api(action: string, token = '', body?: object, id = '') {
   const response = await fetch(`/api/commerce?action=${action}${id ? `&id=${encodeURIComponent(id)}` : ''}`, {
     method: body ? 'POST' : 'GET', headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}), ...(body ? { 'Content-Type': 'application/json' } : {}) },
-    body: body ? JSON.stringify(body) : undefined, cache: 'no-store',
+    body: body ? JSON.stringify(body) : undefined, cache: 'no-store', credentials: 'same-origin',
   });
   const data: any = await response.json();
-  if (!response.ok) throw new Error(data.error || 'Request failed. Please retry.');
+  if (!response.ok) throw Object.assign(new Error(data.error || 'Request failed. Please retry.'), { status:response.status });
   return data;
 }
 export function StockBuy({ productId }: { productId: string }) {
@@ -119,19 +119,22 @@ function SupplierProductRow({ item, busy, save }: { item:any; busy:boolean; save
 export function CommerceAdmin() {
   const [key,setKey] = useState(''), [email,setEmail] = useState(''), [password,setPassword] = useState(''), [data,setData] = useState<any>(null), [error,setError] = useState(''), [notice,setNotice] = useState('');
   const [accounts,setAccounts] = useState(''), [productId,setProduct] = useState('p093'), [purchaseCost,setPurchaseCost] = useState('2000'), [orderId,setOrderId] = useState(''), [paymentId,setPaymentId] = useState(''), [confirmed,setConfirmed] = useState(false), [busy,setBusy] = useState(false), [receipt,setReceipt] = useState<any>(null);
-  const [tab,setTab] = useState<'overview'|'inventory'|'supplier'|'orders'|'payments'>('overview'), [inventorySearch,setInventorySearch] = useState(''), [editing,setEditing] = useState<any>(null), [picked,setPicked] = useState<{ inventoryId:string; credentials:AccountCredentials } | null>(null);
+  const [tab,setTab] = useState<'overview'|'inventory'|'supplier'|'orders'|'payments'>('overview'), [inventorySearch,setInventorySearch] = useState(''), [editing,setEditing] = useState<any>(null), [picked,setPicked] = useState<{ inventoryId:string; credentials:AccountCredentials } | null>(null), [checkingSession,setCheckingSession] = useState(true);
   const [editCost,setEditCost] = useState('0'), [editState,setEditState] = useState('available'), [editEmail,setEditEmail] = useState(''), [editPassword,setEditPassword] = useState(''), [editTwoFactor,setEditTwoFactor] = useState('');
-  async function run(fn: () => Promise<void>) { setBusy(true); setError(''); try { await fn(); } catch(e) { setError((e as Error).message); } finally { setBusy(false); } }
+  useEffect(()=>{let active=true;void api('admin-list').then((dashboard)=>{if(active)setData(dashboard);}).catch(()=>{}).finally(()=>{if(active)setCheckingSession(false);});return()=>{active=false;};},[]);
+  async function run(fn: () => Promise<void>) { setBusy(true); setError(''); try { await fn(); } catch(e) { const problem=e as Error&{status?:number};if(problem.status===401){setData(null);setKey('');setPicked(null);setReceipt(null);}setError(problem.message); } finally { setBusy(false); } }
   const refresh = async () => setData(await api('admin-list',key));
   const login = async () => { const session=await api('admin-login','',{email,password});setKey(session.token);setPassword('');setData(await api('admin-list',session.token)); };
+  const logout = async () => { await api('admin-logout','',{});setData(null);setKey('');setEmail('');setPassword('');setAccounts('');setReceipt(null);setPicked(null);setNotice(''); };
   const money=(value:any)=>`PKR ${Number(value || 0).toLocaleString()}`;
   const available=Number(data?.stock?.find((row:any)=>row.state==='available')?.count || 0);
   const filteredInventory=(data?.inventory || []).filter((item:any)=>`${item.email} ${item.state}`.toLowerCase().includes(inventorySearch.toLowerCase()));
   const beginEdit=(item:any)=>{setEditing(item);setEditCost(String(item.purchaseCost));setEditState(item.state);setEditEmail('');setEditPassword('');setEditTwoFactor('');};
   const copyCredential=async(value:string)=>{try{await navigator.clipboard.writeText(value);setNotice('Credential copied.');}catch{setNotice('Select the credential and copy it.');}};
+  if (checkingSession) return <div className="commerce-shell commerce-admin admin-login" aria-busy="true"><p role="status">Loading admin...</p></div>;
   if (!data) return <div className="commerce-shell commerce-admin admin-login"><a href="/" className="brand"><img src="/sasify-logo.png" alt="Sasify Solutions" width={48} height={48}/><strong>Sasify Solutions</strong></a><div className="admin-login-panel"><span className="admin-eyebrow">Secure workspace</span><h1>Admin sign in</h1><p>Manage stock, orders, payments and financial performance.</p>{error && <p role="alert" className="commerce-error">{error}</p>}<form onSubmit={(e)=>{e.preventDefault();void run(login);}}><label>Email<input type="email" value={email} onChange={(e)=>setEmail(e.target.value)} required autoComplete="username"/></label><label>Password<input type="password" value={password} onChange={(e)=>setPassword(e.target.value)} required autoComplete="current-password"/></label><button className="primary-button" disabled={busy}>{busy?'Signing in...':'Sign in'}</button></form></div></div>;
   return <div className="commerce-shell commerce-admin">
-    <header className="admin-header"><div><span className="admin-eyebrow">Sasify operations</span><h1>Commerce admin</h1><p>Automatic verification: <strong className={data.autoVerify?'status-good':'status-warn'}>{data.autoVerify?'Enabled':'Manual'}</strong></p></div><div className="commerce-actions"><button title="Refresh dashboard" className="icon-command" disabled={busy} onClick={()=>void run(refresh)}><RefreshCw size={18}/></button><button className="secondary-button" onClick={()=>{setData(null);setKey('');setEmail('');setPassword('');setAccounts('');setReceipt(null);setPicked(null);}}>Sign out</button></div></header>
+    <header className="admin-header"><div><span className="admin-eyebrow">Sasify operations</span><h1>Commerce admin</h1><p>Automatic verification: <strong className={data.autoVerify?'status-good':'status-warn'}>{data.autoVerify?'Enabled':'Manual'}</strong></p></div><div className="commerce-actions"><button title="Refresh dashboard" className="icon-command" disabled={busy} onClick={()=>void run(refresh)}><RefreshCw size={18}/></button><button className="secondary-button" disabled={busy} onClick={()=>void run(logout)}>Sign out</button></div></header>
     {error&&<p role="alert" className="commerce-error">{error}</p>}{notice&&<p role="status" className="admin-notice">{notice}</p>}
     <nav className="admin-tabs" aria-label="Admin sections">{[
       ['overview','Overview',LayoutDashboard],['inventory','Inventory',Package],['supplier','Supplier Store',ShoppingCart],['orders','Orders',ClipboardList],['payments','Payments',WalletCards]
