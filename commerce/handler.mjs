@@ -295,8 +295,9 @@ return async function handler(req, res) {
           row_number() OVER(PARTITION BY canonical_key ORDER BY cost_pkr ASC NULLS LAST,wholesale_price ASC,id) AS choice
         FROM commerce_supplier_products WHERE enabled=true AND selling_price IS NOT NULL AND supplier_stock>0)
         SELECT id,name,description,delivery_instruction,price,available,provider_id,provider_name,canonical_key FROM ranked WHERE choice=1 ORDER BY name`)).rows;
+      const supplierTotal = Number((await db.query('SELECT count(*)::int AS count FROM commerce_supplier_products')).rows[0]?.count || 0);
       output = { products: [...catalog.map((p) => ({ ...p, source:'local', available: counts.find((r) => r.product_id === p.id)?.available || 0 })),
-        ...supplierProducts.map((p) => ({ ...p, id: p.canonical_key, source:'supplier' }))], ready: !!process.env.PAYMENT_ACCOUNT_TITLE };
+        ...supplierProducts.map((p) => ({ ...p, id: p.canonical_key, source:'supplier' }))], productCount: catalog.length + supplierTotal, ready: !!process.env.PAYMENT_ACCOUNT_TITLE };
     } else if (action === 'create') {
       let product = catalog.find((p) => p.id === body.productId);
       let supplierProduct;

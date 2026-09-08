@@ -457,7 +457,7 @@ export default function Home() {
     fetch('/api/commerce?action=stock', { cache: 'no-store' })
       .then((response) => response.ok ? response.json() : Promise.reject())
       .then((data: any) => {
-        if (active && Array.isArray(data.products)) setLiveProductCount(data.products.length);
+        if (active && Number.isSafeInteger(data.productCount)) setLiveProductCount(data.productCount);
       })
       .catch(() => {});
     return () => { active = false; };
@@ -627,7 +627,7 @@ export default function Home() {
         </div>
 
         <div className="hero-proof">
-          <span><BadgeCheck className="h-4 w-4" /> {liveProductCount} products</span>
+          <span><BadgeCheck className="h-4 w-4" /> {liveProductCount} products in catalog</span>
           <span><BadgeCheck className="h-4 w-4" /> Starting at <Money amount={lowestPrice} /></span>
           <a href={googleReviewsUrl} target="_blank" rel="noreferrer">
             <Stars /> 5.0 from 148 Google reviews
