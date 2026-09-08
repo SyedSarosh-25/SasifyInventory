@@ -60,7 +60,7 @@ function supplierProviders() {
       },
     },
     {
-      id: 'piggyai', name: 'PiggyAi', configured: !!process.env.PIGGYAI_API_KEY,
+      id: 'piggyai', name: 'Fat Bunny Hub', configured: !!process.env.PIGGYAI_API_KEY,
       async catalog() {
         const [products, state] = await Promise.all([fetchPiggyAiProducts(), fetchPiggyAiBalance()]);
         return { ...state, products: products.map((product) => normalizePiggyAiProduct(product, state.currency)).filter(Boolean) };
