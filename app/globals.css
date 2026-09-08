@@ -1951,6 +1951,11 @@ svg { flex-shrink: 0; }
 .supplier-search-icon { display: grid; width: 52px; height: 52px; place-items: center; border-radius: 16px; background: rgba(255,255,255,.2); color: #fff; font-size: 26px; }
 .supplier-search-icon img { width: 34px; height: 34px; border-radius: 10px; background: #fff; padding: 5px; }
 .supplier-search-card .product-meta .available { color: #087d53; }
+.supplier-detail-logo { display: grid; width: 116px; height: 116px; place-items: center; border: 1px solid #b9d9f3; border-radius: 24px; background: linear-gradient(145deg,#e8f6ff,#d6edff); color: #168dcc; font-size: 42px; box-shadow: 0 12px 28px rgba(22,141,204,.16); }
+.supplier-detail-logo img { width: 72px; height: 72px; border-radius: 20px; }
+.supplier-description-list { display: grid; gap: 12px; margin: 18px 0; padding-left: 24px; color: #314b72; }
+.supplier-description-list li { padding-left: 5px; line-height: 1.65; }
+.supplier-description-list li::marker { color: #168dcc; }
 .supplier-product-footer { margin-top: auto; padding-top: 20px; }
 .supplier-product-footer>strong { font-size: 1.15rem; color: #173e94; }
 .sold-out-label { color: #8a3140; font-weight: 800; }
