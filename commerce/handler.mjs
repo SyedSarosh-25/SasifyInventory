@@ -296,12 +296,12 @@ return async function handler(req, res) {
         FROM commerce_supplier_products WHERE enabled=true AND selling_price IS NOT NULL AND supplier_stock>0)
         SELECT id,name,description,delivery_instruction,price,available,provider_id,provider_name,canonical_key FROM ranked WHERE choice=1 ORDER BY name`)).rows;
       output = { products: [...catalog.map((p) => ({ ...p, source:'local', available: counts.find((r) => r.product_id === p.id)?.available || 0 })),
-        ...supplierProducts.map((p) => ({ ...p, source:'supplier' }))], ready: !!process.env.PAYMENT_ACCOUNT_TITLE };
+        ...supplierProducts.map((p) => ({ ...p, id: p.canonical_key, source:'supplier' }))], ready: !!process.env.PAYMENT_ACCOUNT_TITLE };
     } else if (action === 'create') {
       let product = catalog.find((p) => p.id === body.productId);
       let supplierProduct;
       if (!product) {
-        const requested = (await db.query('SELECT canonical_key FROM commerce_supplier_products WHERE id=$1 AND enabled=true AND selling_price IS NOT NULL', [body.productId])).rows[0];
+        const requested = (await db.query('SELECT canonical_key FROM commerce_supplier_products WHERE (id=$1 OR canonical_key=$1) AND enabled=true AND selling_price IS NOT NULL', [body.productId])).rows[0];
         if (requested) supplierProduct = (await db.query(`SELECT * FROM commerce_supplier_products WHERE canonical_key=$1 AND enabled=true AND selling_price IS NOT NULL
           AND supplier_stock>0 ORDER BY cost_pkr ASC NULLS LAST,wholesale_price ASC,id FOR UPDATE SKIP LOCKED LIMIT 1`, [requested.canonical_key])).rows[0];
         if (supplierProduct) product = { id:supplierProduct.id, name:supplierProduct.name, price:supplierProduct.selling_price };
