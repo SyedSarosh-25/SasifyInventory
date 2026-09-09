@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { randomBytes } from 'node:crypto';
 import { encrypt,decrypt,parseEmail,parseInventory,normalizeTransaction,same } from '../commerce/core.mjs';
 import { normalizeQamifyProduct, qamifyDelivery, qamifyOrderId } from '../commerce/qamify.mjs';
+import { providerDescription } from '../commerce/description.mjs';
 test('credentials are authenticated ciphertext and wrong keys cannot decrypt',()=>{
   const key=randomBytes(32).toString('hex'), credentials={email:'example@test.invalid',password:'example-password',twoFactor:'test-secret'};
   const ciphertext=encrypt(credentials,key);
@@ -46,4 +47,9 @@ test('Qamify products and order delivery are normalized defensively',()=>{
   assert.equal(normalizeQamifyProduct({id:42,name:'Broken',price:1,stock:1.5}),null);
   assert.deepEqual(qamifyDelivery({order:{items:['license-key'],instructions:'Redeem once.'}}),{content:'[\n  "license-key"\n]',instructions:'Redeem once.'});
   assert.equal(qamifyOrderId({order:{code:'RA-TEST'}},'fallback'),'RA-TEST');
+});
+test('provider descriptions accept common API fields without inventing copy',()=>{
+  assert.equal(providerDescription({details:'Package details'}),'Package details');
+  assert.equal(providerDescription({description:'Primary description',details:'Fallback'}),'Primary description');
+  assert.equal(providerDescription({name:'No description'}),'');
 });

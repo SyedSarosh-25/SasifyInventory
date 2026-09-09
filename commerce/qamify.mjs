@@ -1,3 +1,5 @@
+import { providerDescription } from './description.mjs';
+
 const endpoint = 'https://api.qamify.site';
 
 function configured() {
@@ -47,7 +49,7 @@ export function normalizeQamifyProduct(product, defaultCurrency = 'USD') {
   return {
     id,
     name,
-    description: String(product?.description || ''),
+    description: providerDescription(product),
     delivery_instruction: product?.delivery_instruction ? String(product.delivery_instruction) : null,
     wholesale_price: wholesalePrice,
     currency: currency.slice(0, 12),
