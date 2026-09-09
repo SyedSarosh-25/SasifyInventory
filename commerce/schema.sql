@@ -18,6 +18,7 @@ ALTER TABLE commerce_orders ADD COLUMN IF NOT EXISTS supplier_order_id text;
 ALTER TABLE commerce_orders ADD COLUMN IF NOT EXISTS supplier_delivery text;
 ALTER TABLE commerce_orders ADD COLUMN IF NOT EXISTS supplier_status text;
 ALTER TABLE commerce_orders ADD COLUMN IF NOT EXISTS supplier_cost_pkr integer CHECK(supplier_cost_pkr>=0);
+ALTER TABLE commerce_orders ADD COLUMN IF NOT EXISTS customer_email text;
 CREATE UNIQUE INDEX IF NOT EXISTS commerce_supplier_order_id ON commerce_orders(supplier_order_id) WHERE supplier_order_id IS NOT NULL;
 
 CREATE TABLE IF NOT EXISTS commerce_supplier_products (

@@ -31,6 +31,9 @@ function automaticProductKey(name) {
   const normalized = String(name || '').normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 180);
   return normalized ? `auto:${normalized}` : null;
 }
+function requiresCustomerEmail(product) {
+  return /(?:send|provide|submit).{0,40}(?:email|gmail)|(?:email|gmail).{0,40}(?:invite|family|activation)/i.test(`${product.name || ''}\n${product.description || ''}`);
+}
 function supplierProviders() {
   return [
     {
@@ -165,7 +168,7 @@ async function placeSupplierOrder(product, order) {
   if (['piggyai','fatbunny'].includes(product.provider_id)) {
     if (!String(product.external_product_id || '').trim()) throw fail(503, `${product.provider_name || 'PiggyAi'} product ID is invalid.`);
     const envName = product.provider_id === 'fatbunny' || product.provider_name === 'Fat Bunny Hub' ? 'FATBUNNY_API_KEY' : 'PIGGYAI_API_KEY';
-    const result = await createPiggyAiOrder({ productId: product.external_product_id, idempotencyKey: `sasify-${order.id}-${product.external_product_id}`, envName });
+    const result = await createPiggyAiOrder({ productId: product.external_product_id, customerEmail: order.customer_email || '', idempotencyKey: `sasify-${order.id}-${product.external_product_id}`, envName });
     return { delivery: piggyAiDelivery(result), supplierId: piggyAiOrderId(result, order.id) };
   }
   if (product.provider_id === 'zoomstore') {
@@ -293,9 +296,10 @@ return async function handler(req, res) {
       const counts = (await db.query("SELECT product_id,count(*)::int AS available FROM commerce_inventory WHERE state='available' GROUP BY product_id")).rows;
       const supplierProducts = (await db.query(`WITH ranked AS (
         SELECT id,name,description,delivery_instruction,selling_price AS price,supplier_stock AS available,provider_id,provider_name,canonical_key,
+          CASE WHEN description ~* '(send|provide|submit).{0,40}(email|gmail)|(email|gmail).{0,40}(invite|family|activation)' THEN true ELSE false END AS email_required,
           row_number() OVER(PARTITION BY canonical_key ORDER BY cost_pkr ASC NULLS LAST,wholesale_price ASC,id) AS choice
         FROM commerce_supplier_products WHERE enabled=true AND selling_price IS NOT NULL AND supplier_stock>0)
-        SELECT id,name,description,delivery_instruction,price,available,provider_id,provider_name,canonical_key FROM ranked WHERE choice=1 ORDER BY name`)).rows;
+        SELECT id,name,description,delivery_instruction,price,available,provider_id,provider_name,canonical_key,email_required FROM ranked WHERE choice=1 ORDER BY name`)).rows;
       const supplierTotal = Number((await db.query('SELECT count(*)::int AS count FROM commerce_supplier_products')).rows[0]?.count || 0);
       output = { products: [...catalog.map((p) => ({ ...p, source:'local', available: counts.find((r) => r.product_id === p.id)?.available || 0 })),
         ...supplierProducts.map((p) => ({ ...p, id: p.canonical_key, source:'supplier' }))], productCount: catalog.length + supplierTotal, ready: !!process.env.PAYMENT_ACCOUNT_TITLE };
@@ -308,7 +312,9 @@ return async function handler(req, res) {
           AND supplier_stock>0 ORDER BY cost_pkr ASC NULLS LAST,wholesale_price ASC,id FOR UPDATE SKIP LOCKED LIMIT 1`, [requested.canonical_key])).rows[0];
         if (supplierProduct) product = { id:supplierProduct.id, name:supplierProduct.name, price:supplierProduct.selling_price };
       }
-      if (!product || !process.env.PAYMENT_ACCOUNT_TITLE) throw fail(409, 'Online purchasing is not available for this product yet.');
+        if (!product || !process.env.PAYMENT_ACCOUNT_TITLE) throw fail(409, 'Online purchasing is not available for this product yet.');
+        const customerEmail = String(body.customerEmail || '').trim().toLowerCase();
+        if (supplierProduct && requiresCustomerEmail(supplierProduct) && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customerEmail)) throw fail(400, 'A valid Gmail or email address is required for this product.');
       const session = String(req.headers.cookie || '').match(/(?:^|;\s*)sasify_checkout=([a-f0-9]{64})(?:;|$)/)?.[1] || randomBytes(32).toString('hex');
       const existing = await db.query("SELECT id FROM commerce_orders WHERE session_hash=$1 AND status IN ('pending','review')", [hash(session)]);
       if (existing.rowCount >= 2) throw fail(409, 'Complete or cancel your existing orders first.');
@@ -321,8 +327,8 @@ return async function handler(req, res) {
       }
       const id = randomUUID(), recovery = randomBytes(32).toString('hex');
       if (item) await db.query("UPDATE commerce_inventory SET state='reserved' WHERE id=$1", [item.id]);
-      await db.query(`INSERT INTO commerce_orders(id,product_id,amount,recovery_hash,session_hash,inventory_id,supplier_product_id,supplier_cost_pkr,expires_at)
-        VALUES($1,$2,$3,$4,$5,$6,$7,$8,now()+interval '5 minutes')`, [id, product.id, product.price, hash(recovery), hash(session), item?.id || null, supplierProduct?.id || null, supplierProduct?.cost_pkr || 0]);
+      await db.query(`INSERT INTO commerce_orders(id,product_id,amount,recovery_hash,session_hash,inventory_id,supplier_product_id,supplier_cost_pkr,customer_email,expires_at)
+        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,now()+interval '5 minutes')`, [id, product.id, product.price, hash(recovery), hash(session), item?.id || null, supplierProduct?.id || null, supplierProduct?.cost_pkr || 0, customerEmail || null]);
       res.setHeader('Set-Cookie', `sasify_checkout=${session}; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=604800`);
       output = { id, recovery };
     } else if (['status','claim','cancel'].includes(action)) {
