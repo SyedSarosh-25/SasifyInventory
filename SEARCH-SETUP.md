@@ -26,7 +26,7 @@ This setup uses HTML meta tags, not DNS changes. Existing Hostinger email record
 
 The policy, access-clarity and GEO update was published on September 3, 2026 to the existing Vercel project. Production deployment: `dpl_4bc7peaWwxdV4cCigz2Ao2qBuBE1`, aliased to `https://www.sasifysolutions.com`. Both verification tags are present in the live homepage head. The live XML sitemap contains 104 URLs, product routes return 200, `.html` addresses redirect with 308, and an unknown product returns 404. The Vercel Analytics and Speed Insights script endpoints both return 200.
 
-An HTTP check of every URL in the live sitemap passed: all 104 pages return 200 with canonical metadata, crawl permission and structured data, and all 96 product pages include PKR offers, access labels and WhatsApp ordering. The buying guide has visible answers, matching FAQ structured data and inventory-linked prices.
+An HTTP check of every URL in the live sitemap passed: all 104 pages return 200 with canonical metadata, crawl permission and structured data, and all 96 product pages include PKR offers, access labels, online checkout and post-purchase WhatsApp support. The buying guide has visible answers, matching FAQ structured data and inventory-linked prices.
 
 Ownership verification and sitemap submission completed on September 3, 2026 after the owner confirmed the account:
 

@@ -6,7 +6,7 @@ import { breadcrumbData } from '../seo';
 import { StructuredData } from '../components/structured-data';
 
 const title = 'Digital Tools & Subscription Prices in Pakistan | Sasify Solutions';
-const description = 'Browse the full Sasify Solutions inventory: AI, coding, design and productivity tools. Compare PKR prices and plan durations, then order on WhatsApp.';
+const description = 'Browse the full Sasify Solutions inventory: AI, coding, design and productivity tools. Compare PKR prices, plan durations and access types, then buy online with automatic delivery after payment verification.';
 
 export const metadata: Metadata = {
   title,

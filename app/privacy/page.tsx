@@ -4,9 +4,9 @@ const description = 'Learn what information the Sasify Solutions website and its
 export const metadata = policyMetadata('Privacy Notice', description, '/privacy');
 
 export default function PrivacyPage() {
-  return <PolicyPage title="Privacy Notice" summary="This website has no customer account form and does not take checkout payments. Information you choose to send through WhatsApp is used to answer questions, arrange orders and provide support." path="/privacy">
+  return <PolicyPage title="Privacy Notice" summary="This website uses online checkout for digital purchases and provides post-purchase support through WhatsApp. Learn what information is used to verify and deliver orders." path="/privacy">
     <section className="policy-section"><h2>Information you provide</h2>
-      <p>When you contact Sasify Solutions on WhatsApp, you may provide your name, phone number, selected product, payment confirmation and support details. Share only what is needed for the order. Never send passwords, payment PINs or one-time verification codes.</p>
+      <p>When you place an order, you may provide a selected product, payment reference, contact details and delivery or support information. Share only what is needed for the order. Never send passwords, payment PINs or one-time verification codes.</p>
     </section>
     <section className="policy-section"><h2>External services</h2>
       <p>Vercel processes anonymized technical page-view and performance data for this website. Product icons may be loaded from Google, and the website links to WhatsApp, social media profiles and provider websites. Those services process information under their own privacy terms. Opening an external link takes you away from this website.</p>

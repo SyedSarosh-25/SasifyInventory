@@ -51,7 +51,7 @@ test('plan answers preserve annual payments, limited warranty and unknown durati
   assert.match(productQuestions(products.find(({ id }) => id === 'p093'))[2].answer, /25-day warranty/);
   assert.doesNotMatch(productQuestions(canva)[2].answer, /25-day/);
   const unknown = { ...canva, duration: '-' };
-  assert.match(productQuestions(unknown)[0].answer, /Confirm the access period/);
+  assert.match(productQuestions(unknown)[0].answer, /Review the access period/);
   assert.ok(!('additionalProperty' in productData(unknown)));
 });
 

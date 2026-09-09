@@ -10,7 +10,7 @@ export function productTitle(product: Product) {
 
 export function productDescription(product: Product) {
   const duration = product.duration === '-' ? 'this package' : product.duration;
-  return `${product.name}: ${formatPkr(product.sellingPricePkr)} for ${duration} in Pakistan. Check access, warranty and plan details. Order from Sasify Solutions on WhatsApp.`;
+  return `${product.name}: ${formatPkr(product.sellingPricePkr)} for ${duration} in Pakistan. Check access, warranty and plan details, then buy online with automatic delivery after payment verification.`;
 }
 
 export function productQuestions(product: Product) {
@@ -19,20 +19,20 @@ export function productQuestions(product: Product) {
     {
       question: `What is the ${product.name} price in Pakistan?`,
       answer: product.duration === '-'
-        ? `Sasify Solutions lists this package at ${price}. Confirm the access period and availability on WhatsApp before payment.`
-        : `Sasify Solutions lists ${product.name} at ${price} for ${product.duration}. Confirm availability on WhatsApp before payment.`,
+        ? `Sasify Solutions lists this package at ${price}. Review the access period and availability, then buy online through secure checkout.`
+        : `Sasify Solutions lists ${product.name} at ${price} for ${product.duration}. Review the listing and buy online through secure checkout.`,
     },
     {
       question: isAnnualPlan(product) ? 'Is this a one-time payment for the full year?' : 'What access is included in this package?',
       answer: isAnnualPlan(product)
         ? `Yes. Pay ${price} once to Sasify Solutions for the full year. No monthly payments to us are needed during that year. Provider usage limits still apply.`
-        : `${product.description} Confirm the account, device, invitation and usage requirements for this exact listing before ordering.`,
+        : `${product.description} Review the account, device, invitation and usage requirements for this exact listing before ordering.`,
     },
     {
       question: `What warranty comes with ${product.name}?`,
       answer: has25DayWarranty(product)
-        ? 'This one-month / 30-day package includes a full 25-day warranty from Sasify Solutions. Contact our WhatsApp number for warranty support.'
-        : 'A warranty period is included. Confirm the duration and what is covered for this specific package with Sasify Solutions before payment.',
+        ? 'This one-month / 30-day package includes a full 25-day warranty from Sasify Solutions. WhatsApp support is available after payment for delivery or activation issues.'
+        : 'A warranty period is included. Review the duration and coverage shown for this package; WhatsApp support is available after payment for delivery or activation issues.',
     },
   ];
 }

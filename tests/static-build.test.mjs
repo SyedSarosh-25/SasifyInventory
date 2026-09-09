@@ -159,7 +159,8 @@ test('policy pages are indexable, linked and state only the confirmed commercial
   }
   assert.match(await read('warranty.html'), /One-month and 30-day packages:[\s\S]*full 25-day warranty/);
   assert.match(await read('warranty.html'), /one-year plan does not by itself include a one-year warranty/);
-  assert.match(await read('refunds.html'), /Refund eligibility is not automatic/);
+  assert.match(await read('refunds.html'), /Digital purchases are paid online, verified before delivery/);
+  assert.match(await read('refunds.html'), /WhatsApp support button shown with your order/);
   const privacy = await read('privacy.html');
   assert.doesNotMatch(privacy, /Website analytics and performance/);
   assert.doesNotMatch(privacy, /Vercel Web Analytics privacy information|Vercel Speed Insights privacy information/);

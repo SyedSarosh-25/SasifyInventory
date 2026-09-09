@@ -133,7 +133,8 @@ async function syncSupplierCatalog(db, force = false) {
         VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,now()) ON CONFLICT(id) DO UPDATE SET name=excluded.name,description=excluded.description,
         delivery_instruction=excluded.delivery_instruction,wholesale_price=excluded.wholesale_price,currency=excluded.currency,supplier_stock=excluded.supplier_stock,
         provider_id=excluded.provider_id,provider_name=excluded.provider_name,external_product_id=excluded.external_product_id,
-        canonical_key=excluded.canonical_key, canonical_manual=false,
+        canonical_key=CASE WHEN commerce_supplier_products.canonical_manual THEN commerce_supplier_products.canonical_key ELSE excluded.canonical_key END,
+        canonical_manual=commerce_supplier_products.canonical_manual,
         cost_pkr=CASE WHEN commerce_supplier_products.cost_manual THEN commerce_supplier_products.cost_pkr ELSE excluded.cost_pkr END,synced_at=now()`,
         [id,String(product.name).slice(0,200),String(product.description || '').slice(0,10000),product.delivery_instruction ? String(product.delivery_instruction).slice(0,10000) : null,wholesale,currency,stock,automaticCostPkr(wholesale,currency),provider.id,provider.name,externalId,String(automaticProductKey(product.name) || product.canonical_key || `${provider.id}:${externalId}`).slice(0,200)]);
       accepted++;

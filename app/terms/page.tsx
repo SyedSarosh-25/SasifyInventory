@@ -4,9 +4,9 @@ const description = 'Read Sasify Solutions ordering, pricing, access, provider a
 export const metadata = policyMetadata('Terms of Service', description, '/terms');
 
 export default function TermsPage() {
-  return <PolicyPage title="Terms of Service" summary="These terms explain how listings, prices and WhatsApp orders work. Confirm the exact package terms in writing before payment." path="/terms">
+  return <PolicyPage title="Terms of Service" summary="These terms explain how listings, online checkout, automatic delivery and post-purchase support work." path="/terms">
     <section className="policy-section"><h2>Listings and orders</h2>
-      <p>Each product page describes a Sasify Solutions listing. Orders, availability, payment instructions and activation requirements are confirmed through WhatsApp. The website itself does not process checkout payments.</p>
+      <p>Each product page describes a Sasify Solutions listing. Select the exact package, proceed to secure online checkout and submit the requested payment reference. After payment verification, eligible digital purchases are delivered automatically. WhatsApp support is available after payment for delivery or activation issues.</p>
     </section>
     <section className="policy-section"><h2>Prices and savings</h2>
       <p>PKR is the basis for the listed Sasify price. The USD toggle uses the website&apos;s fixed conversion rate of 1 USD = PKR 285 for display. Provider prices are comparison references and may differ by region, tax, billing option and access arrangement. Savings equal the full-plan reference price minus the Sasify package price.</p>
@@ -18,7 +18,7 @@ export default function TermsPage() {
       <p>Third-party names and logos identify the relevant tools and belong to their respective owners. Unless a listing expressly states otherwise, their use does not claim that Sasify Solutions is the provider or an official affiliate.</p>
     </section>
     <section className="policy-section"><h2>Warranty, refunds and changes</h2>
-      <p>Read the <a href="/warranty">Warranty Policy</a> and <a href="/refunds">Refund and Resolution Policy</a>. Listings may be updated when prices, availability or provider plans change. The written confirmation for your exact order should be reviewed before payment.</p>
+      <p>Read the <a href="/warranty">Warranty Policy</a> and <a href="/refunds">Refund and Resolution Policy</a>. Listings may be updated when prices, availability or provider plans change. Review the exact product page and checkout total before payment.</p>
     </section>
   </PolicyPage>;
 }

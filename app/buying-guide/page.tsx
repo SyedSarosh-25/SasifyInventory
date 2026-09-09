@@ -1,11 +1,11 @@
 import type { Metadata } from 'next';
-import { ArrowRight, MessageCircle } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
 import { guidePlans, guideQuestions } from '../buying-guide-content';
 import { Money } from '../components/currency';
 import { ProductLogo } from '../components/product-logo';
 import { SiteFooter, SiteHeader } from '../components/site-chrome';
 import { StructuredData } from '../components/structured-data';
-import { accessTypeLabel, isAnnualPlan, productHref, whatsappLink } from '../product-utils';
+import { accessTypeLabel, isAnnualPlan, productHref } from '../product-utils';
 import { breadcrumbData, faqData } from '../seo';
 import { siteOrigin } from '../site-config';
 
@@ -29,7 +29,7 @@ export default function BuyingGuidePage() {
         <img src="/sasify-logo.png" alt="Sasify Solutions logo" width={80} height={80} decoding="async" />
         <div><span className="section-kicker">Sasify Solutions</span><h1>Digital tool buying guide</h1></div>
       </div>
-      <p>Sasify Solutions lists digital tool packages for buyers in Pakistan. Compare the price for the exact access period, then confirm the account arrangement and warranty on WhatsApp before payment. Shared, team, invite and credit packages have different requirements.</p>
+      <p>Sasify Solutions lists digital tool packages for buyers in Pakistan. Compare the exact access period, account arrangement and warranty details, then choose Buy online. Shared, team, invite and credit packages have different requirements.</p>
       <section className="description-section" id="compare-plans">
         <h2>Popular plans and package prices</h2>
         <p>These are our listed package totals, not monthly equivalents. Provider reference prices and the full description are on each product page. Availability is confirmed before payment.</p>
@@ -61,7 +61,7 @@ export default function BuyingGuidePage() {
           <li>Confirm whether access is shared, single-person, team, invite-based or credit-based.</li>
           <li>Confirm provider limits, account requirements and device rules.</li>
           <li>Confirm the warranty duration and covered remedy in writing.</li>
-          <li>Confirm the final PKR payment and activation instructions on WhatsApp.</li>
+          <li>Review the final PKR total and activation instructions at secure checkout.</li>
         </ol>
       </section>
       <section className="description-section" id="plan-questions">
@@ -79,7 +79,7 @@ export default function BuyingGuidePage() {
           <a href={product.sourceUrl} target="_blank" rel="noreferrer">{product.name}: provider reference</a>
         </li>)}</ul>
         <p><a href="/about">About Sasify Solutions, founder Syed Sarosh and our contact channels.</a> Review our <a href="/warranty">Warranty</a>, <a href="/refunds">Refunds</a>, <a href="/privacy">Privacy</a> and <a href="/terms">Terms</a> pages before ordering.</p>
-        <a href={whatsappLink()} target="_blank" rel="noreferrer" className="primary-button"><MessageCircle className="h-4 w-4" /> Confirm a plan on WhatsApp</a>
+        <a href="/inventory" className="primary-button">Browse all products <ArrowRight className="h-4 w-4" /></a>
       </section>
     </article>
     <SiteFooter />

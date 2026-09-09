@@ -590,7 +590,7 @@ export default function Home() {
             <HeroTypingTitle />
             <p>
               Explore AI, coding, design, productivity and SaaS tools in Pakistan.
-              Compare PKR prices and plan durations, then confirm your order on WhatsApp.
+              Compare PKR prices, plan durations and access types, then buy online with automatic delivery after payment verification.
             </p>
 
             <HeroProductSearch />
@@ -798,7 +798,7 @@ export default function Home() {
             <div>
               <span className="section-kicker">Flexible ways to pay</span>
               <h2 id="payment-methods-title">Supported payment methods worldwide</h2>
-              <p>Choose from Pakistani wallets and bank transfers or our supported international payment options. Final receiving details are confirmed on WhatsApp before payment.</p>
+              <p>Choose from Pakistani wallets, bank transfers or supported international payment options at checkout. After successful payment, your digital purchase is delivered automatically and WhatsApp support is available if you need help.</p>
             </div>
           </div>
           <div className="payment-methods-grid">
@@ -842,7 +842,7 @@ export default function Home() {
             </details>
             <details>
               <summary>Do all products come with a warranty?</summary>
-              <p>Yes, all products come with a warranty period. Our 30-day products and one-month plans include a full 25-day warranty. Warranty periods for other plans vary by product; confirm the duration with our team before payment.</p>
+              <p>Yes, all products come with a warranty period. Our 30-day products and one-month plans include a full 25-day warranty. Warranty periods for other plans vary by product; review the duration shown with the selected listing.</p>
             </details>
             <details>
               <summary>Is shared access the same as a personal plan?</summary>
@@ -850,11 +850,11 @@ export default function Home() {
             </details>
             <details>
               <summary>Who operates Sasify Solutions?</summary>
-              <p>Sasify Solutions is founded by Syed Sarosh. We list digital tools and subscription packages with WhatsApp ordering. <a href="/about">Meet Sasify Solutions and find our official contact links.</a></p>
+              <p>Sasify Solutions is founded by Syed Sarosh. We list digital tools and subscription packages with online checkout, automatic delivery and post-purchase WhatsApp support. <a href="/about">Meet Sasify Solutions and find our official contact links.</a></p>
             </details>
             <details>
               <summary>When is availability confirmed?</summary>
-              <p>Our team confirms current availability and payment details with you on WhatsApp before purchase.</p>
+              <p>Current availability and payment details are shown on the product page and secure checkout before you pay.</p>
             </details>
           </div>
         </div>

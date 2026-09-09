@@ -74,7 +74,7 @@ test('Qamify catalog sync and paid order fulfilment use provider IDs and idempot
     const supplierProducts = stock.data.products.filter((item) => item.source === 'supplier');
     assert.equal(supplierProducts.length, 1);
     const product = supplierProducts[0];
-    assert.equal(product.id, 'qamify:43');
+    assert.equal(product.id, 'test-product');
     assert.equal(product.provider_name, 'Qamify');
     assert.equal(product.available, 2);
     assert.equal(product.price, 999);

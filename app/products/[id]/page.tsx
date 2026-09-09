@@ -63,7 +63,7 @@ export default async function ProductPage({ params }: Props) {
               <div>
                 <span className="section-kicker">{product.category}</span>
                 <h1>{product.name}</h1>
-                <span className="detail-duration"><CalendarDays className="h-4 w-4" /> {product.duration === '-' ? 'Duration confirmed on WhatsApp' : product.duration}</span>
+                <span className="detail-duration"><CalendarDays className="h-4 w-4" /> {product.duration === '-' ? 'Duration confirmed at checkout' : product.duration}</span>
               </div>
             </div>
 
@@ -88,9 +88,9 @@ export default async function ProductPage({ params }: Props) {
                 <p>The listed Sasify price is <strong><Money amount={product.sellingPricePkr} /></strong> for this package. Confirm the access period, activation requirements and payment details with our team before ordering.</p>
               )}
               {warranty ? (
-                <p><strong>Full 25-day warranty included.</strong> This 30-day / one-month product comes with a full 25-day warranty from Sasify Solutions. Contact us on WhatsApp for warranty support.</p>
+                <p><strong>Full 25-day warranty included.</strong> This 30-day / one-month product comes with a full 25-day warranty from Sasify Solutions. Use the WhatsApp support button shown with your order if you need help.</p>
               ) : (
-                <p><strong>Warranty included.</strong> All products come with a warranty period. Confirm this package&apos;s warranty duration with our team before payment.</p>
+                <p><strong>Warranty included.</strong> All products come with a warranty period. Review this package&apos;s warranty duration and coverage before payment.</p>
               )}
             </section>
 
@@ -133,7 +133,7 @@ export default async function ProductPage({ params }: Props) {
               <a href={product.sourceUrl} target="_blank" rel="noreferrer" className="price-source">Provider pricing reference <ExternalLink className="h-3.5 w-3.5" /></a>
             )}
             {annual && <div className="plan-notice"><CalendarDays className="h-5 w-5" /><span><strong>One-time payment for the full year</strong>No monthly payments to Sasify Solutions.</span></div>}
-            <div className="plan-notice"><ShieldCheck className="h-5 w-5" /><span><strong>{warranty ? 'Full 25-day warranty' : 'Warranty included'}</strong>{warranty ? 'Included with this one-month plan.' : 'Confirm this plan\'s warranty period before payment.'}</span></div>
+            <div className="plan-notice"><ShieldCheck className="h-5 w-5" /><span><strong>{warranty ? 'Full 25-day warranty' : 'Warranty included'}</strong>{warranty ? 'Included with this one-month plan.' : 'Review this plan\'s warranty period before payment.'}</span></div>
             {product.id === 'p093' && <StockBuy productId={product.id} />}
             <a href={`/checkout?product=${encodeURIComponent(product.id)}`} className="primary-button detail-buy"><ShoppingCart className="h-5 w-5" /> Buy online</a>
             <p className="order-footnote">Availability and activation details are confirmed before payment.</p>

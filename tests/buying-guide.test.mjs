@@ -19,7 +19,7 @@ test('guide keeps access distinctions and warranty qualifications explicit', () 
   assert.match(guideQuestions[2].answer, /no monthly payments to us/);
   assert.match(guideQuestions[4].answer, /One-month and 30-day packages.*25-day warranty/);
   assert.match(guideQuestions[4].answer, /does not by itself mean a one-year warranty/);
-  assert.match(guideQuestions[6].answer, /no checkout payment/);
+  assert.match(guideQuestions[6].answer, /delivered automatically after payment verification/);
 });
 
 test('FAQ markup uses the same complete answers as the visible guide', () => {
