@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { products } from '../app/products.ts';
-import { accessTypeLabel, has25DayWarranty, isAnnualPlan, originalPriceComparison, originalPricePkr, planMonths, productHref, productLogo, publicProductHref, savingsPkr, whatsappLink } from '../app/product-utils.ts';
+import { accessTypeLabel, has25DayWarranty, isAnnualPlan, originalPriceComparison, originalPricePkr, planMonths, productHref, productLogo, savingsPkr, whatsappLink } from '../app/product-utils.ts';
 import { featuredProducts, filterProducts, heroProducts, orbitTools } from '../app/catalog-selection.ts';
 
 test('every inventory variant has a unique detail URL', () => {
@@ -130,25 +130,25 @@ test('all orbit logos link to the corresponding tool detail page', () => {
 });
 
 test('full inventory keeps all products, search, categories and empty results', () => {
-  assert.deepEqual(filterProducts('', 'All').map((product) => product.id), ['p093']);
-  assert.equal(filterProducts(' ChatGPT Plus Shared ', 'All').length, 0);
-  assert.equal(filterProducts('', 'Design & UI/UX').length, 0);
+  assert.equal(filterProducts('', 'All').length, products.length);
+  assert.equal(filterProducts(' ChatGPT Plus Shared ', 'All')[0].id, 'p094');
+  assert.ok(filterProducts('', 'Design & UI/UX').every((product) => product.category === 'Design & UI/UX'));
   assert.equal(filterProducts('zzzz-not-a-product', 'All').length, 0);
 });
 
 test('hero restores the five requested product shortcuts without reducing the top ten', () => {
   assert.deepEqual(heroProducts.map((product) => product.id), ['p093', 'p013', 'p096', 'p028', 'p088']);
   assert.equal(featuredProducts.length, 10);
-  for (const product of heroProducts) assert.equal(publicProductHref(product), product.id === 'p093' ? '/products/p093' : `/inventory?q=${encodeURIComponent(product.name)}`);
+  for (const product of heroProducts) assert.equal(productHref(product), `/products/${product.id}`);
 });
 
 test('live hero search matches VPN category and partial names across the full inventory', () => {
   const vpnProducts = products.filter((product) => product.category === 'VPN & Privacy');
   assert.ok(vpnProducts.length > 0);
   const matches = filterProducts(' VPN ', 'All');
-  assert.equal(matches.length, 0);
+  for (const product of vpnProducts) assert.ok(matches.some((match) => match.id === product.id));
   assert.deepEqual(matches, filterProducts('vpn', 'All'));
-  assert.equal(filterProducts('Nord', 'All').length, 0);
+  assert.ok(filterProducts('Nord', 'All').some((product) => product.name.includes('Nord')));
   assert.ok(filterProducts('chatg', 'All').some((product) => product.id === 'p093'));
   assert.equal(filterProducts('not-a-real-tool-xyz', 'All').length, 0);
 });

@@ -28,6 +28,6 @@ export function normalizeSearchText(value: string) {
 
 export function filterProducts(query: string, category: string) {
   const needle = normalizeSearchText(query.trim());
-  return products.filter((product) => product.id === 'p093' && (category === 'All' || product.category === category)
+  return products.filter((product) => (category === 'All' || product.category === category)
     && (!needle || normalizeSearchText([product.name, product.slug, product.category, product.duration].join(' ')).includes(needle)));
 }

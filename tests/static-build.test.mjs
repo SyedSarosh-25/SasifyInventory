@@ -6,20 +6,18 @@ import test from 'node:test';
 import { products } from '../app/products.ts';
 import { siteOrigin } from '../app/site-config.ts';
 import { productQuestions, productTitle, robotsText, sitemapXml } from '../app/seo.ts';
-import { publicProductHref } from '../app/product-utils.ts';
 import { guidePlans, guideQuestions } from '../app/buying-guide-content.ts';
 
 const out = fileURLToPath(new URL('../out/', import.meta.url));
 const read = (file) => readFile(path.join(out, file), 'utf8');
 const origin = siteOrigin;
-const localProducts = products.filter(({ id }) => id === 'p093');
 const policyPages = ['warranty', 'refunds', 'privacy', 'terms'];
-const canonicalPages = ['index', 'inventory', 'about', 'buying-guide', ...policyPages, ...localProducts.map(({ id }) => `products/${id}`)];
+const canonicalPages = ['index', 'inventory', 'about', 'buying-guide', ...policyPages, ...products.map(({ id }) => `products/${id}`)];
 
 test('brand title and standards-compatible favicons are included in exported pages', async () => {
   const home = await read('index.html');
   assert.match(home, /<title>Sasify Solutions \| Digital Tools and Services Marketplace<\/title>/);
-  for (const file of ['index.html', 'inventory.html', 'about.html', 'buying-guide.html', 'privacy.html', 'products/p093.html']) {
+  for (const file of ['index.html', 'inventory.html', 'about.html', 'buying-guide.html', 'privacy.html', 'products/p013.html', 'products/p096.html']) {
     const html = await read(file);
     const icons = [...html.matchAll(/<link\b[^>]*>/g)].map(([tag]) => tag).filter((tag) => /rel="(?:shortcut )?icon"/.test(tag));
     assert.ok(icons.some((tag) => tag.includes('href="/favicon.ico"') && tag.includes('type="image/x-icon"')), `ICO favicon missing: ${file}`);
@@ -36,7 +34,7 @@ test('homepage, inventory and every product have populated static HTML', async (
   assert.match(await read('index.html'), /Sasify Solutions/);
   const inventory = await read('inventory.html');
   assert.match(inventory, /Full inventory/);
-  for (const product of localProducts) {
+  for (const product of products) {
     const html = await read(`products/${product.id}.html`);
     assert.match(html, /Buy online/);
     assert.match(html, /wa\.me\/923116185711/);
@@ -142,7 +140,7 @@ test('buying guide answers and plan links are visible and match its structured d
     assert.ok(visible.includes(answer));
   }
   for (const product of guidePlans) {
-    assert.ok(visible.includes(`href="${publicProductHref(product)}"`));
+    assert.ok(visible.includes(`href="/products/${product.id}"`));
     assert.ok(visible.includes(product.sellingPricePkr.toLocaleString('en-PK')));
   }
   for (const file of ['index', 'about', 'products/p093']) {
@@ -171,7 +169,7 @@ test('policy pages are indexable, linked and state only the confirmed commercial
 });
 
 test('all product offers match visible content and answers exist without running JavaScript', async () => {
-  for (const product of localProducts) {
+  for (const product of products) {
     const html = await read(`products/${product.id}.html`);
     const data = jsonLd(html);
     const offers = data.filter((item) => item['@type'] === 'Product');
@@ -205,7 +203,7 @@ test('HTML assets and internal navigation targets exist in the upload folder', a
     assert.ok(info, `Missing local URL: ${target}`);
     if (info.isDirectory()) assert.ok((await stat(path.join(file, 'index.html'))).isFile(), `Missing page: ${target}`);
   }
-  assert.ok(targets.size > localProducts.length);
+  assert.ok(targets.size > products.length);
 });
 
 test('upload includes error page, reviewer photos and Apache entry configuration', async () => {

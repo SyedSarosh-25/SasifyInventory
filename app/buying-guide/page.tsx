@@ -5,7 +5,7 @@ import { Money } from '../components/currency';
 import { ProductLogo } from '../components/product-logo';
 import { SiteFooter, SiteHeader } from '../components/site-chrome';
 import { StructuredData } from '../components/structured-data';
-import { accessTypeLabel, isAnnualPlan, publicProductHref } from '../product-utils';
+import { accessTypeLabel, isAnnualPlan, productHref } from '../product-utils';
 import { breadcrumbData, faqData } from '../seo';
 import { siteOrigin } from '../site-config';
 
@@ -35,7 +35,7 @@ export default function BuyingGuidePage() {
         <p>These are our listed package totals, not monthly equivalents. Provider reference prices and the full description are on each product page. Availability is confirmed before payment.</p>
         <ul className="guide-plans">
           {guidePlans.map((product) => <li key={product.id}>
-            <a href={publicProductHref(product)}>
+            <a href={productHref(product)}>
               <span className="product-logo-frame"><ProductLogo product={product} /></span>
               <span className="guide-plan-name"><strong>{product.name}</strong><span>{product.duration}</span><span>{accessTypeLabel(product)}{isAnnualPlan(product) ? ' | One-time payment' : ''}</span></span>
               <strong className="guide-plan-price"><Money amount={product.sellingPricePkr} /></strong>

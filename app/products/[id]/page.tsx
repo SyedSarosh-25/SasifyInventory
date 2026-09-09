@@ -8,12 +8,12 @@ import { SiteFooter, SiteHeader } from '../../components/site-chrome';
 import { Money, OriginalPrice } from '../../components/currency';
 import { StructuredData } from '../../components/structured-data';
 import { breadcrumbData, productData, productDescription, productQuestions, productTitle } from '../../seo';
-import { accessTypeLabel, has25DayWarranty, isAnnualPlan, originalPriceComparison, originalPricePkr, productHref, productLogo, publicProductHref, savingsPkr, siteOrigin } from '../../product-utils';
+import { accessTypeLabel, has25DayWarranty, isAnnualPlan, originalPriceComparison, originalPricePkr, productHref, productLogo, savingsPkr, siteOrigin } from '../../product-utils';
 
 type Props = { params: Promise<{ id: string }> };
 
 export function generateStaticParams() {
-  return products.filter((product) => product.id === 'p093').map((product) => ({ id: product.id }));
+  return products.map((product) => ({ id: product.id }));
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
@@ -146,7 +146,7 @@ export default async function ProductPage({ params }: Props) {
             <h2>More plans to explore</h2>
             <div className="related-grid">
               {related.map((item) => (
-                <a key={item.id} href={publicProductHref(item)} className="related-product">
+                <a key={item.id} href={productHref(item)} className="related-product">
                   <div className="product-logo-frame"><ProductLogo product={item} /></div>
                   <div><h3>{item.name}</h3><p>{item.duration}</p><strong><Money amount={item.sellingPricePkr} /></strong></div>
                   <ArrowRight className="h-4 w-4" />
