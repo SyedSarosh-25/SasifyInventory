@@ -114,7 +114,7 @@ export function faqData(path: string, questions: { question: string; answer: str
 }
 
 export function sitemapEntries() {
-  return ['/', '/inventory', '/about', '/buying-guide', '/warranty', '/refunds', '/privacy', '/terms', ...products.map(productHref)].map((path) => ({ url: `${siteOrigin}${path}` }));
+  return ['/', '/inventory', '/about', '/buying-guide', '/warranty', '/refunds', '/privacy', '/terms', ...products.filter((product) => product.id === 'p093').map(productHref)].map((path) => ({ url: `${siteOrigin}${path}` }));
 }
 
 export function robotsRules() {

@@ -7,7 +7,7 @@ import { breadcrumbData, organizationData, productData, productDescription, prod
 test('sitemap contains only unique canonical pages at the configured domain', () => {
   assert.equal(defaultSiteOrigin, 'https://www.sasifysolutions.com');
   const entries = sitemapEntries();
-  assert.equal(entries.length, products.length + 8);
+  assert.equal(entries.length, 9);
   assert.equal(new Set(entries.map(({ url }) => url)).size, entries.length);
   assert.deepEqual(entries.slice(0, 8).map(({ url }) => url), ['/', '/inventory', '/about', '/buying-guide', '/warranty', '/refunds', '/privacy', '/terms'].map((p) => siteOrigin + p));
   for (const entry of entries) {

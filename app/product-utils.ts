@@ -20,6 +20,10 @@ export function productHref(product: Product) {
   return `/products/${product.id}`;
 }
 
+export function publicProductHref(product: Product) {
+  return product.id === 'p093' ? productHref(product) : `/inventory?q=${encodeURIComponent(product.name)}`;
+}
+
 export function initials(name: string) {
   return name.replace(/[^a-zA-Z0-9 ]/g, ' ').split(/\s+/).filter(Boolean)
     .slice(0, 2).map((word) => word[0]).join('').toUpperCase();

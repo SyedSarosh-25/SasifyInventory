@@ -3,7 +3,7 @@
 import { ArrowRight, Search, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { filterProducts, heroProducts, normalizeSearchText } from '../catalog-selection';
-import { productHref } from '../product-utils';
+import { publicProductHref } from '../product-utils';
 import { Money } from './currency';
 import { ProductLogo } from './product-logo';
 
@@ -93,7 +93,7 @@ export function HeroProductSearch() {
       {searching ? <div className="hero-search-results">
         {matches.length + supplierMatches.length > 0 ? <ul>
           {matches.map((product) => <li key={product.id}>
-            <a href={productHref(product)} className="hero-search-result">
+            <a href={publicProductHref(product)} className="hero-search-result">
               <span className="hero-mini-logo"><ProductLogo product={product} /></span>
               <span className="hero-result-copy"><strong>{product.name}</strong><small>{product.duration}</small></span>
               <strong className="hero-result-price"><Money amount={product.sellingPricePkr} /></strong>
@@ -113,7 +113,7 @@ export function HeroProductSearch() {
           <button type="button" onClick={clearSearch}>Show top products</button>
         </div>}
       </div> : <nav className="hero-top-products" aria-label="Top selling products">
-        {heroProducts.map((product) => <a key={product.id} href={productHref(product)}>
+        {heroProducts.map((product) => <a key={product.id} href={publicProductHref(product)}>
           <span className="hero-mini-logo"><ProductLogo product={product} /></span>
           <span>{product.name}</span>
         </a>)}

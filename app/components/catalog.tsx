@@ -9,7 +9,7 @@ import { ProductLogo } from './product-logo';
 import { Money, ProductOriginalPrice } from './currency';
 import { CategoryNavigation } from './category-navigation';
 
-const categories = ['All', ...new Set(products.map((product) => product.category))];
+const categories = ['All', ...new Set(products.filter((product) => product.id === 'p093').map((product) => product.category))];
 const categoryColors: Record<string, string> = {
   'API & Credit Packages': '#2563ff', 'AI Assistants & Research': '#7047eb',
   'AI Video, Image & Creative': '#ea4aa4', 'AI Coding & Development': '#00a6bb',

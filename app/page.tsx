@@ -20,7 +20,7 @@ import {
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { products } from './products';
-import { productHref, savingsPkr, whatsappLink } from './product-utils';
+import { publicProductHref, productHref, savingsPkr, whatsappLink } from './product-utils';
 import { featuredProducts, orbitTools } from './catalog-selection';
 import { ProductLogo } from './components/product-logo';
 import { SiteFooter, SiteHeader } from './components/site-chrome';
@@ -614,7 +614,7 @@ export default function Home() {
             {orbitTools.map((tool) => (
               <div key={tool.name} className={`orbit-tool ${tool.className}`}>
                 <div className="orbit-position">
-                  <a className="orbit-content" href={productHref(tool.product)} aria-label={`View ${tool.product.name}`}>
+                  <a className="orbit-content" href={publicProductHref(tool.product)} aria-label={`View ${tool.product.name}`}>
                     <span>
                       <ProductLogo product={tool.product} eager />
                     </span>
@@ -645,7 +645,7 @@ export default function Home() {
           </div>
           <div className="featured-grid">
             {featuredProducts.map((product) => (
-              <a key={product.id} className="featured-card" href={productHref(product)}>
+              <a key={product.id} className="featured-card" href={publicProductHref(product)}>
                 <div className="featured-logo">
                   <ProductLogo product={product} />
                 </div>
