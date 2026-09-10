@@ -1,6 +1,6 @@
 function text(value) {
-  if (typeof value === 'string') return value.trim();
-  if (Array.isArray(value)) return value.filter((item) => typeof item === 'string').join('\n').trim();
+  if (typeof value === 'string') return value;
+  if (Array.isArray(value)) return value.filter((item) => typeof item === 'string').join('\n');
   return '';
 }
 
@@ -18,5 +18,5 @@ export function providerDescription(product) {
     product?.metadata?.description,
     product?.attributes?.description,
   ];
-  return candidates.map(text).find(Boolean) || '';
+  return candidates.map(text).find((value) => value.trim()) || '';
 }

@@ -52,4 +52,5 @@ test('provider descriptions accept common API fields without inventing copy',()=
   assert.equal(providerDescription({details:'Package details'}),'Package details');
   assert.equal(providerDescription({description:'Primary description',details:'Fallback'}),'Primary description');
   assert.equal(providerDescription({name:'No description'}),'');
+  assert.equal(providerDescription({description:'  First line\nSecond line  '}),'  First line\nSecond line  ');
 });

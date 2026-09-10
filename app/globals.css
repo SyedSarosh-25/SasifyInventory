@@ -1978,6 +1978,7 @@ svg { flex-shrink: 0; }
 .supplier-description-list { display: grid; gap: 12px; margin: 18px 0; padding-left: 24px; color: #314b72; }
 .supplier-description-list li { padding-left: 5px; line-height: 1.65; }
 .supplier-description-list li::marker { color: #168dcc; }
+.supplier-description-raw { margin: 18px 0; color: #314b72; font-size: 0.93rem; line-height: 1.75; white-space: pre-wrap; overflow-wrap: anywhere; }
 .supplier-product-footer { margin-top: auto; padding-top: 20px; }
 .supplier-product-footer>strong { font-size: 1.15rem; color: #173e94; }
 .sold-out-label { color: #8a3140; font-weight: 800; }
