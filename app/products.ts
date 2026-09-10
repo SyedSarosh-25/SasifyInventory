@@ -8,6 +8,7 @@ export type Product = {
   sellingPricePkr: number;
   originalPrice: string;
   originalPricePkr?: number;
+  contactOnly?: boolean;
   details?: string[];
   sourceUrl: string;
   description: string;
@@ -191,7 +192,8 @@ export const products: Product[] = [
     "duration": "1 Month",
     "vendor": "Zoom Store",
     "sellingPricePkr": 24999,
-    "originalPrice": "US$125 per seat/month, billed monthly (before tax)",
+    "originalPrice": "PKR 35,000 per seat/month",
+    "originalPricePkr": 35000,
     "sourceUrl": "https://claude.com/pricing",
     "description": "One-month Claude Team Premium seat for demanding writing, research, coding and document-analysis workflows, with higher usage capacity than a Standard seat.",
     "details": ["Premium is the higher-usage seat type within Claude Team, not an API credit package.", "Claude Team includes Claude Code and Cowork. Feature access remains subject to the workspace settings and provider limits.", "The original price shown is Anthropic's monthly US per-seat reference. Provider minimum-seat requirements and regional taxes may apply when purchasing directly."]
@@ -203,11 +205,12 @@ export const products: Product[] = [
     "name": "Claude Team Plan Standard",
     "duration": "1 Month",
     "vendor": "Zoom Store / Alternate Supplier",
-    "sellingPricePkr": 4999,
-    "originalPrice": "US$25 per seat/month, billed monthly (before tax)",
+    "sellingPricePkr": 5199,
+    "originalPrice": "PKR 7,500 per seat/month",
+    "originalPricePkr": 7500,
     "sourceUrl": "https://claude.com/pricing",
     "description": "One-month Claude Team Standard seat for AI-assisted writing, research, document analysis and coding in a team workspace.",
-    "details": ["Standard is the entry seat type within Claude Team, with usage limits set by Anthropic.", "Claude Team includes Claude Code and Cowork. Feature access remains subject to the workspace settings and provider limits.", "The original price shown is Anthropic's monthly US per-seat reference. Provider minimum-seat requirements and regional taxes may apply when purchasing directly."]
+    "details": ["Standard is the entry seat type within Claude Team, with usage limits set by Anthropic.", "This is a totally private seat delivered to the client's email, not a shared login.", "Claude Team includes Claude Code and Cowork. Feature access remains subject to the workspace settings and provider limits."]
   },
   {
     "id": "p014",
@@ -1172,5 +1175,31 @@ export const products: Product[] = [
     "originalPrice": "Pro from $15.99/month",
     "sourceUrl": "https://www.zoom.com/en/pricing/",
     "description": "Video-meeting plan for hosting online meetings with professional collaboration and conferencing features."
+  },
+  {
+    "id": "p100",
+    "slug": "hostinger-unlimited-12-months",
+    "category": "Productivity & Business",
+    "name": "Hostinger Unlimited Web Hosting",
+    "duration": "12 Months",
+    "vendor": "Sasify Solutions",
+    "sellingPricePkr": 4500,
+    "originalPrice": "PKR 38,000/year",
+    "originalPricePkr": 38000,
+    "sourceUrl": "https://www.hostinger.com/web-hosting",
+    "description": "Hostinger Unlimited web hosting for 12 months with generous website resources for personal and business sites."
+  },
+  {
+    "id": "p101",
+    "slug": "hostinger-vps-kvm-1-4",
+    "category": "Productivity & Business",
+    "name": "Hostinger VPS (KVM 1–4)",
+    "duration": "KVM 1–4",
+    "vendor": "Sasify Solutions",
+    "sellingPricePkr": 0,
+    "contactOnly": true,
+    "originalPrice": "Contact on WhatsApp for current KVM plan pricing",
+    "sourceUrl": "https://www.hostinger.com/vps",
+    "description": "Hostinger VPS options including KVM 1, KVM 2, KVM 3 and KVM 4. Contact on WhatsApp for full details, current pricing and configuration."
   }
 ];

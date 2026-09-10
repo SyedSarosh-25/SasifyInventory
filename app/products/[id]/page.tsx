@@ -8,7 +8,7 @@ import { SiteFooter, SiteHeader } from '../../components/site-chrome';
 import { Money, OriginalPrice } from '../../components/currency';
 import { StructuredData } from '../../components/structured-data';
 import { breadcrumbData, productData, productDescription, productQuestions, productTitle } from '../../seo';
-import { accessTypeLabel, has25DayWarranty, isAnnualPlan, originalPriceComparison, originalPricePkr, productHref, productLogo, savingsPkr, siteOrigin } from '../../product-utils';
+import { accessTypeLabel, has25DayWarranty, isAnnualPlan, originalPriceComparison, originalPricePkr, productHref, productLogo, savingsPkr, siteOrigin, whatsappLink } from '../../product-utils';
 
 type Props = { params: Promise<{ id: string }> };
 
@@ -82,7 +82,9 @@ export default async function ProductPage({ params }: Props) {
 
             <section className="description-section">
               <h2>Payment &amp; warranty</h2>
-              {annual ? (
+              {product.contactOnly ? (
+                <p><strong>Contact on WhatsApp for full details, current pricing and KVM configuration.</strong> Hostinger VPS options include KVM 1, KVM 2, KVM 3 and KVM 4.</p>
+              ) : annual ? (
                 <p><strong>Pay <Money amount={product.sellingPricePkr} /> once for the full year.</strong> This is a one-time payment to Sasify Solutions. No monthly payments to us are needed during your one-year plan.</p>
               ) : (
                 <p>The listed Sasify price is <strong><Money amount={product.sellingPricePkr} /></strong> for this package. Confirm the access period, activation requirements and payment details with our team before ordering.</p>
@@ -117,11 +119,13 @@ export default async function ProductPage({ params }: Props) {
             <span className="section-kicker">Your selected plan</span>
             <div className="purchase-heading"><div className="product-logo-frame"><ProductLogo product={product} eager /></div><h2>{product.name}</h2></div>
             <dl className="detail-prices">
-              <div><dt>Original Pricing {comparison && comparison.period !== 'package' ? '(full plan)' : ''}</dt><dd>{original === null ? <OriginalPrice reference={product.originalPrice} /> : <Money amount={original} />}</dd></div>
-              <div className="selling-price"><dt>Our Pricing</dt><dd><Money amount={product.sellingPricePkr} /></dd></div>
-              <div className="savings-price"><dt>Your Savings</dt><dd>{savings === null ? 'Price or duration unavailable' : <Money amount={savings} />}</dd></div>
+              <div><dt>{product.contactOnly ? 'Pricing' : `Original Pricing ${comparison && comparison.period !== 'package' ? '(full plan)' : ''}`}</dt><dd>{product.contactOnly ? 'Contact on WhatsApp' : original === null ? <OriginalPrice reference={product.originalPrice} /> : <Money amount={original} />}</dd></div>
+              <div className="selling-price"><dt>{product.contactOnly ? 'Full details' : 'Our Pricing'}</dt><dd>{product.contactOnly ? 'Contact on WhatsApp' : <Money amount={product.sellingPricePkr} />}</dd></div>
+              <div className="savings-price"><dt>{product.contactOnly ? 'Availability' : 'Your Savings'}</dt><dd>{product.contactOnly ? 'KVM 1–4 available' : savings === null ? 'Price or duration unavailable' : <Money amount={savings} />}</dd></div>
             </dl>
-            {savings === null ? (
+            {product.contactOnly ? (
+              <p className="price-explanation">Contact on WhatsApp for current pricing, configuration and availability details.</p>
+            ) : savings === null ? (
               <p className="price-explanation">A numeric original price and a confirmed plan duration are needed to calculate savings. Ask our team for the current provider reference.</p>
             ) : (
               <div className="price-explanation">
@@ -134,10 +138,9 @@ export default async function ProductPage({ params }: Props) {
             )}
             {annual && <div className="plan-notice"><CalendarDays className="h-5 w-5" /><span><strong>One-time payment for the full year</strong>No monthly payments to Sasify Solutions.</span></div>}
             <div className="plan-notice"><ShieldCheck className="h-5 w-5" /><span><strong>{warranty ? 'Full 25-day warranty' : 'Warranty included'}</strong>{warranty ? 'Included with this one-month plan.' : 'Review this plan\'s warranty period before payment.'}</span></div>
-            {product.id === 'p093' && <StockBuy productId={product.id} />}
-            <a href={`/checkout?product=${encodeURIComponent(product.id)}`} className="primary-button detail-buy"><ShoppingCart className="h-5 w-5" /> Buy online</a>
-            <p className="order-footnote">Availability and activation details are confirmed before payment.</p>
-            <button type="button" className="whatsapp-purchase detail-buy" disabled><MessageCircle className="h-5 w-5" /> WhatsApp support <span>(after payment)</span></button>
+            {!product.contactOnly && <StockBuy productId={product.id} />}
+            {product.contactOnly ? <a href={whatsappLink(product.name, product.duration)} target="_blank" rel="noreferrer" className="primary-button detail-buy"><MessageCircle className="h-5 w-5" /> Contact on WhatsApp</a> : <a href={`/checkout?product=${encodeURIComponent(product.id)}`} className="primary-button detail-buy"><ShoppingCart className="h-5 w-5" /> Buy online</a>}
+            {!product.contactOnly && <><p className="order-footnote">Availability and activation details are confirmed before payment.</p><button type="button" className="whatsapp-purchase detail-buy" disabled><MessageCircle className="h-5 w-5" /> WhatsApp support <span>(after payment)</span></button></>}
           </aside>
         </div>
 
@@ -148,7 +151,7 @@ export default async function ProductPage({ params }: Props) {
               {related.map((item) => (
                 <a key={item.id} href={productHref(item)} className="related-product">
                   <div className="product-logo-frame"><ProductLogo product={item} /></div>
-                  <div><h3>{item.name}</h3><p>{item.duration}</p><strong><Money amount={item.sellingPricePkr} /></strong></div>
+                  <div><h3>{item.name}</h3><p>{item.duration}</p><strong>{item.contactOnly ? 'Contact on WhatsApp' : <Money amount={item.sellingPricePkr} />}</strong></div>
                   <ArrowRight className="h-4 w-4" />
                 </a>
               ))}

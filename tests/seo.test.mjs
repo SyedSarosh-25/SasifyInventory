@@ -31,17 +31,20 @@ test('every variant has unique search metadata and a truthful PKR offer', () => 
   for (const product of products) {
     assert.ok(productTitle(product).includes(product.name));
     assert.match(productTitle(product), /Price in Pakistan/);
-    assert.ok(productDescription(product).includes(product.sellingPricePkr.toLocaleString('en-PK')));
+    assert.ok(product.contactOnly || productDescription(product).includes(product.sellingPricePkr.toLocaleString('en-PK')));
     const data = productData(product);
     assert.equal(data['@type'], 'Product');
     assert.equal(data.sku, product.id);
     assert.equal(data.description, product.description);
-    assert.equal(data.offers.price, product.sellingPricePkr);
-    assert.equal(data.offers.priceCurrency, 'PKR');
-    assert.equal(data.offers.url, `${siteOrigin}/products/${product.id}`);
-    assert.equal(data.offers.seller['@id'], organizationData['@id']);
+    if (product.contactOnly) assert.equal(data.offers, undefined);
+    else {
+      assert.equal(data.offers.price, product.sellingPricePkr);
+      assert.equal(data.offers.priceCurrency, 'PKR');
+      assert.equal(data.offers.url, `${siteOrigin}/products/${product.id}`);
+      assert.equal(data.offers.seller['@id'], organizationData['@id']);
+    }
     for (const key of ['aggregateRating', 'review', 'brand', 'gtin']) assert.ok(!(key in data));
-    for (const key of ['availability', 'priceValidUntil', 'hasMerchantReturnPolicy']) assert.ok(!(key in data.offers));
+    if (data.offers) for (const key of ['availability', 'priceValidUntil', 'hasMerchantReturnPolicy']) assert.ok(!(key in data.offers));
   }
 });
 

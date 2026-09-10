@@ -9,11 +9,26 @@ export function productTitle(product: Product) {
 }
 
 export function productDescription(product: Product) {
+  if (product.contactOnly) return `${product.name}: Contact Sasify Solutions on WhatsApp for full details, current pricing and configuration.`;
   const duration = product.duration === '-' ? 'this package' : product.duration;
   return `${product.name}: ${formatPkr(product.sellingPricePkr)} for ${duration} in Pakistan. Check access, warranty and plan details, then buy online with automatic delivery after payment verification.`;
 }
 
 export function productQuestions(product: Product) {
+  if (product.contactOnly) return [
+    {
+      question: `How do I get ${product.name} pricing and details?`,
+      answer: `Contact Sasify Solutions on WhatsApp for full details, current pricing and configuration options for ${product.name}.`,
+    },
+    {
+      question: `Which options are available for ${product.name}?`,
+      answer: `${product.description} Ask our team which option fits your required resources and term before ordering.`,
+    },
+    {
+      question: `What support comes with ${product.name}?`,
+      answer: 'Sasify Solutions support is available on WhatsApp for availability, activation and plan questions.',
+    },
+  ];
   const price = formatPkr(product.sellingPricePkr);
   return [
     {
@@ -87,13 +102,13 @@ export function productData(product: Product) {
     ...(product.duration === '-' ? {} : {
       additionalProperty: [{ '@type': 'PropertyValue', name: 'Access period / allocation', value: product.duration }],
     }),
-    offers: {
+    ...(product.contactOnly ? {} : { offers: {
       '@type': 'Offer', url,
       price: product.sellingPricePkr,
       priceCurrency: 'PKR',
       description: productQuestions(product)[0].answer,
       seller: { '@id': `${siteOrigin}/#organization` },
-    },
+    } }),
   };
 }
 

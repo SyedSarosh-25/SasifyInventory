@@ -36,11 +36,11 @@ test('homepage, inventory and every product have populated static HTML', async (
   assert.match(inventory, /Full inventory/);
   for (const product of products) {
     const html = await read(`products/${product.id}.html`);
-    assert.match(html, /Buy online/);
+    assert.match(html, product.contactOnly ? /Contact on WhatsApp/ : /Buy online/);
     assert.match(html, /wa\.me\/923116185711/);
     assert.ok(html.includes(`${origin}/products/${product.id}`), `Canonical URL missing: ${product.id}`);
     assert.ok(inventory.includes(`/products/${product.id}`), `Inventory product missing: ${product.id}`);
-    assert.match(html, /Your Savings/);
+    assert.match(html, product.contactOnly ? /Availability/ : /Your Savings/);
     assert.match(html, /Access type/);
   }
 });
@@ -174,8 +174,11 @@ test('all product offers match visible content and answers exist without running
     const data = jsonLd(html);
     const offers = data.filter((item) => item['@type'] === 'Product');
     assert.equal(offers.length, 1);
-    assert.equal(offers[0].offers.price, product.sellingPricePkr);
-    assert.equal(offers[0].offers.priceCurrency, 'PKR');
+    if (product.contactOnly) assert.equal(offers[0].offers, undefined);
+    else {
+      assert.equal(offers[0].offers.price, product.sellingPricePkr);
+      assert.equal(offers[0].offers.priceCurrency, 'PKR');
+    }
     assert.equal(offers[0].sku, product.id);
     assert.equal(data.filter((item) => item['@type'] === 'BreadcrumbList').length, 1);
     const escape = (value) => value.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#x27;');

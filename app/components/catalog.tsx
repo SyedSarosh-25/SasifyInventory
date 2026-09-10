@@ -32,10 +32,10 @@ function ProductCard({ product }: { product: Product }) {
       <h3>{product.name}</h3>
       <p className="product-description">{product.description}</p>
       <div className="price-panel">
-        <div className="our-price"><span><Tag className="h-3.5 w-3.5" /> Our price</span><strong><Money amount={product.sellingPricePkr} /></strong></div>
-        <div className="original-price"><span>Original price for plan</span><p><ProductOriginalPrice product={product} /></p></div>
+        <div className="our-price"><span><Tag className="h-3.5 w-3.5" /> {product.contactOnly ? 'Pricing' : 'Our price'}</span><strong>{product.contactOnly ? 'Contact on WhatsApp' : <Money amount={product.sellingPricePkr} />}</strong></div>
+        {!product.contactOnly && <div className="original-price"><span>Original price for plan</span><p><ProductOriginalPrice product={product} /></p></div>}
       </div>
-      {savings !== null && <p className="card-savings">Your Savings: <strong><Money amount={savings} /></strong></p>}
+      {!product.contactOnly && savings !== null && <p className="card-savings">Your Savings: <strong><Money amount={savings} /></strong></p>}
       <span className="buy-button">View details <ArrowRight className="h-4 w-4" /></span>
     </div>
   </a>;

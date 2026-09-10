@@ -103,7 +103,7 @@ export function HeroProductSearch() {
           {supplierMatches.map((product) => <li key={product.id}>
             <a href={`/supplier-product?product=${encodeURIComponent(product.id)}`} className="hero-search-result">
               <span className="hero-mini-logo">{supplierLogo(product) ? <img src={supplierLogo(product)} alt="" /> : '⚡'}</span>
-              <span className="hero-result-copy"><strong>{product.name}</strong><small>Instant delivery</small></span>
+              <span className="hero-result-copy"><strong>{product.name}</strong><small>Instant delivery · {product.available} in stock</small></span>
               <strong className="hero-result-price">PKR {Number(product.price).toLocaleString('en-PK')}</strong>
               <ArrowRight className="h-4 w-4 hero-result-arrow" aria-hidden="true" />
             </a>

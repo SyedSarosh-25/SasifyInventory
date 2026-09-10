@@ -31,7 +31,7 @@ import { HeroProductSearch } from './components/hero-product-search';
 import { StructuredData } from './components/structured-data';
 import { websiteData } from './seo';
 
-const lowestPrice = Math.min(...products.map((p) => p.sellingPricePkr));
+const lowestPrice = Math.min(...products.filter((p) => !p.contactOnly).map((p) => p.sellingPricePkr));
 const googleReviewsUrl =
   'https://www.google.com/maps/place/Sasify+Digital+Solutions/@33.5298115,73.1663875,16z/data=!4m18!1m9!3m8!1s0x38dfed9bda8bf345:0xb57a60ba54b9be1e!2sSasify+Digital+Solutions!8m2!3d33.5298115!4d73.1663875!9m1!1b1!16s%2Fg%2F11yzclp9ps!3m7!1s0x38dfed9bda8bf345:0xb57a60ba54b9be1e!8m2!3d33.5298115!4d73.1663875!9m1!1b1!16s%2Fg%2F11yzclp9ps!18m1!1e1?entry=ttu';
 const heroTitleLead = 'Your one-stop destination';
@@ -653,12 +653,12 @@ export default function Home() {
                   <h3>{product.name}</h3>
                   <p>{product.duration}</p>
                 </div>
-                <div className="featured-reference"><span>Original price for plan</span><ProductOriginalPrice product={product} /></div>
+                <div className="featured-reference"><span>{product.contactOnly ? 'Pricing' : 'Original price for plan'}</span>{product.contactOnly ? <strong>Contact on WhatsApp</strong> : <ProductOriginalPrice product={product} />}</div>
                 <div className="featured-action">
-                  <div><span className="featured-price-label">Our price</span><strong><Money amount={product.sellingPricePkr} /></strong></div>
+                  <div><span className="featured-price-label">{product.contactOnly ? 'Full details' : 'Our price'}</span><strong>{product.contactOnly ? 'Contact on WhatsApp' : <Money amount={product.sellingPricePkr} />}</strong></div>
                   <span className="featured-arrow" aria-hidden="true"><ArrowRight className="h-4 w-4" /></span>
                 </div>
-                {savingsPkr(product) !== null && <p className="card-savings">Your Savings: <strong><Money amount={savingsPkr(product)!} /></strong></p>}
+                {!product.contactOnly && savingsPkr(product) !== null && <p className="card-savings">Your Savings: <strong><Money amount={savingsPkr(product)!} /></strong></p>}
               </a>
             ))}
           </div>

@@ -9,12 +9,12 @@ test('every inventory variant has a unique detail URL', () => {
   for (const product of products) {
     assert.match(productHref(product), /^\/products\/p\d+$/);
     assert.ok(product.description.length > 30);
-    assert.ok(product.sellingPricePkr > 0);
+    assert.ok(product.contactOnly || product.sellingPricePkr > 0);
   }
 });
 
 test('Claude Team prices and seat types match the requested offers', () => {
-  assert.equal(products.find((p) => p.name === 'Claude Team Plan Standard')?.sellingPricePkr, 4999);
+  assert.equal(products.find((p) => p.name === 'Claude Team Plan Standard')?.sellingPricePkr, 5199);
   assert.equal(products.find((p) => p.name === 'Claude Team Plan Premium')?.sellingPricePkr, 24999);
   for (const id of ['p012', 'p013']) {
     const product = products.find((p) => p.id === id);
@@ -38,9 +38,9 @@ test('25-day warranty is scoped to 30-day and one-month products', () => {
 
 test('savings subtract our price from the listed original with the fixed USD rate', () => {
   assert.equal(savingsPkr(products.find((p) => p.id === 'p093')), 2201);
-  assert.equal(savingsPkr(products.find((p) => p.id === 'p013')), 2126);
+  assert.equal(savingsPkr(products.find((p) => p.id === 'p013')), 2301);
   assert.equal(savingsPkr(products.find((p) => p.id === 'p094')), 4701);
-  assert.equal(savingsPkr(products.find((p) => p.id === 'p012')), 10626);
+  assert.equal(savingsPkr(products.find((p) => p.id === 'p012')), 10001);
   assert.equal(originalPricePkr(products.find((p) => p.id === 'p014')), 75240);
 });
 
@@ -96,7 +96,7 @@ test('savings preserve zero and negative differences and match all available ref
 test('landing selection has exactly ten distinct products with the requested first five', () => {
   assert.equal(featuredProducts.length, 10);
   assert.equal(new Set(featuredProducts.map((product) => product.id)).size, 10);
-  assert.deepEqual(featuredProducts.slice(0, 5).map((product) => product.id), ['p093', 'p013', 'p096', 'p028', 'p088']);
+  assert.deepEqual(featuredProducts.slice(0, 5).map((product) => product.id), ['p013', 'p012', 'p100', 'p101', 'p093']);
 });
 
 test('featured Canva offer is a one-year invite for 999 while existing variants stay in inventory', () => {
@@ -137,7 +137,7 @@ test('full inventory keeps all products, search, categories and empty results', 
 });
 
 test('hero restores the five requested product shortcuts without reducing the top ten', () => {
-  assert.deepEqual(heroProducts.map((product) => product.id), ['p093', 'p013', 'p096', 'p028', 'p088']);
+  assert.deepEqual(heroProducts.map((product) => product.id), ['p013', 'p012', 'p100', 'p101', 'p093']);
   assert.equal(featuredProducts.length, 10);
   for (const product of heroProducts) assert.equal(productHref(product), `/products/${product.id}`);
 });
