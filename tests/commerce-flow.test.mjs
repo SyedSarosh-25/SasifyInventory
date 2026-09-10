@@ -46,12 +46,12 @@ test('checkout, signed payment delivery, duplicate prevention and recovery autho
     assert.equal((await request('status',undefined,'wrong',order.id)).code,404);
     assert.equal((await request('status',undefined,order.recovery,order.id)).data.credentials,undefined);
     const claim=await request('claim',{id:order.id,transactionId:'55571425207'},order.recovery);assert.equal(claim.code,200,JSON.stringify(claim));
-    const payload={subject:'You got Rs. 3,250 from Bank Alfalah-0388 🎉',text:'Amount Received\nRs. 3,250\nTransaction ID\nTMICFBPK100926055571425207\nSource Acc. Number\n****0388\nDestination Acc. Title\nSyed Adeen Sarosh',from:'NayaPay <service@nayapay.com>',date:new Date().toISOString(),sentAt:String(Date.now()),messageId:'integration-test',secret:env.NAYAPAY_WEBHOOK_SECRET};
+    const payload={subject:'You got Rs. 3,499 from Bank Alfalah-0388 🎉',text:'Amount Received\nRs. 3,499\nTransaction ID\nTMICFBPK100926055571425207\nSource Acc. Number\n****0388\nDestination Acc. Title\nSyed Adeen Sarosh',from:'NayaPay <service@nayapay.com>',date:new Date().toISOString(),sentAt:String(Date.now()),messageId:'integration-test',secret:env.NAYAPAY_WEBHOOK_SECRET};
     payload.signature=signature(payload,env.NAYAPAY_SIGNING_KEY);
     const delivered=await request('email-webhook',payload);assert.equal(delivered.code,200,JSON.stringify(delivered));
     const status=await request('status',undefined,order.recovery,order.id);assert.equal(status.data.status,'delivered',JSON.stringify(status));assert.equal(status.data.credentials.password,'test-pass');
     const financials=await request('admin-list',undefined,env.COMMERCE_ADMIN_KEY);
-    assert.equal(financials.data.metrics.income,3250);assert.equal(financials.data.metrics.cost,1000);assert.equal(financials.data.metrics.profit,2250);
+    assert.equal(financials.data.metrics.income,3499);assert.equal(financials.data.metrics.cost,1000);assert.equal(financials.data.metrics.profit,2499);
     const defaultCoupons=await request('admin-list',undefined,env.COMMERCE_ADMIN_KEY);
     const createdCoupon={data:defaultCoupons.data.coupons.find((coupon)=>coupon.code_display==='RESELL')};
     assert.ok(createdCoupon.data);assert.equal(Number(createdCoupon.data.discount_percent),5);assert.equal(createdCoupon.data.max_uses,10);
@@ -59,9 +59,9 @@ test('checkout, signed payment delivery, duplicate prevention and recovery autho
     const discounted=await request('create',{productId:'p093',couponCode:'RESELL'});
     assert.equal(discounted.code,200,JSON.stringify(discounted));
     const discountedStatus=await request('status',undefined,discounted.data.recovery,discounted.data.id);
-    assert.equal(discountedStatus.data.amount,3088);assert.equal(discountedStatus.data.originalAmount,3250);assert.equal(discountedStatus.data.couponDiscount,162);
+    assert.equal(discountedStatus.data.amount,3324);assert.equal(discountedStatus.data.originalAmount,3499);assert.equal(discountedStatus.data.couponDiscount,175);
     await request('claim',{id:discounted.data.id,transactionId:'coupon-payment'},discounted.data.recovery);
-    const couponPayload={subject:'You got Rs. 3,088 from Coupon Buyer 🎉',text:'Amount Received\nRs. 3,088\nTransaction ID\nCOUPONPAYMENT\nSource Acc. Number\n****0388\nDestination Acc. Title\nSyed Adeen Sarosh',from:'NayaPay <service@nayapay.com>',date:new Date().toISOString(),sentAt:String(Date.now()),messageId:'coupon-payment-email',secret:env.NAYAPAY_WEBHOOK_SECRET};
+    const couponPayload={subject:'You got Rs. 3,324 from Coupon Buyer 🎉',text:'Amount Received\nRs. 3,324\nTransaction ID\nCOUPONPAYMENT\nSource Acc. Number\n****0388\nDestination Acc. Title\nSyed Adeen Sarosh',from:'NayaPay <service@nayapay.com>',date:new Date().toISOString(),sentAt:String(Date.now()),messageId:'coupon-payment-email',secret:env.NAYAPAY_WEBHOOK_SECRET};
     couponPayload.signature=signature(couponPayload,env.NAYAPAY_SIGNING_KEY);
     assert.equal((await request('email-webhook',couponPayload)).code,200);
     const couponAdmin=await request('admin-list',undefined,env.COMMERCE_ADMIN_KEY);
@@ -81,7 +81,7 @@ test('checkout, signed payment delivery, duplicate prevention and recovery autho
     const second=(await request('create',{productId:'p093'})).data;
     await request('claim',{id:second.id,transactionId:'727274'},second.recovery);
     await database.query("UPDATE commerce_orders SET created_at=now()-interval '5 minutes',expires_at=now()-interval '1 minute' WHERE id=$1",[second.id]);
-    const differentIds={subject:'You got Rs. 3,250 from Test Sender 🎉',text:'Amount Received\nRs. 3,250\nTransaction ID\n311274\nSource Acc. Number\n****5711\nDestination Acc. Title\nSyed Adeen Sarosh',from:'NayaPay <service@nayapay.com>',date:new Date(Date.now()-120000).toISOString(),sentAt:String(Date.now()),messageId:'different-sender-id',secret:env.NAYAPAY_WEBHOOK_SECRET};
+    const differentIds={subject:'You got Rs. 3,499 from Test Sender 🎉',text:'Amount Received\nRs. 3,499\nTransaction ID\n311274\nSource Acc. Number\n****5711\nDestination Acc. Title\nSyed Adeen Sarosh',from:'NayaPay <service@nayapay.com>',date:new Date(Date.now()-120000).toISOString(),sentAt:String(Date.now()),messageId:'different-sender-id',secret:env.NAYAPAY_WEBHOOK_SECRET};
     const forwarded={From:'NayaPay <service@nayapay.com>',To:'inbound@example.invalid',Subject:differentIds.subject,TextBody:differentIds.text,Date:differentIds.date,MessageID:'forwarded-different-sender-id'};
     assert.equal((await request('inbound-email',forwarded)).code,401);
     assert.equal((await request('inbound-email',forwarded,'','','',{'x-nayapay-inbound-token':env.NAYAPAY_INBOUND_TOKEN})).code,200);

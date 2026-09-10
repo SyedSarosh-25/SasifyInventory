@@ -21,7 +21,7 @@ export const products: Product[] = [
     "name": "ChatGPT Plus",
     "duration": "1 Month",
     "vendor": "Sasify Solutions",
-    "sellingPricePkr": 3250,
+    "sellingPricePkr": 3499,
     "originalPrice": "PKR 5,700/month",
     "originalPricePkr": 5700,
     "sourceUrl": "https://openai.com/chatgpt/pricing/",
