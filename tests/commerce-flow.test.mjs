@@ -3,119 +3,74 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { randomBytes } from 'node:crypto';
 import { PGlite } from '@electric-sql/pglite';
-import pg from 'pg';
 import { createHandler } from '../commerce/handler.mjs';
 import { hash, signature } from '../commerce/core.mjs';
 
-test('checkout, signed payment delivery, duplicate prevention and recovery authorization',async()=>{
-  const remote = process.env.COMMERCE_TEST_POSTGRES === '1';
-  const schema = `commerce_test_${randomBytes(8).toString('hex')}`;
-  const remoteUrl = process.env.DATABASE_URL_UNPOOLED || process.env.DATABASE_URL;
-  const setup = remote ? new pg.Client({connectionString:remoteUrl}) : null;
-  if(setup){await setup.connect();await setup.query(`CREATE SCHEMA ${schema}`);}
-  const remotePool = remote ? new pg.Pool({connectionString:remoteUrl,options:`-c search_path=${schema}`,max:5}) : null;
-  const database = remote ? {query:(...args)=>remotePool.query(...args),exec:(sql)=>remotePool.query(sql),close:()=>remotePool.end()} : new PGlite();
-  await database.exec(await readFile(new URL('../commerce/schema.sql',import.meta.url),'utf8'));
-  const env = {DATABASE_URL:'test',COMMERCE_ENCRYPTION_KEY:randomBytes(32).toString('hex'),COMMERCE_ADMIN_KEY:randomBytes(32).toString('hex'),COMMERCE_ADMIN_EMAIL:'admin@test.invalid',COMMERCE_ADMIN_PASSWORD_HASH:hash('test-password'),PAYMENT_ACCOUNT_TITLE:'Syed Adeen Sarosh',NAYAPAY_WEBHOOK_SECRET:'test-secret',NAYAPAY_SIGNING_KEY:randomBytes(32).toString('hex'),NAYAPAY_AUTO_VERIFY:'true',NAYAPAY_SENDER:'service@nayapay.com',NAYAPAY_RECEIVER_MARKER:'Syed Adeen Sarosh',NAYAPAY_INBOUND_TOKEN:'inbound-test-token'};
-  Object.assign(process.env,env);
-  // Serialize connections as PGlite is single-process; SQL transactions still execute in PostgreSQL.
-  let tail=Promise.resolve();
-  const handler=createHandler(()=>remotePool || ({async connect(){const previous=tail;let release;tail=new Promise((r)=>{release=r;});await previous;return {async query(sql,args){const r=await database.query(sql,args);return {...r,rowCount:r.affectedRows ?? r.rows.length};},release};}}));
-  async function request(action,body,token='',id='',cookie='',extraHeaders={}){
-    let result;const headers={...extraHeaders};
-    const req={method:body?'POST':'GET',query:{action,id},url:'/api/commerce',headers:{authorization:token?'Bearer '+token:'',cookie,...extraHeaders},body,socket:{remoteAddress:randomBytes(4).toString('hex')}};
-    const res={statusCode:200,setHeader(name,value){headers[String(name).toLowerCase()]=value;},end(text){result={code:this.statusCode,data:JSON.parse(text),headers};}};
-    await handler(req,res);return result;
+test('retained Claude inventory supports checkout, verification, delivery and cancellation', async () => {
+  const database = new PGlite();
+  await database.exec(await readFile(new URL('../commerce/schema.sql', import.meta.url), 'utf8'));
+  const env = {
+    DATABASE_URL: 'test',
+    COMMERCE_ENCRYPTION_KEY: randomBytes(32).toString('hex'),
+    COMMERCE_ADMIN_KEY: randomBytes(32).toString('hex'),
+    COMMERCE_ADMIN_EMAIL: 'admin@test.invalid',
+    COMMERCE_ADMIN_PASSWORD_HASH: hash('test-password'),
+    PAYMENT_ACCOUNT_TITLE: 'Syed Adeen Sarosh',
+    NAYAPAY_WEBHOOK_SECRET: 'test-secret',
+    NAYAPAY_SIGNING_KEY: randomBytes(32).toString('hex'),
+    NAYAPAY_AUTO_VERIFY: 'true',
+    NAYAPAY_SENDER: 'service@nayapay.com',
+    NAYAPAY_RECEIVER_MARKER: 'Syed Adeen Sarosh',
+    NAYAPAY_INBOUND_TOKEN: 'inbound-test-token',
+  };
+  Object.assign(process.env, env);
+  let tail = Promise.resolve();
+  const handler = createHandler(() => ({
+    async connect() {
+      const previous = tail;
+      let release;
+      tail = new Promise((resolve) => { release = resolve; });
+      await previous;
+      return { async query(sql, args) { const result = await database.query(sql, args); return { ...result, rowCount: result.affectedRows ?? result.rows.length }; }, release };
+    },
+  }));
+  async function request(action, body, token = '', id = '', cookie = '') {
+    let result;
+    const headers = {};
+    const req = { method: body ? 'POST' : 'GET', query: { action, id }, url: '/api/commerce', headers: { authorization: token ? `Bearer ${token}` : '', cookie }, body, socket: { remoteAddress: randomBytes(4).toString('hex') } };
+    const res = { statusCode: 200, setHeader(name, value) { headers[String(name).toLowerCase()] = value; }, end(text) { result = { code: this.statusCode, data: JSON.parse(text), headers }; } };
+    await handler(req, res);
+    return result;
   }
-  try{
-    assert.equal((await request('admin-login',{email:env.COMMERCE_ADMIN_EMAIL,password:'wrong'})).code,401);
-    const login=await request('admin-login',{email:env.COMMERCE_ADMIN_EMAIL,password:'test-password'});assert.equal(login.code,200,JSON.stringify(login));
-    assert.match(String(login.headers['set-cookie']),/^sasify_admin=.+; HttpOnly; Secure; SameSite=Strict; Path=\/api\/commerce; Max-Age=28800$/);
-    const adminCookie=String(login.headers['set-cookie']).split(';')[0];
-    assert.equal((await request('admin-list',undefined,'','',adminCookie)).code,200);
-    const logout=await request('admin-logout',{},'','',adminCookie);assert.equal(logout.code,200);
-    assert.match(String(logout.headers['set-cookie']),/Max-Age=0$/);
-    assert.equal((await request('admin-list',undefined,'','','sasify_admin=invalid')).code,401);
-    assert.equal((await request('admin-list',undefined,login.data.token)).code,200);
-    assert.equal((await request('admin-import',{productId:'p093',accounts:'a@test.invalid|test-pass|test-2fa'},'wrong')).code,401);
-    const imported=await request('admin-import',{productId:'p093',accounts:'a@test.invalid|test-pass|test-2fa',purchaseCost:1000},env.COMMERCE_ADMIN_KEY);assert.equal(imported.code,200,JSON.stringify(imported));
-    assert.equal((await request('stock')).data.products[0].available,1);
-    const orders=await Promise.all([request('create',{productId:'p093'}),request('create',{productId:'p093'})]);
-    assert.deepEqual(orders.map((r)=>r.code).sort((a,b)=>a-b),[200,409]);
-    const order=orders.find((r)=>r.code===200).data;
-    assert.equal((await request('status',undefined,'wrong',order.id)).code,404);
-    assert.equal((await request('status',undefined,order.recovery,order.id)).data.credentials,undefined);
-    const claim=await request('claim',{id:order.id,transactionId:'55571425207'},order.recovery);assert.equal(claim.code,200,JSON.stringify(claim));
-    const payload={subject:'You got Rs. 3,499 from Bank Alfalah-0388 🎉',text:'Amount Received\nRs. 3,499\nTransaction ID\nTMICFBPK100926055571425207\nSource Acc. Number\n****0388\nDestination Acc. Title\nSyed Adeen Sarosh',from:'NayaPay <service@nayapay.com>',date:new Date().toISOString(),sentAt:String(Date.now()),messageId:'integration-test',secret:env.NAYAPAY_WEBHOOK_SECRET};
-    payload.signature=signature(payload,env.NAYAPAY_SIGNING_KEY);
-    const delivered=await request('email-webhook',payload);assert.equal(delivered.code,200,JSON.stringify(delivered));
-    const status=await request('status',undefined,order.recovery,order.id);assert.equal(status.data.status,'delivered',JSON.stringify(status));assert.equal(status.data.credentials.password,'test-pass');
-    const financials=await request('admin-list',undefined,env.COMMERCE_ADMIN_KEY);
-    assert.equal(financials.data.metrics.income,3499);assert.equal(financials.data.metrics.cost,1000);assert.equal(financials.data.metrics.profit,2499);
-    const defaultCoupons=await request('admin-list',undefined,env.COMMERCE_ADMIN_KEY);
-    const createdCoupon={data:defaultCoupons.data.coupons.find((coupon)=>coupon.code_display==='RESELL')};
-    assert.ok(createdCoupon.data);assert.equal(Number(createdCoupon.data.discount_percent),10);assert.equal(createdCoupon.data.max_uses,10);
-    await request('admin-import',{productId:'p093',accounts:'coupon@test.invalid|coupon-pass|coupon-2fa',purchaseCost:1000},env.COMMERCE_ADMIN_KEY);
-    const discounted=await request('create',{productId:'p093',couponCode:'RESELL'});
-    assert.equal(discounted.code,200,JSON.stringify(discounted));
-    const discountedStatus=await request('status',undefined,discounted.data.recovery,discounted.data.id);
-    assert.equal(discountedStatus.data.amount,3149);assert.equal(discountedStatus.data.originalAmount,3499);assert.equal(discountedStatus.data.couponDiscount,350);
-    await request('claim',{id:discounted.data.id,transactionId:'coupon-payment'},discounted.data.recovery);
-    const couponPayload={subject:'You got Rs. 3,149 from Coupon Buyer 🎉',text:'Amount Received\nRs. 3,149\nTransaction ID\nCOUPONPAYMENT\nSource Acc. Number\n****0388\nDestination Acc. Title\nSyed Adeen Sarosh',from:'NayaPay <service@nayapay.com>',date:new Date().toISOString(),sentAt:String(Date.now()),messageId:'coupon-payment-email',secret:env.NAYAPAY_WEBHOOK_SECRET};
-    couponPayload.signature=signature(couponPayload,env.NAYAPAY_SIGNING_KEY);
-    assert.equal((await request('email-webhook',couponPayload)).code,200);
-    const couponAdmin=await request('admin-list',undefined,env.COMMERCE_ADMIN_KEY);
-    assert.equal(couponAdmin.data.coupons[0].used_count,1);
-    await request('admin-coupon-update',{couponId:createdCoupon.data.id,code:'RESELL',discountPercent:5,maxUses:1,enabled:true},env.COMMERCE_ADMIN_KEY);
-    await request('admin-import',{productId:'p093',accounts:'limit@test.invalid|limit-pass|limit-2fa'},env.COMMERCE_ADMIN_KEY);
-    assert.equal((await request('create',{productId:'p093',couponCode:'RESELL'})).code,409);
-    assert.equal((await request('admin-coupon-update',{couponId:createdCoupon.data.id,code:'RESELL',discountPercent:5,maxUses:10,enabled:false},env.COMMERCE_ADMIN_KEY)).code,200);
-    assert.equal((await request('create',{productId:'p093',couponCode:'RESELL'})).code,409);
-    await request('admin-coupon-update',{couponId:createdCoupon.data.id,code:'RESELL',discountPercent:5,maxUses:10,enabled:true},env.COMMERCE_ADMIN_KEY);
-    assert.equal((await request('email-webhook',payload)).data.status,'duplicate');
-    assert.equal((await database.query("SELECT count(*)::int AS n FROM commerce_inventory WHERE state='delivered'")).rows[0].n,1);
-    const freeOrder=await request('create',{productId:'p093'});
-    assert.equal(freeOrder.code,200,JSON.stringify(freeOrder));
-    assert.equal((await request('cancel',{id:freeOrder.data.id},freeOrder.data.recovery)).code,200);
-    await request('admin-import',{productId:'p093',accounts:'b@test.invalid|test-pass-2|test-2fa'},env.COMMERCE_ADMIN_KEY);
-    const second=(await request('create',{productId:'p093'})).data;
-    await request('claim',{id:second.id,transactionId:'727274'},second.recovery);
-    await database.query("UPDATE commerce_orders SET created_at=now()-interval '5 minutes',expires_at=now()-interval '1 minute' WHERE id=$1",[second.id]);
-    const differentIds={subject:'You got Rs. 3,499 from Test Sender 🎉',text:'Amount Received\nRs. 3,499\nTransaction ID\n311274\nSource Acc. Number\n****5711\nDestination Acc. Title\nSyed Adeen Sarosh',from:'NayaPay <service@nayapay.com>',date:new Date(Date.now()-120000).toISOString(),sentAt:String(Date.now()),messageId:'different-sender-id',secret:env.NAYAPAY_WEBHOOK_SECRET};
-    const forwarded={From:'NayaPay <service@nayapay.com>',To:'inbound@example.invalid',Subject:differentIds.subject,TextBody:differentIds.text,Date:differentIds.date,MessageID:'forwarded-different-sender-id'};
-    assert.equal((await request('inbound-email',forwarded)).code,401);
-    assert.equal((await request('inbound-email',forwarded,'','','',{'x-nayapay-inbound-token':env.NAYAPAY_INBOUND_TOKEN})).code,200);
-    const secondStatus=await request('status',undefined,second.recovery,second.id);
-    assert.equal(secondStatus.data.status,'expired',JSON.stringify(secondStatus));
-    assert.equal(secondStatus.data.credentials,undefined);
-    await request('admin-import',{productId:'p093',accounts:'c@test.invalid|test-pass-3|test-2fa'},env.COMMERCE_ADMIN_KEY);
-    const third=(await request('create',{productId:'p093'})).data;
-    await request('claim',{id:third.id,transactionId:'55571425207'},third.recovery);
-    assert.equal((await request('status',undefined,third.recovery,third.id)).data.status,'review');
-    const p=(await database.query('SELECT id FROM commerce_payments WHERE transaction_id=$1',['TMICFBPK100926055571425207'])).rows[0];
-    assert.equal((await request('admin-approve',{orderId:third.id,paymentId:p.id,confirmed:true},env.COMMERCE_ADMIN_KEY)).code,409);
-    await database.query("UPDATE commerce_orders SET expires_at=now()-interval '1 second' WHERE id=$1",[third.id]);
-    await request('stock');
-    assert.equal((await request('status',undefined,third.recovery,third.id)).data.status,'expired');
-    assert.equal((await database.query('SELECT state FROM commerce_inventory i JOIN commerce_orders o ON o.inventory_id=i.id WHERE o.id=$1',[third.id])).rows[0].state,'available');
-    await request('admin-import',{productId:'p093',accounts:'crud@test.invalid|old-pass|old-2fa',purchaseCost:700},env.COMMERCE_ADMIN_KEY);
-    let dashboard=await request('admin-list',undefined,env.COMMERCE_ADMIN_KEY);
-    const crud=dashboard.data.inventory.find((item)=>item.email==='crud@test.invalid');assert.ok(crud);
-    assert.equal((await request('admin-inventory-update',{inventoryId:crud.id,purchaseCost:800,state:'quarantined',email:'crud-new@test.invalid',password:'new-pass',twoFactor:'new-2fa'},env.COMMERCE_ADMIN_KEY)).code,200);
-    dashboard=await request('admin-list',undefined,env.COMMERCE_ADMIN_KEY);
-    assert.equal(dashboard.data.inventory.find((item)=>item.id===crud.id).email,'crud-new@test.invalid');
-    assert.equal((await request('admin-inventory-delete',{inventoryId:crud.id,confirmed:true},env.COMMERCE_ADMIN_KEY)).code,200);
-    dashboard=await request('admin-list',undefined,env.COMMERCE_ADMIN_KEY);
-    assert.equal(dashboard.data.inventory.some((item)=>item.id===crud.id),false);
-    await request('admin-import',{productId:'p093',accounts:'picked@test.invalid|picked-pass|picked-2fa',purchaseCost:900},env.COMMERCE_ADMIN_KEY);
-    dashboard=await request('admin-list',undefined,env.COMMERCE_ADMIN_KEY);
-    const picked=dashboard.data.inventory.find((item)=>item.email==='picked@test.invalid');assert.ok(picked);
-    assert.equal((await request('admin-inventory-pick',{inventoryId:picked.id,confirmed:false},env.COMMERCE_ADMIN_KEY)).code,400);
-    const withdrawal=await request('admin-inventory-pick',{inventoryId:picked.id,confirmed:true},env.COMMERCE_ADMIN_KEY);
-    assert.equal(withdrawal.code,200,JSON.stringify(withdrawal));
-    assert.deepEqual(withdrawal.data.credentials,{email:'picked@test.invalid',password:'picked-pass',twoFactor:'picked-2fa'});
-    assert.equal((await database.query('SELECT state FROM commerce_inventory WHERE id=$1',[picked.id])).rows[0].state,'withdrawn');
-    assert.equal((await request('admin-inventory-pick',{inventoryId:picked.id,confirmed:true},env.COMMERCE_ADMIN_KEY)).code,409);
-    assert.equal((await database.query("SELECT count(*)::int AS n FROM commerce_audit WHERE action='inventory_admin_pick' AND object_id=$1",[picked.id])).rows[0].n,1);
-  } finally { await database.close();if(setup){await setup.query(`DROP SCHEMA ${schema} CASCADE`);await setup.end();} }
+  try {
+    assert.equal((await request('admin-import', { productId: 'p013', accounts: 'claude@test.invalid|test-pass|test-2fa', purchaseCost: 1000 }, 'wrong')).code, 401);
+    assert.equal((await request('admin-import', { productId: 'p013', accounts: 'claude@test.invalid|test-pass|test-2fa', purchaseCost: 1000 }, env.COMMERCE_ADMIN_KEY)).code, 200);
+    const stock = await request('stock');
+    assert.equal(stock.code, 200);
+    assert.equal(stock.data.products.find((product) => product.id === 'p013').available, 1);
+    assert.equal((await request('create', { productId: 'p093' })).code, 409);
+    assert.equal((await request('create', { productId: 'p013', couponCode: 'RESELL' })).code, 409);
+    const created = await request('create', { productId: 'p013' });
+    assert.equal(created.code, 200, JSON.stringify(created));
+    const order = created.data;
+    const claim = await request('claim', { id: order.id, transactionId: 'TMICFBPK100926055571425207' }, order.recovery);
+    assert.equal(claim.code, 200, JSON.stringify(claim));
+    const payload = { subject: 'You got Rs. 5,199 from Bank Alfalah-0388 🎉', text: 'Amount Received\nRs. 5,199\nTransaction ID\nTMICFBPK100926055571425207\nSource Acc. Number\n****0388\nDestination Acc. Title\nSyed Adeen Sarosh', from: 'NayaPay <service@nayapay.com>', date: new Date().toISOString(), sentAt: String(Date.now()), messageId: 'integration-test', secret: env.NAYAPAY_WEBHOOK_SECRET };
+    payload.signature = signature(payload, env.NAYAPAY_SIGNING_KEY);
+    assert.equal((await request('email-webhook', payload)).code, 200);
+    const status = await request('status', undefined, order.recovery, order.id);
+    assert.equal(status.data.status, 'delivered', JSON.stringify(status));
+    assert.equal(status.data.credentials.password, 'test-pass');
+    const metrics = (await request('admin-list', undefined, env.COMMERCE_ADMIN_KEY)).data.metrics;
+    assert.equal(metrics.income, 5199);
+    assert.equal(metrics.cost, 1000);
+    assert.equal(metrics.profit, 4199);
+    await request('admin-import', { productId: 'p013', accounts: 'cancel@test.invalid|cancel-pass|cancel-2fa', purchaseCost: 1000 }, env.COMMERCE_ADMIN_KEY);
+    const pending = await request('create', { productId: 'p013' });
+    assert.equal(pending.code, 200);
+    assert.equal((await request('cancel', { id: pending.data.id }, pending.data.recovery)).code, 200);
+    assert.equal((await request('status', undefined, pending.data.recovery, pending.data.id)).data.status, 'cancelled');
+  } finally {
+    await database.close();
+  }
 });

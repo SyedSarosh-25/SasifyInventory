@@ -5,18 +5,18 @@ import { products } from '../app/products.ts';
 import { guidePlans, guideQuestions } from '../app/buying-guide-content.ts';
 import { faqData } from '../app/seo.ts';
 
-test('guide comparisons use actual inventory records and include the requested invite variant', () => {
-  assert.equal(guidePlans.length, 8);
-  assert.equal(new Set(guidePlans.map(({ id }) => id)).size, 8);
+test('guide comparisons use the retained local inventory records', () => {
+  assert.equal(guidePlans.length, 4);
+  assert.equal(new Set(guidePlans.map(({ id }) => id)).size, 4);
   for (const product of guidePlans) assert.equal(product, products.find(({ id }) => id === product.id));
-  assert.equal(guidePlans[5].id, 'p096');
-  assert.match(guideQuestions[2].answer, /PKR 999.*1 Year/);
+  assert.deepEqual(guidePlans.map(({ id }) => id), ['p013', 'p012', 'p100', 'p101']);
+  assert.match(guideQuestions[2].answer, /Hostinger VPS.*WhatsApp/);
 });
 
 test('guide keeps access distinctions and warranty qualifications explicit', () => {
-  assert.match(guideQuestions[0].answer, /Shared access is not exclusive personal access/);
+  assert.match(guideQuestions[0].answer, /exact access arrangement/);
   assert.match(guideQuestions[1].answer, /team seat, not ownership/);
-  assert.match(guideQuestions[2].answer, /no monthly payments to us/);
+  assert.match(guideQuestions[2].answer, /purchased through WhatsApp/);
   assert.match(guideQuestions[4].answer, /One-month and 30-day packages.*25-day warranty/);
   assert.match(guideQuestions[4].answer, /does not by itself mean a one-year warranty/);
   assert.match(guideQuestions[6].answer, /delivered automatically after payment verification/);

@@ -25,7 +25,7 @@ export function HeroProductSearch() {
   const supplierMatches = searching ? supplierProducts.filter((product) => normalizeSearchText(`${product.name} ${product.id} ${product.provider_name || ''}`).includes(normalizeSearchText(query))) : [];
 
   useEffect(() => {
-    const prompt = 'Search Canva';
+    const prompt = 'Search Claude';
     const prefixLength = 'Search '.length;
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
       setAnimatedPlaceholder(prompt);

@@ -1,7 +1,7 @@
 import { products } from './products.ts';
 import { formatPkr } from './product-utils.ts';
 
-const planIds = ['p093', 'p094', 'p095', 'p013', 'p012', 'p096', 'p028', 'p088'];
+const planIds = ['p013', 'p012', 'p100', 'p101'];
 export const guidePlans = planIds.map((id) => {
   const product = products.find((item) => item.id === id);
   if (!product) throw new Error(`Buying guide product missing: ${id}`);
@@ -10,16 +10,16 @@ export const guidePlans = planIds.map((id) => {
 
 export const guideQuestions = [
   {
-    question: 'What are the ChatGPT and Codex package prices at Sasify Solutions?',
-    answer: `${guidePlans.slice(0, 3).map((p) => `${p.name} costs ${formatPkr(p.sellingPricePkr)} for ${p.duration}`).join('; ')}. These are separate Sasify listings. Shared access is not exclusive personal access; confirm the account arrangement and usage limits of your chosen listing before payment.`,
+    question: 'What are the Claude Team and Hostinger package prices at Sasify Solutions?',
+    answer: `${guidePlans.slice(0, 3).map((p) => `${p.name} costs ${formatPkr(p.sellingPricePkr)} for ${p.duration}`).join('; ')}. These are separate Sasify listings. Confirm the exact access arrangement and usage limits of your chosen listing before payment.`,
   },
   {
     question: 'What do the Claude Team Standard and Premium listings cost?',
-    answer: `${guidePlans.slice(3, 5).map((p) => `${p.name} costs ${formatPkr(p.sellingPricePkr)} for ${p.duration}`).join('; ')}. These listings describe a team seat, not ownership of an entire team workspace. Ask about workspace requirements and provider usage limits before ordering.`,
+    answer: `${guidePlans.slice(0, 2).map((p) => `${p.name} costs ${formatPkr(p.sellingPricePkr)} for ${p.duration}`).join('; ')}. These listings describe a team seat, not ownership of an entire team workspace. Ask about workspace requirements and provider usage limits before ordering.`,
   },
   {
-    question: 'Is Canva Pro Invite a one-time payment for a year?',
-    answer: `Yes. Sasify Solutions lists Canva Pro Invite at ${formatPkr(guidePlans[5].sellingPricePkr)} for ${guidePlans[5].duration}. Pay once to Sasify Solutions for the year, with no monthly payments to us during that year. It is an invite listing, not the Canva Pro Panel listing. Confirm invitation requirements and warranty coverage before paying.`,
+    question: 'What Hostinger products are available?',
+    answer: `Sasify Solutions lists ${guidePlans[2].name} at ${formatPkr(guidePlans[2].sellingPricePkr)} for ${guidePlans[2].duration}. ${guidePlans[3].name} has KVM package options shown on its product page and is purchased through WhatsApp. Confirm package availability and details before paying.`,
   },
   {
     question: 'Are shared, team, invite and credit packages interchangeable?',

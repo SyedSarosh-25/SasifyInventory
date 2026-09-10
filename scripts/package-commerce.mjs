@@ -18,8 +18,7 @@ for (const entry of await readdir(path.join(root, 'out'), { withFileTypes: true 
   await cp(path.join(root, 'out', entry.name), path.join(staticDir, entry.name), { recursive: true });
 }
 for (const name of ['handler.mjs','core.mjs','inbound-email.mjs','supplier.mjs','description.mjs','qamify.mjs','mke.mjs','piggyai.mjs','zoomstore.mjs']) await cp(path.join(root,'commerce',name),path.join(func,name));
-const catalogIds = new Set(['p093', 'p012', 'p013', 'p100']);
-const catalog = products.filter((p) => catalogIds.has(p.id)).map((p) => ({ id:p.id,name:p.name,price:p.sellingPricePkr }));
+const catalog = products.map((p) => ({ id:p.id,name:p.name,price:p.sellingPricePkr }));
 await writeFile(path.join(root,'commerce/catalog.json'),JSON.stringify(catalog));
 await writeFile(path.join(func,'catalog.json'),JSON.stringify(catalog));
 await writeFile(path.join(func,'.vc-config.json'),JSON.stringify({ runtime:'nodejs22.x',handler:'handler.mjs',launcherType:'Nodejs',shouldAddHelpers:true,maxDuration:30 }));

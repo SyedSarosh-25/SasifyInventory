@@ -122,9 +122,9 @@ test('mobile carousels support native touch scrolling and resume after interacti
   }
 });
 
-test('search field types a Canva prompt without changing the user query', () => {
+test('search field types a Claude prompt without changing the user query', () => {
   const search = readFileSync(new URL('../app/components/hero-product-search.tsx', import.meta.url), 'utf8');
-  assert.match(search, /const prompt = 'Search Canva'/);
+  assert.match(search, /const prompt = 'Search Claude'/);
   assert.match(search, /setAnimatedPlaceholder/);
   assert.match(search, /placeholder=\{animatedPlaceholder\}/);
   assert.match(search, /prefers-reduced-motion: reduce/);

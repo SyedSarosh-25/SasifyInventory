@@ -1,13 +1,13 @@
 import { products } from './products.ts';
 
-export const featuredProducts = ['p013', 'p012', 'p100', 'p101', 'p093', 'p096', 'p095', 'p016', 'p028', 'p088']
+export const featuredProducts = ['p013', 'p012', 'p100', 'p101']
   .map((id) => {
     const product = products.find((item) => item.id === id);
     if (!product) throw new Error(`Missing featured product: ${id}`);
     return product;
   });
 
-export const heroProducts = ['p013', 'p093', 'p028', 'p019', 'p088']
+export const heroProducts = ['p013', 'p012', 'p100', 'p101']
   .map((id) => {
     const product = products.find((item) => item.id === id);
     if (!product) throw new Error(`Missing hero product: ${id}`);
@@ -34,12 +34,10 @@ export function supplierEquivalentProductName(staticName: string, supplierName: 
 }
 
 export const orbitTools = [
-  { name: 'Figma', id: 'p066', className: 'orbit-figma' },
-  { name: 'CapCut', id: 'p028', className: 'orbit-capcut' },
-  { name: 'ChatGPT', id: 'p093', className: 'orbit-chatgpt' },
   { name: 'Claude', id: 'p013', className: 'orbit-claude' },
-  { name: 'Cursor', id: 'p088', className: 'orbit-cursor' },
-  { name: 'Gemini', id: 'p017', className: 'orbit-gemini' },
+  { name: 'Premium', id: 'p012', className: 'orbit-chatgpt' },
+  { name: 'Hostinger', id: 'p100', className: 'orbit-figma' },
+  { name: 'Hostinger VPS', id: 'p101', className: 'orbit-cursor' },
 ].map((tool) => {
   const product = products.find((item) => item.id === tool.id);
   if (!product) throw new Error(`Missing orbit product: ${tool.id}`);

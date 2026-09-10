@@ -63,15 +63,13 @@ test('25-day warranty is scoped to 30-day and one-month products', () => {
 });
 
 test('savings subtract our price from the listed original with the fixed USD rate', () => {
-  assert.equal(savingsPkr(products.find((p) => p.id === 'p093')), 2201);
   assert.equal(savingsPkr(products.find((p) => p.id === 'p013')), 2301);
-  assert.equal(savingsPkr(products.find((p) => p.id === 'p094')), 4701);
   assert.equal(savingsPkr(products.find((p) => p.id === 'p012')), 10001);
-  assert.equal(originalPricePkr(products.find((p) => p.id === 'p014')), 75240);
+  assert.equal(savingsPkr(products.find((p) => p.id === 'p100')), 33500);
 });
 
 test('monthly references are multiplied by the complete plan duration', () => {
-  const linear = products.find((p) => p.id === 'p040');
+  const linear = { ...products.find((p) => p.id === 'p013'), duration: '12 Months', originalPrice: '$15/month', originalPricePkr: undefined, sellingPricePkr: 14999 };
   assert.equal(originalPricePkr(linear), 15 * 285 * 12);
   assert.equal(savingsPkr(linear), 36301);
   const base = { ...linear, originalPrice: '$10/month', sellingPricePkr: 999 };
@@ -84,18 +82,18 @@ test('monthly references are multiplied by the complete plan duration', () => {
 });
 
 test('monthly quotes take priority over annual alternatives and annual-only prices are not multiplied by twelve', () => {
-  const base = products.find((p) => p.id === 'p040');
+  const base = { ...products.find((p) => p.id === 'p013'), duration: '12 Months', originalPricePkr: undefined };
   assert.equal(originalPricePkr({ ...base, originalPrice: '$20/month or $192/year' }), 68400);
   assert.equal(originalPricePkr({ ...base, originalPrice: '$192/year or $20/month' }), 68400);
-  assert.equal(originalPricePkr(products.find((p) => p.id === 'p056')), 28497.15);
+  assert.equal(originalPricePkr({ ...base, originalPrice: 'PKR 28,497.15/year', duration: '12 Months' }), 28497.15);
   assert.equal(originalPricePkr({ ...base, duration: '2 Years', originalPrice: '$100/year' }), 57000);
 });
 
 test('credit face values remain package totals and ambiguous durations do not invent terms', () => {
-  const credit = { ...products.find((p) => p.id === 'p004'), duration: '12 Months' };
+  const credit = { ...products.find((p) => p.id === 'p013'), name: 'Claude API credits', originalPrice: '$100 credits', originalPricePkr: undefined, duration: '12 Months' };
   assert.equal(originalPriceComparison(credit).period, 'package');
   assert.equal(originalPricePkr(credit), 28500);
-  const monthly = products.find((p) => p.id === 'p040');
+  const monthly = products.find((p) => p.id === 'p013');
   for (const duration of ['-', '1-3 Years', '499 Invites', 'Lifetime Credits', '7 Days', '0 Months']) {
     assert.equal(planMonths({ ...monthly, duration }), null);
     assert.equal(savingsPkr({ ...monthly, duration }), null);
@@ -103,9 +101,13 @@ test('credit face values remain package totals and ambiguous durations do not in
 });
 
 test('missing, unsupported-currency and free references do not invent prices', () => {
-  for (const id of ['p001', 'p028', 'p044', 'p059', 'p073', 'p095']) {
-    assert.equal(originalPricePkr(products.find((p) => p.id === id)), null);
-    assert.equal(savingsPkr(products.find((p) => p.id === id)), null);
+  for (const product of [
+    { ...products[0], originalPrice: 'Price on request', originalPricePkr: undefined },
+    { ...products[0], originalPrice: '€10/month', originalPricePkr: undefined },
+    { ...products[0], originalPrice: 'Free', originalPricePkr: undefined },
+  ]) {
+    assert.equal(originalPricePkr(product), null);
+    assert.equal(savingsPkr(product), null);
   }
 });
 
@@ -120,35 +122,17 @@ test('savings preserve zero and negative differences and match all available ref
 });
 
 test('landing selection has exactly ten distinct products with the requested first five', () => {
-  assert.equal(featuredProducts.length, 10);
-  assert.equal(new Set(featuredProducts.map((product) => product.id)).size, 10);
-  assert.deepEqual(featuredProducts.slice(0, 5).map((product) => product.id), ['p013', 'p012', 'p100', 'p101', 'p093']);
+  assert.equal(featuredProducts.length, 4);
+  assert.deepEqual(featuredProducts.map((product) => product.id), ['p013', 'p012', 'p100', 'p101']);
 });
 
-test('featured Canva offer is a one-year invite for 999 while existing variants stay in inventory', () => {
-  const canva = featuredProducts.find((product) => product.id === 'p096');
-  assert.equal(canva.name, 'Canva Pro Invite');
-  assert.equal(canva.sellingPricePkr, 999);
-  assert.equal(canva.duration, '1 Year');
-  assert.equal(isAnnualPlan(canva), true);
-  assert.equal(originalPricePkr(canva), 51300);
-  assert.equal(savingsPkr(canva), 50301);
-  assert.equal(featuredProducts.some((product) => product.id === 'p063'), false);
-  assert.equal(products.find((product) => product.id === 'p063').name, 'Canva Pro Panel');
-  assert.equal(products.find((product) => product.id === 'p064').duration, '3 Years');
-  assert.match(new URL(whatsappLink(canva.name, canva.duration)).searchParams.get('text'), /Canva Pro Invite \(1 Year\)/);
-});
-
-test('featured Gemini offer uses the 18-month plan instead of the 3-month plan', () => {
-  const gemini = featuredProducts.find((product) => product.name === 'Gemini AI Pro');
-  assert.equal(gemini.id, 'p016');
-  assert.equal(gemini.duration, '18 Months');
-  assert.equal(gemini.sellingPricePkr, 2999);
-  assert.equal(featuredProducts.some((product) => product.id === 'p017'), false);
+test('static catalog contains only the approved local products', () => {
+  assert.deepEqual(products.map((product) => product.id), ['p012', 'p013', 'p100', 'p101']);
+  assert.ok(products.every((product) => /Claude|Hostinger/.test(product.name)));
 });
 
 test('all orbit logos link to the corresponding tool detail page', () => {
-  assert.equal(orbitTools.length, 6);
+  assert.equal(orbitTools.length, 4);
   for (const tool of orbitTools) {
     assert.equal(productHref(tool.product), `/products/${tool.id}`);
     assert.ok(tool.product.name.toLowerCase().includes(tool.name.toLowerCase()));
@@ -157,25 +141,20 @@ test('all orbit logos link to the corresponding tool detail page', () => {
 
 test('full inventory keeps all products, search, categories and empty results', () => {
   assert.equal(filterProducts('', 'All').length, products.length);
-  assert.equal(filterProducts(' ChatGPT Plus Shared ', 'All')[0].id, 'p094');
-  assert.ok(filterProducts('', 'Design & UI/UX').every((product) => product.category === 'Design & UI/UX'));
+  assert.equal(filterProducts(' Premium ', 'All')[0].id, 'p012');
+  assert.ok(filterProducts('', 'AI Assistants & Research').every((product) => product.category === 'AI Assistants & Research'));
   assert.equal(filterProducts('zzzz-not-a-product', 'All').length, 0);
 });
 
 test('hero shows the requested top selling product shortcuts without reducing the top ten', () => {
-  assert.deepEqual(heroProducts.map((product) => product.id), ['p013', 'p093', 'p028', 'p019', 'p088']);
-  assert.equal(featuredProducts.length, 10);
+  assert.deepEqual(heroProducts.map((product) => product.id), ['p013', 'p012', 'p100', 'p101']);
+  assert.equal(featuredProducts.length, 4);
   for (const product of heroProducts) assert.equal(productHref(product), `/products/${product.id}`);
 });
 
 test('live hero search matches VPN category and partial names across the full inventory', () => {
-  const vpnProducts = products.filter((product) => product.category === 'VPN & Privacy');
-  assert.ok(vpnProducts.length > 0);
-  const matches = filterProducts(' VPN ', 'All');
-  for (const product of vpnProducts) assert.ok(matches.some((match) => match.id === product.id));
-  assert.deepEqual(matches, filterProducts('vpn', 'All'));
-  assert.ok(filterProducts('Nord', 'All').some((product) => product.name.includes('Nord')));
-  assert.ok(filterProducts('chatg', 'All').some((product) => product.id === 'p093'));
+  assert.ok(filterProducts('Claude', 'All').some((product) => product.id === 'p013'));
+  assert.ok(filterProducts('Host', 'All').some((product) => product.id === 'p100'));
   assert.equal(filterProducts('not-a-real-tool-xyz', 'All').length, 0);
 });
 
@@ -186,15 +165,12 @@ test('WhatsApp orders retain the selected variant and correct recipient', () => 
   assert.match(href.searchParams.get('text'), /Claude Team Plan Premium \(1 Month\)/);
 });
 
-test('Gemini and Claude logos resolve to product identities', () => {
-  assert.match(decodeURIComponent(productLogo(products.find((p) => p.id === 'p016'))), /gemini.google.com/);
+test('Claude and Hostinger logos resolve to product identities', () => {
   assert.match(decodeURIComponent(productLogo(products.find((p) => p.id === 'p013'))), /claude.ai/);
+  assert.match(decodeURIComponent(productLogo(products.find((p) => p.id === 'p100'))), /hostinger.com/);
 });
 
-test('access labels distinguish shared, team, invite, personal and credit packages', () => {
-  assert.equal(accessTypeLabel(products.find((p) => p.id === 'p094')), 'Shared access');
+test('access labels describe the retained local products', () => {
   assert.equal(accessTypeLabel(products.find((p) => p.id === 'p013')), 'Team seat or team access');
-  assert.equal(accessTypeLabel(products.find((p) => p.id === 'p096')), 'Invite-based access');
-  assert.equal(accessTypeLabel(products.find((p) => p.id === 'p095')), 'Single-person access');
-  assert.equal(accessTypeLabel(products.find((p) => p.id === 'p088')), 'Plan access - confirm account arrangement');
+  assert.equal(accessTypeLabel(products.find((p) => p.id === 'p100')), 'Plan access - confirm account arrangement');
 });

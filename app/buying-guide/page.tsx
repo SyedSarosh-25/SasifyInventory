@@ -10,7 +10,7 @@ import { breadcrumbData, faqData } from '../seo';
 import { siteOrigin } from '../site-config';
 
 const title = 'Digital Tool Buying Guide | Prices, Access & Warranty | Sasify Solutions';
-const description = 'Compare Sasify ChatGPT, Claude, Canva, CapCut and Cursor packages in Pakistan. Check listed prices, shared or team access, one-time yearly payments and warranty terms.';
+const description = 'Compare Sasify Claude Team and Hostinger packages in Pakistan. Check listed prices, access details, one-time yearly payments and warranty terms.';
 export const metadata: Metadata = {
   title, description,
   alternates: { canonical: `${siteOrigin}/buying-guide` },

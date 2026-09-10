@@ -17,7 +17,7 @@ const canonicalPages = ['index', 'inventory', 'about', 'buying-guide', ...policy
 test('brand title and standards-compatible favicons are included in exported pages', async () => {
   const home = await read('index.html');
   assert.match(home, /<title>Sasify Solutions \| Digital Tools and Services Marketplace<\/title>/);
-  for (const file of ['index.html', 'inventory.html', 'about.html', 'buying-guide.html', 'privacy.html', 'products/p013.html', 'products/p096.html']) {
+  for (const file of ['index.html', 'inventory.html', 'about.html', 'buying-guide.html', 'privacy.html', 'products/p013.html', 'products/p101.html']) {
     const html = await read(file);
     const icons = [...html.matchAll(/<link\b[^>]*>/g)].map(([tag]) => tag).filter((tag) => /rel="(?:shortcut )?icon"/.test(tag));
     assert.ok(icons.some((tag) => tag.includes('href="/favicon.ico"') && tag.includes('type="image/x-icon"')), `ICO favicon missing: ${file}`);
@@ -143,7 +143,7 @@ test('buying guide answers and plan links are visible and match its structured d
     assert.ok(visible.includes(`href="/products/${product.id}"`));
     assert.ok(visible.includes(product.sellingPricePkr.toLocaleString('en-PK')));
   }
-  for (const file of ['index', 'about', 'products/p093']) {
+  for (const file of ['index', 'about', 'products/p013']) {
     assert.ok((await read(`${file}.html`)).includes('href="/buying-guide"'));
   }
 });

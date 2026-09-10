@@ -49,11 +49,11 @@ test('every variant has unique search metadata and a truthful PKR offer', () => 
 });
 
 test('plan answers preserve annual payments, limited warranty and unknown duration', () => {
-  const canva = products.find(({ id }) => id === 'p096');
-  assert.match(productQuestions(canva)[1].answer, /PKR 999 once.*full year/);
-  assert.match(productQuestions(products.find(({ id }) => id === 'p093'))[2].answer, /25-day warranty/);
-  assert.doesNotMatch(productQuestions(canva)[2].answer, /25-day/);
-  const unknown = { ...canva, duration: '-' };
+  const hostinger = products.find(({ id }) => id === 'p100');
+  assert.match(productQuestions(hostinger)[1].answer, /PKR 4,500/);
+  assert.match(productQuestions(products.find(({ id }) => id === 'p013'))[2].answer, /25-day warranty/);
+  assert.doesNotMatch(productQuestions(hostinger)[2].answer, /25-day/);
+  const unknown = { ...hostinger, duration: '-' };
   assert.match(productQuestions(unknown)[0].answer, /Review the access period/);
   assert.ok(!('additionalProperty' in productData(unknown)));
 });
