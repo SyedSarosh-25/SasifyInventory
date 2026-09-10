@@ -24,6 +24,19 @@ export type ProductVariant = {
 
 export const products: Product[] = [
   {
+    id: 'p093',
+    slug: 'chatgpt-plus-1-month',
+    category: 'AI Assistants & Research',
+    name: 'ChatGPT Plus',
+    duration: '1 Month',
+    vendor: 'Sasify Solutions',
+    sellingPricePkr: 3499,
+    originalPrice: 'PKR 5,700/month',
+    originalPricePkr: 5700,
+    sourceUrl: 'https://openai.com/chatgpt/pricing/',
+    description: 'One-month ChatGPT Plus access for advanced models, higher limits, file analysis, image generation and productivity workflows.',
+  },
+  {
     id: 'p012',
     slug: 'claude-team-plan-premium',
     category: 'AI Assistants & Research',

@@ -33,6 +33,10 @@ export function supplierEquivalentProductName(staticName: string, supplierName: 
   return !!left && left === right;
 }
 
+export function isChatGptPlusProduct(name: string) {
+  return /\bchatgpt\s+plus\b/i.test(String(name || ''));
+}
+
 export const orbitTools = [
   { name: 'Claude', id: 'p013', className: 'orbit-claude' },
   { name: 'Premium', id: 'p012', className: 'orbit-chatgpt' },

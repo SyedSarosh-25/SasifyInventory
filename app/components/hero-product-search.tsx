@@ -2,7 +2,8 @@
 
 import { ArrowRight, Search, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { filterProducts, heroProducts, normalizeSearchText, supplierEquivalentProductName } from '../catalog-selection';
+import { filterProducts, heroProducts, isChatGptPlusProduct, normalizeSearchText, supplierEquivalentProductName } from '../catalog-selection';
+import { products } from '../products';
 import { productHref } from '../product-utils';
 import { supplierLogo, supplierMonogram } from '../supplier-product-utils';
 import { Money } from './currency';
@@ -18,8 +19,8 @@ export function HeroProductSearch() {
   const resultsRef = useRef<HTMLDivElement>(null);
   const searching = query.trim().length > 0;
   const topSelling = useMemo(() => {
+    const localChatGpt = products.find((product) => product.id === 'p093');
     const requested = [
-      { label: 'ChatGPT Plus', pattern: /^chatgpt plus\b/i },
       { label: 'CapCut', pattern: /capcut/i },
       { label: 'Grok', pattern: /grok/i },
     ];
@@ -28,10 +29,10 @@ export function HeroProductSearch() {
       return product ? { kind: 'supplier' as const, label, product } : null;
     }).filter(Boolean) as Array<{ kind: 'supplier'; label: string; product: LiveSupplierResult }>;
     const claude = heroProducts.find((product) => /claude/i.test(product.name));
-    return [...selected, ...(claude ? [{ kind: 'local' as const, label: 'Claude', product: claude }] : [])];
+    return [...(localChatGpt ? [{ kind: 'local' as const, label: 'ChatGPT Plus', product: localChatGpt }] : []), ...selected, ...(claude ? [{ kind: 'local' as const, label: 'Claude', product: claude }] : [])];
   }, [supplierProducts]);
   const matches = searching ? filterProducts(query, 'All').filter((product) => !supplierProducts.some((supplier) => supplierEquivalentProductName(product.name, supplier.name))) : [];
-  const supplierMatches = searching ? supplierProducts.filter((product) => normalizeSearchText(`${product.name} ${product.id} ${product.provider_name || ''}`).includes(normalizeSearchText(query))) : [];
+  const supplierMatches = searching ? supplierProducts.filter((product) => !isChatGptPlusProduct(product.name) && normalizeSearchText(`${product.name} ${product.id} ${product.provider_name || ''}`).includes(normalizeSearchText(query))) : [];
 
   useEffect(() => {
     const prompt = 'Search Claude';

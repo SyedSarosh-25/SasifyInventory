@@ -127,8 +127,8 @@ test('landing selection has exactly ten distinct products with the requested fir
 });
 
 test('static catalog contains only the approved local products', () => {
-  assert.deepEqual(products.map((product) => product.id), ['p012', 'p013', 'p100', 'p101']);
-  assert.ok(products.every((product) => /Claude|Hostinger/.test(product.name)));
+  assert.deepEqual(products.map((product) => product.id), ['p093', 'p012', 'p013', 'p100', 'p101']);
+  assert.ok(products.every((product) => /ChatGPT|Claude|Hostinger/.test(product.name)));
 });
 
 test('all orbit logos link to the corresponding tool detail page', () => {
