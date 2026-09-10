@@ -27,12 +27,6 @@ ALTER TABLE commerce_orders ADD COLUMN IF NOT EXISTS supplier_cost_pkr integer C
 ALTER TABLE commerce_orders ADD COLUMN IF NOT EXISTS coupon_id uuid;
 ALTER TABLE commerce_orders ADD COLUMN IF NOT EXISTS coupon_discount integer NOT NULL DEFAULT 0 CHECK(coupon_discount>=0);
 ALTER TABLE commerce_orders ADD COLUMN IF NOT EXISTS coupon_usage_released boolean NOT NULL DEFAULT false;
-DO $$ BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='commerce_orders_coupon_id_fkey') THEN
-    ALTER TABLE commerce_orders ADD CONSTRAINT commerce_orders_coupon_id_fkey FOREIGN KEY (coupon_id) REFERENCES commerce_coupons(id);
-  END IF;
-EXCEPTION WHEN duplicate_object THEN NULL;
-END $$;
 CREATE UNIQUE INDEX IF NOT EXISTS commerce_supplier_order_id ON commerce_orders(supplier_order_id) WHERE supplier_order_id IS NOT NULL;
 
 CREATE TABLE IF NOT EXISTS commerce_supplier_products (

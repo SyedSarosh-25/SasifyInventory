@@ -66,21 +66,33 @@ async function ensureCouponSchema(db) {
         max_uses integer NOT NULL DEFAULT 10 CHECK(max_uses>0), used_count integer NOT NULL DEFAULT 0 CHECK(used_count>=0),
         enabled boolean NOT NULL DEFAULT true, created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now()
       )`);
+      await db.query('ALTER TABLE commerce_coupons ADD COLUMN IF NOT EXISTS id uuid');
+      await db.query('ALTER TABLE commerce_coupons ADD COLUMN IF NOT EXISTS code_hash text');
+      await db.query('ALTER TABLE commerce_coupons ADD COLUMN IF NOT EXISTS code_display text');
+      await db.query('ALTER TABLE commerce_coupons ADD COLUMN IF NOT EXISTS discount_percent numeric(5,2)');
+      await db.query('ALTER TABLE commerce_coupons ADD COLUMN IF NOT EXISTS max_uses integer');
+      await db.query('ALTER TABLE commerce_coupons ADD COLUMN IF NOT EXISTS used_count integer');
+      await db.query('ALTER TABLE commerce_coupons ADD COLUMN IF NOT EXISTS enabled boolean');
+      await db.query('ALTER TABLE commerce_coupons ADD COLUMN IF NOT EXISTS created_at timestamptz');
+      await db.query('ALTER TABLE commerce_coupons ADD COLUMN IF NOT EXISTS updated_at timestamptz');
+      await db.query("UPDATE commerce_coupons SET id=md5(coalesce(code_hash,code_display,clock_timestamp()::text))::uuid WHERE id IS NULL");
+      await db.query("UPDATE commerce_coupons SET discount_percent=5 WHERE discount_percent IS NULL");
+      await db.query("UPDATE commerce_coupons SET max_uses=10 WHERE max_uses IS NULL OR max_uses<1");
+      await db.query("UPDATE commerce_coupons SET used_count=0 WHERE used_count IS NULL OR used_count<0");
+      await db.query("UPDATE commerce_coupons SET enabled=true WHERE enabled IS NULL");
+      await db.query("UPDATE commerce_coupons SET created_at=now() WHERE created_at IS NULL");
+      await db.query("UPDATE commerce_coupons SET updated_at=now() WHERE updated_at IS NULL");
       await db.query('ALTER TABLE commerce_orders ADD COLUMN IF NOT EXISTS coupon_id uuid');
       await db.query('ALTER TABLE commerce_orders ADD COLUMN IF NOT EXISTS coupon_discount integer NOT NULL DEFAULT 0 CHECK(coupon_discount>=0)');
       await db.query('ALTER TABLE commerce_orders ADD COLUMN IF NOT EXISTS coupon_usage_released boolean NOT NULL DEFAULT false');
-      await db.query(`DO $$ BEGIN
-        IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='commerce_orders_coupon_id_fkey') THEN
-          ALTER TABLE commerce_orders ADD CONSTRAINT commerce_orders_coupon_id_fkey FOREIGN KEY (coupon_id) REFERENCES commerce_coupons(id);
-        END IF;
-      EXCEPTION WHEN duplicate_object THEN NULL; END $$`);
     })().catch((error) => { couponSchemaReady = null; throw error; });
   }
   await couponSchemaReady;
 }
 async function ensureDefaultCoupon(db) {
-  await db.query(`INSERT INTO commerce_coupons(id,code_hash,code_display,discount_percent,max_uses,enabled)
-    VALUES($1,$2,'RESELL',5,10,true) ON CONFLICT(code_hash) DO NOTHING`, [randomUUID(), hash('RESELL')]);
+  const codeHash = hash('RESELL');
+  await db.query(`INSERT INTO commerce_coupons(id,code_hash,code_display,discount_percent,max_uses,used_count,enabled,created_at,updated_at)
+    VALUES($1,$2,'RESELL',5,10,0,true,now(),now()) ON CONFLICT DO NOTHING`, [randomUUID(), codeHash]);
 }
 function automaticCostPkr(price, currency) {
   if (currency === 'PKR') return Math.ceil(price);
@@ -603,7 +615,7 @@ return async function handler(req, res) {
     if (db) await db.query('ROLLBACK').catch(() => {});
     const code = e.status || (e.code === '23505' ? 409 : 503);
     json(res,code,{ error: e.status ? e.message : e.code === '23505' ? 'Duplicate account or payment. Nothing was imported.' : 'Service temporarily unavailable. Please retry or contact support.' });
-    if (!e.status) console.error('commerce-error', e.code || e.name);
+    if (!e.status) console.error('commerce-error', e.code || e.name, e.message || '');
   } finally { db?.release(); }
 };
 }
