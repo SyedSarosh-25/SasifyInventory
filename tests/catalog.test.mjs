@@ -42,6 +42,8 @@ test('supplier-equivalent names collapse duration and fulfilment suffixes', () =
   assert.equal(supplierEquivalentProductName('CapCut Pro Team', 'CapCut Pro Team 3 Months - full warranty'), true);
   assert.equal(supplierEquivalentProductName('Grok Heavy CDK', 'CDK Grok Heavy 1 month warranty not included'), true);
   assert.equal(supplierEquivalentProductName('ChatGPT Plus', 'ChatGPT Plus K12 Edu 2 years'), false);
+  assert.equal(supplierEquivalentProductName('Claude API $100', '$500 API CLAUDE 30D (FW)'), false);
+  assert.equal(supplierEquivalentProductName('Cursor Pro API - 6,500 Credits', 'API Cursor Pro 400 Credits/day 1 month full warranty'), false);
 });
 
 test('supplier-equivalent comparison is independent of token order', () => {

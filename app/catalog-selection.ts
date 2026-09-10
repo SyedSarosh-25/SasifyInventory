@@ -14,11 +14,15 @@ export const heroProducts = ['p013', 'p093', 'p028', 'p019', 'p088']
     return product;
   });
 
-const supplierNameNoise = new Set(['a', 'an', 'the', 'api', 'cdk', 'comes', 'day', 'days', 'for', 'full', 'has', 'included', 'month', 'months', 'no', 'not', 'nw', 'fw', 'pre', 'order', 'preorder', 'warranty', 'week', 'weeks', 'with', 'without', 'year', 'years']);
+const supplierNameNoise = new Set(['a', 'an', 'the', 'api', 'cdk', 'comes', 'd', 'day', 'days', 'for', 'full', 'has', 'included', 'm', 'mo', 'month', 'months', 'no', 'not', 'nw', 'fw', 'pre', 'order', 'preorder', 'warranty', 'week', 'weeks', 'with', 'without', 'y', 'year', 'years']);
+const supplierDurationUnit = /^(?:d|day|days|m|mo|month|months|y|year|years)$/;
+const supplierCompactDuration = /^\d+(?:d|day|days|m|mo|month|months|y|year|years)$/;
 
 function comparableProductName(value: string) {
-  return String(value || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim().split(/\s+/)
-    .filter((token) => !supplierNameNoise.has(token) && !/^\d+(?:m|mo|month|months|d|day|days|y|year|years)?$/.test(token))
+  const tokens = String(value || '').toLowerCase().replace(/(\d),(?=\d)/g, '$1').replace(/[^a-z0-9]+/g, ' ').trim().split(/\s+/).filter(Boolean);
+  return tokens
+    .filter((token, index) => !supplierNameNoise.has(token) && !supplierCompactDuration.test(token)
+      && !(/^\d+$/.test(token) && (supplierDurationUnit.test(tokens[index - 1] || '') || supplierDurationUnit.test(tokens[index + 1] || ''))))
     .sort()
     .join(' ');
 }
