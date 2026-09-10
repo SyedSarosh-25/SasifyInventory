@@ -6,6 +6,7 @@ import { createQamifyOrder, fetchQamifyBalance, fetchQamifyProducts, normalizeQa
 import { createMkeOrder, fetchMkeBalance, fetchMkeProducts, mkeDelivery, mkeOrderId, normalizeMkeProduct } from './mke.mjs';
 import { createPiggyAiOrder, fetchPiggyAiBalance, fetchPiggyAiProducts, normalizePiggyAiProduct, piggyAiDelivery, piggyAiOrderId } from './piggyai.mjs';
 import { createZoomStoreOrder, fetchZoomStoreBalance, fetchZoomStoreProducts, normalizeZoomStoreProduct, zoomStoreDelivery, zoomStoreOrderId } from './zoomstore.mjs';
+import { normalizeInboundEmail } from './inbound-email.mjs';
 import catalog from './catalog.json' with { type: 'json' };
 
 const fail = (status, message) => Object.assign(new Error(message), { status });
@@ -13,6 +14,20 @@ const bearer = (req) => String(req.headers.authorization || '').replace(/^Bearer
 const adminCookie = (req) => String(req.headers.cookie || '').match(/(?:^|;\s*)sasify_admin=([^;]+)/)?.[1] || '';
 const idOk = (value) => /^[a-f0-9-]{36}$/i.test(String(value || ''));
 const json = (res, status, body) => { res.statusCode = status; res.setHeader('Content-Type', 'application/json'); res.end(JSON.stringify(body)); };
+function inboundEmailAuthConfigured() {
+  return !!String(process.env.NAYAPAY_INBOUND_TOKEN || '').trim()
+    || (!!String(process.env.NAYAPAY_INBOUND_BASIC_USER || '').trim() && !!String(process.env.NAYAPAY_INBOUND_BASIC_PASSWORD || ''));
+}
+function inboundEmailAuthorized(req) {
+  const token = String(process.env.NAYAPAY_INBOUND_TOKEN || '').trim();
+  const providedToken = String(req.headers['x-nayapay-inbound-token'] || req.headers['x-inbound-webhook-token'] || '').trim();
+  if (token && same(providedToken, token)) return true;
+  const username = String(process.env.NAYAPAY_INBOUND_BASIC_USER || '').trim();
+  const password = String(process.env.NAYAPAY_INBOUND_BASIC_PASSWORD || '');
+  const authorization = String(req.headers.authorization || '');
+  const expected = username && password ? `Basic ${Buffer.from(`${username}:${password}`).toString('base64')}` : '';
+  return !!expected && same(authorization, expected);
+}
 const supplierUsdtRate = () => {
   const rate = Number(process.env.SUPPLIER_USDT_PKR_RATE || 285);
   return Number.isFinite(rate) && rate > 0 ? rate : 285;
@@ -30,9 +45,6 @@ function automaticCostPkr(price, currency) {
 function automaticProductKey(name) {
   const normalized = String(name || '').normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 180);
   return normalized ? `auto:${normalized}` : null;
-}
-function requiresCustomerEmail(product) {
-  return /(?:send|provide|submit).{0,40}(?:email|gmail)|(?:email|gmail).{0,40}(?:invite|family|activation)/i.test(`${product.name || ''}\n${product.description || ''}`);
 }
 function supplierProviders() {
   return [
@@ -168,7 +180,7 @@ async function placeSupplierOrder(product, order) {
   if (['piggyai','fatbunny'].includes(product.provider_id)) {
     if (!String(product.external_product_id || '').trim()) throw fail(503, `${product.provider_name || 'PiggyAi'} product ID is invalid.`);
     const envName = product.provider_id === 'fatbunny' || product.provider_name === 'Fat Bunny Hub' ? 'FATBUNNY_API_KEY' : 'PIGGYAI_API_KEY';
-    const result = await createPiggyAiOrder({ productId: product.external_product_id, customerEmail: order.customer_email || '', idempotencyKey: `sasify-${order.id}-${product.external_product_id}`, envName });
+    const result = await createPiggyAiOrder({ productId: product.external_product_id, idempotencyKey: `sasify-${order.id}-${product.external_product_id}`, envName });
     return { delivery: piggyAiDelivery(result), supplierId: piggyAiOrderId(result, order.id) };
   }
   if (product.provider_id === 'zoomstore') {
@@ -229,29 +241,6 @@ async function fulfill(db, orderId, paymentId, manual = false) {
   await db.query("UPDATE commerce_orders SET status='delivered',delivered_at=now() WHERE id=$1", [order.id]);
   await db.query('INSERT INTO commerce_audit(action,object_id) VALUES($1,$2)', [manual ? 'manual_delivery' : 'auto_delivery', order.id]);
 }
-async function fulfillUniqueWindowMatch(db, paymentId, expectedOrderId = '') {
-  const payment = (await db.query('SELECT * FROM commerce_payments WHERE id=$1 FOR UPDATE', [paymentId])).rows[0];
-  if (!payment || payment.order_id || !payment.verified || !payment.transaction_id || !payment.amount || !payment.received_at) return false;
-  const candidates = (await db.query(`SELECT id FROM commerce_orders
-    WHERE status='review' AND transaction_id IS NOT NULL AND amount=$1
-      AND created_at<=$2 AND expires_at>=$2
-    ORDER BY created_at FOR UPDATE`, [payment.amount, payment.received_at])).rows;
-  if (candidates.length !== 1 || (expectedOrderId && candidates[0].id !== expectedOrderId)) return false;
-  await db.query('UPDATE commerce_orders SET transaction_id=$1,payer_name=$2,source_last4=$3 WHERE id=$4', [payment.transaction_id, payment.payer_name, payment.source_last4, candidates[0].id]);
-  await db.query("INSERT INTO commerce_audit(action,object_id) VALUES('unique_window_match',$1)", [candidates[0].id]);
-  await fulfill(db, candidates[0].id, payment.id);
-  return true;
-}
-async function reconcileUniqueWindowMatches(db) {
-  const payments = (await db.query(`SELECT id FROM commerce_payments
-    WHERE verified=true AND order_id IS NULL AND amount IS NOT NULL AND received_at IS NOT NULL
-    ORDER BY received_at DESC LIMIT 20 FOR UPDATE`)).rows;
-  for (const payment of payments) {
-    await db.query('SAVEPOINT reconcile_payment');
-    try { await fulfillUniqueWindowMatch(db, payment.id); }
-    catch (e) { if (!e.status) throw e; await db.query('ROLLBACK TO SAVEPOINT reconcile_payment'); }
-  }
-}
 export function createHandler(poolFactory = () => new pg.Pool({ connectionString: process.env.DATABASE_URL, max: 3, connectionTimeoutMillis: 10000 })) {
 let pool;
 return async function handler(req, res) {
@@ -275,10 +264,13 @@ return async function handler(req, res) {
     await rate(db, hash(`${action}:${req.headers['x-vercel-forwarded-for'] || req.socket?.remoteAddress || 'unknown'}`), action === 'status' ? 60 : action === 'admin-login' ? 5 : 20);
     if (action?.startsWith('admin-') && !['admin-login','admin-logout'].includes(action) && !admin) throw fail(401, 'Your admin session is invalid or has expired.');
     if (action === 'email-webhook' && !same(body.secret, process.env.NAYAPAY_WEBHOOK_SECRET)) throw fail(401, 'Invalid webhook secret.');
+    if (action === 'inbound-email') {
+      if (!inboundEmailAuthConfigured()) throw fail(503, 'Inbound email receiver is not configured.');
+      if (!inboundEmailAuthorized(req)) throw fail(401, 'Invalid inbound email authentication.');
+    }
     if (['stock','status','admin-list'].includes(action) ? req.method !== 'GET' : req.method !== 'POST') throw fail(405, 'Method not allowed.');
     await db.query('BEGIN');
-    await reconcileUniqueWindowMatches(db);
-    await expire(db, action !== 'email-webhook');
+    await expire(db, !['email-webhook','inbound-email'].includes(action));
     let output;
     if (action === 'admin-login') {
       const email = String(body.email || '').trim().toLowerCase();
@@ -296,10 +288,9 @@ return async function handler(req, res) {
       const counts = (await db.query("SELECT product_id,count(*)::int AS available FROM commerce_inventory WHERE state='available' GROUP BY product_id")).rows;
       const supplierProducts = (await db.query(`WITH ranked AS (
         SELECT id,name,description,delivery_instruction,selling_price AS price,supplier_stock AS available,provider_id,provider_name,canonical_key,
-          CASE WHEN description ~* '(send|provide|submit).{0,40}(email|gmail)|(email|gmail).{0,40}(invite|family|activation)' THEN true ELSE false END AS email_required,
           row_number() OVER(PARTITION BY canonical_key ORDER BY cost_pkr ASC NULLS LAST,wholesale_price ASC,id) AS choice
         FROM commerce_supplier_products WHERE enabled=true AND selling_price IS NOT NULL AND supplier_stock>0)
-        SELECT id,name,description,delivery_instruction,price,available,provider_id,provider_name,canonical_key,email_required FROM ranked WHERE choice=1 ORDER BY name`)).rows;
+        SELECT id,name,description,delivery_instruction,price,available,provider_id,provider_name,canonical_key FROM ranked WHERE choice=1 ORDER BY name`)).rows;
       const supplierTotal = Number((await db.query('SELECT count(*)::int AS count FROM commerce_supplier_products')).rows[0]?.count || 0);
       output = { products: [...catalog.map((p) => ({ ...p, source:'local', available: counts.find((r) => r.product_id === p.id)?.available || 0 })),
         ...supplierProducts.map((p) => ({ ...p, id: p.canonical_key, source:'supplier' }))], productCount: catalog.length + supplierTotal, ready: !!process.env.PAYMENT_ACCOUNT_TITLE };
@@ -312,9 +303,7 @@ return async function handler(req, res) {
           AND supplier_stock>0 ORDER BY cost_pkr ASC NULLS LAST,wholesale_price ASC,id FOR UPDATE SKIP LOCKED LIMIT 1`, [requested.canonical_key])).rows[0];
         if (supplierProduct) product = { id:supplierProduct.id, name:supplierProduct.name, price:supplierProduct.selling_price };
       }
-        if (!product || !process.env.PAYMENT_ACCOUNT_TITLE) throw fail(409, 'Online purchasing is not available for this product yet.');
-        const customerEmail = String(body.customerEmail || '').trim().toLowerCase();
-        if (supplierProduct && requiresCustomerEmail(supplierProduct) && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customerEmail)) throw fail(400, 'A valid Gmail or email address is required for this product.');
+      if (!product || !process.env.PAYMENT_ACCOUNT_TITLE) throw fail(409, 'Online purchasing is not available for this product yet.');
       const session = String(req.headers.cookie || '').match(/(?:^|;\s*)sasify_checkout=([a-f0-9]{64})(?:;|$)/)?.[1] || randomBytes(32).toString('hex');
       const existing = await db.query("SELECT id FROM commerce_orders WHERE session_hash=$1 AND status IN ('pending','review')", [hash(session)]);
       if (existing.rowCount >= 2) throw fail(409, 'Complete or cancel your existing orders first.');
@@ -327,8 +316,8 @@ return async function handler(req, res) {
       }
       const id = randomUUID(), recovery = randomBytes(32).toString('hex');
       if (item) await db.query("UPDATE commerce_inventory SET state='reserved' WHERE id=$1", [item.id]);
-      await db.query(`INSERT INTO commerce_orders(id,product_id,amount,recovery_hash,session_hash,inventory_id,supplier_product_id,supplier_cost_pkr,customer_email,expires_at)
-        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,now()+interval '5 minutes')`, [id, product.id, product.price, hash(recovery), hash(session), item?.id || null, supplierProduct?.id || null, supplierProduct?.cost_pkr || 0, customerEmail || null]);
+      await db.query(`INSERT INTO commerce_orders(id,product_id,amount,recovery_hash,session_hash,inventory_id,supplier_product_id,supplier_cost_pkr,expires_at)
+        VALUES($1,$2,$3,$4,$5,$6,$7,$8,now()+interval '5 minutes')`, [id, product.id, product.price, hash(recovery), hash(session), item?.id || null, supplierProduct?.id || null, supplierProduct?.cost_pkr || 0]);
       res.setHeader('Set-Cookie', `sasify_checkout=${session}; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=604800`);
       output = { id, recovery };
     } else if (['status','claim','cancel'].includes(action)) {
@@ -351,26 +340,9 @@ return async function handler(req, res) {
         if (payment && order.status !== 'expired') {
           await db.query('SAVEPOINT delivery');
           try { await fulfill(db, id, payment.id); } catch (e) { if (!e.status) throw e; await db.query('ROLLBACK TO SAVEPOINT delivery'); }
-        } else if (order.status !== 'expired') {
-          const candidates = (await db.query(`SELECT id FROM commerce_payments WHERE verified=true AND order_id IS NULL AND amount=$1
-            AND received_at>=$2 AND received_at<=$3 ORDER BY received_at`, [order.amount, order.created_at, order.expires_at])).rows;
-          if (candidates.length === 1) {
-            await db.query('SAVEPOINT window_delivery');
-            try { await fulfillUniqueWindowMatch(db, candidates[0].id, id); } catch (e) { if (!e.status) throw e; await db.query('ROLLBACK TO SAVEPOINT window_delivery'); }
-          }
         }
         output = { ok: true };
       } else {
-        if (order.status === 'review') {
-          const candidates = (await db.query(`SELECT id FROM commerce_payments WHERE verified=true AND order_id IS NULL AND amount=$1
-            AND received_at>=$2 AND received_at<=$3 ORDER BY received_at`, [order.amount, order.created_at, order.expires_at])).rows;
-          if (candidates.length === 1) {
-            await db.query('SAVEPOINT window_delivery');
-            try {
-              if (await fulfillUniqueWindowMatch(db, candidates[0].id, order.id)) order = (await db.query('SELECT * FROM commerce_orders WHERE id=$1 FOR UPDATE', [id])).rows[0];
-            } catch (e) { if (!e.status) throw e; await db.query('ROLLBACK TO SAVEPOINT window_delivery'); }
-          }
-        }
         const orderProduct = catalog.find((p) => p.id === order.product_id)?.name || (await db.query('SELECT name FROM commerce_supplier_products WHERE id=$1',[order.product_id])).rows[0]?.name;
         output = { id, product: orderProduct, amount: order.amount, status: order.status, expiresAt: order.expires_at, transactionId: order.transaction_id,
           payment: { number: '03450485711', provider: 'NayaPay', title: process.env.PAYMENT_ACCOUNT_TITLE } };
@@ -382,26 +354,28 @@ return async function handler(req, res) {
           }
         }
       }
-    } else if (action === 'email-webhook') {
-      if (!body.subject || typeof body.text !== 'string') throw fail(400, 'Subject and plain email body required.');
-      const signatureValid = !!process.env.NAYAPAY_SIGNING_KEY && same(signature(body, process.env.NAYAPAY_SIGNING_KEY), body.signature)
-        && Math.abs(Date.now()-Number(body.sentAt)) < 300000;
-      const parsed = parseEmail(body, { enabled: signatureValid && process.env.NAYAPAY_AUTO_VERIFY === 'true', sender: process.env.NAYAPAY_SENDER, receiver: process.env.NAYAPAY_RECEIVER_MARKER, receiverMailbox:process.env.NAYAPAY_RECEIVER_EMAIL });
-      const eventHash = hash(`${signatureValid ? 'signed' : 'untrusted'}|${body.messageId || ''}|${body.subject}|${body.text}|${body.html || ''}`);
-      let inserted = await db.query(`INSERT INTO commerce_payments(id,event_hash,transaction_id,amount,payer_name,source_last4,received_at,verified,subject,encrypted_body)
-        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) ON CONFLICT DO NOTHING RETURNING id`, [randomUUID(), eventHash, signatureValid ? parsed.transaction : null, parsed.amount, parsed.payer, parsed.sourceLast4, parsed.received || null, parsed.verified, body.subject.slice(0,500), encrypt({ text: body.text, html:body.html || '', from: body.from, to:body.to || '', date: body.date }, key)]);
-      // A freshly signed retry can validate a previously recorded, unused receipt.
+    } else if (action === 'email-webhook' || action === 'inbound-email') {
+      const email = action === 'inbound-email' ? normalizeInboundEmail(body) : body;
+      if (!email.subject || typeof email.text !== 'string') throw fail(400, 'Subject and plain email body required.');
+      const signatureValid = action === 'inbound-email'
+        ? inboundEmailAuthorized(req)
+        : !!process.env.NAYAPAY_SIGNING_KEY && same(signature(email, process.env.NAYAPAY_SIGNING_KEY), email.signature)
+          && Math.abs(Date.now()-Number(email.sentAt)) < 300000;
+      const parsed = parseEmail(email, { enabled: signatureValid && process.env.NAYAPAY_AUTO_VERIFY === 'true', sender: process.env.NAYAPAY_SENDER, receiver: process.env.NAYAPAY_RECEIVER_MARKER, receiverMailbox:process.env.NAYAPAY_RECEIVER_EMAIL });
+      const eventHash = hash(`${signatureValid ? (action === 'inbound-email' ? 'forwarded' : 'signed') : 'untrusted'}|${email.messageId || ''}|${email.subject}|${email.text}|${email.html || ''}`);
+      const sourceMessageId = String(email.messageId || '').trim().slice(0, 500) || null;
+      const encryptedBody = encrypt({ text: email.text, html:email.html || '', from: email.from, to:email.to || '', date: email.date }, key);
+      let inserted = await db.query(`INSERT INTO commerce_payments(id,event_hash,source_message_id,transaction_id,amount,payer_name,source_last4,received_at,verified,subject,encrypted_body)
+        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) ON CONFLICT DO NOTHING RETURNING id`, [randomUUID(), eventHash, sourceMessageId, signatureValid ? parsed.transaction : null, parsed.amount, parsed.payer, parsed.sourceLast4, parsed.received || null, parsed.verified, email.subject.slice(0,500), encryptedBody]);
+      // A trusted retry can validate a previously recorded, unused receipt. Message IDs also deduplicate forwarded and Apps Script deliveries.
       if (!inserted.rowCount && parsed.verified) inserted = await db.query(`UPDATE commerce_payments SET transaction_id=$1,source_last4=$2,verified=true,encrypted_body=$3
-        WHERE event_hash=$4 AND order_id IS NULL AND verified=false AND amount=$5 AND (transaction_id IS NULL OR transaction_id=$1) RETURNING id`,
-        [parsed.transaction,parsed.sourceLast4,encrypt({text:body.text,html:body.html || '',from:body.from,to:body.to || '',date:body.date},key),eventHash,parsed.amount]);
+        WHERE (event_hash=$4 OR ($5::text IS NOT NULL AND source_message_id=$5::text)) AND order_id IS NULL AND verified=false AND amount=$6 AND (transaction_id IS NULL OR transaction_id=$1) RETURNING id`,
+        [parsed.transaction,parsed.sourceLast4,encryptedBody,eventHash,sourceMessageId,parsed.amount]);
       if (inserted.rowCount && parsed.verified) {
         const orders = (await db.query("SELECT id FROM commerce_orders WHERE transaction_id=$1 AND status IN ('pending','review')", [parsed.transaction])).rows;
         if (orders.length === 1) {
           await db.query('SAVEPOINT delivery');
           try { await fulfill(db, orders[0].id, inserted.rows[0].id); } catch (e) { if (!e.status) throw e; await db.query('ROLLBACK TO SAVEPOINT delivery'); }
-        } else {
-          await db.query('SAVEPOINT window_delivery');
-          try { await fulfillUniqueWindowMatch(db, inserted.rows[0].id); } catch (e) { if (!e.status) throw e; await db.query('ROLLBACK TO SAVEPOINT window_delivery'); }
         }
       }
       await expire(db);

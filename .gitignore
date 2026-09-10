@@ -10,6 +10,9 @@
 
 # testing
 /coverage
+/.npm-cache/
+/artifacts/
+*.tsbuildinfo
 
 # next.js
 /.next/

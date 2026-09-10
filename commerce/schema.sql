@@ -18,7 +18,6 @@ ALTER TABLE commerce_orders ADD COLUMN IF NOT EXISTS supplier_order_id text;
 ALTER TABLE commerce_orders ADD COLUMN IF NOT EXISTS supplier_delivery text;
 ALTER TABLE commerce_orders ADD COLUMN IF NOT EXISTS supplier_status text;
 ALTER TABLE commerce_orders ADD COLUMN IF NOT EXISTS supplier_cost_pkr integer CHECK(supplier_cost_pkr>=0);
-ALTER TABLE commerce_orders ADD COLUMN IF NOT EXISTS customer_email text;
 CREATE UNIQUE INDEX IF NOT EXISTS commerce_supplier_order_id ON commerce_orders(supplier_order_id) WHERE supplier_order_id IS NOT NULL;
 
 CREATE TABLE IF NOT EXISTS commerce_supplier_products (
@@ -74,8 +73,10 @@ CREATE UNIQUE INDEX IF NOT EXISTS commerce_inventory_assignment ON commerce_orde
 CREATE TABLE IF NOT EXISTS commerce_payments (
  id uuid PRIMARY KEY, event_hash text NOT NULL UNIQUE, transaction_id text UNIQUE,
  amount integer, payer_name text, source_last4 text, received_at timestamptz, verified boolean NOT NULL DEFAULT false,
- subject text NOT NULL, encrypted_body text NOT NULL,
+ subject text NOT NULL, encrypted_body text NOT NULL, source_message_id text,
  order_id uuid UNIQUE REFERENCES commerce_orders(id), created_at timestamptz NOT NULL DEFAULT now()
 );
+ALTER TABLE commerce_payments ADD COLUMN IF NOT EXISTS source_message_id text;
+CREATE UNIQUE INDEX IF NOT EXISTS commerce_payments_source_message_id ON commerce_payments(source_message_id) WHERE source_message_id IS NOT NULL;
 CREATE TABLE IF NOT EXISTS commerce_limits (key text PRIMARY KEY, window_start timestamptz NOT NULL DEFAULT now(), hits integer NOT NULL DEFAULT 1);
 CREATE TABLE IF NOT EXISTS commerce_audit (id bigserial PRIMARY KEY, action text NOT NULL, object_id text, created_at timestamptz NOT NULL DEFAULT now());

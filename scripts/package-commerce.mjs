@@ -17,7 +17,7 @@ for (const entry of await readdir(path.join(root, 'out'), { withFileTypes: true 
   if (entry.name.startsWith('.') || entry.name === 'vercel.json') continue;
   await cp(path.join(root, 'out', entry.name), path.join(staticDir, entry.name), { recursive: true });
 }
-for (const name of ['handler.mjs','core.mjs','supplier.mjs','description.mjs','qamify.mjs','mke.mjs','piggyai.mjs','zoomstore.mjs']) await cp(path.join(root,'commerce',name),path.join(func,name));
+for (const name of ['handler.mjs','core.mjs','inbound-email.mjs','supplier.mjs','description.mjs','qamify.mjs','mke.mjs','piggyai.mjs','zoomstore.mjs']) await cp(path.join(root,'commerce',name),path.join(func,name));
 const catalog = products.filter((p) => p.id === 'p093').map((p) => ({ id:p.id,name:p.name,price:p.sellingPricePkr }));
 await writeFile(path.join(root,'commerce/catalog.json'),JSON.stringify(catalog));
 await writeFile(path.join(func,'catalog.json'),JSON.stringify(catalog));
@@ -43,6 +43,7 @@ async function htmlOverrides(dir, prefix='') {
 }
 await htmlOverrides(staticDir);
 await writeFile(path.join(target,'config.json'),JSON.stringify({ version:3,overrides,routes:[
+  {src:'/api/nayapay/inbound-email',dest:'/api/commerce?action=inbound-email'},
   {src:'/api/nayapay/email-webhook',dest:'/api/commerce?action=email-webhook'},
   {src:'/api/commerce',dest:'/api/commerce'},
   {src:'/(checkout|orders-admin)',headers:{'Cache-Control':'no-store','X-Robots-Tag':'noindex, nofollow','Referrer-Policy':'no-referrer'},continue:true},

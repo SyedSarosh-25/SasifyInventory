@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 import { ClipboardList, Copy, KeyRound, LayoutDashboard, MessageCircle, Package, Pencil, RefreshCw, Search, ShieldCheck, ShoppingCart, Trash2, WalletCards, X, Zap } from 'lucide-react';
 
-type Stock = { id: string; name: string; price: number; available: number; source?: string; description?: string; delivery_instruction?: string; provider_id?: string; provider_name?: string; email_required?: boolean };
+type Stock = { id: string; name: string; price: number; available: number; source?: string; description?: string; delivery_instruction?: string; provider_id?: string; provider_name?: string };
 type AccountCredentials = { email: string; password: string; twoFactor: string };
 type Order = { id: string; product: string; amount: number; status: string; expiresAt: string; transactionId?: string; payment: { number: string; title: string; provider: string }; credentials?: AccountCredentials; delivery?: { content: string; instructions?: string } };
 async function api(action: string, token = '', body?: object, id = '') {
@@ -28,7 +28,7 @@ export function StockBuy({ productId }: { productId: string }) {
 export function Checkout() {
   const [products, setProducts] = useState<Stock[]>([]), [selected, setSelected] = useState('p093');
   const [order, setOrder] = useState<Order | null>(null), [id, setId] = useState(''), [key, setKey] = useState('');
-  const [transactionId, setTransaction] = useState(''), [customerEmail, setCustomerEmail] = useState('');
+  const [transactionId, setTransaction] = useState('');
   const [now, setNow] = useState(Date.now());
   const [error, setError] = useState(''), [notice, setNotice] = useState(''), [busy, setBusy] = useState(false), [ready, setReady] = useState(false);
   useEffect(() => {
@@ -76,10 +76,9 @@ export function Checkout() {
     <div className="instant-delivery"><span className="instant-icon"><Zap size={22} /></span><div><strong>Automatic credential delivery</strong><p>Pay here and your account credentials will appear on this screen automatically after verification, usually within one minute. No manual delivery delays.</p></div><span className="instant-badge">Instant</span></div>
     {error && <p role="alert" className="commerce-error">{error}</p>}{notice && <p role="status">{notice}</p>}
     {!order && !id && <>
-      <form className="description-section checkout-start" onSubmit={(e) => { e.preventDefault(); void run(async () => { const data = await api('create', '', { productId: selected, customerEmail }); remember(data.id, data.recovery); }); }}>
-        <label>Select package<select value={selected} onChange={(e) => { setSelected(e.target.value); setCustomerEmail(''); }}>{products.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select></label>
+      <form className="description-section checkout-start" onSubmit={(e) => { e.preventDefault(); void run(async () => { const data = await api('create', '', { productId: selected }); remember(data.id, data.recovery); }); }}>
+        <label>Select package<select value={selected} onChange={(e) => setSelected(e.target.value)}>{products.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select></label>
         {product && <div className="checkout-offer"><div><span>Price</span><strong>PKR {product.price.toLocaleString()}</strong></div><div><span>Available stock</span><strong className={product.available ? 'in-stock' : 'out-stock'}>{product.available}</strong></div></div>}
-        {product?.email_required && <label>Gmail or email for supplier processing<input type="email" value={customerEmail} onChange={(e) => setCustomerEmail(e.target.value)} required placeholder="you@example.com" autoComplete="email"/><small>This email is sent to the supplier only after your payment is verified.</small></label>}
         <button className="primary-button" disabled={busy || !ready || !product?.available}><ShoppingCart size={18} /> {busy ? 'Preparing checkout...' : 'Pay online'}</button>
         {ready && !product?.available && <p>Sold out online. <a href="https://wa.me/923116185711">Contact us on WhatsApp</a>.</p>}
       </form>

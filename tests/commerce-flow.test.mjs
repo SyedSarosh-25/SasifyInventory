@@ -16,14 +16,14 @@ test('checkout, signed payment delivery, duplicate prevention and recovery autho
   const remotePool = remote ? new pg.Pool({connectionString:remoteUrl,options:`-c search_path=${schema}`,max:5}) : null;
   const database = remote ? {query:(...args)=>remotePool.query(...args),exec:(sql)=>remotePool.query(sql),close:()=>remotePool.end()} : new PGlite();
   await database.exec(await readFile(new URL('../commerce/schema.sql',import.meta.url),'utf8'));
-  const env = {DATABASE_URL:'test',COMMERCE_ENCRYPTION_KEY:randomBytes(32).toString('hex'),COMMERCE_ADMIN_KEY:randomBytes(32).toString('hex'),COMMERCE_ADMIN_EMAIL:'admin@test.invalid',COMMERCE_ADMIN_PASSWORD_HASH:hash('test-password'),PAYMENT_ACCOUNT_TITLE:'Syed Adeen Sarosh',NAYAPAY_WEBHOOK_SECRET:'test-secret',NAYAPAY_SIGNING_KEY:randomBytes(32).toString('hex'),NAYAPAY_AUTO_VERIFY:'true',NAYAPAY_SENDER:'service@nayapay.com',NAYAPAY_RECEIVER_MARKER:'Syed Adeen Sarosh'};
+  const env = {DATABASE_URL:'test',COMMERCE_ENCRYPTION_KEY:randomBytes(32).toString('hex'),COMMERCE_ADMIN_KEY:randomBytes(32).toString('hex'),COMMERCE_ADMIN_EMAIL:'admin@test.invalid',COMMERCE_ADMIN_PASSWORD_HASH:hash('test-password'),PAYMENT_ACCOUNT_TITLE:'Syed Adeen Sarosh',NAYAPAY_WEBHOOK_SECRET:'test-secret',NAYAPAY_SIGNING_KEY:randomBytes(32).toString('hex'),NAYAPAY_AUTO_VERIFY:'true',NAYAPAY_SENDER:'service@nayapay.com',NAYAPAY_RECEIVER_MARKER:'Syed Adeen Sarosh',NAYAPAY_INBOUND_TOKEN:'inbound-test-token'};
   Object.assign(process.env,env);
   // Serialize connections as PGlite is single-process; SQL transactions still execute in PostgreSQL.
   let tail=Promise.resolve();
   const handler=createHandler(()=>remotePool || ({async connect(){const previous=tail;let release;tail=new Promise((r)=>{release=r;});await previous;return {async query(sql,args){const r=await database.query(sql,args);return {...r,rowCount:r.affectedRows ?? r.rows.length};},release};}}));
-  async function request(action,body,token='',id='',cookie=''){
-    let result;const headers={};
-    const req={method:body?'POST':'GET',query:{action,id},url:'/api/commerce',headers:{authorization:token?'Bearer '+token:'',cookie},body,socket:{remoteAddress:randomBytes(4).toString('hex')}};
+  async function request(action,body,token='',id='',cookie='',extraHeaders={}){
+    let result;const headers={...extraHeaders};
+    const req={method:body?'POST':'GET',query:{action,id},url:'/api/commerce',headers:{authorization:token?'Bearer '+token:'',cookie,...extraHeaders},body,socket:{remoteAddress:randomBytes(4).toString('hex')}};
     const res={statusCode:200,setHeader(name,value){headers[String(name).toLowerCase()]=value;},end(text){result={code:this.statusCode,data:JSON.parse(text),headers};}};
     await handler(req,res);return result;
   }
@@ -60,11 +60,12 @@ test('checkout, signed payment delivery, duplicate prevention and recovery autho
     await request('claim',{id:second.id,transactionId:'727274'},second.recovery);
     await database.query("UPDATE commerce_orders SET created_at=now()-interval '5 minutes',expires_at=now()-interval '1 minute' WHERE id=$1",[second.id]);
     const differentIds={subject:'You got Rs. 3,250 from Test Sender 🎉',text:'Amount Received\nRs. 3,250\nTransaction ID\n311274\nSource Acc. Number\n****5711\nDestination Acc. Title\nSyed Adeen Sarosh',from:'NayaPay <service@nayapay.com>',date:new Date(Date.now()-120000).toISOString(),sentAt:String(Date.now()),messageId:'different-sender-id',secret:env.NAYAPAY_WEBHOOK_SECRET};
-    differentIds.signature=signature(differentIds,env.NAYAPAY_SIGNING_KEY);
-    assert.equal((await request('email-webhook',differentIds)).code,200);
+    const forwarded={From:'NayaPay <service@nayapay.com>',To:'inbound@example.invalid',Subject:differentIds.subject,TextBody:differentIds.text,Date:differentIds.date,MessageID:'forwarded-different-sender-id'};
+    assert.equal((await request('inbound-email',forwarded)).code,401);
+    assert.equal((await request('inbound-email',forwarded,'','','',{'x-nayapay-inbound-token':env.NAYAPAY_INBOUND_TOKEN})).code,200);
     const secondStatus=await request('status',undefined,second.recovery,second.id);
-    assert.equal(secondStatus.data.status,'delivered',JSON.stringify(secondStatus));
-    assert.equal(secondStatus.data.credentials.password,'test-pass-2');
+    assert.equal(secondStatus.data.status,'expired',JSON.stringify(secondStatus));
+    assert.equal(secondStatus.data.credentials,undefined);
     await request('admin-import',{productId:'p093',accounts:'c@test.invalid|test-pass-3|test-2fa'},env.COMMERCE_ADMIN_KEY);
     const third=(await request('create',{productId:'p093'})).data;
     await request('claim',{id:third.id,transactionId:'247854'},third.recovery);
