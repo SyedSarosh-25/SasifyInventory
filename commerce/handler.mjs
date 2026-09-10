@@ -110,6 +110,18 @@ function automaticProductKey(name) {
   const normalized = String(name || '').normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 180);
   return normalized ? `auto:${normalized}` : null;
 }
+const supplierNameNoise = new Set(['a', 'an', 'the', 'api', 'cdk', 'comes', 'day', 'days', 'for', 'full', 'has', 'included', 'month', 'months', 'no', 'not', 'nw', 'fw', 'pre', 'order', 'preorder', 'warranty', 'week', 'weeks', 'with', 'without', 'year', 'years']);
+function comparableProductName(value) {
+  return String(value || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim().split(/\s+/)
+    .filter((token) => !supplierNameNoise.has(token) && !/^\d+(?:m|mo|month|months|d|day|days|y|year|years)?$/.test(token))
+    .sort()
+    .join(' ');
+}
+function supplierEquivalentProductName(staticName, supplierName) {
+  const left = comparableProductName(staticName);
+  const right = comparableProductName(supplierName);
+  return !!left && left === right;
+}
 function supplierProviders() {
   return [
     {
@@ -368,8 +380,9 @@ return async function handler(req, res) {
         FROM commerce_supplier_products WHERE enabled=true AND selling_price IS NOT NULL AND supplier_stock>0)
         SELECT id,name,description,delivery_instruction,price,available,provider_id,provider_name,canonical_key FROM ranked WHERE choice=1 ORDER BY name`)).rows;
       const supplierTotal = Number((await db.query('SELECT count(*)::int AS count FROM commerce_supplier_products')).rows[0]?.count || 0);
-      output = { products: [...catalog.map((p) => ({ ...p, source:'local', available: counts.find((r) => r.product_id === p.id)?.available || 0 })),
-        ...supplierProducts.map((p) => ({ ...p, id: p.canonical_key, source:'supplier' }))], productCount: catalog.length + supplierTotal, ready: !!process.env.PAYMENT_ACCOUNT_TITLE };
+      const visibleCatalog = catalog.filter((product) => !supplierProducts.some((supplier) => supplierEquivalentProductName(product.name, supplier.name)));
+      output = { products: [...visibleCatalog.map((p) => ({ ...p, source:'local', available: counts.find((r) => r.product_id === p.id)?.available || 0 })),
+        ...supplierProducts.map((p) => ({ ...p, id: p.canonical_key, source:'supplier' }))], productCount: visibleCatalog.length + supplierTotal, ready: !!process.env.PAYMENT_ACCOUNT_TITLE };
     } else if (action === 'create') {
       let product = catalog.find((p) => p.id === body.productId);
       let supplierProduct;

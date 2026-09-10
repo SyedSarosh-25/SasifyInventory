@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { products } from '../app/products.ts';
 import { accessTypeLabel, has25DayWarranty, isAnnualPlan, originalPriceComparison, originalPricePkr, planMonths, productHref, productLogo, savingsPkr, whatsappLink } from '../app/product-utils.ts';
-import { featuredProducts, filterProducts, heroProducts, orbitTools } from '../app/catalog-selection.ts';
+import { featuredProducts, filterProducts, heroProducts, orbitTools, supplierEquivalentProductName } from '../app/catalog-selection.ts';
 
 test('every inventory variant has a unique detail URL', () => {
   assert.equal(new Set(products.map(productHref)).size, products.length);
@@ -35,6 +35,13 @@ test('Hostinger VPS keeps all supplied KVM packages under one WhatsApp product',
     ['KVM8 VPS', 49999, 101988],
   ]);
   assert.equal(products.filter((p) => /^Hostinger KVM/.test(p.name)).length, 0);
+});
+
+test('supplier-equivalent names collapse duration and fulfilment suffixes', () => {
+  assert.equal(supplierEquivalentProductName('Perplexity Enterprise Pro', 'Perplexity Enterprise Pro 1m'), true);
+  assert.equal(supplierEquivalentProductName('CapCut Pro Team', 'CapCut Pro Team 3 Months - full warranty'), true);
+  assert.equal(supplierEquivalentProductName('Grok Heavy CDK', 'CDK Grok Heavy 1 month warranty not included'), true);
+  assert.equal(supplierEquivalentProductName('ChatGPT Plus', 'ChatGPT Plus K12 Edu 2 years'), false);
 });
 
 test('one-year variants receive one-time payment wording only at the annual duration', () => {

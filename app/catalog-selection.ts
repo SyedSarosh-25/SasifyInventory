@@ -14,6 +14,21 @@ export const heroProducts = ['p013', 'p093', 'p028', 'p019', 'p088']
     return product;
   });
 
+const supplierNameNoise = new Set(['a', 'an', 'the', 'api', 'cdk', 'comes', 'day', 'days', 'for', 'full', 'has', 'included', 'month', 'months', 'no', 'not', 'nw', 'fw', 'pre', 'order', 'preorder', 'warranty', 'week', 'weeks', 'with', 'without', 'year', 'years']);
+
+function comparableProductName(value: string) {
+  return String(value || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim().split(/\s+/)
+    .filter((token) => !supplierNameNoise.has(token) && !/^\d+(?:m|mo|month|months|d|day|days|y|year|years)?$/.test(token))
+    .sort()
+    .join(' ');
+}
+
+export function supplierEquivalentProductName(staticName: string, supplierName: string) {
+  const left = comparableProductName(staticName);
+  const right = comparableProductName(supplierName);
+  return !!left && left === right;
+}
+
 export const orbitTools = [
   { name: 'Figma', id: 'p066', className: 'orbit-figma' },
   { name: 'CapCut', id: 'p028', className: 'orbit-capcut' },

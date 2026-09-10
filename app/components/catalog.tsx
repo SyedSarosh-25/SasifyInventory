@@ -3,7 +3,7 @@
 import { ArrowRight, Filter, Search, Tag, X } from 'lucide-react';
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { products, type Product } from '../products';
-import { filterProducts } from '../catalog-selection';
+import { filterProducts, supplierEquivalentProductName } from '../catalog-selection';
 import { isAnnualPlan, productHref, savingsPkr } from '../product-utils';
 import { ProductLogo } from './product-logo';
 import { Money, ProductOriginalPrice } from './currency';
@@ -68,7 +68,7 @@ export function Catalog({ initialQuery = '' }: { initialQuery?: string }) {
     return () => window.removeEventListener('popstate', syncQuery);
   }, [initialQuery]);
   useEffect(() => { let active = true; fetch('/api/commerce?action=stock',{cache:'no-store'}).then((response) => response.ok ? response.json() : Promise.reject()).then((data:any) => { if (active) setSupplierProducts((data.products || []).filter((product:LiveSupplierProduct & {source?:string}) => product.source === 'supplier')); }).catch(() => {}); return () => { active = false; }; }, []);
-  const filtered = useMemo(() => filterProducts(query, activeCategory), [query, activeCategory]);
+  const filtered = useMemo(() => filterProducts(query, activeCategory).filter((product) => !supplierProducts.some((supplier) => supplierEquivalentProductName(product.name, supplier.name))), [query, activeCategory, supplierProducts]);
   const supplierMatches = useMemo(() => { const normalized = query.trim().toLowerCase(); if (activeCategory !== 'All') return []; return supplierProducts.filter((product) => !normalized || `${product.name} ${product.description || ''} ${product.provider_name || ''}`.toLowerCase().includes(normalized)); }, [query, activeCategory, supplierProducts]);
 
   return <section id="catalog" className="catalog-section">
