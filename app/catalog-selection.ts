@@ -1,6 +1,6 @@
 import { products } from './products.ts';
 
-export const featuredProducts = ['p013', 'p012', 'p100', 'p101', 'p093', 'p096', 'p095', 'p016', 'p028', 'p088']
+export const featuredProducts = ['p013', 'p012', 'p100', 'p101', 'p102', 'p103', 'p104', 'p093', 'p096', 'p016']
   .map((id) => {
     const product = products.find((item) => item.id === id);
     if (!product) throw new Error(`Missing featured product: ${id}`);
