@@ -7,7 +7,12 @@ export const featuredProducts = ['p013', 'p012', 'p100', 'p101', 'p093', 'p096',
     return product;
   });
 
-export const heroProducts = featuredProducts.slice(0, 5);
+export const heroProducts = ['p013', 'p093', 'p028', 'p019', 'p088']
+  .map((id) => {
+    const product = products.find((item) => item.id === id);
+    if (!product) throw new Error(`Missing hero product: ${id}`);
+    return product;
+  });
 
 export const orbitTools = [
   { name: 'Figma', id: 'p066', className: 'orbit-figma' },

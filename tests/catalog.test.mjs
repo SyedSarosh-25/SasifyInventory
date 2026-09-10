@@ -149,8 +149,8 @@ test('full inventory keeps all products, search, categories and empty results', 
   assert.equal(filterProducts('zzzz-not-a-product', 'All').length, 0);
 });
 
-test('hero restores the five requested product shortcuts without reducing the top ten', () => {
-  assert.deepEqual(heroProducts.map((product) => product.id), ['p013', 'p012', 'p100', 'p101', 'p093']);
+test('hero shows the requested top selling product shortcuts without reducing the top ten', () => {
+  assert.deepEqual(heroProducts.map((product) => product.id), ['p013', 'p093', 'p028', 'p019', 'p088']);
   assert.equal(featuredProducts.length, 10);
   for (const product of heroProducts) assert.equal(productHref(product), `/products/${product.id}`);
 });
