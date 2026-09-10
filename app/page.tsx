@@ -31,6 +31,7 @@ import { ReviewAvatar } from './components/review-avatar';
 import { HeroProductSearch } from './components/hero-product-search';
 import { StructuredData } from './components/structured-data';
 import { websiteData } from './seo';
+import { favicon } from './product-utils';
 
 const lowestPrice = Math.min(...products.filter((p) => !p.contactOnly).map((p) => p.sellingPricePkr));
 const googleReviewsUrl =
@@ -615,9 +616,9 @@ export default function Home() {
             {orbitTools.map((tool) => (
               <div key={tool.name} className={`orbit-tool ${tool.className}`}>
                 <div className="orbit-position">
-                  <a className="orbit-content" href={productHref(tool.product)} aria-label={`View ${tool.product.name}`}>
+                  <a className="orbit-content" href={tool.product ? productHref(tool.product) : `/inventory?q=${encodeURIComponent(tool.searchQuery)}`} aria-label={`View ${tool.name}`}>
                     <span>
-                      <ProductLogo product={tool.product} eager />
+                      {tool.product ? <ProductLogo product={tool.product} eager /> : <img src={favicon(`${tool.name.toLowerCase()}.com`)} alt={`${tool.name} logo`} width={36} height={36} decoding="async" />}
                     </span>
                     <small>{tool.name}</small>
                   </a>

@@ -38,13 +38,14 @@ export function isChatGptPlusProduct(name: string) {
 }
 
 export const orbitTools = [
-  { name: 'Claude', id: 'p013', className: 'orbit-claude' },
-  { name: 'Premium', id: 'p012', className: 'orbit-chatgpt' },
-  { name: 'Hostinger', id: 'p100', className: 'orbit-figma' },
-  { name: 'Hostinger VPS', id: 'p101', className: 'orbit-cursor' },
+  { name: 'GPT', id: 'p093', className: 'orbit-gpt', searchQuery: 'ChatGPT' },
+  { name: 'CapCut', id: 'capcut', className: 'orbit-capcut', searchQuery: 'CapCut' },
+  { name: 'Figma', id: 'figma', className: 'orbit-figma', searchQuery: 'Figma' },
+  { name: 'Claude', id: 'p013', className: 'orbit-claude', searchQuery: 'Claude' },
+  { name: 'Hostinger', id: 'p100', className: 'orbit-hostinger', searchQuery: 'Hostinger' },
+  { name: 'Grok', id: 'grok', className: 'orbit-grok', searchQuery: 'Grok' },
 ].map((tool) => {
   const product = products.find((item) => item.id === tool.id);
-  if (!product) throw new Error(`Missing orbit product: ${tool.id}`);
   return { ...tool, product };
 });
 

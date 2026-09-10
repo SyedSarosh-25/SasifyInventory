@@ -132,11 +132,12 @@ test('static catalog contains only the approved local products', () => {
 });
 
 test('all orbit logos link to the corresponding tool detail page', () => {
-  assert.equal(orbitTools.length, 4);
-  for (const tool of orbitTools) {
-    assert.equal(productHref(tool.product), `/products/${tool.id}`);
-    assert.ok(tool.product.name.toLowerCase().includes(tool.name.toLowerCase()));
-  }
+  assert.deepEqual(orbitTools.map(({ name }) => name), ['GPT', 'CapCut', 'Figma', 'Claude', 'Hostinger', 'Grok']);
+  assert.equal(orbitTools.find((tool) => tool.name === 'GPT')?.product.id, 'p093');
+  assert.equal(orbitTools.find((tool) => tool.name === 'Claude')?.product.id, 'p013');
+  assert.equal(orbitTools.find((tool) => tool.name === 'Hostinger')?.product.id, 'p100');
+  for (const tool of orbitTools.filter(({ product }) => product)) assert.equal(productHref(tool.product), `/products/${tool.id}`);
+  for (const tool of orbitTools.filter(({ product }) => !product)) assert.equal(tool.searchQuery, tool.name);
 });
 
 test('full inventory keeps all products, search, categories and empty results', () => {
