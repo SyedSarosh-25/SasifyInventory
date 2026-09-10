@@ -21,10 +21,11 @@ import {
 import { useEffect, useRef, useState } from 'react';
 import { products } from './products';
 import { productHref, savingsPkr, whatsappLink } from './product-utils';
-import { featuredProducts, orbitTools } from './catalog-selection';
+import { orbitTools } from './catalog-selection';
 import { ProductLogo } from './components/product-logo';
+import { TopSupplierProducts } from './components/top-supplier-products';
 import { SiteFooter, SiteHeader } from './components/site-chrome';
-import { Money, ProductOriginalPrice } from './components/currency';
+import { Money } from './components/currency';
 import { reviews } from './reviews';
 import { ReviewAvatar } from './components/review-avatar';
 import { HeroProductSearch } from './components/hero-product-search';
@@ -643,25 +644,7 @@ export default function Home() {
               <h2 id="featured-title">Top 10 products</h2>
             </div>
           </div>
-          <div className="featured-grid">
-            {featuredProducts.map((product) => (
-              <a key={product.id} className="featured-card" href={productHref(product)}>
-                <div className="featured-logo">
-                  <ProductLogo product={product} />
-                </div>
-                <div className="featured-copy">
-                  <h3>{product.name}</h3>
-                  <p>{product.duration}</p>
-                </div>
-                <div className="featured-reference"><span>{product.contactOnly ? 'Pricing' : 'Original price for plan'}</span>{product.contactOnly ? <strong>Contact on WhatsApp</strong> : <ProductOriginalPrice product={product} />}</div>
-                <div className="featured-action">
-                  <div><span className="featured-price-label">{product.contactOnly ? 'Full details' : 'Our price'}</span><strong>{product.contactOnly ? 'Contact on WhatsApp' : <Money amount={product.sellingPricePkr} />}</strong></div>
-                  <span className="featured-arrow" aria-hidden="true"><ArrowRight className="h-4 w-4" /></span>
-                </div>
-                {!product.contactOnly && savingsPkr(product) !== null && <p className="card-savings">Your Savings: <strong><Money amount={savingsPkr(product)!} /></strong></p>}
-              </a>
-            ))}
-          </div>
+          <TopSupplierProducts />
           <div className="inventory-action"><a href="/inventory" className="primary-button">View full inventory <ArrowRight className="h-4 w-4" /></a></div>
           <p className="comparison-note">Savings compare the original price for the full plan duration with our price. Monthly references are multiplied by the number of months. Access and provider billing options may differ.</p>
         </div>

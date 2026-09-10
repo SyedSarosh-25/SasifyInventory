@@ -1,7 +1,7 @@
 import pg from 'pg';
 import { createHmac, randomBytes, randomUUID } from 'node:crypto';
 import { hash, same, signature, encrypt, decrypt, parseEmail, parseInventory, normalizeTransaction, receiptText } from './core.mjs';
-import { createSupplierOrder, fetchSupplierProducts, supplierDelivery, supplierOrderId } from './supplier.mjs';
+import { createSupplierOrder, fetchSupplierProducts, normalizeSupplierProduct, supplierDelivery, supplierOrderId } from './supplier.mjs';
 import { createQamifyOrder, fetchQamifyBalance, fetchQamifyProducts, normalizeQamifyProduct, qamifyDelivery, qamifyOrderId } from './qamify.mjs';
 import { createMkeOrder, fetchMkeBalance, fetchMkeProducts, mkeDelivery, mkeOrderId, normalizeMkeProduct } from './mke.mjs';
 import { createPiggyAiOrder, fetchPiggyAiBalance, fetchPiggyAiProducts, normalizePiggyAiProduct, piggyAiDelivery, piggyAiOrderId } from './piggyai.mjs';
@@ -132,12 +132,7 @@ function supplierProviders() {
       id: 'dodi', name: 'DODI Store', configured: !!process.env.DODI_RESELLER_API_KEY,
       async catalog() {
         const result = await fetchSupplierProducts();
-        return { ...result, currency: 'USDT', products: result.products.map((product) => ({
-          id: String(product.id || '').trim(), name: String(product.name || '').trim(), description: String(product.description || ''),
-          delivery_instruction: product.delivery_instruction ? String(product.delivery_instruction) : null,
-          wholesale_price: Number(product.wholesale_price), currency: String(product.currency || 'USDT').slice(0,12).toUpperCase(),
-          stock: Number(product.stock), canonical_key: String(product.sku || product.slug || `dodi:${product.id}`).slice(0,200),
-        })) };
+        return { ...result, currency: 'USDT', products: result.products.map(normalizeSupplierProduct) };
       },
     },
     {
@@ -183,6 +178,14 @@ function supplierProviders() {
     },
   ];
 }
+let supplierMediaSchemaReady;
+async function ensureSupplierMediaSchema(db) {
+  if (!supplierMediaSchemaReady) {
+    supplierMediaSchemaReady = db.query('ALTER TABLE commerce_supplier_products ADD COLUMN IF NOT EXISTS logo_url text')
+      .catch((error) => { supplierMediaSchemaReady = null; throw error; });
+  }
+  await supplierMediaSchemaReady;
+}
 function adminToken(secret) {
   const expiresAt = Date.now() + 8 * 60 * 60 * 1000;
   const payload = Buffer.from(JSON.stringify({ expiresAt })).toString('base64url');
@@ -224,14 +227,15 @@ async function syncSupplierCatalog(db, force = false) {
       if (!product.id || !product.name || !Number.isFinite(wholesale) || wholesale < 0 || !Number.isSafeInteger(stock) || stock < 0) continue;
       const externalId = String(product.id), id = provider.id === 'dodi' ? externalId : `${provider.id}:${externalId}`;
       const currency = String(product.currency || synced.currency || '').slice(0,12).toUpperCase();
-      await db.query(`INSERT INTO commerce_supplier_products(id,name,description,delivery_instruction,wholesale_price,currency,supplier_stock,cost_pkr,provider_id,provider_name,external_product_id,canonical_key,synced_at)
-        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,now()) ON CONFLICT(id) DO UPDATE SET name=excluded.name,description=excluded.description,
+      await db.query(`INSERT INTO commerce_supplier_products(id,name,description,delivery_instruction,wholesale_price,currency,supplier_stock,cost_pkr,provider_id,provider_name,external_product_id,canonical_key,logo_url,synced_at)
+        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,now()) ON CONFLICT(id) DO UPDATE SET name=excluded.name,description=excluded.description,
         delivery_instruction=excluded.delivery_instruction,wholesale_price=excluded.wholesale_price,currency=excluded.currency,supplier_stock=excluded.supplier_stock,
         provider_id=excluded.provider_id,provider_name=excluded.provider_name,external_product_id=excluded.external_product_id,
         canonical_key=CASE WHEN commerce_supplier_products.canonical_manual THEN commerce_supplier_products.canonical_key ELSE excluded.canonical_key END,
         canonical_manual=commerce_supplier_products.canonical_manual,
+        logo_url=COALESCE(NULLIF(excluded.logo_url,''),commerce_supplier_products.logo_url),
         cost_pkr=CASE WHEN commerce_supplier_products.cost_manual THEN commerce_supplier_products.cost_pkr ELSE excluded.cost_pkr END,synced_at=now()`,
-        [id,String(product.name).slice(0,200),String(product.description || '').slice(0,10000),product.delivery_instruction ? String(product.delivery_instruction).slice(0,10000) : null,wholesale,currency,stock,automaticCostPkr(wholesale,currency),provider.id,provider.name,externalId,String(automaticProductKey(product.name) || product.canonical_key || `${provider.id}:${externalId}`).slice(0,200)]);
+        [id,String(product.name).slice(0,200),String(product.description || '').slice(0,10000),product.delivery_instruction ? String(product.delivery_instruction).slice(0,10000) : null,wholesale,currency,stock,automaticCostPkr(wholesale,currency),provider.id,provider.name,externalId,String(automaticProductKey(product.name) || product.canonical_key || `${provider.id}:${externalId}`).slice(0,200),product.logo_url ? String(product.logo_url).slice(0,2000) : null]);
       accepted++;
     }
     await db.query(`INSERT INTO commerce_provider_state(provider_id,provider_name,balance,currency,synced_at) VALUES($1,$2,$3,$4,now())
@@ -360,6 +364,7 @@ return async function handler(req, res) {
     }
     if (['stock','status','admin-list'].includes(action) ? req.method !== 'GET' : req.method !== 'POST') throw fail(405, 'Method not allowed.');
     await ensureCouponSchema(db);
+    await ensureSupplierMediaSchema(db);
     await db.query('BEGIN');
     await ensureDefaultCoupon(db);
     await expire(db, !['email-webhook','inbound-email'].includes(action));
@@ -375,18 +380,17 @@ return async function handler(req, res) {
       res.setHeader('Set-Cookie', 'sasify_admin=; HttpOnly; Secure; SameSite=Strict; Path=/api/commerce; Max-Age=0');
       output = { ok:true };
     } else if (action === 'stock') {
-      await db.query('SAVEPOINT supplier_sync');
-      try { await syncSupplierCatalog(db); } catch (error) { await db.query('ROLLBACK TO SAVEPOINT supplier_sync'); console.error('supplier-sync-error', error.status || error.name, error.code || '', error.message || ''); }
       const counts = (await db.query("SELECT product_id,count(*)::int AS available FROM commerce_inventory WHERE state='available' GROUP BY product_id")).rows;
       const supplierProducts = (await db.query(`WITH ranked AS (
-        SELECT id,name,description,delivery_instruction,selling_price AS price,supplier_stock AS available,provider_id,provider_name,canonical_key,
+        SELECT id,name,description,delivery_instruction,logo_url,selling_price AS price,supplier_stock AS available,provider_id,provider_name,canonical_key,
           row_number() OVER(PARTITION BY canonical_key ORDER BY cost_pkr ASC NULLS LAST,wholesale_price ASC,id) AS choice
         FROM commerce_supplier_products WHERE enabled=true AND selling_price IS NOT NULL AND supplier_stock>0)
-        SELECT id,name,description,delivery_instruction,price,available,provider_id,provider_name,canonical_key FROM ranked WHERE choice=1 ORDER BY name`)).rows;
+        SELECT id,name,description,delivery_instruction,logo_url,price,available,provider_id,provider_name,canonical_key FROM ranked WHERE choice=1 ORDER BY name`)).rows;
       const supplierTotal = Number((await db.query('SELECT count(*)::int AS count FROM commerce_supplier_products')).rows[0]?.count || 0);
+      const catalogSyncedAt = (await db.query('SELECT max(synced_at) AS synced_at FROM commerce_supplier_products')).rows[0]?.synced_at || null;
       const visibleCatalog = catalog.filter((product) => !supplierProducts.some((supplier) => supplierEquivalentProductName(product.name, supplier.name)));
       output = { products: [...visibleCatalog.map((p) => ({ ...p, source:'local', available: counts.find((r) => r.product_id === p.id)?.available || 0 })),
-        ...supplierProducts.map((p) => ({ ...p, id: p.canonical_key, source:'supplier' }))], productCount: visibleCatalog.length + supplierTotal, ready: !!process.env.PAYMENT_ACCOUNT_TITLE };
+        ...supplierProducts.map((p) => ({ ...p, id: p.canonical_key, source:'supplier' }))], productCount: visibleCatalog.length + supplierTotal, catalogSyncedAt, ready: !!process.env.PAYMENT_ACCOUNT_TITLE };
     } else if (action === 'create') {
       let product = catalog.find((p) => p.id === body.productId);
       let supplierProduct;

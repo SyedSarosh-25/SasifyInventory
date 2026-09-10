@@ -1,18 +1,14 @@
 'use client';
 
 import { ArrowRight, Search, X } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { filterProducts, heroProducts, normalizeSearchText, supplierEquivalentProductName } from '../catalog-selection';
 import { productHref } from '../product-utils';
+import { supplierLogo, supplierMonogram } from '../supplier-product-utils';
 import { Money } from './currency';
 import { ProductLogo } from './product-logo';
 
-type LiveSupplierResult = { id:string; name:string; description?:string; price:number; available:number; provider_name?:string };
-
-function supplierLogo(product: LiveSupplierResult) {
-  if (/telegram/i.test(product.name)) return 'https://www.google.com/s2/favicons?domain_url=https%3A%2F%2Ftelegram.org&sz=128';
-  return '';
-}
+type LiveSupplierResult = { id:string; name:string; description?:string; price:number; available:number; provider_name?:string; logo_url?:string };
 
 export function HeroProductSearch() {
   const [query, setQuery] = useState('');
@@ -21,6 +17,19 @@ export function HeroProductSearch() {
   const inputRef = useRef<HTMLInputElement>(null);
   const resultsRef = useRef<HTMLDivElement>(null);
   const searching = query.trim().length > 0;
+  const topSelling = useMemo(() => {
+    const requested = [
+      { label: 'ChatGPT Plus', pattern: /^chatgpt plus\b/i },
+      { label: 'CapCut', pattern: /capcut/i },
+      { label: 'Grok', pattern: /grok/i },
+    ];
+    const selected = requested.map(({ label, pattern }) => {
+      const product = supplierProducts.filter((item) => pattern.test(item.name) && item.available > 0).sort((left, right) => left.price - right.price)[0];
+      return product ? { kind: 'supplier' as const, label, product } : null;
+    }).filter(Boolean) as Array<{ kind: 'supplier'; label: string; product: LiveSupplierResult }>;
+    const claude = heroProducts.find((product) => /claude/i.test(product.name));
+    return [...selected, ...(claude ? [{ kind: 'local' as const, label: 'Claude', product: claude }] : [])];
+  }, [supplierProducts]);
   const matches = searching ? filterProducts(query, 'All').filter((product) => !supplierProducts.some((supplier) => supplierEquivalentProductName(product.name, supplier.name))) : [];
   const supplierMatches = searching ? supplierProducts.filter((product) => normalizeSearchText(`${product.name} ${product.id} ${product.provider_name || ''}`).includes(normalizeSearchText(query))) : [];
 
@@ -102,7 +111,7 @@ export function HeroProductSearch() {
             </li>)}
           {supplierMatches.map((product) => <li key={product.id}>
             <a href={`/supplier-product?product=${encodeURIComponent(product.id)}`} className="hero-search-result">
-              <span className="hero-mini-logo">{supplierLogo(product) ? <img src={supplierLogo(product)} alt="" /> : '⚡'}</span>
+              <span className="hero-mini-logo">{supplierLogo(product.name, product.logo_url) ? <img src={supplierLogo(product.name, product.logo_url)} alt={`${product.name} logo`} /> : supplierMonogram(product.name)}</span>
               <span className="hero-result-copy"><strong>{product.name}</strong><small>Instant delivery · {product.available} in stock</small></span>
               <strong className="hero-result-price">PKR {Number(product.price).toLocaleString('en-PK')}</strong>
               <ArrowRight className="h-4 w-4 hero-result-arrow" aria-hidden="true" />
@@ -113,9 +122,9 @@ export function HeroProductSearch() {
           <button type="button" onClick={clearSearch}>Show top products</button>
         </div>}
       </div> : <nav className="hero-top-products" aria-label="Top selling products">
-        {heroProducts.map((product) => <a key={product.id} href={productHref(product)}>
-          <span className="hero-mini-logo"><ProductLogo product={product} /></span>
-          <span>{product.name}</span>
+        {(topSelling.length ? topSelling : heroProducts.map((product) => ({ kind: 'local' as const, label: product.name, product }))).map((item) => <a key={item.kind === 'supplier' ? item.product.id : item.product.id} href={item.kind === 'supplier' ? `/supplier-product?product=${encodeURIComponent(item.product.id)}` : productHref(item.product)}>
+          <span className="hero-mini-logo">{item.kind === 'supplier' ? (supplierLogo(item.product.name, item.product.logo_url) ? <img src={supplierLogo(item.product.name, item.product.logo_url)} alt={`${item.product.name} logo`} /> : supplierMonogram(item.product.name)) : <ProductLogo product={item.product} />}</span>
+          <span>{item.label}</span>
         </a>)}
       </nav>}
     </div>

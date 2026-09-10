@@ -53,3 +53,20 @@ export function filterProducts(query: string, category: string) {
   return products.filter((product) => (category === 'All' || product.category === category)
     && (!needle || normalizeSearchText([product.name, product.slug, product.category, product.duration].join(' ')).includes(needle)));
 }
+
+const supplierCategoryRules: Array<[string, RegExp]> = [
+  ['API & Credit Packages', /\bapi\b|credits?|tokens?|redeem code|api gateway/i],
+  ['VPN & Privacy', /\bvpn\b|privacy|nordvpn|expressvpn|surfshark|proton vpn/i],
+  ['Entertainment & Streaming', /netflix|spotify|prime video|disney|hulu|streaming|youtube premium|music subscription/i],
+  ['AI Video, Image & Creative', /canva|capcut|midjourney|runway|kling|higgsfield|video|image generation|photo editor|creative/i],
+  ['AI Coding & Development', /cursor|codex|github copilot|replit|lovable|bolt\.new|coding|developer|development|programming/i],
+  ['Education & Learning', /udemy|coursera|skillshare|education|learning|course|language learning/i],
+  ['Professional & Career', /linkedin|resume|cv builder|career|professional/i],
+  ['Productivity & Business', /notion|office 365|microsoft 365|google workspace|business|productivity|crm|accounting/i],
+  ['AI Assistants & Research', /chatgpt|claude|gemini|perplexity|grok|deepseek|manus|ai assistant|research|writing/i],
+];
+
+export function inferSupplierCategory(name: string, description = '') {
+  const text = `${name} ${description}`;
+  return supplierCategoryRules.find(([, pattern]) => pattern.test(text))?.[0] || 'Other Tools';
+}

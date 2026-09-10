@@ -3,13 +3,13 @@
 import { ArrowRight, Filter, Search, Tag, X } from 'lucide-react';
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { products, type Product } from '../products';
-import { filterProducts, supplierEquivalentProductName } from '../catalog-selection';
+import { filterProducts, inferSupplierCategory, supplierEquivalentProductName } from '../catalog-selection';
 import { isAnnualPlan, productHref, savingsPkr } from '../product-utils';
 import { ProductLogo } from './product-logo';
 import { Money, ProductOriginalPrice } from './currency';
 import { CategoryNavigation } from './category-navigation';
+import { supplierLogo, supplierMonogram } from '../supplier-product-utils';
 
-const categories = ['All', ...new Set(products.map((product) => product.category))];
 const categoryColors: Record<string, string> = {
   'API & Credit Packages': '#2563ff', 'AI Assistants & Research': '#7047eb',
   'AI Video, Image & Creative': '#ea4aa4', 'AI Coding & Development': '#00a6bb',
@@ -41,18 +41,13 @@ function ProductCard({ product }: { product: Product }) {
   </a>;
 }
 
-type LiveSupplierProduct = { id:string; name:string; description?:string; price:number; available:number; provider_name?:string };
-
-function supplierVisual(product: LiveSupplierProduct) {
-  if (/telegram/i.test(product.name)) return { label: 'Telegram groups', image: 'https://www.google.com/s2/favicons?domain_url=https%3A%2F%2Ftelegram.org&sz=128' };
-  if (/amazon|netflix|prime video|stream/i.test(product.name)) return { label: 'Streaming access', image: 'https://www.google.com/s2/favicons?domain_url=https%3A%2F%2Fprimevideo.com&sz=128' };
-  return { label: 'Digital product', image: '' };
-}
+type LiveSupplierProduct = { id:string; name:string; description?:string; price:number; available:number; provider_name?:string; category?:string; logo_url?:string };
 
 function SupplierSearchCard({ product }: { product: LiveSupplierProduct }) {
-  const visual = supplierVisual(product);
+  const logo = supplierLogo(product.name, product.logo_url);
+  const category = product.category || inferSupplierCategory(product.name, product.description);
   return <a className="product-card supplier-search-card" href={`/supplier-product?product=${encodeURIComponent(product.id)}`}>
-    <div className="product-art supplier-search-art"><div className="supplier-search-icon">{visual.image ? <img src={visual.image} alt="" /> : '⚡'}</div><span className="product-category">{visual.label}</span></div>
+    <div className="product-art supplier-search-art"><div className="supplier-search-icon">{logo ? <img src={logo} alt={`${product.name} logo`} /> : <span className="product-monogram" aria-label={`${product.name} logo`}>{supplierMonogram(product.name)}</span>}</div><span className="product-category">{category}</span></div>
     <div className="product-content"><div className="product-meta"><span>Instant delivery</span><span className="available"><i /> {product.available} in stock</span></div><h3>{product.name}</h3><p className="product-description">{product.description || 'Product description is currently unavailable.'}</p><div className="price-panel"><div className="our-price"><span><Tag className="h-3.5 w-3.5" /> Our price</span><strong>PKR {Number(product.price).toLocaleString('en-PK')}</strong></div></div><span className="buy-button">Buy online <ArrowRight className="h-4 w-4" /></span></div>
   </a>;
 }
@@ -61,6 +56,7 @@ export function Catalog({ initialQuery = '' }: { initialQuery?: string }) {
   const [query, setQuery] = useState(initialQuery);
   const [activeCategory, setActiveCategory] = useState('All');
   const [supplierProducts, setSupplierProducts] = useState<LiveSupplierProduct[]>([]);
+  const categories = useMemo(() => ['All', ...new Set([...products.map((product) => product.category), ...supplierProducts.map((product) => product.category || inferSupplierCategory(product.name, product.description))])], [supplierProducts]);
   useEffect(() => {
     const syncQuery = () => setQuery(new URLSearchParams(window.location.search).get('q') ?? initialQuery);
     syncQuery();
@@ -69,7 +65,7 @@ export function Catalog({ initialQuery = '' }: { initialQuery?: string }) {
   }, [initialQuery]);
   useEffect(() => { let active = true; fetch('/api/commerce?action=stock',{cache:'no-store'}).then((response) => response.ok ? response.json() : Promise.reject()).then((data:any) => { if (active) setSupplierProducts((data.products || []).filter((product:LiveSupplierProduct & {source?:string}) => product.source === 'supplier')); }).catch(() => {}); return () => { active = false; }; }, []);
   const filtered = useMemo(() => filterProducts(query, activeCategory).filter((product) => !supplierProducts.some((supplier) => supplierEquivalentProductName(product.name, supplier.name))), [query, activeCategory, supplierProducts]);
-  const supplierMatches = useMemo(() => { const normalized = query.trim().toLowerCase(); if (activeCategory !== 'All') return []; return supplierProducts.filter((product) => !normalized || `${product.name} ${product.description || ''} ${product.provider_name || ''}`.toLowerCase().includes(normalized)); }, [query, activeCategory, supplierProducts]);
+  const supplierMatches = useMemo(() => { const normalized = query.trim().toLowerCase(); return supplierProducts.filter((product) => (activeCategory === 'All' || (product.category || inferSupplierCategory(product.name, product.description)) === activeCategory) && (!normalized || `${product.name} ${product.description || ''} ${product.provider_name || ''}`.toLowerCase().includes(normalized))); }, [query, activeCategory, supplierProducts]);
 
   return <section id="catalog" className="catalog-section">
     <div className="section-inner">

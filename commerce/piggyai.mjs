@@ -1,4 +1,5 @@
 import { providerDescription } from './description.mjs';
+import { providerLogo } from './provider-media.mjs';
 
 const endpoint = 'https://canboso.com';
 
@@ -54,7 +55,8 @@ export function normalizePiggyAiProduct(product, defaultCurrency = 'USD') {
   const stock = rawStock === null || rawStock === undefined ? 0 : Number(rawStock);
   const currency = String(product?.currency || defaultCurrency || 'USD').trim().toUpperCase();
   if (!id || !name || !Number.isFinite(wholesalePrice) || wholesalePrice < 0 || !Number.isSafeInteger(stock) || stock < 0) return null;
-  return { id, name, description: providerDescription(product), delivery_instruction: product?.activation_url ? String(product.activation_url) : null, wholesale_price: wholesalePrice, currency: currency.slice(0, 12), stock, canonical_key: String(product?.sku || product?.slug || `piggyai:${id}`).slice(0, 200) };
+  const logo = providerLogo(product);
+  return { id, name, description: providerDescription(product), delivery_instruction: product?.activation_url ? String(product.activation_url) : null, wholesale_price: wholesalePrice, currency: currency.slice(0, 12), stock, canonical_key: String(product?.sku || product?.slug || `piggyai:${id}`).slice(0, 200), ...(logo ? { logo_url: logo } : {}) };
 }
 
 export async function fetchPiggyAiBalance(envName = 'PIGGYAI_API_KEY') {

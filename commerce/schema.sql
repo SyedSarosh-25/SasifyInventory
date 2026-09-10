@@ -43,6 +43,7 @@ CREATE TABLE IF NOT EXISTS commerce_supplier_products (
  enabled boolean NOT NULL DEFAULT false,
  synced_at timestamptz NOT NULL DEFAULT now()
 );
+ALTER TABLE commerce_supplier_products ADD COLUMN IF NOT EXISTS logo_url text;
 ALTER TABLE commerce_supplier_products ADD COLUMN IF NOT EXISTS cost_manual boolean NOT NULL DEFAULT false;
 ALTER TABLE commerce_supplier_products ADD COLUMN IF NOT EXISTS provider_id text NOT NULL DEFAULT 'dody';
 ALTER TABLE commerce_supplier_products ADD COLUMN IF NOT EXISTS provider_name text NOT NULL DEFAULT 'Dody Store';

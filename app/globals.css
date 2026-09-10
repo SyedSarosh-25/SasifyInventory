@@ -1966,6 +1966,9 @@ svg { flex-shrink: 0; }
 .supplier-product-card { display: flex; min-width: 0; min-height: 260px; flex-direction: column; padding: 20px; border: 1px solid #cfdbef; border-radius: 7px; background: #fff; box-shadow: 0 12px 30px rgba(31,64,123,.07); }
 .supplier-product-top,.supplier-product-footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .supplier-product-top { font-size: .72rem; font-weight: 800; text-transform: uppercase; color: #285cff; }
+.supplier-store-identity { display: inline-flex; align-items: center; gap: 8px; min-width: 0; }
+.supplier-store-identity img,.supplier-store-identity>span { width: 22px; height: 22px; flex: 0 0 auto; border-radius: 6px; object-fit: contain; background: #fff; }
+.supplier-store-identity>span { display: grid; place-items: center; color: #285cff; font-size: .68rem; }
 .supplier-product-card h2 { margin: 22px 0 8px; font-size: 1.1rem; }
 .supplier-product-card>p { display: -webkit-box; overflow: hidden; margin: 0; color: #657188; font-size: .82rem; line-height: 1.55; -webkit-box-orient: vertical; -webkit-line-clamp: 4; }
 .supplier-search-card { --product-color: #7c3aed; border-color: #d8c5f4; background: linear-gradient(145deg,#fffaff,#f7f0ff); }

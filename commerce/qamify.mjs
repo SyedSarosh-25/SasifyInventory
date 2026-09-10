@@ -1,4 +1,5 @@
 import { providerDescription } from './description.mjs';
+import { providerLogo } from './provider-media.mjs';
 
 const endpoint = 'https://api.qamify.site';
 
@@ -46,6 +47,7 @@ export function normalizeQamifyProduct(product, defaultCurrency = 'USD') {
   const stock = Number(product?.stock ?? product?.available_stock ?? product?.available);
   const currency = String(product?.currency || defaultCurrency || 'USD').trim().toUpperCase();
   if (!id || !name || !Number.isFinite(wholesalePrice) || wholesalePrice < 0 || !Number.isSafeInteger(stock) || stock < 0) return null;
+  const logo = providerLogo(product);
   return {
     id,
     name,
@@ -55,6 +57,7 @@ export function normalizeQamifyProduct(product, defaultCurrency = 'USD') {
     currency: currency.slice(0, 12),
     stock,
     canonical_key: String(product?.sku || product?.slug || `qamify:${id}`).slice(0, 200),
+    ...(logo ? { logo_url: logo } : {}),
   };
 }
 

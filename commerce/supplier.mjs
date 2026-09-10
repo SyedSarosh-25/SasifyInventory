@@ -1,4 +1,5 @@
 const endpoint = 'https://api.mailreader.tech/api/reseller';
+import { providerLogo } from './provider-media.mjs';
 
 function configured() {
   if (!process.env.DODI_RESELLER_API_KEY) throw Object.assign(new Error('Supplier API is not configured.'), { status: 503 });
@@ -36,6 +37,17 @@ export async function fetchSupplierProducts() {
   const data = await request('products');
   if (!Array.isArray(data.products)) throw Object.assign(new Error('Supplier returned an invalid product catalog.'), { status: 503 });
   return { products: data.products, balance: data.reseller?.balance ?? null };
+}
+
+export function normalizeSupplierProduct(product) {
+  const logo = providerLogo(product);
+  return {
+    id: String(product.id || '').trim(), name: String(product.name || '').trim(), description: String(product.description || ''),
+    delivery_instruction: product.delivery_instruction ? String(product.delivery_instruction) : null,
+    wholesale_price: Number(product.wholesale_price), currency: String(product.currency || 'USDT').slice(0, 12).toUpperCase(),
+    stock: Number(product.stock), canonical_key: String(product.sku || product.slug || `dodi:${product.id}`).slice(0, 200),
+    ...(logo ? { logo_url: logo } : {}),
+  };
 }
 
 export async function fetchSupplierBalance() {
