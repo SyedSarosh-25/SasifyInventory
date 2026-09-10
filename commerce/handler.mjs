@@ -336,8 +336,15 @@ return async function handler(req, res) {
         if (order.transaction_id && order.transaction_id !== transaction) throw fail(409, 'A transaction is already submitted. Contact support for a correction.');
         await db.query("UPDATE commerce_orders SET transaction_id=$1,status=CASE WHEN status='expired' THEN 'expired' ELSE 'review' END WHERE id=$2", [transaction, id]);
         // Late claims stay in review and cannot automatically consume released inventory.
-        const payment = (await db.query('SELECT id FROM commerce_payments WHERE transaction_id=$1 AND verified=true AND order_id IS NULL', [transaction])).rows[0];
+        const matchingPayments = (await db.query(`SELECT id,transaction_id FROM commerce_payments
+          WHERE verified=true AND order_id IS NULL AND amount=$2
+          AND (transaction_id=$1 OR (length($1)>=8 AND right(transaction_id,length($1))=$1))
+          ORDER BY (transaction_id=$1) DESC,created_at DESC LIMIT 2`, [transaction,order.amount])).rows;
+        const payment = matchingPayments.length === 1 ? matchingPayments[0] : null;
         if (payment && order.status !== 'expired') {
+          // NayaPay's app can expose only the trailing reference digits while its
+          // receipt email contains the complete prefixed transaction ID.
+          await db.query('UPDATE commerce_orders SET transaction_id=$1 WHERE id=$2',[payment.transaction_id,id]);
           await db.query('SAVEPOINT delivery');
           try { await fulfill(db, id, payment.id); } catch (e) { if (!e.status) throw e; await db.query('ROLLBACK TO SAVEPOINT delivery'); }
         }
@@ -372,8 +379,11 @@ return async function handler(req, res) {
         WHERE (event_hash=$4 OR ($5::text IS NOT NULL AND source_message_id=$5::text)) AND order_id IS NULL AND verified=false AND amount=$6 AND (transaction_id IS NULL OR transaction_id=$1) RETURNING id`,
         [parsed.transaction,parsed.sourceLast4,encryptedBody,eventHash,sourceMessageId,parsed.amount]);
       if (inserted.rowCount && parsed.verified) {
-        const orders = (await db.query("SELECT id FROM commerce_orders WHERE transaction_id=$1 AND status IN ('pending','review')", [parsed.transaction])).rows;
+        const orders = (await db.query(`SELECT id FROM commerce_orders
+          WHERE status IN ('pending','review') AND amount=$2
+          AND (transaction_id=$1 OR (length(transaction_id)>=8 AND right($1,length(transaction_id))=transaction_id))`, [parsed.transaction,parsed.amount])).rows;
         if (orders.length === 1) {
+          await db.query('UPDATE commerce_orders SET transaction_id=$1 WHERE id=$2',[parsed.transaction,orders[0].id]);
           await db.query('SAVEPOINT delivery');
           try { await fulfill(db, orders[0].id, inserted.rows[0].id); } catch (e) { if (!e.status) throw e; await db.query('ROLLBACK TO SAVEPOINT delivery'); }
         }

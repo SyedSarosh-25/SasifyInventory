@@ -45,8 +45,8 @@ test('checkout, signed payment delivery, duplicate prevention and recovery autho
     const order=orders.find((r)=>r.code===200).data;
     assert.equal((await request('status',undefined,'wrong',order.id)).code,404);
     assert.equal((await request('status',undefined,order.recovery,order.id)).data.credentials,undefined);
-    const claim=await request('claim',{id:order.id,transactionId:'247854'},order.recovery);assert.equal(claim.code,200,JSON.stringify(claim));
-    const payload={subject:'You got Rs. 3,250 from Bank Alfalah-0388 🎉',text:'Amount Received\nRs. 3,250\nTransaction ID\n247854\nSource Acc. Number\n****0388\nDestination Acc. Title\nSyed Adeen Sarosh',from:'NayaPay <service@nayapay.com>',date:new Date().toISOString(),sentAt:String(Date.now()),messageId:'integration-test',secret:env.NAYAPAY_WEBHOOK_SECRET};
+    const claim=await request('claim',{id:order.id,transactionId:'55571425207'},order.recovery);assert.equal(claim.code,200,JSON.stringify(claim));
+    const payload={subject:'You got Rs. 3,250 from Bank Alfalah-0388 🎉',text:'Amount Received\nRs. 3,250\nTransaction ID\nTMICFBPK100926055571425207\nSource Acc. Number\n****0388\nDestination Acc. Title\nSyed Adeen Sarosh',from:'NayaPay <service@nayapay.com>',date:new Date().toISOString(),sentAt:String(Date.now()),messageId:'integration-test',secret:env.NAYAPAY_WEBHOOK_SECRET};
     payload.signature=signature(payload,env.NAYAPAY_SIGNING_KEY);
     const delivered=await request('email-webhook',payload);assert.equal(delivered.code,200,JSON.stringify(delivered));
     const status=await request('status',undefined,order.recovery,order.id);assert.equal(status.data.status,'delivered',JSON.stringify(status));assert.equal(status.data.credentials.password,'test-pass');
@@ -68,9 +68,9 @@ test('checkout, signed payment delivery, duplicate prevention and recovery autho
     assert.equal(secondStatus.data.credentials,undefined);
     await request('admin-import',{productId:'p093',accounts:'c@test.invalid|test-pass-3|test-2fa'},env.COMMERCE_ADMIN_KEY);
     const third=(await request('create',{productId:'p093'})).data;
-    await request('claim',{id:third.id,transactionId:'247854'},third.recovery);
+    await request('claim',{id:third.id,transactionId:'55571425207'},third.recovery);
     assert.equal((await request('status',undefined,third.recovery,third.id)).data.status,'review');
-    const p=(await database.query('SELECT id FROM commerce_payments WHERE transaction_id=$1',['247854'])).rows[0];
+    const p=(await database.query('SELECT id FROM commerce_payments WHERE transaction_id=$1',['TMICFBPK100926055571425207'])).rows[0];
     assert.equal((await request('admin-approve',{orderId:third.id,paymentId:p.id,confirmed:true},env.COMMERCE_ADMIN_KEY)).code,409);
     await database.query("UPDATE commerce_orders SET expires_at=now()-interval '1 second' WHERE id=$1",[third.id]);
     await request('stock');
