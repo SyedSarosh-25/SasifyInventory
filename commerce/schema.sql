@@ -13,11 +13,26 @@ CREATE TABLE IF NOT EXISTS commerce_orders (
  transaction_id text, payer_name text, source_last4 text, created_at timestamptz NOT NULL DEFAULT now(),
  expires_at timestamptz NOT NULL DEFAULT now()+interval '5 minutes', delivered_at timestamptz
 );
+CREATE TABLE IF NOT EXISTS commerce_coupons (
+ id uuid PRIMARY KEY, code_hash text NOT NULL UNIQUE, code_display text NOT NULL,
+ discount_percent numeric(5,2) NOT NULL DEFAULT 5 CHECK(discount_percent>0 AND discount_percent<=100),
+ max_uses integer NOT NULL DEFAULT 10 CHECK(max_uses>0), used_count integer NOT NULL DEFAULT 0 CHECK(used_count>=0),
+ enabled boolean NOT NULL DEFAULT true, created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now()
+);
 ALTER TABLE commerce_orders ADD COLUMN IF NOT EXISTS supplier_product_id text;
 ALTER TABLE commerce_orders ADD COLUMN IF NOT EXISTS supplier_order_id text;
 ALTER TABLE commerce_orders ADD COLUMN IF NOT EXISTS supplier_delivery text;
 ALTER TABLE commerce_orders ADD COLUMN IF NOT EXISTS supplier_status text;
 ALTER TABLE commerce_orders ADD COLUMN IF NOT EXISTS supplier_cost_pkr integer CHECK(supplier_cost_pkr>=0);
+ALTER TABLE commerce_orders ADD COLUMN IF NOT EXISTS coupon_id uuid;
+ALTER TABLE commerce_orders ADD COLUMN IF NOT EXISTS coupon_discount integer NOT NULL DEFAULT 0 CHECK(coupon_discount>=0);
+ALTER TABLE commerce_orders ADD COLUMN IF NOT EXISTS coupon_usage_released boolean NOT NULL DEFAULT false;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='commerce_orders_coupon_id_fkey') THEN
+    ALTER TABLE commerce_orders ADD CONSTRAINT commerce_orders_coupon_id_fkey FOREIGN KEY (coupon_id) REFERENCES commerce_coupons(id);
+  END IF;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 CREATE UNIQUE INDEX IF NOT EXISTS commerce_supplier_order_id ON commerce_orders(supplier_order_id) WHERE supplier_order_id IS NOT NULL;
 
 CREATE TABLE IF NOT EXISTS commerce_supplier_products (

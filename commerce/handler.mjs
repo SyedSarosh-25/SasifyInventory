@@ -36,6 +36,52 @@ const supplierUsdRate = () => {
   const rate = Number(process.env.QAMIFY_USD_PKR_RATE || process.env.SUPPLIER_USD_PKR_RATE || process.env.SUPPLIER_USDT_PKR_RATE || 0);
   return Number.isFinite(rate) && rate > 0 ? rate : null;
 };
+function normalizeCouponCode(value) {
+  const code = String(value || '').trim().toUpperCase();
+  if (code && !/^[A-Z0-9][A-Z0-9_-]{2,31}$/.test(code)) throw fail(400, 'Coupon code must be 3-32 letters, numbers, hyphens or underscores.');
+  return code;
+}
+function couponDiscount(price, percent) {
+  const original = Number(price);
+  return Math.min(Math.max(0, original - Math.round(original * (1 - Number(percent) / 100))), original - 1);
+}
+async function releaseCoupon(db, order) {
+  if (!order?.coupon_id || order.coupon_usage_released) return;
+  await db.query("UPDATE commerce_coupons SET used_count=GREATEST(0,used_count-1),updated_at=now() WHERE id=$1", [order.coupon_id]);
+  await db.query("UPDATE commerce_orders SET coupon_usage_released=true WHERE id=$1", [order.id]);
+}
+async function reserveReleasedCoupon(db, order) {
+  if (!order?.coupon_id || !order.coupon_usage_released) return;
+  const reserved = await db.query("UPDATE commerce_coupons SET used_count=used_count+1,updated_at=now() WHERE id=$1 AND used_count<max_uses RETURNING id", [order.coupon_id]);
+  if (!reserved.rowCount) throw fail(409, 'This coupon has reached its usage limit. Review the payment manually without the coupon or contact support.');
+  await db.query("UPDATE commerce_orders SET coupon_usage_released=false WHERE id=$1", [order.id]);
+}
+let couponSchemaReady;
+async function ensureCouponSchema(db) {
+  if (!couponSchemaReady) {
+    couponSchemaReady = (async () => {
+      await db.query(`CREATE TABLE IF NOT EXISTS commerce_coupons (
+        id uuid PRIMARY KEY, code_hash text NOT NULL UNIQUE, code_display text NOT NULL,
+        discount_percent numeric(5,2) NOT NULL DEFAULT 5 CHECK(discount_percent>0 AND discount_percent<=100),
+        max_uses integer NOT NULL DEFAULT 10 CHECK(max_uses>0), used_count integer NOT NULL DEFAULT 0 CHECK(used_count>=0),
+        enabled boolean NOT NULL DEFAULT true, created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now()
+      )`);
+      await db.query('ALTER TABLE commerce_orders ADD COLUMN IF NOT EXISTS coupon_id uuid');
+      await db.query('ALTER TABLE commerce_orders ADD COLUMN IF NOT EXISTS coupon_discount integer NOT NULL DEFAULT 0 CHECK(coupon_discount>=0)');
+      await db.query('ALTER TABLE commerce_orders ADD COLUMN IF NOT EXISTS coupon_usage_released boolean NOT NULL DEFAULT false');
+      await db.query(`DO $$ BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='commerce_orders_coupon_id_fkey') THEN
+          ALTER TABLE commerce_orders ADD CONSTRAINT commerce_orders_coupon_id_fkey FOREIGN KEY (coupon_id) REFERENCES commerce_coupons(id);
+        END IF;
+      EXCEPTION WHEN duplicate_object THEN NULL; END $$`);
+    })().catch((error) => { couponSchemaReady = null; throw error; });
+  }
+  await couponSchemaReady;
+}
+async function ensureDefaultCoupon(db) {
+  await db.query(`INSERT INTO commerce_coupons(id,code_hash,code_display,discount_percent,max_uses,enabled)
+    VALUES($1,$2,'RESELL',5,10,true) ON CONFLICT(code_hash) DO NOTHING`, [randomUUID(), hash('RESELL')]);
+}
 function automaticCostPkr(price, currency) {
   if (currency === 'PKR') return Math.ceil(price);
   if (currency === 'USDT') return Math.ceil(price * supplierUsdtRate());
@@ -163,8 +209,17 @@ async function syncSupplierCatalog(db, force = false) {
 }
 async function expire(db, includeReview = true) {
   const statuses = includeReview ? "('pending','review')" : "('pending')";
-  await db.query(`WITH expired AS (UPDATE commerce_orders SET status='expired' WHERE status IN ${statuses} AND expires_at<now() RETURNING inventory_id)
-    UPDATE commerce_inventory SET state='available' WHERE state='reserved' AND id IN (SELECT inventory_id FROM expired)`);
+  await db.query(`WITH expired AS (
+      UPDATE commerce_orders SET status='expired',coupon_usage_released=CASE WHEN coupon_id IS NOT NULL THEN true ELSE coupon_usage_released END
+      WHERE status IN ${statuses} AND expires_at<now() RETURNING inventory_id,coupon_id
+    ), released AS (
+      SELECT coupon_id,count(*)::int AS uses FROM expired WHERE coupon_id IS NOT NULL GROUP BY coupon_id
+    )
+    UPDATE commerce_coupons c SET used_count=GREATEST(0,c.used_count-released.uses),updated_at=now()
+    FROM released WHERE c.id=released.coupon_id`);
+  await db.query(`UPDATE commerce_inventory SET state='available' WHERE state='reserved' AND id IN (
+    SELECT inventory_id FROM commerce_orders WHERE status='expired' AND expires_at<now() AND inventory_id IS NOT NULL
+  )`);
 }
 async function placeSupplierOrder(product, order) {
   if (product.provider_id === 'qamify') {
@@ -229,6 +284,7 @@ async function fulfill(db, orderId, paymentId, manual = false) {
     return;
   }
   if (manual && order.status === 'expired') {
+    await reserveReleasedCoupon(db, order);
     const replacement = (await db.query("SELECT id FROM commerce_inventory WHERE product_id=$1 AND state='available' ORDER BY created_at FOR UPDATE SKIP LOCKED LIMIT 1",[order.product_id])).rows[0];
     if (!replacement) throw fail(409,'No stock available for this late payment. Restock or arrange a refund.');
     await db.query("UPDATE commerce_inventory SET state='reserved' WHERE id=$1",[replacement.id]);
@@ -249,7 +305,7 @@ return async function handler(req, res) {
   const action = req.query?.action || new URL(req.url, 'https://www.sasifysolutions.com').searchParams.get('action');
   const key = process.env.COMMERCE_ENCRYPTION_KEY;
   if (!process.env.DATABASE_URL || !/^[a-f0-9]{64}$/i.test(key || '')) return json(res, 503, { error: 'Online checkout is being prepared. Please contact us on WhatsApp.' });
-  if (!['GET','POST'].includes(req.method)) return json(res, 405, { error: 'Method not allowed.' });
+    if (!['GET','POST'].includes(req.method)) return json(res, 405, { error: 'Method not allowed.' });
   const origin = req.headers.origin;
   if (origin && !['https://sasifysolutions.com','https://www.sasifysolutions.com', ...(process.env.NODE_ENV !== 'production' ? ['http://localhost:4173'] : [])].includes(origin)) return json(res, 403, { error: 'Invalid origin.' });
   let db;
@@ -269,7 +325,9 @@ return async function handler(req, res) {
       if (!inboundEmailAuthorized(req)) throw fail(401, 'Invalid inbound email authentication.');
     }
     if (['stock','status','admin-list'].includes(action) ? req.method !== 'GET' : req.method !== 'POST') throw fail(405, 'Method not allowed.');
+    await ensureCouponSchema(db);
     await db.query('BEGIN');
+    await ensureDefaultCoupon(db);
     await expire(db, !['email-webhook','inbound-email'].includes(action));
     let output;
     if (action === 'admin-login') {
@@ -308,6 +366,15 @@ return async function handler(req, res) {
       const existing = await db.query("SELECT id FROM commerce_orders WHERE session_hash=$1 AND status IN ('pending','review')", [hash(session)]);
       if (existing.rowCount >= 2) throw fail(409, 'Complete or cancel your existing orders first.');
       let item;
+      let coupon = null;
+      let discount = 0;
+      const couponCode = normalizeCouponCode(body.couponCode);
+      if (couponCode) {
+        if (supplierProduct || product.id !== 'p093') throw fail(409, 'Reseller coupons are available for ChatGPT Plus only.');
+        coupon = (await db.query('SELECT * FROM commerce_coupons WHERE code_hash=$1 AND enabled=true AND used_count<max_uses FOR UPDATE', [hash(couponCode)])).rows[0];
+        if (!coupon) throw fail(409, 'Invalid, disabled or fully used coupon code.');
+        discount = couponDiscount(product.price, coupon.discount_percent);
+      }
       if (supplierProduct) {
         if (supplierProduct.supplier_stock < 1) throw fail(409, 'Sold out. Please contact us on WhatsApp.');
       } else {
@@ -316,10 +383,11 @@ return async function handler(req, res) {
       }
       const id = randomUUID(), recovery = randomBytes(32).toString('hex');
       if (item) await db.query("UPDATE commerce_inventory SET state='reserved' WHERE id=$1", [item.id]);
-      await db.query(`INSERT INTO commerce_orders(id,product_id,amount,recovery_hash,session_hash,inventory_id,supplier_product_id,supplier_cost_pkr,expires_at)
-        VALUES($1,$2,$3,$4,$5,$6,$7,$8,now()+interval '5 minutes')`, [id, product.id, product.price, hash(recovery), hash(session), item?.id || null, supplierProduct?.id || null, supplierProduct?.cost_pkr || 0]);
+      if (coupon) await db.query('UPDATE commerce_coupons SET used_count=used_count+1,updated_at=now() WHERE id=$1 AND used_count<max_uses', [coupon.id]);
+      await db.query(`INSERT INTO commerce_orders(id,product_id,amount,recovery_hash,session_hash,inventory_id,supplier_product_id,supplier_cost_pkr,coupon_id,coupon_discount,expires_at)
+        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,now()+interval '5 minutes')`, [id, product.id, product.price - discount, hash(recovery), hash(session), item?.id || null, supplierProduct?.id || null, supplierProduct?.cost_pkr || 0, coupon?.id || null, discount]);
       res.setHeader('Set-Cookie', `sasify_checkout=${session}; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=604800`);
-      output = { id, recovery };
+      output = { id, recovery, amount: product.price - discount, originalAmount: product.price, couponDiscount: discount };
     } else if (['status','claim','cancel'].includes(action)) {
       const id = req.query?.id || body.id;
       if (!idOk(id)) throw fail(404, 'Order not found.');
@@ -329,6 +397,7 @@ return async function handler(req, res) {
         if (order.status !== 'pending' || order.transaction_id) throw fail(409, 'Contact support to cancel this order.');
         await db.query("UPDATE commerce_orders SET status='cancelled' WHERE id=$1", [id]);
         await db.query("UPDATE commerce_inventory SET state='available' WHERE id=$1 AND state='reserved'", [order.inventory_id]);
+        await releaseCoupon(db, order);
         output = { ok: true };
       } else if (action === 'claim') {
         if (!['pending','review','expired'].includes(order.status)) throw fail(409, 'Order is already closed.');
@@ -351,7 +420,7 @@ return async function handler(req, res) {
         output = { ok: true };
       } else {
         const orderProduct = catalog.find((p) => p.id === order.product_id)?.name || (await db.query('SELECT name FROM commerce_supplier_products WHERE id=$1',[order.product_id])).rows[0]?.name;
-        output = { id, product: orderProduct, amount: order.amount, status: order.status, expiresAt: order.expires_at, transactionId: order.transaction_id,
+        output = { id, product: orderProduct, amount: order.amount, originalAmount: order.amount + Number(order.coupon_discount || 0), couponDiscount: Number(order.coupon_discount || 0), status: order.status, expiresAt: order.expires_at, transactionId: order.transaction_id,
           payment: { number: '03450485711', provider: 'NayaPay', title: process.env.PAYMENT_ACCOUNT_TITLE } };
         if (order.status === 'delivered') {
           if (order.supplier_delivery) output.delivery = decrypt(order.supplier_delivery, key);
@@ -475,12 +544,36 @@ return async function handler(req, res) {
         COUNT(*)::int AS orders
         FROM commerce_orders o LEFT JOIN commerce_inventory i ON i.id=o.inventory_id
         WHERE o.status='delivered' GROUP BY 1 ORDER BY 1`)).rows;
-      output = { metrics, inventory, supplierProducts:(await db.query('SELECT * FROM commerce_supplier_products ORDER BY provider_name,name')).rows,
+      const coupons=(await db.query('SELECT id,code_display,discount_percent,max_uses,used_count,enabled,created_at,updated_at FROM commerce_coupons ORDER BY created_at DESC')).rows;
+      output = { metrics, coupons, inventory, supplierProducts:(await db.query('SELECT * FROM commerce_supplier_products ORDER BY provider_name,name')).rows,
         providerStates:(await db.query('SELECT * FROM commerce_provider_state ORDER BY provider_name')).rows,
         orders: (await db.query('SELECT o.id,o.product_id,o.amount,o.status,o.transaction_id,o.payer_name,o.supplier_order_id,o.supplier_status,sp.provider_name AS supplier_name,sp.name AS supplier_product_name,o.created_at,o.delivered_at FROM commerce_orders o LEFT JOIN commerce_supplier_products sp ON sp.id=o.supplier_product_id ORDER BY o.created_at DESC LIMIT 100')).rows,
         payments: (await db.query('SELECT id,amount,subject,transaction_id,verified,order_id,created_at FROM commerce_payments ORDER BY created_at DESC LIMIT 100')).rows,
         stock: (await db.query('SELECT product_id,state,count(*)::int AS count FROM commerce_inventory GROUP BY product_id,state')).rows,
-        autoVerify: process.env.NAYAPAY_AUTO_VERIFY === 'true', supplierUsdtPkrRate:supplierUsdtRate(), supplierUsdPkrRate:supplierUsdRate(), profitBreakdown };
+         autoVerify: process.env.NAYAPAY_AUTO_VERIFY === 'true', supplierUsdtPkrRate:supplierUsdtRate(), supplierUsdPkrRate:supplierUsdRate(), profitBreakdown };
+    } else if (action === 'admin-coupon-create') {
+      const code = normalizeCouponCode(body.code);
+      if (!code) throw fail(400, 'Coupon code is required.');
+      const discountPercent = Number(body.discountPercent ?? 5), maxUses = Number(body.maxUses ?? 10);
+      if (!Number.isFinite(discountPercent) || discountPercent <= 0 || discountPercent > 100) throw fail(400, 'Discount must be between 0.01% and 100%.');
+      if (!Number.isSafeInteger(maxUses) || maxUses < 1) throw fail(400, 'Maximum usage must be a positive whole number.');
+      const inserted = await db.query(`INSERT INTO commerce_coupons(id,code_hash,code_display,discount_percent,max_uses,enabled) VALUES($1,$2,$3,$4,$5,$6)
+        RETURNING id,code_display,discount_percent,max_uses,used_count,enabled`, [randomUUID(), hash(code), code, discountPercent, maxUses, body.enabled !== false]);
+      await db.query("INSERT INTO commerce_audit(action,object_id) VALUES('coupon_create',$1)",[inserted.rows[0].id]);
+      output = inserted.rows[0];
+    } else if (action === 'admin-coupon-update') {
+      if (!idOk(body.couponId)) throw fail(400, 'Invalid coupon ID.');
+      const current = (await db.query('SELECT * FROM commerce_coupons WHERE id=$1 FOR UPDATE',[body.couponId])).rows[0];
+      if (!current) throw fail(404, 'Coupon not found.');
+      const code = normalizeCouponCode(body.code ?? current.code_display);
+      const discountPercent = Number(body.discountPercent ?? current.discount_percent), maxUses = Number(body.maxUses ?? current.max_uses);
+      if (!code) throw fail(400, 'Coupon code is required.');
+      if (!Number.isFinite(discountPercent) || discountPercent <= 0 || discountPercent > 100) throw fail(400, 'Discount must be between 0.01% and 100%.');
+      if (!Number.isSafeInteger(maxUses) || maxUses < current.used_count || maxUses < 1) throw fail(400, `Maximum usage cannot be lower than current usage (${current.used_count}).`);
+      const updated = await db.query(`UPDATE commerce_coupons SET code_hash=$1,code_display=$2,discount_percent=$3,max_uses=$4,enabled=$5,updated_at=now() WHERE id=$6
+        RETURNING id,code_display,discount_percent,max_uses,used_count,enabled`, [hash(code),code,discountPercent,maxUses,body.enabled !== false,body.couponId]);
+      await db.query("INSERT INTO commerce_audit(action,object_id) VALUES('coupon_update',$1)",[body.couponId]);
+      output = updated.rows[0];
     } else if (action === 'admin-payment') {
       if (!idOk(body.paymentId)) throw fail(400, 'Invalid payment ID.');
       const payment = (await db.query('SELECT * FROM commerce_payments WHERE id=$1', [body.paymentId])).rows[0];
