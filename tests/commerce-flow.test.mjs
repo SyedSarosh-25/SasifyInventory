@@ -54,14 +54,14 @@ test('checkout, signed payment delivery, duplicate prevention and recovery autho
     assert.equal(financials.data.metrics.income,3499);assert.equal(financials.data.metrics.cost,1000);assert.equal(financials.data.metrics.profit,2499);
     const defaultCoupons=await request('admin-list',undefined,env.COMMERCE_ADMIN_KEY);
     const createdCoupon={data:defaultCoupons.data.coupons.find((coupon)=>coupon.code_display==='RESELL')};
-    assert.ok(createdCoupon.data);assert.equal(Number(createdCoupon.data.discount_percent),5);assert.equal(createdCoupon.data.max_uses,10);
+    assert.ok(createdCoupon.data);assert.equal(Number(createdCoupon.data.discount_percent),10);assert.equal(createdCoupon.data.max_uses,10);
     await request('admin-import',{productId:'p093',accounts:'coupon@test.invalid|coupon-pass|coupon-2fa',purchaseCost:1000},env.COMMERCE_ADMIN_KEY);
     const discounted=await request('create',{productId:'p093',couponCode:'RESELL'});
     assert.equal(discounted.code,200,JSON.stringify(discounted));
     const discountedStatus=await request('status',undefined,discounted.data.recovery,discounted.data.id);
-    assert.equal(discountedStatus.data.amount,3324);assert.equal(discountedStatus.data.originalAmount,3499);assert.equal(discountedStatus.data.couponDiscount,175);
+    assert.equal(discountedStatus.data.amount,3149);assert.equal(discountedStatus.data.originalAmount,3499);assert.equal(discountedStatus.data.couponDiscount,350);
     await request('claim',{id:discounted.data.id,transactionId:'coupon-payment'},discounted.data.recovery);
-    const couponPayload={subject:'You got Rs. 3,324 from Coupon Buyer 🎉',text:'Amount Received\nRs. 3,324\nTransaction ID\nCOUPONPAYMENT\nSource Acc. Number\n****0388\nDestination Acc. Title\nSyed Adeen Sarosh',from:'NayaPay <service@nayapay.com>',date:new Date().toISOString(),sentAt:String(Date.now()),messageId:'coupon-payment-email',secret:env.NAYAPAY_WEBHOOK_SECRET};
+    const couponPayload={subject:'You got Rs. 3,149 from Coupon Buyer 🎉',text:'Amount Received\nRs. 3,149\nTransaction ID\nCOUPONPAYMENT\nSource Acc. Number\n****0388\nDestination Acc. Title\nSyed Adeen Sarosh',from:'NayaPay <service@nayapay.com>',date:new Date().toISOString(),sentAt:String(Date.now()),messageId:'coupon-payment-email',secret:env.NAYAPAY_WEBHOOK_SECRET};
     couponPayload.signature=signature(couponPayload,env.NAYAPAY_SIGNING_KEY);
     assert.equal((await request('email-webhook',couponPayload)).code,200);
     const couponAdmin=await request('admin-list',undefined,env.COMMERCE_ADMIN_KEY);

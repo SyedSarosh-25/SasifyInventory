@@ -95,8 +95,10 @@ async function ensureCouponSchema(db) {
 }
 async function ensureDefaultCoupon(db) {
   const codeHash = hash('RESELL');
+      await db.query(`UPDATE commerce_coupons SET discount=10,discount_percent=10,updated_at=now()
+        WHERE code_hash=$1 AND product_id='p093' AND discount=5 AND discount_percent=5`, [codeHash]);
       await db.query(`INSERT INTO commerce_coupons(id,code_hash,code_display,product_id,discount,discount_percent,max_uses,used_count,enabled,created_at,updated_at)
-      VALUES($1,$2,'RESELL','p093',5,5,10,0,true,now(),now()) ON CONFLICT DO NOTHING`, [randomUUID(), codeHash]);
+      VALUES($1,$2,'RESELL','p093',10,10,10,0,true,now(),now()) ON CONFLICT DO NOTHING`, [randomUUID(), codeHash]);
 }
 function automaticCostPkr(price, currency) {
   if (currency === 'PKR') return Math.ceil(price);
