@@ -126,6 +126,9 @@ function supplierEquivalentProductName(staticName, supplierName) {
   const right = comparableProductName(supplierName);
   return !!left && left === right;
 }
+function isChatGptPlusProduct(name) {
+  return /\bchatgpt\s+plus\b/i.test(String(name || ''));
+}
 function supplierProviders() {
   return [
     {
@@ -385,8 +388,8 @@ return async function handler(req, res) {
         SELECT id,name,description,delivery_instruction,logo_url,selling_price AS price,supplier_stock AS available,provider_id,provider_name,canonical_key,
           row_number() OVER(PARTITION BY canonical_key ORDER BY cost_pkr ASC NULLS LAST,wholesale_price ASC,id) AS choice
         FROM commerce_supplier_products WHERE enabled=true AND selling_price IS NOT NULL AND supplier_stock>0)
-        SELECT id,name,description,delivery_instruction,logo_url,price,available,provider_id,provider_name,canonical_key FROM ranked WHERE choice=1 ORDER BY name`)).rows;
-      const supplierTotal = Number((await db.query('SELECT count(*)::int AS count FROM commerce_supplier_products')).rows[0]?.count || 0);
+        SELECT id,name,description,delivery_instruction,logo_url,price,available,provider_id,provider_name,canonical_key FROM ranked WHERE choice=1 ORDER BY name`)).rows.filter((product) => !isChatGptPlusProduct(product.name));
+      const supplierTotal = Number((await db.query("SELECT count(*)::int AS count FROM commerce_supplier_products WHERE lower(name) NOT LIKE '%chatgpt plus%'")).rows[0]?.count || 0);
       const catalogSyncedAt = (await db.query('SELECT max(synced_at) AS synced_at FROM commerce_supplier_products')).rows[0]?.synced_at || null;
       const visibleCatalog = catalog.filter((product) => !supplierProducts.some((supplier) => supplierEquivalentProductName(product.name, supplier.name)));
       output = { products: [...visibleCatalog.map((p) => ({ ...p, source:'local', available: counts.find((r) => r.product_id === p.id)?.available || 0 })),
@@ -401,6 +404,7 @@ return async function handler(req, res) {
         if (supplierProduct) product = { id:supplierProduct.id, name:supplierProduct.name, price:supplierProduct.selling_price };
       }
       if (!product || !process.env.PAYMENT_ACCOUNT_TITLE) throw fail(409, 'Online purchasing is not available for this product yet.');
+      if (supplierProduct && isChatGptPlusProduct(supplierProduct.name)) throw fail(409, 'ChatGPT Plus is sold from local inventory only.');
       const session = String(req.headers.cookie || '').match(/(?:^|;\s*)sasify_checkout=([a-f0-9]{64})(?:;|$)/)?.[1] || randomBytes(32).toString('hex');
       const existing = await db.query("SELECT id FROM commerce_orders WHERE session_hash=$1 AND status IN ('pending','review')", [hash(session)]);
       if (existing.rowCount >= 2) throw fail(409, 'Complete or cancel your existing orders first.');

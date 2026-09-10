@@ -9,6 +9,7 @@ import { ProductLogo } from './product-logo';
 import { Money, ProductOriginalPrice } from './currency';
 import { CategoryNavigation } from './category-navigation';
 import { supplierLogo, supplierMonogram } from '../supplier-product-utils';
+import { cacheSupplierCatalog } from '../supplier-catalog-cache';
 
 const categoryColors: Record<string, string> = {
   'API & Credit Packages': '#2563ff', 'AI Assistants & Research': '#7047eb',
@@ -63,7 +64,7 @@ export function Catalog({ initialQuery = '' }: { initialQuery?: string }) {
     window.addEventListener('popstate', syncQuery);
     return () => window.removeEventListener('popstate', syncQuery);
   }, [initialQuery]);
-  useEffect(() => { let active = true; fetch('/api/commerce?action=stock',{cache:'no-store'}).then((response) => response.ok ? response.json() : Promise.reject()).then((data:any) => { if (active) setSupplierProducts((data.products || []).filter((product:LiveSupplierProduct & {source?:string}) => product.source === 'supplier')); }).catch(() => {}); return () => { active = false; }; }, []);
+  useEffect(() => { let active = true; fetch('/api/commerce?action=stock',{cache:'no-store'}).then((response) => response.ok ? response.json() : Promise.reject()).then((data:any) => { cacheSupplierCatalog(data.products || []); if (active) setSupplierProducts((data.products || []).filter((product:LiveSupplierProduct & {source?:string}) => product.source === 'supplier')); }).catch(() => {}); return () => { active = false; }; }, []);
   const filtered = useMemo(() => filterProducts(query, activeCategory).filter((product) => !supplierProducts.some((supplier) => supplierEquivalentProductName(product.name, supplier.name))), [query, activeCategory, supplierProducts]);
   const supplierMatches = useMemo(() => { const normalized = query.trim().toLowerCase(); return supplierProducts.filter((product) => !isChatGptPlusProduct(product.name) && (activeCategory === 'All' || (product.category || inferSupplierCategory(product.name, product.description)) === activeCategory) && (!normalized || `${product.name} ${product.description || ''} ${product.provider_name || ''}`.toLowerCase().includes(normalized))); }, [query, activeCategory, supplierProducts]);
 

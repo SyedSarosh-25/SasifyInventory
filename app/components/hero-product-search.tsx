@@ -8,6 +8,7 @@ import { productHref } from '../product-utils';
 import { supplierLogo, supplierMonogram } from '../supplier-product-utils';
 import { Money } from './currency';
 import { ProductLogo } from './product-logo';
+import { cacheSupplierCatalog } from '../supplier-catalog-cache';
 
 type LiveSupplierResult = { id:string; name:string; description?:string; price:number; available:number; provider_name?:string; logo_url?:string };
 
@@ -66,7 +67,7 @@ export function HeroProductSearch() {
     return () => clearTimeout(timer);
   }, []);
 
-  useEffect(() => { let active = true; fetch('/api/commerce?action=stock',{cache:'no-store'}).then((response) => response.ok ? response.json() : Promise.reject()).then((data:any) => { if (active) setSupplierProducts((data.products || []).filter((product:LiveSupplierResult & {source?:string}) => product.source === 'supplier')); }).catch(() => {}); return () => { active = false; }; }, []);
+  useEffect(() => { let active = true; fetch('/api/commerce?action=stock',{cache:'no-store'}).then((response) => response.ok ? response.json() : Promise.reject()).then((data:any) => { cacheSupplierCatalog(data.products || []); if (active) setSupplierProducts((data.products || []).filter((product:LiveSupplierResult & {source?:string}) => product.source === 'supplier')); }).catch(() => {}); return () => { active = false; }; }, []);
 
   function clearSearch() {
     setQuery('');

@@ -4,6 +4,7 @@ import { ArrowRight, Tag } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { inferSupplierCategory, isChatGptPlusProduct } from '../catalog-selection';
 import { supplierLogo, supplierMonogram } from '../supplier-product-utils';
+import { cacheSupplierCatalog } from '../supplier-catalog-cache';
 
 type SupplierProduct = {
   id: string;
@@ -41,6 +42,7 @@ export function TopSupplierProducts() {
     fetch('/api/commerce?action=stock', { cache: 'no-store' })
       .then((response) => response.ok ? response.json() : Promise.reject())
       .then((data: { products?: Array<SupplierProduct & { source?: string }> }) => {
+        cacheSupplierCatalog(data.products || []);
         if (active) setProducts(shuffle((data.products || []).filter((product) => product.source === 'supplier' && product.available > 0 && !isChatGptPlusProduct(product.name))).slice(0, 10));
       })
       .catch(() => {})
