@@ -44,6 +44,10 @@ test('supplier-equivalent names collapse duration and fulfilment suffixes', () =
   assert.equal(supplierEquivalentProductName('ChatGPT Plus', 'ChatGPT Plus K12 Edu 2 years'), false);
 });
 
+test('supplier-equivalent comparison is independent of token order', () => {
+  assert.equal(supplierEquivalentProductName('Grok Heavy CDK', 'CDK Heavy Grok 1 month'), true);
+});
+
 test('one-year variants receive one-time payment wording only at the annual duration', () => {
   const base = products[0];
   for (const duration of ['1 Year', '12 Months', '365 Days']) assert.equal(isAnnualPlan({ ...base, duration }), true);

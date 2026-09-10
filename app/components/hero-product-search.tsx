@@ -2,7 +2,7 @@
 
 import { ArrowRight, Search, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
-import { filterProducts, heroProducts, normalizeSearchText } from '../catalog-selection';
+import { filterProducts, heroProducts, normalizeSearchText, supplierEquivalentProductName } from '../catalog-selection';
 import { productHref } from '../product-utils';
 import { Money } from './currency';
 import { ProductLogo } from './product-logo';
@@ -21,7 +21,7 @@ export function HeroProductSearch() {
   const inputRef = useRef<HTMLInputElement>(null);
   const resultsRef = useRef<HTMLDivElement>(null);
   const searching = query.trim().length > 0;
-  const matches = searching ? filterProducts(query, 'All') : [];
+  const matches = searching ? filterProducts(query, 'All').filter((product) => !supplierProducts.some((supplier) => supplierEquivalentProductName(product.name, supplier.name))) : [];
   const supplierMatches = searching ? supplierProducts.filter((product) => normalizeSearchText(`${product.name} ${product.id} ${product.provider_name || ''}`).includes(normalizeSearchText(query))) : [];
 
   useEffect(() => {
