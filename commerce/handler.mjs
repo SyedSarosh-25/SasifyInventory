@@ -70,6 +70,7 @@ async function ensureCouponSchema(db) {
       await db.query('ALTER TABLE commerce_coupons ADD COLUMN IF NOT EXISTS code_hash text');
       await db.query('ALTER TABLE commerce_coupons ADD COLUMN IF NOT EXISTS code_display text');
       await db.query("ALTER TABLE commerce_coupons ADD COLUMN IF NOT EXISTS product_id text DEFAULT 'p093'");
+      await db.query('ALTER TABLE commerce_coupons ADD COLUMN IF NOT EXISTS discount numeric(5,2) DEFAULT 5');
       await db.query('ALTER TABLE commerce_coupons ADD COLUMN IF NOT EXISTS discount_percent numeric(5,2)');
       await db.query('ALTER TABLE commerce_coupons ADD COLUMN IF NOT EXISTS max_uses integer');
       await db.query('ALTER TABLE commerce_coupons ADD COLUMN IF NOT EXISTS used_count integer');
@@ -82,6 +83,7 @@ async function ensureCouponSchema(db) {
       await db.query("UPDATE commerce_coupons SET used_count=0 WHERE used_count IS NULL OR used_count<0");
       await db.query("UPDATE commerce_coupons SET enabled=true WHERE enabled IS NULL");
       await db.query("UPDATE commerce_coupons SET product_id='p093' WHERE product_id IS NULL OR product_id=''");
+      await db.query("UPDATE commerce_coupons SET discount=5 WHERE discount IS NULL");
       await db.query("UPDATE commerce_coupons SET created_at=now() WHERE created_at IS NULL");
       await db.query("UPDATE commerce_coupons SET updated_at=now() WHERE updated_at IS NULL");
       await db.query('ALTER TABLE commerce_orders ADD COLUMN IF NOT EXISTS coupon_id uuid');
@@ -93,8 +95,8 @@ async function ensureCouponSchema(db) {
 }
 async function ensureDefaultCoupon(db) {
   const codeHash = hash('RESELL');
-  await db.query(`INSERT INTO commerce_coupons(id,code_hash,code_display,product_id,discount_percent,max_uses,used_count,enabled,created_at,updated_at)
-    VALUES($1,$2,'RESELL','p093',5,10,0,true,now(),now()) ON CONFLICT DO NOTHING`, [randomUUID(), codeHash]);
+      await db.query(`INSERT INTO commerce_coupons(id,code_hash,code_display,product_id,discount,discount_percent,max_uses,used_count,enabled,created_at,updated_at)
+      VALUES($1,$2,'RESELL','p093',5,5,10,0,true,now(),now()) ON CONFLICT DO NOTHING`, [randomUUID(), codeHash]);
 }
 function automaticCostPkr(price, currency) {
   if (currency === 'PKR') return Math.ceil(price);
@@ -571,7 +573,7 @@ return async function handler(req, res) {
       const discountPercent = Number(body.discountPercent ?? 5), maxUses = Number(body.maxUses ?? 10);
       if (!Number.isFinite(discountPercent) || discountPercent <= 0 || discountPercent > 100) throw fail(400, 'Discount must be between 0.01% and 100%.');
       if (!Number.isSafeInteger(maxUses) || maxUses < 1) throw fail(400, 'Maximum usage must be a positive whole number.');
-      const inserted = await db.query(`INSERT INTO commerce_coupons(id,code_hash,code_display,product_id,discount_percent,max_uses,enabled) VALUES($1,$2,$3,'p093',$4,$5,$6)
+      const inserted = await db.query(`INSERT INTO commerce_coupons(id,code_hash,code_display,product_id,discount,discount_percent,max_uses,enabled) VALUES($1,$2,$3,'p093',$4,$4,$5,$6)
         RETURNING id,code_display,discount_percent,max_uses,used_count,enabled`, [randomUUID(), hash(code), code, discountPercent, maxUses, body.enabled !== false]);
       await db.query("INSERT INTO commerce_audit(action,object_id) VALUES('coupon_create',$1)",[inserted.rows[0].id]);
       output = inserted.rows[0];
@@ -584,7 +586,7 @@ return async function handler(req, res) {
       if (!code) throw fail(400, 'Coupon code is required.');
       if (!Number.isFinite(discountPercent) || discountPercent <= 0 || discountPercent > 100) throw fail(400, 'Discount must be between 0.01% and 100%.');
       if (!Number.isSafeInteger(maxUses) || maxUses < current.used_count || maxUses < 1) throw fail(400, `Maximum usage cannot be lower than current usage (${current.used_count}).`);
-      const updated = await db.query(`UPDATE commerce_coupons SET code_hash=$1,code_display=$2,discount_percent=$3,max_uses=$4,enabled=$5,updated_at=now() WHERE id=$6
+      const updated = await db.query(`UPDATE commerce_coupons SET code_hash=$1,code_display=$2,discount=$3,discount_percent=$3,max_uses=$4,enabled=$5,updated_at=now() WHERE id=$6
         RETURNING id,code_display,discount_percent,max_uses,used_count,enabled`, [hash(code),code,discountPercent,maxUses,body.enabled !== false,body.couponId]);
       await db.query("INSERT INTO commerce_audit(action,object_id) VALUES('coupon_update',$1)",[body.couponId]);
       output = updated.rows[0];

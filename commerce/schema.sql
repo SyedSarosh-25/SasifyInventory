@@ -14,7 +14,7 @@ CREATE TABLE IF NOT EXISTS commerce_orders (
  expires_at timestamptz NOT NULL DEFAULT now()+interval '5 minutes', delivered_at timestamptz
 );
 CREATE TABLE IF NOT EXISTS commerce_coupons (
- id uuid PRIMARY KEY, code_hash text NOT NULL UNIQUE, code_display text NOT NULL, product_id text NOT NULL DEFAULT 'p093',
+ id uuid PRIMARY KEY, code_hash text NOT NULL UNIQUE, code_display text NOT NULL, product_id text NOT NULL DEFAULT 'p093', discount numeric(5,2) NOT NULL DEFAULT 5,
  discount_percent numeric(5,2) NOT NULL DEFAULT 5 CHECK(discount_percent>0 AND discount_percent<=100),
  max_uses integer NOT NULL DEFAULT 10 CHECK(max_uses>0), used_count integer NOT NULL DEFAULT 0 CHECK(used_count>=0),
  enabled boolean NOT NULL DEFAULT true, created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now()
