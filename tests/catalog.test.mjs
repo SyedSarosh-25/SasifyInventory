@@ -24,21 +24,17 @@ test('Claude Team prices and seat types match the requested offers', () => {
   }
 });
 
-test('Hostinger KVM offers match the supplied annual pricing', () => {
-  const expected = {
-    p101: [14999, 28788],
-    p102: [24999, 38388],
-    p103: [29999, 51588],
-    p104: [49999, 101988],
-  };
-  for (const [id, [selling, original]] of Object.entries(expected)) {
-    const product = products.find((p) => p.id === id);
-    assert.equal(product.name, `Hostinger KVM ${id.slice(3)} VPS`);
-    assert.equal(product.duration, '12 Months');
-    assert.equal(product.sellingPricePkr, selling);
-    assert.equal(product.originalPricePkr, original);
-    assert.equal(savingsPkr(product), original - selling);
-  }
+test('Hostinger VPS keeps all supplied KVM packages under one WhatsApp product', () => {
+  const product = products.find((p) => p.id === 'p101');
+  assert.equal(product.name, 'Hostinger VPS');
+  assert.equal(product.contactOnly, true);
+  assert.deepEqual(product.variants.map((variant) => [variant.name, variant.sellingPricePkr, variant.originalPricePkr]), [
+    ['KVM1 VPS', 14999, 28788],
+    ['KVM2 VPS', 24999, 38388],
+    ['KVM4 VPS', 29999, 51588],
+    ['KVM8 VPS', 49999, 101988],
+  ]);
+  assert.equal(products.filter((p) => /^Hostinger KVM/.test(p.name)).length, 0);
 });
 
 test('one-year variants receive one-time payment wording only at the annual duration', () => {
@@ -113,7 +109,7 @@ test('savings preserve zero and negative differences and match all available ref
 test('landing selection has exactly ten distinct products with the requested first five', () => {
   assert.equal(featuredProducts.length, 10);
   assert.equal(new Set(featuredProducts.map((product) => product.id)).size, 10);
-  assert.deepEqual(featuredProducts.slice(0, 5).map((product) => product.id), ['p013', 'p012', 'p100', 'p101', 'p102']);
+  assert.deepEqual(featuredProducts.slice(0, 5).map((product) => product.id), ['p013', 'p012', 'p100', 'p101', 'p093']);
 });
 
 test('featured Canva offer is a one-year invite for 999 while existing variants stay in inventory', () => {
@@ -154,7 +150,7 @@ test('full inventory keeps all products, search, categories and empty results', 
 });
 
 test('hero restores the five requested product shortcuts without reducing the top ten', () => {
-  assert.deepEqual(heroProducts.map((product) => product.id), ['p013', 'p012', 'p100', 'p101', 'p102']);
+  assert.deepEqual(heroProducts.map((product) => product.id), ['p013', 'p012', 'p100', 'p101', 'p093']);
   assert.equal(featuredProducts.length, 10);
   for (const product of heroProducts) assert.equal(productHref(product), `/products/${product.id}`);
 });

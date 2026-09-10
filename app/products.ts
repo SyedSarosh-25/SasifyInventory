@@ -9,9 +9,17 @@ export type Product = {
   originalPrice: string;
   originalPricePkr?: number;
   contactOnly?: boolean;
+  variants?: ProductVariant[];
   details?: string[];
   sourceUrl: string;
   description: string;
+};
+
+export type ProductVariant = {
+  name: string;
+  duration: string;
+  sellingPricePkr: number;
+  originalPricePkr: number;
 };
 
 export const products: Product[] = [
@@ -1191,54 +1199,26 @@ export const products: Product[] = [
   },
   {
     "id": "p101",
-    "slug": "hostinger-kvm-1-vps",
+    "slug": "hostinger-vps",
     "category": "Productivity & Business",
-    "name": "Hostinger KVM 1 VPS",
+    "name": "Hostinger VPS",
     "duration": "12 Months",
     "vendor": "Sasify Solutions",
-    "sellingPricePkr": 14999,
-    "originalPrice": "PKR 28,788 for 12 months",
-    "originalPricePkr": 28788,
+    "sellingPricePkr": 0,
+    "contactOnly": true,
+    "originalPrice": "KVM packages from PKR 28,788",
     "sourceUrl": "https://www.hostinger.com/vps",
-    "description": "Hostinger KVM 1 VPS with dedicated resources, NVMe storage, high-speed bandwidth and full VPS access and control."
-  },
-  {
-    "id": "p102",
-    "slug": "hostinger-kvm-2-vps",
-    "category": "Productivity & Business",
-    "name": "Hostinger KVM 2 VPS",
-    "duration": "12 Months",
-    "vendor": "Sasify Solutions",
-    "sellingPricePkr": 24999,
-    "originalPrice": "PKR 38,388 for 12 months",
-    "originalPricePkr": 38388,
-    "sourceUrl": "https://www.hostinger.com/vps",
-    "description": "Hostinger KVM 2 VPS with dedicated resources, NVMe storage, high-speed bandwidth and full VPS access and control."
-  },
-  {
-    "id": "p103",
-    "slug": "hostinger-kvm-4-vps",
-    "category": "Productivity & Business",
-    "name": "Hostinger KVM 4 VPS",
-    "duration": "12 Months",
-    "vendor": "Sasify Solutions",
-    "sellingPricePkr": 29999,
-    "originalPrice": "PKR 51,588 for 12 months",
-    "originalPricePkr": 51588,
-    "sourceUrl": "https://www.hostinger.com/vps",
-    "description": "Hostinger KVM 4 VPS with dedicated resources, NVMe storage, high-speed bandwidth and full VPS access and control."
-  },
-  {
-    "id": "p104",
-    "slug": "hostinger-kvm-8-vps",
-    "category": "Productivity & Business",
-    "name": "Hostinger KVM 8 VPS",
-    "duration": "12 Months",
-    "vendor": "Sasify Solutions",
-    "sellingPricePkr": 49999,
-    "originalPrice": "PKR 101,988 for 12 months",
-    "originalPricePkr": 101988,
-    "sourceUrl": "https://www.hostinger.com/vps",
-    "description": "Hostinger KVM 8 VPS with dedicated resources, NVMe storage, high-speed bandwidth and full VPS access and control."
+    "description": "Hostinger KVM VPS packages for 12 months with dedicated resources, NVMe storage, high-speed bandwidth and full VPS access and control. Choose the KVM package that fits your project and contact Sasify Solutions on WhatsApp to purchase.",
+    "details": [
+      "12-month validity for every package.",
+      "Powerful KVM VPS with dedicated resources, NVMe storage and high-speed bandwidth.",
+      "Full VPS access and control. Contact us on WhatsApp for availability and purchase.",
+    ],
+    "variants": [
+      { "name": "KVM1 VPS", "duration": "12 Months", "sellingPricePkr": 14999, "originalPricePkr": 28788 },
+      { "name": "KVM2 VPS", "duration": "12 Months", "sellingPricePkr": 24999, "originalPricePkr": 38388 },
+      { "name": "KVM4 VPS", "duration": "12 Months", "sellingPricePkr": 29999, "originalPricePkr": 51588 },
+      { "name": "KVM8 VPS", "duration": "12 Months", "sellingPricePkr": 49999, "originalPricePkr": 101988 }
+    ]
   }
 ];

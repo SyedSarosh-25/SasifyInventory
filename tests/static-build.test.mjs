@@ -40,7 +40,7 @@ test('homepage, inventory and every product have populated static HTML', async (
     assert.match(html, /wa\.me\/923116185711/);
     assert.ok(html.includes(`${origin}/products/${product.id}`), `Canonical URL missing: ${product.id}`);
     assert.ok(inventory.includes(`/products/${product.id}`), `Inventory product missing: ${product.id}`);
-    assert.match(html, product.contactOnly ? /Availability/ : /Your Savings/);
+    assert.match(html, product.contactOnly ? /Packages/ : /Your Savings/);
     assert.match(html, /Access type/);
   }
 });

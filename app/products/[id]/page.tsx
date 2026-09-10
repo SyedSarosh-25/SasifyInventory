@@ -80,10 +80,26 @@ export default async function ProductPage({ params }: Props) {
               </dl>
             </section>
 
+            {product.variants?.length ? <section className="description-section">
+              <h2>Choose your VPS package</h2>
+              <p>Select a KVM package below. All options include 12-month validity, dedicated resources, NVMe storage, high-speed bandwidth and full VPS access and control.</p>
+              <div className="vps-variant-grid">
+                {product.variants.map((variant) => <article className="vps-variant-card" key={variant.name}>
+                  <div className="vps-variant-heading"><div><span className="section-kicker">Hostinger VPS</span><h3>{variant.name}</h3></div><span className="vps-variant-duration">{variant.duration}</span></div>
+                  <dl className="vps-variant-prices">
+                    <div><dt>Official price</dt><dd><Money amount={variant.originalPricePkr} /></dd></div>
+                    <div><dt>Sasify price</dt><dd><Money amount={variant.sellingPricePkr} /></dd></div>
+                  </dl>
+                  <p className="vps-variant-saving">Save <strong><Money amount={variant.originalPricePkr - variant.sellingPricePkr} /></strong></p>
+                  <a href={whatsappLink(`${product.name} ${variant.name}`, variant.duration)} target="_blank" rel="noreferrer" className="primary-button vps-variant-buy"><MessageCircle className="h-4 w-4" /> Purchase on WhatsApp</a>
+                </article>)}
+              </div>
+            </section> : null}
+
             <section className="description-section">
               <h2>Payment &amp; warranty</h2>
               {product.contactOnly ? (
-                <p><strong>Contact on WhatsApp for full details, current pricing and KVM configuration.</strong> Hostinger VPS options include KVM 1, KVM 2, KVM 3 and KVM 4.</p>
+                <p><strong>Online checkout is not available for Hostinger VPS.</strong> Choose your KVM package above and purchase directly through WhatsApp. Our team will confirm availability, payment details and activation.</p>
               ) : annual ? (
                 <p><strong>Pay <Money amount={product.sellingPricePkr} /> once for the full year.</strong> This is a one-time payment to Sasify Solutions. No monthly payments to us are needed during your one-year plan.</p>
               ) : (
@@ -121,10 +137,10 @@ export default async function ProductPage({ params }: Props) {
             <dl className="detail-prices">
               <div><dt>{product.contactOnly ? 'Pricing' : `Original Pricing ${comparison && comparison.period !== 'package' ? '(full plan)' : ''}`}</dt><dd>{product.contactOnly ? 'Contact on WhatsApp' : original === null ? <OriginalPrice reference={product.originalPrice} /> : <Money amount={original} />}</dd></div>
               <div className="selling-price"><dt>{product.contactOnly ? 'Full details' : 'Our Pricing'}</dt><dd>{product.contactOnly ? 'Contact on WhatsApp' : <Money amount={product.sellingPricePkr} />}</dd></div>
-              <div className="savings-price"><dt>{product.contactOnly ? 'Availability' : 'Your Savings'}</dt><dd>{product.contactOnly ? 'KVM 1–4 available' : savings === null ? 'Price or duration unavailable' : <Money amount={savings} />}</dd></div>
+              <div className="savings-price"><dt>{product.contactOnly ? 'Packages' : 'Your Savings'}</dt><dd>{product.contactOnly ? `${product.variants?.length ?? 0} KVM options` : savings === null ? 'Price or duration unavailable' : <Money amount={savings} />}</dd></div>
             </dl>
             {product.contactOnly ? (
-              <p className="price-explanation">Contact on WhatsApp for current pricing, configuration and availability details.</p>
+              <p className="price-explanation">Choose a KVM package above, then contact us on WhatsApp for availability, payment and activation details.</p>
             ) : savings === null ? (
               <p className="price-explanation">A numeric original price and a confirmed plan duration are needed to calculate savings. Ask our team for the current provider reference.</p>
             ) : (

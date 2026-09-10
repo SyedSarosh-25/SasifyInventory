@@ -9,7 +9,7 @@ export function productTitle(product: Product) {
 }
 
 export function productDescription(product: Product) {
-  if (product.contactOnly) return `${product.name}: Contact Sasify Solutions on WhatsApp for full details, current pricing and configuration.`;
+  if (product.contactOnly) return `${product.name}: Choose from KVM1, KVM2, KVM4 and KVM8 packages, then contact Sasify Solutions on WhatsApp for pricing, availability and purchase.`;
   const duration = product.duration === '-' ? 'this package' : product.duration;
   return `${product.name}: ${formatPkr(product.sellingPricePkr)} for ${duration} in Pakistan. Check access, warranty and plan details, then buy online with automatic delivery after payment verification.`;
 }
@@ -18,11 +18,11 @@ export function productQuestions(product: Product) {
   if (product.contactOnly) return [
     {
       question: `How do I get ${product.name} pricing and details?`,
-      answer: `Contact Sasify Solutions on WhatsApp for full details, current pricing and configuration options for ${product.name}.`,
+      answer: `Choose your preferred package on this page, then contact Sasify Solutions on WhatsApp for availability, payment details and purchase of ${product.name}.`,
     },
     {
       question: `Which options are available for ${product.name}?`,
-      answer: `${product.description} Ask our team which option fits your required resources and term before ordering.`,
+      answer: `${product.description} The available packages are KVM1, KVM2, KVM4 and KVM8. Ask our team which option fits your required resources before ordering.`,
     },
     {
       question: `What support comes with ${product.name}?`,
