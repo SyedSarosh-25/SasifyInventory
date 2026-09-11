@@ -294,8 +294,7 @@ export function ScamReports() {
           <AlertTriangle size={20} />
           <p>
             Reports are user-submitted and reviewed manually by Sasify
-            Solutions. A listing is not a court finding. Verify the details
-            independently before taking action.
+            Solutions. Verify the details independently before taking action.
           </p>
         </div>
       </section>
@@ -308,7 +307,7 @@ export function ScamReports() {
           <div className="panel-heading">
             <div>
               <span className="section-kicker">
-                <CheckCircle2 size={16} /> Verified listings
+                <CheckCircle2 size={16} /> Verified scammers
               </span>
               <h2 id="verified-scam-reports">Published scam reports</h2>
               <p>

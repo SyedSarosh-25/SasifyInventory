@@ -2263,3 +2263,97 @@ svg { flex-shrink: 0; }
   .admin-login { padding-top: 12px; }
   .admin-login-panel { padding: 20px 16px; }
 }
+
+/* Shared mobile refinements across storefront, checkout, reports and admin. */
+@media (max-width: 640px) {
+  html { scroll-padding-top: 116px; }
+  body { overflow-wrap: anywhere; }
+
+  .nav-inner { row-gap: 3px; padding-bottom: 6px; }
+  .nav-links {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    width: 100%;
+  }
+  .nav-links a {
+    min-width: 0;
+    padding: 4px 2px;
+    font-size: 0.69rem;
+    line-height: 1.2;
+    text-align: center;
+  }
+
+  .hero-title-line { width: 100%; overflow-wrap: anywhere; }
+  .hero-grid { padding-bottom: 28px; }
+  .hero h1 { font-size: clamp(1.9rem, 9vw, 2.25rem); }
+  .section-heading h1,
+  .section-heading h2,
+  .reviews-heading h2,
+  .faq-layout h2 { font-size: clamp(1.75rem, 8vw, 2rem); }
+  .section-heading p,
+  .reviews-heading p,
+  .faq-layout > div > p { font-size: 0.94rem; }
+  .category-navigation { grid-template-columns: 44px minmax(0, 1fr) 44px; gap: 6px; }
+  .category-scroll-button { width: 44px; height: 44px; }
+  .category-strip button { white-space: nowrap; overflow-wrap: normal; }
+
+  .footer-policy-links { padding: 0 18px 24px; gap: 4px 20px; }
+  .detail-prices .selling-price dd { font-size: 1.8rem; }
+
+  .scam-reports-page { gap: 28px; padding: 28px 0 56px; }
+  .scam-intro { gap: 18px; padding: 20px; border-radius: 16px; }
+  .scam-intro h1 { font-size: 2rem; line-height: 1.12; }
+  .scam-intro p { font-size: 0.95rem; line-height: 1.55; }
+  .scam-intro-actions { margin-top: 16px; }
+  .scam-intro-submit { padding-inline: 14px; }
+  .scam-disclaimer { gap: 10px; padding: 14px; border-radius: 11px; }
+  .scam-disclaimer p { font-size: 0.84rem; line-height: 1.5; }
+  .scam-listing-section > .panel-heading h2 { font-size: 1.5rem; }
+  .scam-form input:not([type=checkbox]),
+  .scam-form textarea,
+  .commerce-shell input:not([type=checkbox]),
+  .commerce-shell select,
+  .commerce-shell textarea { font-size: 16px; }
+
+  .commerce-shell h1 { font-size: 1.75rem; }
+  .commerce-shell h2 { font-size: 1.25rem; }
+  .checkout-heading { flex-wrap: wrap; }
+  .checkout-offer { grid-template-columns: 1fr; }
+  .checkout-offer > div + div { border-top: 1px solid #d3def0; border-left: 0; }
+  .verification-state { align-items: flex-start; padding: 14px; }
+
+  .commerce-actions { flex-wrap: wrap; }
+  .supplier-product-footer { display: flex; flex-wrap: wrap; gap: 12px; }
+}
+
+@media (max-width: 420px) {
+  .nav-inner { padding-inline: 12px; }
+  .brand > img { width: 38px; height: 38px; }
+  .brand-name strong { font-size: 0.78rem; }
+  .currency-toggle { grid-template-columns: repeat(2, 42px); height: 48px; }
+  .primary-button.compact { width: 42px; min-height: 42px; }
+  .nav-actions { gap: 6px; }
+
+  .hero-grid,
+  .featured-inner,
+  .section-inner,
+  .detail-shell { padding-inline: 16px; }
+  .hero-copy > p { font-size: 0.9rem; }
+  .section-inner { padding-block: 42px; }
+  .purchase-summary { padding: 18px; }
+  .detail-identity h1 { font-size: 1.65rem; }
+
+  .checkout-page { padding-inline: 12px; }
+  .checkout-page .commerce-shell h1 { font-size: 1.75rem; }
+  .checkout-page .commerce-details { grid-template-columns: minmax(0, 1fr); gap: 4px; }
+  .checkout-page .description-section,
+  .checkout-page .checkout-heading { padding: 16px 14px; }
+
+  .metric-grid,
+  .snapshot-grid { grid-template-columns: minmax(0, 1fr); }
+  .snapshot-grid > div + div,
+  .snapshot-grid > div:nth-child(3),
+  .snapshot-grid > div:nth-child(4) { border-top: 1px solid #dbe4f1; border-left: 0; }
+  .admin-header .commerce-actions > * { flex: 1 1 auto; }
+  .coupon-admin-summary { align-items: flex-start; }
+  .coupon-admin-summary > div { flex-basis: 100%; }
+}

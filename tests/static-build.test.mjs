@@ -117,6 +117,8 @@ test('scam reports page exposes the public submission action before any report i
   assert.match(html, /Submit a scam report/);
   assert.match(html, /aria-controls="submit-scam-report"/);
   assert.match(html, /checked by an admin before publication/);
+  assert.match(html, /Verified scammers/);
+  assert.doesNotMatch(html, /court finding/i);
 });
 
 test('inventory includes category navigation arrows and selected category state', async () => {
