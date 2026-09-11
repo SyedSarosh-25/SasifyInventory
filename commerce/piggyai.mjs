@@ -1,32 +1,61 @@
 import { providerDescription } from './description.mjs';
 import { providerLogo } from './provider-media.mjs';
+import {
+  notifySupplierApiExchange,
+  supplierErrorMessage,
+  supplierLogHeaders,
+  supplierLogPayload,
+} from './supplier-api-log.mjs';
 
 const endpoint = 'https://canboso.com';
 
-async function request(path, init = {}, envName = 'PIGGYAI_API_KEY') {
+async function request(
+  path,
+  init = {},
+  envName = 'PIGGYAI_API_KEY',
+  onExchange,
+) {
   if (!process.env[envName])
     throw Object.assign(new Error(`${envName} is not configured.`), {
       status: 503,
     });
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 20000);
+  const url = `${endpoint}${path}`;
+  const method = String(init.method || 'GET').toUpperCase();
+  const headers = {
+    Accept: 'application/json',
+    ...(init.body ? { 'Content-Type': 'application/json' } : {}),
+    ...init.headers,
+  };
+  let exchangeLogged = false;
   try {
-    const response = await fetch(`${endpoint}${path}`, {
+    const response = await fetch(url, {
       ...init,
       headers: {
         'X-API-Key': process.env[envName],
-        Accept: 'application/json',
-        ...(init.body ? { 'Content-Type': 'application/json' } : {}),
-        ...init.headers,
+        ...headers,
       },
       signal: controller.signal,
     });
     const data = await response.json().catch(() => ({}));
+    await notifySupplierApiExchange(onExchange, {
+      providerId: envName === 'FATBUNNY_API_KEY' ? 'fatbunny' : 'piggyai',
+      operation: 'purchase',
+      endpoint: url,
+      requestMethod: method,
+      requestHeaders: supplierLogHeaders(headers),
+      requestBody: supplierLogPayload(init.body),
+      responseStatus: response.status,
+      responseBody: supplierLogPayload(data),
+      errorMessage: null,
+    });
+    exchangeLogged = true;
     if (!response.ok || data.success === false) {
-      const message =
-        data.message ||
-        data.error ||
-        `PiggyAi request failed (${response.status}).`;
+      const message = supplierErrorMessage(
+        data,
+        `PiggyAi request failed (${response.status}).`,
+      );
       throw Object.assign(new Error(message), {
         status:
           response.status >= 400 &&
@@ -40,6 +69,18 @@ async function request(path, init = {}, envName = 'PIGGYAI_API_KEY') {
     }
     return data;
   } catch (error) {
+    if (!exchangeLogged)
+      await notifySupplierApiExchange(onExchange, {
+        providerId: envName === 'FATBUNNY_API_KEY' ? 'fatbunny' : 'piggyai',
+        operation: 'purchase',
+        endpoint: url,
+        requestMethod: method,
+        requestHeaders: supplierLogHeaders(headers),
+        requestBody: supplierLogPayload(init.body),
+        responseStatus: null,
+        responseBody: null,
+        errorMessage: error.message,
+      });
     if (error.name === 'AbortError')
       throw Object.assign(
         new Error('PiggyAi request timed out. It can be retried safely.'),
@@ -135,6 +176,7 @@ export async function createPiggyAiOrder({
   quantity = 1,
   idempotencyKey,
   envName = 'PIGGYAI_API_KEY',
+  onExchange,
 }) {
   return request(
     '/api/v2/telegram-buyer/purchase',
@@ -144,6 +186,7 @@ export async function createPiggyAiOrder({
       body: JSON.stringify({ product_id: productId, quantity }),
     },
     envName,
+    onExchange,
   );
 }
 

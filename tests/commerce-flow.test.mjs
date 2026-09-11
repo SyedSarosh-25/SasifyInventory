@@ -103,6 +103,14 @@ test('ChatGPT Plus local inventory supports checkout, verification, delivery and
     assert.equal((await request('admin-cancel', { orderId: adminPending.data.id, confirmed: true }, env.COMMERCE_ADMIN_KEY)).code, 200);
     const afterAdminCancel = (await request('admin-list', undefined, env.COMMERCE_ADMIN_KEY)).data.coupons.find((coupon) => coupon.code_display === 'CANCEL10');
     assert.equal(afterAdminCancel.used_count, 0);
+    await request('admin-import', { productId: 'p093', accounts: 'manual@test.invalid|manual-pass|manual-2fa', purchaseCost: 1000 }, env.COMMERCE_ADMIN_KEY);
+    const manualOrder = await request('create', { productId: 'p093' });
+    assert.equal((await request('admin-manual-delivery', { orderId: manualOrder.data.id, confirmed: false }, env.COMMERCE_ADMIN_KEY)).code, 400);
+    const manualDelivery = await request('admin-manual-delivery', { orderId: manualOrder.data.id, confirmed: true }, env.COMMERCE_ADMIN_KEY);
+    assert.equal(manualDelivery.code, 200, JSON.stringify(manualDelivery));
+    const manualStatus = await request('status', undefined, manualOrder.data.recovery, manualOrder.data.id);
+    assert.equal(manualStatus.data.status, 'delivered', JSON.stringify(manualStatus));
+    assert.equal(['cancel@test.invalid', 'manual@test.invalid'].includes(manualStatus.data.credentials.email), true);
   } finally {
     await database.close();
   }

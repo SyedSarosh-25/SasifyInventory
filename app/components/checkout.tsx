@@ -429,6 +429,29 @@ export function Checkout() {
                   <strong className="payment-timer">{countdown}</strong>
                 </dd>
               </dl>
+              {!order.transactionId && (
+                <div className="checkout-cancel-action">
+                  <p>
+                    Changed your mind? Cancel this payment reservation to
+                    release the reserved stock.
+                  </p>
+                  <button
+                    type="button"
+                    className="secondary-button danger-action"
+                    disabled={busy}
+                    onClick={() => {
+                      if (!window.confirm('Cancel this payment and release the reserved stock?')) return;
+                      void run(async () => {
+                        await api('cancel', key, { id });
+                        clear();
+                        window.location.assign('/');
+                      });
+                    }}
+                  >
+                    <X size={18} /> Cancel payment and order
+                  </button>
+                </div>
+              )}
             </section>
           )}
           {['pending', 'expired'].includes(order.status) &&
@@ -775,9 +798,11 @@ export function CommerceAdmin() {
     [orderId, setOrderId] = useState(''),
     [paymentId, setPaymentId] = useState(''),
     [confirmed, setConfirmed] = useState(false),
+    [manualDeliveryConfirmed, setManualDeliveryConfirmed] = useState(false),
     [busy, setBusy] = useState(false),
     [receipt, setReceipt] = useState<any>(null),
-    [orderDelivery, setOrderDelivery] = useState<any>(null);
+    [orderDelivery, setOrderDelivery] = useState<any>(null),
+    [supplierLogs, setSupplierLogs] = useState<any>(null);
   const [tab, setTab] = useState<
       | 'overview'
       | 'profit'
@@ -835,6 +860,7 @@ export function CommerceAdmin() {
         setPicked(null);
         setReceipt(null);
         setOrderDelivery(null);
+        setSupplierLogs(null);
         setScamReport(null);
       }
       setError(problem.message);
@@ -843,6 +869,8 @@ export function CommerceAdmin() {
     }
   }
   const refresh = async () => setData(await api('admin-list', key));
+  const showSupplierLogs = async (order = '') =>
+    setSupplierLogs(await api('admin-supplier-logs', key, undefined, order));
   const login = async () => {
     const session = await api('admin-login', '', { email, password });
     setKey(session.token);
@@ -858,6 +886,7 @@ export function CommerceAdmin() {
     setAccounts('');
     setReceipt(null);
     setOrderDelivery(null);
+    setSupplierLogs(null);
     setPicked(null);
     setScamReport(null);
     setNotice('');
@@ -1878,27 +1907,36 @@ export function CommerceAdmin() {
                     </small>
                   ))}
               </div>
-              <button
-                className="secondary-button"
-                disabled={busy}
-                onClick={() =>
-                  void run(async () => {
-                    const result = await api('admin-supplier-sync', key, {});
-                    const summary = (result.providers || [])
-                      .map(
-                        (provider: any) =>
-                          `${provider.providerName}: ${provider.synced}`,
-                      )
-                      .join(', ');
-                    setNotice(
-                      `${result.synced} products synced${summary ? ` (${summary})` : ''}.`,
-                    );
-                    await refresh();
-                  })
-                }
-              >
-                <RefreshCw size={17} /> Sync providers
-              </button>
+              <div className="commerce-actions">
+                <button
+                  className="secondary-button"
+                  disabled={busy}
+                  onClick={() =>
+                    void run(async () => {
+                      const result = await api('admin-supplier-sync', key, {});
+                      const summary = (result.providers || [])
+                        .map(
+                          (provider: any) =>
+                            `${provider.providerName}: ${provider.synced}`,
+                        )
+                        .join(', ');
+                      setNotice(
+                        `${result.synced} products synced${summary ? ` (${summary})` : ''}.`,
+                      );
+                      await refresh();
+                    })
+                  }
+                >
+                  <RefreshCw size={17} /> Sync providers
+                </button>
+                <button
+                  className="secondary-button"
+                  disabled={busy}
+                  onClick={() => void run(() => showSupplierLogs())}
+                >
+                  <ClipboardList size={17} /> Check logs
+                </button>
+              </div>
             </div>
             <div
               className="supplier-provider-tabs"
@@ -1971,6 +2009,50 @@ export function CommerceAdmin() {
         </div>
       )}
 
+      {supplierLogs && (
+        <section className="admin-panel compact-panel supplier-log-panel">
+          <div className="panel-heading">
+            <div>
+              <span className="admin-eyebrow">Supplier diagnostics</span>
+              <h2>Supplier API logs</h2>
+            </div>
+            <button
+              title="Close supplier logs"
+              className="icon-command"
+              onClick={() => setSupplierLogs(null)}
+            >
+              <X size={18} />
+            </button>
+          </div>
+          <p>
+            Purchase requests and provider responses are shown here. API keys
+            and delivered credentials are redacted.
+          </p>
+          {!supplierLogs.logs?.length && <p>No supplier purchase logs found.</p>}
+          <div className="supplier-log-list">
+            {(supplierLogs.logs || []).map((log: any) => (
+              <article className="supplier-log-entry" key={String(log.id)}>
+                <div className="supplier-log-heading">
+                  <strong>
+                    {String(log.provider_id).toUpperCase()} · {log.operation}
+                  </strong>
+                  <span>
+                    {log.response_status || 'No HTTP response'} ·{' '}
+                    {new Date(log.created_at).toLocaleString()}
+                  </span>
+                </div>
+                <small>
+                  Order {log.order_id?.slice(0, 8) || '—'} · {log.request_method}{' '}
+                  {log.endpoint}
+                </small>
+                <pre className="commerce-receipt">
+                  {`REQUEST HEADERS\n${JSON.stringify(log.request_headers || {}, null, 2)}\n\nREQUEST BODY\n${JSON.stringify(log.request_body, null, 2)}\n\nRESPONSE\n${JSON.stringify(log.response_body, null, 2)}${log.error_message ? `\n\nERROR\n${log.error_message}` : ''}`}
+                </pre>
+              </article>
+            ))}
+          </div>
+        </section>
+      )}
       {orderDelivery && (
         <section className="admin-panel compact-panel">
           <div className="panel-heading">
@@ -2097,6 +2179,17 @@ export function CommerceAdmin() {
                         >
                           View sent delivery
                         </button>
+                        {row.supplier_product_name && (
+                          <button
+                            className="secondary-button compact"
+                            disabled={busy}
+                            onClick={() =>
+                              void run(() => showSupplierLogs(row.id))
+                            }
+                          >
+                            <ClipboardList size={16} /> Check API logs
+                          </button>
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -2133,6 +2226,58 @@ export function CommerceAdmin() {
             >
               Cancel selected reservation
             </button>
+          </section>
+          <section className="admin-panel compact-panel">
+            <h2>Manual credential delivery</h2>
+            <p>
+              Use only after you have independently approved the delivery. This
+              is an explicit admin action and does not verify or attach a payment.
+              Supplier orders must be delivered through their supplier flow.
+            </p>
+            <form
+              className="admin-form-grid"
+              onSubmit={(e) => {
+                e.preventDefault();
+                void run(async () => {
+                  const result = await api('admin-manual-delivery', key, {
+                    orderId,
+                    confirmed: manualDeliveryConfirmed,
+                  });
+                  setManualDeliveryConfirmed(false);
+                  setNotice('Credentials delivered manually.');
+                  setOrderDelivery(
+                    await api('admin-order-delivery', key, {
+                      orderId: result.orderId,
+                    }),
+                  );
+                  await refresh();
+                });
+              }}
+            >
+              <label>
+                Order ID
+                <input
+                  value={orderId}
+                  onChange={(e) => setOrderId(e.target.value)}
+                  required
+                  placeholder="Select an order above"
+                />
+              </label>
+              <label className="commerce-check admin-span">
+                <input
+                  type="checkbox"
+                  checked={manualDeliveryConfirmed}
+                  onChange={(e) => setManualDeliveryConfirmed(e.target.checked)}
+                />{' '}
+                I authorize manual delivery without payment verification.
+              </label>
+              <button
+                className="primary-button admin-span"
+                disabled={busy || !manualDeliveryConfirmed}
+              >
+                <KeyRound size={18} /> Deliver credentials manually
+              </button>
+            </form>
           </section>
         </div>
       )}

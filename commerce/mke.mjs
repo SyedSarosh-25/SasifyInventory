@@ -1,5 +1,11 @@
 import { providerDescription } from './description.mjs';
 import { providerLogo } from './provider-media.mjs';
+import {
+  notifySupplierApiExchange,
+  supplierErrorMessage,
+  supplierLogHeaders,
+  supplierLogPayload,
+} from './supplier-api-log.mjs';
 
 const endpoint = 'https://api.technysoft.com';
 
@@ -7,23 +13,55 @@ function configured() {
   if (!process.env.MKE_API_KEY) throw Object.assign(new Error('MKE Shop API is not configured.'), { status: 503 });
 }
 
-async function request(path, init = {}) {
+async function request(path, init = {}, onExchange) {
   configured();
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 20000);
+  const url = `${endpoint}${path}`;
+  const method = String(init.method || 'GET').toUpperCase();
+  const headers = {
+    Accept: 'application/json',
+    ...(init.body ? { 'Content-Type': 'application/json' } : {}),
+    ...init.headers,
+  };
+  let exchangeLogged = false;
   try {
-    const response = await fetch(`${endpoint}${path}`, {
+    const response = await fetch(url, {
       ...init,
-      headers: { 'X-API-Key': process.env.MKE_API_KEY, Accept: 'application/json', ...(init.body ? { 'Content-Type': 'application/json' } : {}), ...init.headers },
+      headers: { 'X-API-Key': process.env.MKE_API_KEY, ...headers },
       signal: controller.signal,
     });
     const data = await response.json().catch(() => ({}));
+    await notifySupplierApiExchange(onExchange, {
+      providerId: 'mke',
+      operation: 'purchase',
+      endpoint: url,
+      requestMethod: method,
+      requestHeaders: supplierLogHeaders(headers),
+      requestBody: supplierLogPayload(init.body),
+      responseStatus: response.status,
+      responseBody: supplierLogPayload(data),
+      errorMessage: null,
+    });
+    exchangeLogged = true;
     if (!response.ok) {
-      const message = data.error?.message_en || data.error?.message || data.message || `MKE Shop request failed (${response.status}).`;
+      const message = supplierErrorMessage(data, `MKE Shop request failed (${response.status}).`);
       throw Object.assign(new Error(message), { status: response.status === 409 ? 409 : response.status === 402 ? 402 : response.status >= 400 && response.status < 500 ? 409 : 503, code: data.error?.code || null });
     }
     return data;
   } catch (error) {
+    if (!exchangeLogged)
+      await notifySupplierApiExchange(onExchange, {
+        providerId: 'mke',
+        operation: 'purchase',
+        endpoint: url,
+        requestMethod: method,
+        requestHeaders: supplierLogHeaders(headers),
+        requestBody: supplierLogPayload(init.body),
+        responseStatus: null,
+        responseBody: null,
+        errorMessage: error.message,
+      });
     if (error.name === 'AbortError') throw Object.assign(new Error('MKE Shop request timed out. It can be retried safely.'), { status: 503 });
     throw error;
   } finally { clearTimeout(timeout); }
@@ -52,8 +90,8 @@ export function normalizeMkeProduct(product, defaultCurrency = 'USD') {
   return { id, name, description: providerDescription(product), delivery_instruction: product?.activation_url ? `Activate or redeem using this link: ${String(product.activation_url)}` : null, wholesale_price: wholesalePrice, currency: currency.slice(0, 12), stock, canonical_key: String(product?.sku || product?.slug || `mke:${id}`).slice(0, 200), ...(logo ? { logo_url: logo } : {}) };
 }
 
-export async function createMkeOrder({ productId, quantity = 1, idempotencyKey }) {
-  return request('/v1/buy', { method: 'POST', headers: { 'Idempotency-Key': idempotencyKey }, body: JSON.stringify({ product_id: Number(productId), quantity }) });
+export async function createMkeOrder({ productId, quantity = 1, idempotencyKey, onExchange }) {
+  return request('/v1/buy', { method: 'POST', headers: { 'Idempotency-Key': idempotencyKey }, body: JSON.stringify({ product_id: Number(productId), quantity }) }, onExchange);
 }
 
 export function mkeDelivery(data) {

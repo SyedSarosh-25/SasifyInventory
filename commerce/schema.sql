@@ -90,6 +90,22 @@ ALTER TABLE commerce_payments ADD COLUMN IF NOT EXISTS source_message_id text;
 CREATE UNIQUE INDEX IF NOT EXISTS commerce_payments_source_message_id ON commerce_payments(source_message_id) WHERE source_message_id IS NOT NULL;
 CREATE TABLE IF NOT EXISTS commerce_limits (key text PRIMARY KEY, window_start timestamptz NOT NULL DEFAULT now(), hits integer NOT NULL DEFAULT 1);
 CREATE TABLE IF NOT EXISTS commerce_audit (id bigserial PRIMARY KEY, action text NOT NULL, object_id text, created_at timestamptz NOT NULL DEFAULT now());
+CREATE TABLE IF NOT EXISTS commerce_supplier_api_logs (
+ id bigserial PRIMARY KEY,
+ order_id uuid REFERENCES commerce_orders(id),
+ provider_id text NOT NULL,
+ operation text NOT NULL,
+ endpoint text NOT NULL,
+ request_method text NOT NULL DEFAULT 'GET',
+ request_headers jsonb NOT NULL DEFAULT '{}'::jsonb,
+ request_body jsonb,
+ response_status integer,
+ response_body jsonb,
+ error_message text,
+ created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS commerce_supplier_api_logs_order ON commerce_supplier_api_logs(order_id,created_at DESC);
+CREATE INDEX IF NOT EXISTS commerce_supplier_api_logs_created ON commerce_supplier_api_logs(created_at DESC);
 CREATE TABLE IF NOT EXISTS commerce_scam_reports (
  id uuid PRIMARY KEY, name text NOT NULL, description text NOT NULL, amount_pkr integer CHECK(amount_pkr>=0),
  identifiers jsonb NOT NULL DEFAULT '[]'::jsonb, payment_methods jsonb NOT NULL DEFAULT '[]'::jsonb,

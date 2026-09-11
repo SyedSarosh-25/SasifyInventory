@@ -1,31 +1,67 @@
 const endpoint = 'https://api.mailreader.tech/api/reseller';
+import {
+  notifySupplierApiExchange,
+  supplierErrorMessage,
+  supplierLogHeaders,
+  supplierLogPayload,
+} from './supplier-api-log.mjs';
 import { providerLogo } from './provider-media.mjs';
 
 function configured() {
   if (!process.env.DODI_RESELLER_API_KEY) throw Object.assign(new Error('Supplier API is not configured.'), { status: 503 });
 }
 
-async function request(action, init = {}) {
+async function request(action, init = {}, onExchange) {
   configured();
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 20000);
+  const url = `${endpoint}?action=${action}`;
+  const method = String(init.method || 'GET').toUpperCase();
+  const headers = {
+    Accept: 'application/json',
+    ...(init.body ? { 'Content-Type': 'application/json' } : {}),
+  };
+  let exchangeLogged = false;
   try {
-    const response = await fetch(`${endpoint}?action=${action}`, {
+    const response = await fetch(url, {
       ...init,
       headers: {
         Authorization: `Bearer ${process.env.DODI_RESELLER_API_KEY}`,
-        Accept: 'application/json',
-        ...(init.body ? { 'Content-Type': 'application/json' } : {}),
+        ...headers,
       },
       signal: controller.signal,
     });
     const data = await response.json().catch(() => ({}));
+    await notifySupplierApiExchange(onExchange, {
+      providerId: 'dodi',
+      operation: 'purchase',
+      endpoint: url,
+      requestMethod: method,
+      requestHeaders: supplierLogHeaders(headers),
+      requestBody: supplierLogPayload(init.body),
+      responseStatus: response.status,
+      responseBody: supplierLogPayload(data),
+      errorMessage: null,
+    });
+    exchangeLogged = true;
     if (!response.ok || data.ok === false) {
-      const message = data.error || data.message || `Supplier request failed (${response.status}).`;
+      const message = supplierErrorMessage(data, `Supplier request failed (${response.status}).`);
       throw Object.assign(new Error(message), { status: response.status >= 400 && response.status < 500 && response.status !== 429 ? 409 : 503, code: data.error?.code || data.code || null });
     }
     return data;
   } catch (error) {
+    if (!exchangeLogged)
+      await notifySupplierApiExchange(onExchange, {
+        providerId: 'dodi',
+        operation: 'purchase',
+        endpoint: url,
+        requestMethod: method,
+        requestHeaders: supplierLogHeaders(headers),
+        requestBody: supplierLogPayload(init.body),
+        responseStatus: null,
+        responseBody: null,
+        errorMessage: error.message,
+      });
     if (error.name === 'AbortError') throw Object.assign(new Error('Supplier request timed out. It will be retried safely.'), { status: 503 });
     throw error;
   } finally {
@@ -55,11 +91,11 @@ export async function fetchSupplierBalance() {
   return data.reseller?.balance ?? null;
 }
 
-export async function createSupplierOrder({ productId, quantity = 1, externalOrderId }) {
+export async function createSupplierOrder({ productId, quantity = 1, externalOrderId, onExchange }) {
   return request('order', {
     method: 'POST',
     body: JSON.stringify({ product_id: productId, quantity, external_order_id: externalOrderId }),
-  });
+  }, onExchange);
 }
 
 export function supplierDelivery(data) {

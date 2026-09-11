@@ -1,5 +1,11 @@
 import { providerDescription } from './description.mjs';
 import { providerLogo } from './provider-media.mjs';
+import {
+  notifySupplierApiExchange,
+  supplierErrorMessage,
+  supplierLogHeaders,
+  supplierLogPayload,
+} from './supplier-api-log.mjs';
 
 const endpoint = 'https://api.qamify.site';
 
@@ -7,28 +13,58 @@ function configured() {
   if (!process.env.QAMIFY_API_KEY) throw Object.assign(new Error('Qamify API is not configured.'), { status: 503 });
 }
 
-async function request(path, init = {}) {
+async function request(path, init = {}, onExchange) {
   configured();
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 20000);
+  const url = `${endpoint}${path}`;
+  const method = String(init.method || 'GET').toUpperCase();
+  const headers = {
+    Accept: 'application/json',
+    ...(init.body ? { 'Content-Type': 'application/json' } : {}),
+    ...init.headers,
+  };
+  let exchangeLogged = false;
   try {
-    const response = await fetch(`${endpoint}${path}`, {
+    const response = await fetch(url, {
       ...init,
       headers: {
         Authorization: `Bearer ${process.env.QAMIFY_API_KEY}`,
-        Accept: 'application/json',
-        ...(init.body ? { 'Content-Type': 'application/json' } : {}),
-        ...init.headers,
+        ...headers,
       },
       signal: controller.signal,
     });
     const data = await response.json().catch(() => ({}));
+    await notifySupplierApiExchange(onExchange, {
+      providerId: 'qamify',
+      operation: 'purchase',
+      endpoint: url,
+      requestMethod: method,
+      requestHeaders: supplierLogHeaders(headers),
+      requestBody: supplierLogPayload(init.body),
+      responseStatus: response.status,
+      responseBody: supplierLogPayload(data),
+      errorMessage: null,
+    });
+    exchangeLogged = true;
     if (!response.ok || data.ok === false) {
-      const message = data.error?.message || data.error || data.message || `Qamify request failed (${response.status}).`;
+      const message = supplierErrorMessage(data, `Qamify request failed (${response.status}).`);
       throw Object.assign(new Error(message), { status: response.status >= 400 && response.status < 500 && response.status !== 429 ? 409 : 503, code: data.error?.code || null });
     }
     return data;
   } catch (error) {
+    if (!exchangeLogged)
+      await notifySupplierApiExchange(onExchange, {
+        providerId: 'qamify',
+        operation: 'purchase',
+        endpoint: url,
+        requestMethod: method,
+        requestHeaders: supplierLogHeaders(headers),
+        requestBody: supplierLogPayload(init.body),
+        responseStatus: null,
+        responseBody: null,
+        errorMessage: error.message,
+      });
     if (error.name === 'AbortError') throw Object.assign(new Error('Qamify request timed out. It can be retried safely.'), { status: 503 });
     throw error;
   } finally { clearTimeout(timeout); }
@@ -66,12 +102,12 @@ export async function fetchQamifyBalance() {
   return { balance: Number(data.balance), currency: String(data.currency || 'USD') };
 }
 
-export async function createQamifyOrder({ productId, quantity = 1, idempotencyKey }) {
+export async function createQamifyOrder({ productId, quantity = 1, idempotencyKey, onExchange }) {
   return request('/v1/orders', {
     method: 'POST',
     headers: { 'Idempotency-Key': idempotencyKey },
     body: JSON.stringify({ product_id: Number(productId), qty: quantity }),
-  });
+  }, onExchange);
 }
 
 export function qamifyDelivery(data) {

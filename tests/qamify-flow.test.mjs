@@ -99,6 +99,14 @@ test('Qamify catalog sync and paid order fulfilment use provider IDs and idempot
     assert.equal(saved.supplier_product_id, 'qamify:42');
     assert.equal(saved.supplier_order_id, 'RA-TEST-ORDER');
     assert.equal(saved.supplier_status, 'delivered');
+    const logs = (await request('admin-supplier-logs', undefined, process.env.COMMERCE_ADMIN_KEY)).data.logs;
+    assert.equal(logs.length, 2, JSON.stringify(logs));
+    assert.equal(logs.every((log) => log.provider_id === 'qamify'), true);
+    assert.equal(logs.some((log) => log.response_status === 409), true);
+    assert.equal(logs.some((log) => log.response_status === 200), true);
+    assert.equal(logs.every((log) => !('Authorization' in log.request_headers)), true);
+    const successfulLog = logs.find((log) => log.response_status === 200);
+    assert.equal(successfulLog.response_body.order.items, '[REDACTED]');
   } finally {
     globalThis.fetch = previousFetch;
     for (const [name,value] of Object.entries(previousEnv)) {

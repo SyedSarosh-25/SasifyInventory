@@ -2085,6 +2085,15 @@ svg { flex-shrink: 0; }
 .commerce-table td { max-width: 280px; overflow-wrap: anywhere; }
 .commerce-table small { display: block; }
 .commerce-receipt { white-space: pre-wrap; overflow-wrap: anywhere; padding: 16px; background: #eef4ff; }
+.checkout-cancel-action { display: grid; gap: 10px; margin-top: 22px; padding-top: 16px; border-top: 1px solid #dbe4f0; }
+.checkout-cancel-action p { margin: 0; color: #66758c; font-size: 14px; }
+.supplier-log-panel { max-width: 100%; }
+.supplier-log-list { display: grid; gap: 14px; margin-top: 16px; }
+.supplier-log-entry { padding: 15px; border: 1px solid #d5deea; border-radius: 10px; background: #f9fbff; }
+.supplier-log-heading { display: flex; justify-content: space-between; gap: 12px; color: #173e94; }
+.supplier-log-heading span,.supplier-log-entry small { color: #68758d; }
+.supplier-log-entry small { display: block; margin-top: 6px; overflow-wrap: anywhere; }
+.supplier-log-entry pre { margin: 12px 0 0; max-height: 460px; overflow: auto; font-size: 12px; }
 .online-stock { margin: 16px 0; color: #087d53; }
 .checkout-start { margin-top: 12px; }
 .checkout-offer { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid #d3def0; border-radius: 6px; background: #fff; }

@@ -259,6 +259,67 @@ async function ensureDefaultCoupon(db) {
     [randomUUID(), codeHash],
   );
 }
+let supplierApiLogSchemaReady;
+async function ensureSupplierApiLogSchema(db) {
+  if (!supplierApiLogSchemaReady) {
+    supplierApiLogSchemaReady = (async () => {
+      await db.query(`CREATE TABLE IF NOT EXISTS commerce_supplier_api_logs (
+        id bigserial PRIMARY KEY, order_id uuid REFERENCES commerce_orders(id),
+        provider_id text NOT NULL, operation text NOT NULL, endpoint text NOT NULL,
+        request_method text NOT NULL DEFAULT 'GET', request_headers jsonb NOT NULL DEFAULT '{}'::jsonb,
+        request_body jsonb, response_status integer, response_body jsonb,
+        error_message text, created_at timestamptz NOT NULL DEFAULT now()
+      )`);
+      await db.query(
+        'CREATE INDEX IF NOT EXISTS commerce_supplier_api_logs_order ON commerce_supplier_api_logs(order_id,created_at DESC)',
+      );
+      await db.query(
+        'CREATE INDEX IF NOT EXISTS commerce_supplier_api_logs_created ON commerce_supplier_api_logs(created_at DESC)',
+      );
+    })().catch((error) => {
+      supplierApiLogSchemaReady = null;
+      throw error;
+    });
+  }
+  await supplierApiLogSchemaReady;
+}
+async function insertSupplierApiLogs(db, logs) {
+  for (const log of logs)
+    await db.query(
+      `INSERT INTO commerce_supplier_api_logs(order_id,provider_id,operation,endpoint,request_method,request_headers,request_body,response_status,response_body,error_message)
+       VALUES($1,$2,$3,$4,$5,$6::jsonb,$7::jsonb,$8,$9::jsonb,$10)`,
+      [
+        log.orderId,
+        log.providerId,
+        log.operation,
+        log.endpoint,
+        log.requestMethod,
+        JSON.stringify(log.requestHeaders || {}),
+        log.requestBody === null || log.requestBody === undefined
+          ? null
+          : JSON.stringify(log.requestBody),
+        log.responseStatus,
+        log.responseBody === null || log.responseBody === undefined
+          ? null
+          : JSON.stringify(log.responseBody),
+        log.errorMessage ? String(log.errorMessage).slice(0, 2000) : null,
+      ],
+    );
+}
+async function persistSupplierApiLogs(pool, logs) {
+  if (!pool || !logs.length) return;
+  const connection = await pool.connect();
+  try {
+    await connection.query('BEGIN');
+    await insertSupplierApiLogs(connection, logs);
+    await connection.query('COMMIT');
+  } catch (error) {
+    await connection.query('ROLLBACK').catch(() => {});
+    throw error;
+  } finally {
+    connection.release();
+  }
+}
 function automaticCostPkr(price, currency) {
   if (currency === 'PKR') return Math.ceil(price);
   if (currency === 'USDT') return Math.ceil(price * supplierUsdtRate());
@@ -670,13 +731,14 @@ async function expire(db, includeReview = true) {
     SELECT inventory_id FROM commerce_orders WHERE status='expired' AND expires_at<now() AND inventory_id IS NOT NULL
   )`);
 }
-async function placeSupplierOrder(product, order) {
+async function placeSupplierOrder(product, order, onExchange) {
   if (product.provider_id === 'qamify') {
     if (!/^\d+$/.test(String(product.external_product_id || '')))
       throw fail(503, 'Qamify product ID is invalid.');
     const result = await createQamifyOrder({
       productId: Number(product.external_product_id),
       idempotencyKey: `sasify-${order.id}-${product.external_product_id}`,
+      onExchange,
     });
     return {
       delivery: qamifyDelivery(result),
@@ -689,6 +751,7 @@ async function placeSupplierOrder(product, order) {
     const result = await createMkeOrder({
       productId: Number(product.external_product_id),
       idempotencyKey: `sasify-${order.id}-${product.external_product_id}`,
+      onExchange,
     });
     return {
       delivery: mkeDelivery(result),
@@ -710,6 +773,7 @@ async function placeSupplierOrder(product, order) {
       productId: product.external_product_id,
       idempotencyKey: `sasify-${order.id}-${product.external_product_id}`,
       envName,
+      onExchange,
     });
     return {
       delivery: piggyAiDelivery(result),
@@ -722,6 +786,7 @@ async function placeSupplierOrder(product, order) {
     const result = await createZoomStoreOrder({
       productId: product.external_product_id,
       idempotencyKey: `sasify-${order.id}-${product.external_product_id}`,
+      onExchange,
     });
     return {
       delivery: zoomStoreDelivery(result),
@@ -732,6 +797,7 @@ async function placeSupplierOrder(product, order) {
     const result = await createSupplierOrder({
       productId: product.external_product_id || product.id,
       externalOrderId: order.id,
+      onExchange,
     });
     return {
       delivery: supplierDelivery(result),
@@ -740,7 +806,14 @@ async function placeSupplierOrder(product, order) {
   }
   throw fail(503, 'Supplier provider is not supported.');
 }
-async function fulfill(db, orderId, paymentId, manual = false) {
+async function fulfill(
+  db,
+  orderId,
+  paymentId,
+  manual = false,
+  onSupplierExchange,
+) {
+  const supplierLogs = [];
   const order = (
     await db.query('SELECT * FROM commerce_orders WHERE id=$1 FOR UPDATE', [
       orderId,
@@ -813,7 +886,11 @@ async function fulfill(db, orderId, paymentId, manual = false) {
     let placed, product, lastError;
     for (const candidate of candidates) {
       try {
-        placed = await placeSupplierOrder(candidate, order);
+        placed = await placeSupplierOrder(candidate, order, (exchange) => {
+          exchange.orderId = order.id;
+          supplierLogs.push(exchange);
+          onSupplierExchange?.(exchange);
+        });
         product = candidate;
         break;
       } catch (error) {
@@ -831,6 +908,7 @@ async function fulfill(db, orderId, paymentId, manual = false) {
         fail(409, 'No supplier has stock for this order. Contact support.')
       );
     const { delivery, supplierId } = placed;
+    await insertSupplierApiLogs(db, supplierLogs);
     await db.query('UPDATE commerce_payments SET order_id=$1 WHERE id=$2', [
       order.id,
       payment.id,
@@ -916,6 +994,71 @@ async function fulfillFreeOrder(db, orderId) {
     [order.id],
   );
 }
+async function manualDeliverLocalOrder(db, orderId, inventoryId, key) {
+  const order = (
+    await db.query('SELECT * FROM commerce_orders WHERE id=$1 FOR UPDATE', [
+      orderId,
+    ])
+  ).rows[0];
+  if (!order) throw fail(404, 'Order not found.');
+  if (!['pending', 'review'].includes(order.status))
+    throw fail(409, 'Only pending or review orders can receive manual delivery.');
+  if (order.supplier_product_id)
+    throw fail(
+      409,
+      'Supplier orders must use supplier fulfilment; manual credential delivery is for local inventory only.',
+    );
+  const allowedProducts = localInventoryProductIds(order.product_id);
+  let item = order.inventory_id
+    ? (
+        await db.query(
+          "SELECT * FROM commerce_inventory WHERE id=$1 AND state='reserved' FOR UPDATE",
+          [order.inventory_id],
+        )
+      ).rows[0]
+    : null;
+  if (!item && inventoryId) {
+    if (!idOk(inventoryId)) throw fail(400, 'Invalid inventory ID.');
+    item = (
+      await db.query(
+        'SELECT * FROM commerce_inventory WHERE id=$1 AND product_id=ANY($2::text[]) FOR UPDATE',
+        [inventoryId, allowedProducts],
+      )
+    ).rows[0];
+    if (!item) throw fail(404, 'Selected local credential was not found.');
+    if (!['available', 'reserved'].includes(item.state))
+      throw fail(409, 'Selected credential is not available.');
+    if (item.state === 'reserved' && item.id !== order.inventory_id)
+      throw fail(409, 'Selected credential is reserved by another order.');
+  }
+  if (!item)
+    item = (
+      await db.query(
+        "SELECT * FROM commerce_inventory WHERE product_id=ANY($1::text[]) AND state='available' ORDER BY created_at FOR UPDATE SKIP LOCKED LIMIT 1",
+        [allowedProducts],
+      )
+    ).rows[0];
+  if (!item) throw fail(409, 'No local credentials are available.');
+  if (item.state === 'available')
+    await db.query(
+      "UPDATE commerce_inventory SET state='reserved' WHERE id=$1 AND state='available'",
+      [item.id],
+    );
+  const changed = await db.query(
+    "UPDATE commerce_inventory SET state='delivered' WHERE id=$1 AND state='reserved' RETURNING id",
+    [item.id],
+  );
+  if (!changed.rowCount) throw fail(409, 'Selected credential is no longer available.');
+  await db.query(
+    "UPDATE commerce_orders SET inventory_id=$1,status='delivered',delivered_at=now() WHERE id=$2",
+    [item.id, order.id],
+  );
+  await db.query(
+    "INSERT INTO commerce_audit(action,object_id) VALUES('manual_admin_delivery',$1)",
+    [order.id],
+  );
+  return { orderId: order.id, inventoryId: item.id, credentials: decrypt(item.credentials, key) };
+}
 export function createHandler(
   poolFactory = () =>
     new pg.Pool({
@@ -956,6 +1099,8 @@ export function createHandler(
     )
       return json(res, 403, { error: 'Invalid origin.' });
     let db;
+    const supplierLogs = [];
+    const captureSupplierExchange = (exchange) => supplierLogs.push(exchange);
     try {
       pool ||= poolFactory();
       db = await pool.connect();
@@ -1013,6 +1158,7 @@ export function createHandler(
           'scam-reports',
           'scam-report',
           'admin-list',
+          'admin-supplier-logs',
           'admin-scam-report',
         ].includes(action)
           ? req.method !== 'GET'
@@ -1020,6 +1166,7 @@ export function createHandler(
       )
         throw fail(405, 'Method not allowed.');
       await ensureCouponSchema(db);
+      await ensureSupplierApiLogSchema(db);
       await ensureSupplierMediaSchema(db);
       await ensureScamSchema(db);
       await ensureInventoryVariants(db);
@@ -1352,10 +1499,11 @@ export function createHandler(
             );
             await db.query('SAVEPOINT delivery');
             try {
-              await fulfill(db, id, payment.id);
+              await fulfill(db, id, payment.id, false, captureSupplierExchange);
             } catch (e) {
               if (!e.status) throw e;
               await db.query('ROLLBACK TO SAVEPOINT delivery');
+              await insertSupplierApiLogs(db, supplierLogs);
             }
           }
           output = { ok: true };
@@ -1485,10 +1633,17 @@ export function createHandler(
             );
             await db.query('SAVEPOINT delivery');
             try {
-              await fulfill(db, orders[0].id, inserted.rows[0].id);
+              await fulfill(
+                db,
+                orders[0].id,
+                inserted.rows[0].id,
+                false,
+                captureSupplierExchange,
+              );
             } catch (e) {
               if (!e.status) throw e;
               await db.query('ROLLBACK TO SAVEPOINT delivery');
+              await insertSupplierApiLogs(db, supplierLogs);
             }
           }
         }
@@ -1790,6 +1945,21 @@ export function createHandler(
           supplierUsdPkrRate: supplierUsdRate(),
           profitBreakdown,
         };
+      } else if (action === 'admin-supplier-logs') {
+        const logOrderId = req.query?.id || null;
+        if (logOrderId && !idOk(logOrderId))
+          throw fail(400, 'Invalid order ID.');
+        output = {
+          logs: (
+            await db.query(
+              `SELECT id,order_id,provider_id,operation,endpoint,request_method,request_headers,request_body,response_status,response_body,error_message,created_at
+               FROM commerce_supplier_api_logs
+               WHERE ($1::uuid IS NULL OR order_id=$1::uuid)
+               ORDER BY created_at DESC LIMIT 200`,
+              [logOrderId],
+            )
+          ).rows,
+        };
       } else if (action === 'admin-coupon-create') {
         const code = normalizeCouponCode(body.code);
         if (!code) throw fail(400, 'Coupon code is required.');
@@ -1931,8 +2101,23 @@ export function createHandler(
           body.confirmed !== true
         )
           throw fail(400, 'Confirm payment in NayaPay before approval.');
-        await fulfill(db, body.orderId, body.paymentId, true);
+        await fulfill(
+          db,
+          body.orderId,
+          body.paymentId,
+          true,
+          captureSupplierExchange,
+        );
         output = { ok: true };
+      } else if (action === 'admin-manual-delivery') {
+        if (!idOk(body.orderId) || body.confirmed !== true)
+          throw fail(400, 'Confirm manual credential delivery first.');
+        output = await manualDeliverLocalOrder(
+          db,
+          body.orderId,
+          body.inventoryId,
+          key,
+        );
       } else if (action === 'admin-cancel') {
         if (!idOk(body.orderId) || body.confirmed !== true)
           throw fail(400, 'Confirm cancellation first.');
@@ -1962,7 +2147,15 @@ export function createHandler(
       await db.query('COMMIT');
       json(res, 200, output);
     } catch (e) {
-      if (db) await db.query('ROLLBACK').catch(() => {});
+      if (db) {
+        await db.query('ROLLBACK').catch(() => {});
+        db.release();
+        db = null;
+      }
+      if (supplierLogs.length)
+        await persistSupplierApiLogs(pool, supplierLogs).catch((logError) =>
+          console.error('supplier-api-log-error', logError.code || logError.name, logError.message || ''),
+        );
       const code = e.status || (e.code === '23505' ? 409 : 503);
       json(res, code, {
         error: e.status
