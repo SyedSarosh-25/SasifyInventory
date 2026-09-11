@@ -59,6 +59,7 @@ import {
 import catalog from './catalog.json' with { type: 'json' };
 
 const fail = (status, message) => Object.assign(new Error(message), { status });
+const TEAM_COUPON_CODE = 'HOR';
 const bearer = (req) =>
   String(req.headers.authorization || '').replace(/^Bearer /, '');
 const adminCookie = (req) =>
@@ -123,7 +124,7 @@ function couponDiscount(price, percent) {
   const original = Number(price);
   return Math.min(
     Math.max(0, original - Math.round(original * (1 - Number(percent) / 100))),
-    original - 1,
+    original,
   );
 }
 async function releaseCoupon(db, order) {
@@ -232,6 +233,12 @@ async function ensureCouponSchema(db) {
       await db.query(
         'ALTER TABLE commerce_orders ADD COLUMN IF NOT EXISTS coupon_usage_released boolean NOT NULL DEFAULT false',
       );
+      await db.query(
+        'ALTER TABLE commerce_orders DROP CONSTRAINT IF EXISTS commerce_orders_amount_check',
+      );
+      await db.query(
+        'ALTER TABLE commerce_orders ADD CONSTRAINT commerce_orders_amount_check CHECK(amount>=0)',
+      );
     })().catch((error) => {
       couponSchemaReady = null;
       throw error;
@@ -240,15 +247,15 @@ async function ensureCouponSchema(db) {
   await couponSchemaReady;
 }
 async function ensureDefaultCoupon(db) {
-  const codeHash = hash('RESELL');
+  const codeHash = hash(TEAM_COUPON_CODE);
   await db.query(
-    `UPDATE commerce_coupons SET discount=10,discount_percent=10,updated_at=now()
-        WHERE code_hash=$1 AND product_id='p093' AND discount=5 AND discount_percent=5`,
+    `UPDATE commerce_coupons SET discount=100,discount_percent=100,enabled=true,updated_at=now()
+        WHERE code_hash=$1 AND product_id='p093'`,
     [codeHash],
   );
   await db.query(
     `INSERT INTO commerce_coupons(id,code_hash,code_display,product_id,discount,discount_percent,max_uses,used_count,enabled,created_at,updated_at)
-      VALUES($1,$2,'RESELL','p093',10,10,10,0,true,now(),now()) ON CONFLICT DO NOTHING`,
+      VALUES($1,$2,'HOR','p093',100,100,10,0,true,now(),now()) ON CONFLICT DO NOTHING`,
     [randomUUID(), codeHash],
   );
 }
@@ -885,6 +892,30 @@ async function fulfill(db, orderId, paymentId, manual = false) {
     order.id,
   ]);
 }
+async function fulfillFreeOrder(db, orderId) {
+  const order = (
+    await db.query('SELECT * FROM commerce_orders WHERE id=$1 FOR UPDATE', [
+      orderId,
+    ])
+  ).rows[0];
+  if (!order || order.amount !== 0 || !order.coupon_id)
+    throw fail(409, 'This order is not eligible for a free coupon delivery.');
+  if (order.status !== 'pending')
+    throw fail(409, 'This free coupon order is already closed.');
+  const changed = await db.query(
+    "UPDATE commerce_inventory SET state='delivered' WHERE id=$1 AND state='reserved' RETURNING id",
+    [order.inventory_id],
+  );
+  if (!changed.rowCount) throw fail(409, 'Reserved stock is unavailable.');
+  await db.query(
+    "UPDATE commerce_orders SET status='delivered',delivered_at=now() WHERE id=$1",
+    [order.id],
+  );
+  await db.query(
+    "INSERT INTO commerce_audit(action,object_id) VALUES('coupon_free_delivery',$1)",
+    [order.id],
+  );
+}
 export function createHandler(
   poolFactory = () =>
     new pg.Pool({
@@ -1185,6 +1216,7 @@ export function createHandler(
         let coupon = null;
         let discount = 0;
         const couponCode = normalizeCouponCode(body.couponCode);
+        const isTeamCoupon = couponCode === TEAM_COUPON_CODE;
         if (couponCode) {
           if (
             supplierProduct ||
@@ -1203,6 +1235,8 @@ export function createHandler(
           if (!coupon)
             throw fail(409, 'Invalid, disabled or fully used coupon code.');
           discount = couponDiscount(product.price, coupon.discount_percent);
+          if (discount === product.price && !isTeamCoupon)
+            throw fail(409, 'Only the HOR team code can provide free access.');
         }
         if (supplierProduct) {
           if (supplierProduct.supplier_stock < 1)
@@ -1245,6 +1279,8 @@ export function createHandler(
             discount,
           ],
         );
+        if (isTeamCoupon && product.price - discount === 0)
+          await fulfillFreeOrder(db, id);
         res.setHeader(
           'Set-Cookie',
           `sasify_checkout=${session}; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=604800`,
@@ -1255,13 +1291,15 @@ export function createHandler(
           amount: product.price - discount,
           originalAmount: product.price,
           couponDiscount: discount,
+          teamCoupon: isTeamCoupon,
         };
       } else if (['status', 'claim', 'cancel'].includes(action)) {
         const id = req.query?.id || body.id;
         if (!idOk(id)) throw fail(404, 'Order not found.');
         const order = (
           await db.query(
-            'SELECT * FROM commerce_orders WHERE id=$1 FOR UPDATE',
+            `SELECT o.*,c.code_display AS coupon_code FROM commerce_orders o
+             LEFT JOIN commerce_coupons c ON c.id=o.coupon_id WHERE o.id=$1 FOR UPDATE OF o`,
             [id],
           )
         ).rows[0];
@@ -1336,6 +1374,7 @@ export function createHandler(
             amount: order.amount,
             originalAmount: order.amount + Number(order.coupon_discount || 0),
             couponDiscount: Number(order.coupon_discount || 0),
+            teamCoupon: order.coupon_code === TEAM_COUPON_CODE,
             status: order.status,
             expiresAt: order.expires_at,
             transactionId: order.transaction_id,
@@ -1762,6 +1801,8 @@ export function createHandler(
           discountPercent > 100
         )
           throw fail(400, 'Discount must be between 0.01% and 100%.');
+        if (discountPercent === 100 && code !== TEAM_COUPON_CODE)
+          throw fail(400, 'Only HOR is reserved for free team access.');
         if (!Number.isSafeInteger(maxUses) || maxUses < 1)
           throw fail(400, 'Maximum usage must be a positive whole number.');
         const inserted = await db.query(
@@ -1802,6 +1843,13 @@ export function createHandler(
           discountPercent > 100
         )
           throw fail(400, 'Discount must be between 0.01% and 100%.');
+        if (
+          (current.code_display === TEAM_COUPON_CODE || code === TEAM_COUPON_CODE) &&
+          (current.code_display !== TEAM_COUPON_CODE || code !== TEAM_COUPON_CODE || discountPercent !== 100 || body.enabled === false)
+        )
+          throw fail(400, 'HOR is a reserved team coupon and cannot be changed.');
+        if (discountPercent === 100 && code !== TEAM_COUPON_CODE)
+          throw fail(400, 'Only HOR is reserved for free team access.');
         if (
           !Number.isSafeInteger(maxUses) ||
           maxUses < current.used_count ||
@@ -1904,6 +1952,7 @@ export function createHandler(
           "UPDATE commerce_inventory SET state='available' WHERE id=$1 AND state='reserved'",
           [order.inventory_id],
         );
+        await releaseCoupon(db, order);
         await db.query(
           "INSERT INTO commerce_audit(action,object_id) VALUES('admin_cancel',$1)",
           [order.id],

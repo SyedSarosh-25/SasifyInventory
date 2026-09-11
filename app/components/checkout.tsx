@@ -42,6 +42,7 @@ type Order = {
   amount: number;
   originalAmount?: number;
   couponDiscount?: number;
+  teamCoupon?: boolean;
   status: string;
   expiresAt: string;
   transactionId?: string;
@@ -258,17 +259,23 @@ export function Checkout() {
       <a href="/inventory" className="back-link">
         All products
       </a>
-      <h1>{order ? 'Complete your payment' : 'Buy online'}</h1>
+      <h1>
+        {order ? (order.amount === 0 ? 'Your free order' : 'Complete your payment') : 'Buy online'}
+      </h1>
       <div className="instant-delivery">
         <span className="instant-icon">
           <Zap size={22} />
         </span>
         <div>
-          <strong>Automatic credential delivery</strong>
+          <strong>
+            {order?.amount === 0
+              ? 'Free coupon delivery'
+              : 'Automatic credential delivery'}
+          </strong>
           <p>
-            Pay here and your account credentials will appear on this screen
-            automatically after verification, usually within one minute. No
-            manual delivery delays.
+            {order?.amount === 0
+              ? 'HOR covered the full price. Your account credentials are ready below.'
+              : 'Pay here and your account credentials will appear on this screen automatically after verification, usually within one minute. No manual delivery delays.'}
           </p>
         </div>
         <span className="instant-badge">Instant</span>
@@ -332,14 +339,18 @@ export function Checkout() {
                 autoCapitalize="characters"
                 maxLength={32}
               />
-              <small>Valid reseller coupons are applied before payment.</small>
+              <small>Authorized team codes provide direct access; other valid coupons apply before payment.</small>
             </label>
             <button
               className="primary-button"
               disabled={busy || !ready || !product?.available}
             >
               <ShoppingCart size={18} />{' '}
-              {busy ? 'Preparing checkout...' : 'Pay online'}
+              {busy
+                ? 'Preparing checkout...'
+                : couponCode.trim().toUpperCase() === 'HOR'
+                  ? 'Claim free order'
+                  : 'Pay online'}
             </button>
             {ready && !product?.available && (
               <p>
@@ -363,7 +374,9 @@ export function Checkout() {
           <div className="checkout-heading">
             <div>
               <span>{order.product}</span>
-              {order.couponDiscount ? (
+              {order.teamCoupon ? (
+                <small className="coupon-savings">Team access · No payment required</small>
+              ) : order.couponDiscount ? (
                 <>
                   <small>
                     Original price: PKR {order.originalAmount?.toLocaleString()}
@@ -677,7 +690,9 @@ function CouponRow({
     <article className="coupon-admin-row">
       <div className="coupon-admin-summary">
         <div>
-          <span className="admin-eyebrow">Reseller coupon</span>
+                  <span className="admin-eyebrow">
+                    {coupon.code_display === 'HOR' ? 'Team coupon' : 'Reseller coupon'}
+                  </span>
           <strong>{coupon.code_display}</strong>
         </div>
         <span className={enabled ? 'status-good' : 'status-warn'}>
@@ -1097,7 +1112,7 @@ export function CommerceAdmin() {
                   onChange={(e) =>
                     setNewCouponCode(e.target.value.toUpperCase())
                   }
-                  placeholder="RESELL"
+                  placeholder="HOR"
                   required
                   maxLength={32}
                 />

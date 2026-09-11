@@ -7,7 +7,7 @@ ALTER TABLE commerce_inventory ADD COLUMN IF NOT EXISTS purchase_cost integer NO
 ALTER TABLE commerce_inventory DROP CONSTRAINT IF EXISTS commerce_inventory_state_check;
 ALTER TABLE commerce_inventory ADD CONSTRAINT commerce_inventory_state_check CHECK (state IN ('available','reserved','delivered','quarantined','withdrawn'));
 CREATE TABLE IF NOT EXISTS commerce_orders (
- id uuid PRIMARY KEY, product_id text NOT NULL, amount integer NOT NULL CHECK(amount>0),
+ id uuid PRIMARY KEY, product_id text NOT NULL, amount integer NOT NULL CHECK(amount>=0),
  recovery_hash text NOT NULL, session_hash text NOT NULL, inventory_id uuid REFERENCES commerce_inventory(id),
  status text NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','review','delivered','expired','cancelled')),
  transaction_id text, payer_name text, source_last4 text, created_at timestamptz NOT NULL DEFAULT now(),
