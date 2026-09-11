@@ -1,14 +1,40 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import { ArrowLeft, ArrowRight, CalendarDays, Check, ExternalLink, MessageCircle, ShieldCheck, ShoppingCart } from 'lucide-react';
+import {
+  ArrowLeft,
+  ArrowRight,
+  CalendarDays,
+  Check,
+  ExternalLink,
+  MessageCircle,
+  ShieldCheck,
+  ShoppingCart,
+} from 'lucide-react';
 import { products } from '../../products';
 import { ProductLogo } from '../../components/product-logo';
 import { StockBuy } from '../../components/checkout';
 import { SiteFooter, SiteHeader } from '../../components/site-chrome';
 import { Money, OriginalPrice } from '../../components/currency';
 import { StructuredData } from '../../components/structured-data';
-import { breadcrumbData, productData, productDescription, productQuestions, productTitle } from '../../seo';
-import { accessTypeLabel, has25DayWarranty, isAnnualPlan, originalPriceComparison, originalPricePkr, productHref, productLogo, savingsPkr, siteOrigin, whatsappLink } from '../../product-utils';
+import {
+  breadcrumbData,
+  productData,
+  productDescription,
+  productQuestions,
+  productTitle,
+} from '../../seo';
+import {
+  accessTypeLabel,
+  has25DayWarranty,
+  isAnnualPlan,
+  originalPriceComparison,
+  originalPricePkr,
+  productHref,
+  productLogo,
+  savingsPkr,
+  siteOrigin,
+  whatsappLink,
+} from '../../product-utils';
 
 type Props = { params: Promise<{ id: string }> };
 
@@ -19,15 +45,25 @@ export function generateStaticParams() {
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id } = await params;
   const product = products.find((item) => item.id === id);
-  if (!product) return { title: 'Product not found | Sasify Solutions', robots: { index: false } };
+  if (!product)
+    return {
+      title: 'Product not found | Sasify Solutions',
+      robots: { index: false },
+    };
   const title = productTitle(product);
   const description = productDescription(product);
   const logo = productLogo(product);
   const images = logo ? [{ url: logo, alt: product.name }] : [];
   return {
-    title, description,
+    title,
+    description,
     alternates: { canonical: `${siteOrigin}${productHref(product)}` },
-    openGraph: { title, description, url: `${siteOrigin}${productHref(product)}`, images },
+    openGraph: {
+      title,
+      description,
+      url: `${siteOrigin}${productHref(product)}`,
+      images,
+    },
     twitter: { card: 'summary', title, description, images },
   };
 }
@@ -42,121 +78,503 @@ export default async function ProductPage({ params }: Props) {
   const original = originalPricePkr(product);
   const comparison = originalPriceComparison(product);
   const questions = productQuestions(product);
-  const related = products.filter((item) => item.id !== id && item.category === product.category)
-    .sort((a, b) => Number(b.name.split(' ')[0] === product.name.split(' ')[0]) - Number(a.name.split(' ')[0] === product.name.split(' ')[0]))
+  const related = products
+    .filter((item) => item.id !== id && item.category === product.category)
+    .sort(
+      (a, b) =>
+        Number(b.name.split(' ')[0] === product.name.split(' ')[0]) -
+        Number(a.name.split(' ')[0] === product.name.split(' ')[0]),
+    )
     .slice(0, 3);
 
   return (
     <main>
       <SiteHeader />
       <StructuredData data={productData(product)} />
-      <StructuredData data={breadcrumbData([{ name: 'Home', path: '/' }, { name: 'Full inventory', path: '/inventory' }, { name: product.name, path: productHref(product) }])} />
+      <StructuredData
+        data={breadcrumbData([
+          { name: 'Home', path: '/' },
+          { name: 'Full inventory', path: '/inventory' },
+          { name: product.name, path: productHref(product) },
+        ])}
+      />
       <div className="detail-shell">
         <nav className="breadcrumbs" aria-label="Breadcrumb">
-          <a href="/">Home</a><span aria-hidden="true">/</span><a href="/inventory">Full inventory</a><span aria-hidden="true">/</span><span aria-current="page">{product.name}</span>
+          <a href="/">Home</a>
+          <span aria-hidden="true">/</span>
+          <a href="/inventory">Full inventory</a>
+          <span aria-hidden="true">/</span>
+          <span aria-current="page">{product.name}</span>
         </nav>
-        <a href="/inventory" className="back-link"><ArrowLeft className="h-4 w-4" /> All products</a>
+        <a href="/inventory" className="back-link">
+          <ArrowLeft className="h-4 w-4" /> All products
+        </a>
         <div className="detail-layout">
           <article className="detail-content">
             <div className="detail-identity">
-              <div className="detail-logo-frame"><ProductLogo product={product} eager /></div>
+              <div className="detail-logo-frame">
+                <ProductLogo product={product} eager />
+              </div>
               <div>
                 <span className="section-kicker">{product.category}</span>
                 <h1>{product.name}</h1>
-                <span className="detail-duration"><CalendarDays className="h-4 w-4" /> {product.duration === '-' ? 'Duration confirmed at checkout' : product.duration}</span>
+                <span className="detail-duration">
+                  <CalendarDays className="h-4 w-4" />{' '}
+                  {product.duration === '-'
+                    ? 'Duration confirmed at checkout'
+                    : product.duration}
+                </span>
               </div>
             </div>
 
             <section className="description-section">
               <h2>Full description</h2>
               <p>{product.description}</p>
-              {product.details?.map((detail) => <p key={detail}>{detail}</p>)}
+              {product.details?.map((detail) => (
+                <p key={detail}>{detail}</p>
+              ))}
               <dl className="package-facts">
-                <div><dt>Package</dt><dd>{product.name}</dd></div>
-                <div><dt>Access type</dt><dd>{accessTypeLabel(product)}</dd></div>
-                <div><dt>Access period / allocation</dt><dd>{product.duration === '-' ? 'Confirm before purchase' : product.duration}</dd></div>
-                <div><dt>Order support</dt><dd>Sasify Solutions on WhatsApp</dd></div>
-                <div><dt>Listing reference</dt><dd>{product.id}</dd></div>
+                <div>
+                  <dt>Package</dt>
+                  <dd>{product.name}</dd>
+                </div>
+                <div>
+                  <dt>Access type</dt>
+                  <dd>{accessTypeLabel(product)}</dd>
+                </div>
+                <div>
+                  <dt>Access period / allocation</dt>
+                  <dd>
+                    {product.duration === '-'
+                      ? 'Confirm before purchase'
+                      : product.duration}
+                  </dd>
+                </div>
+                <div>
+                  <dt>Order support</dt>
+                  <dd>Sasify Solutions on WhatsApp</dd>
+                </div>
+                <div>
+                  <dt>Listing reference</dt>
+                  <dd>{product.id}</dd>
+                </div>
               </dl>
             </section>
 
-            {product.variants?.length ? <section className="description-section">
-              <h2>Choose your VPS package</h2>
-              <p>Select a KVM package below. All options include 12-month validity, dedicated resources, NVMe storage, high-speed bandwidth and full VPS access and control.</p>
-              <div className="vps-variant-grid">
-                {product.variants.map((variant) => <article className="vps-variant-card" key={variant.name}>
-                  <div className="vps-variant-heading"><div><span className="section-kicker">Hostinger VPS</span><h3>{variant.name}</h3></div><span className="vps-variant-duration">{variant.duration}</span></div>
-                  <dl className="vps-variant-prices">
-                    <div><dt>Official price</dt><dd><Money amount={variant.originalPricePkr} /></dd></div>
-                    <div><dt>Sasify price</dt><dd><Money amount={variant.sellingPricePkr} /></dd></div>
-                  </dl>
-                  <p className="vps-variant-saving">Save <strong><Money amount={variant.originalPricePkr - variant.sellingPricePkr} /></strong></p>
-                  <a href={whatsappLink(`${product.name} ${variant.name}`, variant.duration)} target="_blank" rel="noreferrer" className="primary-button vps-variant-buy"><MessageCircle className="h-4 w-4" /> Purchase on WhatsApp</a>
-                </article>)}
-              </div>
-            </section> : null}
+            {product.variants?.length ? (
+              <section id="account-options" className="description-section">
+                <h2>
+                  {product.id === 'p093'
+                    ? 'Choose your ChatGPT Plus account'
+                    : 'Choose your VPS package'}
+                </h2>
+                <p>
+                  {product.id === 'p093'
+                    ? 'Select the account stability and payment tier that suits you.'
+                    : 'Select a KVM package below. All options include 12-month validity, dedicated resources, NVMe storage, high-speed bandwidth and full VPS access and control.'}
+                </p>
+                <div className="vps-variant-grid">
+                  {product.variants.map((variant, index) => {
+                    const card = (
+                      <>
+                        <div className="vps-variant-heading">
+                          <div>
+                            <span className="section-kicker">
+                              {product.id === 'p093'
+                                ? variant.name.includes('Apple Pay')
+                                  ? 'Ultra stable'
+                                  : 'Value option'
+                                : 'Hostinger VPS'}
+                            </span>
+                            <h3>{variant.name}</h3>
+                          </div>
+                          <span className="vps-variant-duration">
+                            {variant.duration}
+                          </span>
+                        </div>
+                        <dl className="vps-variant-prices">
+                          <div>
+                            <dt>Official price</dt>
+                            <dd>
+                              <Money amount={variant.originalPricePkr} />
+                            </dd>
+                          </div>
+                          <div>
+                            <dt>Sasify price</dt>
+                            <dd>
+                              <Money amount={variant.sellingPricePkr} />
+                            </dd>
+                          </div>
+                        </dl>
+                        <p className="vps-variant-saving">
+                          Save{' '}
+                          <strong>
+                            <Money
+                              amount={
+                                variant.originalPricePkr -
+                                variant.sellingPricePkr
+                              }
+                            />
+                          </strong>
+                        </p>
+                      </>
+                    );
+                    return product.id === 'p093' && variant.id ? (
+                      <label
+                        className="vps-variant-card chatgpt-option-card"
+                        key={variant.name}
+                      >
+                        <input
+                          id={`chatgpt-option-${variant.id === 'p093-momo' ? 'momo' : 'ultra'}`}
+                          className="chatgpt-option-radio"
+                          type="radio"
+                          name="chatgpt-option"
+                          defaultChecked={index === 0}
+                        />
+                        {card}
+                        <span className="chatgpt-select-action">
+                          Select this option
+                        </span>
+                      </label>
+                    ) : (
+                      <article className="vps-variant-card" key={variant.name}>
+                        {card}
+                        <a
+                          href={whatsappLink(
+                            `${product.name} ${variant.name}`,
+                            variant.duration,
+                          )}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="primary-button vps-variant-buy"
+                        >
+                          <MessageCircle className="h-4 w-4" /> Purchase on
+                          WhatsApp
+                        </a>
+                      </article>
+                    );
+                  })}
+                </div>
+              </section>
+            ) : null}
 
             <section className="description-section">
               <h2>Payment &amp; warranty</h2>
               {product.contactOnly ? (
-                <p><strong>Online checkout is not available for Hostinger VPS.</strong> Choose your KVM package above and purchase directly through WhatsApp. Our team will confirm availability, payment details and activation.</p>
+                <p>
+                  <strong>
+                    Online checkout is not available for Hostinger VPS.
+                  </strong>{' '}
+                  Choose your KVM package above and purchase directly through
+                  WhatsApp. Our team will confirm availability, payment details
+                  and activation.
+                </p>
               ) : annual ? (
-                <p><strong>Pay <Money amount={product.sellingPricePkr} /> once for the full year.</strong> This is a one-time payment to Sasify Solutions. No monthly payments to us are needed during your one-year plan.</p>
+                <p>
+                  <strong>
+                    Pay <Money amount={product.sellingPricePkr} /> once for the
+                    full year.
+                  </strong>{' '}
+                  This is a one-time payment to Sasify Solutions. No monthly
+                  payments to us are needed during your one-year plan.
+                </p>
               ) : (
-                <p>The listed Sasify price is <strong><Money amount={product.sellingPricePkr} /></strong> for this package. Confirm the access period, activation requirements and payment details with our team before ordering.</p>
+                <p>
+                  The listed Sasify price is{' '}
+                  <strong>
+                    {product.id === 'p093' ? (
+                      <>
+                        <span className="chatgpt-ultra-only">
+                          <Money amount={3499} />
+                        </span>
+                        <span className="chatgpt-momo-only">
+                          <Money amount={2999} />
+                        </span>
+                      </>
+                    ) : (
+                      <Money amount={product.sellingPricePkr} />
+                    )}
+                  </strong>{' '}
+                  for this package. Confirm the access period, activation
+                  requirements and payment details with our team before
+                  ordering.
+                </p>
               )}
               {warranty ? (
-                <p><strong>Full 25-day warranty included.</strong> This 30-day / one-month product comes with a full 25-day warranty from Sasify Solutions. Use the WhatsApp support button shown with your order if you need help.</p>
+                <p>
+                  <strong>Full 25-day warranty included.</strong> This 30-day /
+                  one-month product comes with a full 25-day warranty from
+                  Sasify Solutions. Use the WhatsApp support button shown with
+                  your order if you need help.
+                </p>
               ) : (
-                <p><strong>Warranty included.</strong> All products come with a warranty period. Review this package&apos;s warranty duration and coverage before payment.</p>
+                <p>
+                  <strong>Warranty included.</strong> All products come with a
+                  warranty period. Review this package&apos;s warranty duration
+                  and coverage before payment.
+                </p>
               )}
             </section>
 
             <section className="description-section">
               <h2>Before you order</h2>
               <ul className="order-checks">
-                <li><Check className="h-4 w-4" /> Confirm the exact edition, access type and availability with our team.</li>
-                <li><Check className="h-4 w-4" /> Review any account, device or invitation requirements before payment.</li>
-                <li><Check className="h-4 w-4" /> Provider feature and usage limits still apply to the selected plan.</li>
+                <li>
+                  <Check className="h-4 w-4" /> Confirm the exact edition,
+                  access type and availability with our team.
+                </li>
+                <li>
+                  <Check className="h-4 w-4" /> Review any account, device or
+                  invitation requirements before payment.
+                </li>
+                <li>
+                  <Check className="h-4 w-4" /> Provider feature and usage
+                  limits still apply to the selected plan.
+                </li>
               </ul>
             </section>
             <section className="description-section">
               <h2>Questions about this plan</h2>
               <div className="faq-list">
-                {questions.map(({ question, answer }, index) => <details key={question} open={index === 0}>
-                  <summary>{question}</summary><p>{answer}</p>
-                </details>)}
+                {questions.map(({ question, answer }, index) => (
+                  <details key={question} open={index === 0}>
+                    <summary>{question}</summary>
+                    <p>{answer}</p>
+                  </details>
+                ))}
               </div>
-              <p><a href="/buying-guide">Compare plans and access types</a>, read the <a href="/warranty">warranty policy</a> and <a href="/refunds">refund policy</a>, or <a href="/about">learn about Sasify Solutions</a> before ordering.</p>
+              <p>
+                <a href="/buying-guide">Compare plans and access types</a>, read
+                the <a href="/warranty">warranty policy</a> and{' '}
+                <a href="/refunds">refund policy</a>, or{' '}
+                <a href="/about">learn about Sasify Solutions</a> before
+                ordering.
+              </p>
             </section>
           </article>
 
-          <aside className="purchase-summary" aria-label="Product pricing and purchase">
+          <aside
+            className="purchase-summary"
+            aria-label="Product pricing and purchase"
+          >
             <span className="section-kicker">Your selected plan</span>
-            <div className="purchase-heading"><div className="product-logo-frame"><ProductLogo product={product} eager /></div><h2>{product.name}</h2></div>
+            <div className="purchase-heading">
+              <div className="product-logo-frame">
+                <ProductLogo product={product} eager />
+              </div>
+              <h2>{product.name}</h2>
+            </div>
+            {product.id === 'p093' && (
+              <p className="selected-option-name">
+                <span className="chatgpt-ultra-only">
+                  Ultra Stable Account · Apple Pay
+                </span>
+                <span className="chatgpt-momo-only">
+                  Partially Stable Account · Momo Pay
+                </span>
+              </p>
+            )}
             <dl className="detail-prices">
-              <div><dt>{product.contactOnly ? 'Pricing' : `Original Pricing ${comparison && comparison.period !== 'package' ? '(full plan)' : ''}`}</dt><dd>{product.contactOnly ? 'Contact on WhatsApp' : original === null ? <OriginalPrice reference={product.originalPrice} /> : <Money amount={original} />}</dd></div>
-              <div className="selling-price"><dt>{product.contactOnly ? 'Full details' : 'Our Pricing'}</dt><dd>{product.contactOnly ? 'Contact on WhatsApp' : <Money amount={product.sellingPricePkr} />}</dd></div>
-              <div className="savings-price"><dt>{product.contactOnly ? 'Packages' : 'Your Savings'}</dt><dd>{product.contactOnly ? `${product.variants?.length ?? 0} KVM options` : savings === null ? 'Price or duration unavailable' : <Money amount={savings} />}</dd></div>
+              <div>
+                <dt>
+                  {product.contactOnly
+                    ? 'Pricing'
+                    : `Original Pricing ${comparison && comparison.period !== 'package' ? '(full plan)' : ''}`}
+                </dt>
+                <dd>
+                  {product.contactOnly ? (
+                    'Contact on WhatsApp'
+                  ) : original === null ? (
+                    <OriginalPrice reference={product.originalPrice} />
+                  ) : (
+                    <Money amount={original} />
+                  )}
+                </dd>
+              </div>
+              <div className="selling-price">
+                <dt>{product.contactOnly ? 'Full details' : 'Our Pricing'}</dt>
+                <dd>
+                  {product.contactOnly ? (
+                    'Contact on WhatsApp'
+                  ) : product.id === 'p093' ? (
+                    <>
+                      <span className="chatgpt-ultra-only">
+                        <Money amount={3499} />
+                      </span>
+                      <span className="chatgpt-momo-only">
+                        <Money amount={2999} />
+                      </span>
+                    </>
+                  ) : (
+                    <Money amount={product.sellingPricePkr} />
+                  )}
+                </dd>
+              </div>
+              <div className="savings-price">
+                <dt>{product.contactOnly ? 'Packages' : 'Your Savings'}</dt>
+                <dd>
+                  {product.contactOnly ? (
+                    `${product.variants?.length ?? 0} KVM options`
+                  ) : savings === null ? (
+                    'Price or duration unavailable'
+                  ) : product.id === 'p093' ? (
+                    <>
+                      <span className="chatgpt-ultra-only">
+                        <Money amount={2201} />
+                      </span>
+                      <span className="chatgpt-momo-only">
+                        <Money amount={2701} />
+                      </span>
+                    </>
+                  ) : (
+                    <Money amount={savings} />
+                  )}
+                </dd>
+              </div>
             </dl>
             {product.contactOnly ? (
-              <p className="price-explanation">Choose a KVM package above, then contact us on WhatsApp for availability, payment and activation details.</p>
+              <p className="price-explanation">
+                Choose a KVM package above, then contact us on WhatsApp for
+                availability, payment and activation details.
+              </p>
+            ) : product.id === 'p093' ? (
+              <div className="price-explanation">
+                <p>
+                  Selected option:{' '}
+                  <strong>
+                    <span className="chatgpt-ultra-only">
+                      Apple Pay · Ultra Stable
+                    </span>
+                    <span className="chatgpt-momo-only">
+                      Momo Pay · Partially Stable
+                    </span>
+                  </strong>
+                </p>
+                <p>Select an option below, then use Pay online here.</p>
+              </div>
             ) : savings === null ? (
-              <p className="price-explanation">A numeric original price and a confirmed plan duration are needed to calculate savings. Ask our team for the current provider reference.</p>
+              <p className="price-explanation">
+                A numeric original price and a confirmed plan duration are
+                needed to calculate savings. Ask our team for the current
+                provider reference.
+              </p>
             ) : (
               <div className="price-explanation">
-                {comparison && <p><Money amount={comparison.unitAmountPkr} />{comparison.period !== 'package' && <> &times; {comparison.quantity} {comparison.period}{comparison.quantity === 1 ? '' : 's'}</>} &minus; <Money amount={product.sellingPricePkr} /> = <strong><Money amount={savings} /></strong></p>}
-                <p>Reference: <OriginalPrice reference={product.originalPrice} />. Monthly rates are multiplied by the plan&apos;s months; annual-only rates use the plan&apos;s years. Access and provider billing options may differ.</p>
+                {comparison && (
+                  <p>
+                    <Money amount={comparison.unitAmountPkr} />
+                    {comparison.period !== 'package' && (
+                      <>
+                        {' '}
+                        &times; {comparison.quantity} {comparison.period}
+                        {comparison.quantity === 1 ? '' : 's'}
+                      </>
+                    )}{' '}
+                    &minus; <Money amount={product.sellingPricePkr} /> ={' '}
+                    <strong>
+                      <Money amount={savings} />
+                    </strong>
+                  </p>
+                )}
+                <p>
+                  Reference: <OriginalPrice reference={product.originalPrice} />
+                  . Monthly rates are multiplied by the plan&apos;s months;
+                  annual-only rates use the plan&apos;s years. Access and
+                  provider billing options may differ.
+                </p>
               </div>
             )}
             {product.sourceUrl && (
-              <a href={product.sourceUrl} target="_blank" rel="noreferrer" className="price-source">Provider pricing reference <ExternalLink className="h-3.5 w-3.5" /></a>
+              <a
+                href={product.sourceUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="price-source"
+              >
+                Provider pricing reference{' '}
+                <ExternalLink className="h-3.5 w-3.5" />
+              </a>
             )}
-            {annual && <div className="plan-notice"><CalendarDays className="h-5 w-5" /><span><strong>One-time payment for the full year</strong>No monthly payments to Sasify Solutions.</span></div>}
-            <div className="plan-notice"><ShieldCheck className="h-5 w-5" /><span><strong>{warranty ? 'Full 25-day warranty' : 'Warranty included'}</strong>{warranty ? 'Included with this one-month plan.' : 'Review this plan\'s warranty period before payment.'}</span></div>
-            {!product.contactOnly && <StockBuy productId={product.id} />}
-            {product.contactOnly ? <a href={whatsappLink(product.name, product.duration)} target="_blank" rel="noreferrer" className="primary-button detail-buy"><MessageCircle className="h-5 w-5" /> Contact on WhatsApp</a> : <a href={`/checkout?product=${encodeURIComponent(product.id)}`} className="primary-button detail-buy"><ShoppingCart className="h-5 w-5" /> Buy online</a>}
-            {!product.contactOnly && <><p className="order-footnote">Availability and activation details are confirmed before payment.</p><button type="button" className="whatsapp-purchase detail-buy" disabled><MessageCircle className="h-5 w-5" /> WhatsApp support <span>(after payment)</span></button></>}
+            {annual && (
+              <div className="plan-notice">
+                <CalendarDays className="h-5 w-5" />
+                <span>
+                  <strong>One-time payment for the full year</strong>No monthly
+                  payments to Sasify Solutions.
+                </span>
+              </div>
+            )}
+            <div className="plan-notice">
+              <ShieldCheck className="h-5 w-5" />
+              <span>
+                <strong>
+                  {warranty ? 'Full 25-day warranty' : 'Warranty included'}
+                </strong>
+                {warranty
+                  ? 'Included with this one-month plan.'
+                  : "Review this plan's warranty period before payment."}
+              </span>
+            </div>
+            {!product.contactOnly && product.id === 'p093' ? (
+              <>
+                <div className="chatgpt-ultra-only">
+                  <StockBuy productId="p093-ultra" />
+                </div>
+                <div className="chatgpt-momo-only">
+                  <StockBuy productId="p093-momo" />
+                </div>
+              </>
+            ) : (
+              !product.contactOnly && <StockBuy productId={product.id} />
+            )}
+            {product.contactOnly ? (
+              <a
+                href={whatsappLink(product.name, product.duration)}
+                target="_blank"
+                rel="noreferrer"
+                className="primary-button detail-buy"
+              >
+                <MessageCircle className="h-5 w-5" /> Contact on WhatsApp
+              </a>
+            ) : product.id === 'p093' ? (
+              <>
+                <a
+                  href="/checkout?product=p093-ultra"
+                  className="primary-button detail-buy chatgpt-ultra-only"
+                >
+                  <ShoppingCart className="h-5 w-5" /> Pay online · PKR 3,499
+                </a>
+                <a
+                  href="/checkout?product=p093-momo"
+                  className="primary-button detail-buy chatgpt-momo-only"
+                >
+                  <ShoppingCart className="h-5 w-5" /> Pay online · PKR 2,999
+                </a>
+              </>
+            ) : (
+              <a
+                href={`/checkout?product=${encodeURIComponent(product.id)}`}
+                className="primary-button detail-buy"
+              >
+                <ShoppingCart className="h-5 w-5" /> Buy online
+              </a>
+            )}
+            {!product.contactOnly && (
+              <>
+                <p className="order-footnote">
+                  Availability and activation details are confirmed before
+                  payment.
+                </p>
+                <button
+                  type="button"
+                  className="whatsapp-purchase detail-buy"
+                  disabled
+                >
+                  <MessageCircle className="h-5 w-5" /> WhatsApp support{' '}
+                  <span>(after payment)</span>
+                </button>
+              </>
+            )}
           </aside>
         </div>
 
@@ -165,9 +583,25 @@ export default async function ProductPage({ params }: Props) {
             <h2>More plans to explore</h2>
             <div className="related-grid">
               {related.map((item) => (
-                <a key={item.id} href={productHref(item)} className="related-product">
-                  <div className="product-logo-frame"><ProductLogo product={item} /></div>
-                  <div><h3>{item.name}</h3><p>{item.duration}</p><strong>{item.contactOnly ? 'Contact on WhatsApp' : <Money amount={item.sellingPricePkr} />}</strong></div>
+                <a
+                  key={item.id}
+                  href={productHref(item)}
+                  className="related-product"
+                >
+                  <div className="product-logo-frame">
+                    <ProductLogo product={item} />
+                  </div>
+                  <div>
+                    <h3>{item.name}</h3>
+                    <p>{item.duration}</p>
+                    <strong>
+                      {item.contactOnly ? (
+                        'Contact on WhatsApp'
+                      ) : (
+                        <Money amount={item.sellingPricePkr} />
+                      )}
+                    </strong>
+                  </div>
                   <ArrowRight className="h-4 w-4" />
                 </a>
               ))}

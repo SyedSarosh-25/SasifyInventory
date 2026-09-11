@@ -90,3 +90,12 @@ ALTER TABLE commerce_payments ADD COLUMN IF NOT EXISTS source_message_id text;
 CREATE UNIQUE INDEX IF NOT EXISTS commerce_payments_source_message_id ON commerce_payments(source_message_id) WHERE source_message_id IS NOT NULL;
 CREATE TABLE IF NOT EXISTS commerce_limits (key text PRIMARY KEY, window_start timestamptz NOT NULL DEFAULT now(), hits integer NOT NULL DEFAULT 1);
 CREATE TABLE IF NOT EXISTS commerce_audit (id bigserial PRIMARY KEY, action text NOT NULL, object_id text, created_at timestamptz NOT NULL DEFAULT now());
+CREATE TABLE IF NOT EXISTS commerce_scam_reports (
+ id uuid PRIMARY KEY, name text NOT NULL, description text NOT NULL, amount_pkr integer CHECK(amount_pkr>=0),
+ identifiers jsonb NOT NULL DEFAULT '[]'::jsonb, payment_methods jsonb NOT NULL DEFAULT '[]'::jsonb,
+ evidence jsonb NOT NULL DEFAULT '[]'::jsonb, submitter_contact text,
+ status text NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','approved','rejected','removed')),
+ created_at timestamptz NOT NULL DEFAULT now(), reviewed_at timestamptz
+);
+ALTER TABLE commerce_scam_reports ADD COLUMN IF NOT EXISTS amount_pkr integer CHECK(amount_pkr>=0);
+CREATE INDEX IF NOT EXISTS commerce_scam_reports_status_created ON commerce_scam_reports(status, created_at DESC);

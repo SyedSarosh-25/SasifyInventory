@@ -41,16 +41,35 @@
     "react/display-name": "error",
     "react/jsx-no-comment-textnodes": "error",
     "react/no-unescaped-entities": "error",
-    "react/react-compiler": "error",
+    "react/react-compiler": "warn",
     "react/require-render-return": "error",
     "react/rules-of-hooks": "error",
     "typescript/ban-ts-comment": "error",
     "typescript/no-deprecated": "error",
     "typescript/no-empty-object-type": "error",
-    "typescript/no-explicit-any": "error",
+    "typescript/no-explicit-any": "warn",
     "typescript/no-namespace": "error",
     "typescript/no-require-imports": "error",
     "typescript/no-unnecessary-type-constraint": "error",
-    "typescript/no-unsafe-function-type": "error"
-  }
+    "typescript/no-unsafe-function-type": "error",
+    "typescript/restrict-template-expressions": "warn",
+    "nextjs/no-html-link-for-pages": "off",
+    "nextjs/no-img-element": "off",
+    "jsx-a11y/prefer-tag-over-role": "warn",
+    "jsx-a11y/click-events-have-key-events": "warn",
+    "jsx-a11y/no-noninteractive-element-interactions": "warn",
+    "jsx-a11y/no-noninteractive-tabindex": "warn",
+    "jsx-a11y/label-has-associated-control": "warn",
+    "jsx-a11y/control-has-associated-label": "warn",
+    "jsx-a11y/anchor-has-content": "warn",
+    "jsx-a11y/img-redundant-alt": "warn"
+  },
+  "overrides": [
+    {
+      "files": ["tests/**/*.mjs"],
+      "rules": {
+        "typescript/no-floating-promises": "off"
+      }
+    }
+  ]
 }

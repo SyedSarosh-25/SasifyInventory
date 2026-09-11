@@ -1,28 +1,68 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { products } from '../app/products.ts';
-import { siteOrigin, defaultSiteOrigin, founderProfile, socials } from '../app/site-config.ts';
-import { breadcrumbData, organizationData, productData, productDescription, productQuestions, productTitle, robotsRules, robotsText, serializeJsonLd, sitemapEntries, sitemapXml, websiteData } from '../app/seo.ts';
+import {
+  siteOrigin,
+  defaultSiteOrigin,
+  founderProfile,
+  socials,
+} from '../app/site-config.ts';
+import {
+  breadcrumbData,
+  organizationData,
+  productData,
+  productDescription,
+  productQuestions,
+  productTitle,
+  robotsRules,
+  robotsText,
+  serializeJsonLd,
+  sitemapEntries,
+  sitemapXml,
+  websiteData,
+} from '../app/seo.ts';
 
 test('sitemap contains only unique canonical pages at the configured domain', () => {
   assert.equal(defaultSiteOrigin, 'https://www.sasifysolutions.com');
   const entries = sitemapEntries();
-  assert.equal(entries.length, products.length + 8);
+  assert.equal(entries.length, products.length + 9);
   assert.equal(new Set(entries.map(({ url }) => url)).size, entries.length);
-  assert.deepEqual(entries.slice(0, 8).map(({ url }) => url), ['/', '/inventory', '/about', '/buying-guide', '/warranty', '/refunds', '/privacy', '/terms'].map((p) => siteOrigin + p));
+  assert.deepEqual(
+    entries.slice(0, 9).map(({ url }) => url),
+    [
+      '/',
+      '/inventory',
+      '/about',
+      '/buying-guide',
+      '/scammers',
+      '/warranty',
+      '/refunds',
+      '/privacy',
+      '/terms',
+    ].map((p) => siteOrigin + p),
+  );
   for (const entry of entries) {
     const url = new URL(entry.url);
     assert.equal(url.origin, siteOrigin);
     assert.equal(url.search, '');
     assert.equal(url.hash, '');
-    assert.ok(!('lastModified' in entry), 'Do not invent content modification dates');
+    assert.ok(
+      !('lastModified' in entry),
+      'Do not invent content modification dates',
+    );
   }
   assert.equal((sitemapXml().match(/<loc>/g) || []).length, entries.length);
 });
 
 test('robots rules allow discovery and advertise the same sitemap', () => {
-  assert.deepEqual(robotsRules(), { rules: { userAgent: '*', allow: '/' }, sitemap: `${siteOrigin}/sitemap.xml` });
-  assert.equal(robotsText(), `User-agent: *\nAllow: /\n\nSitemap: ${siteOrigin}/sitemap.xml\n`);
+  assert.deepEqual(robotsRules(), {
+    rules: { userAgent: '*', allow: '/' },
+    sitemap: `${siteOrigin}/sitemap.xml`,
+  });
+  assert.equal(
+    robotsText(),
+    `User-agent: *\nAllow: /\n\nSitemap: ${siteOrigin}/sitemap.xml\n`,
+  );
 });
 
 test('every variant has unique search metadata and a truthful PKR offer', () => {
@@ -31,27 +71,59 @@ test('every variant has unique search metadata and a truthful PKR offer', () => 
   for (const product of products) {
     assert.ok(productTitle(product).includes(product.name));
     assert.match(productTitle(product), /Price in Pakistan/);
-    assert.ok(product.contactOnly || productDescription(product).includes(product.sellingPricePkr.toLocaleString('en-PK')));
+    assert.ok(
+      product.contactOnly ||
+        productDescription(product).includes(
+          product.sellingPricePkr.toLocaleString('en-PK'),
+        ),
+    );
     const data = productData(product);
     assert.equal(data['@type'], 'Product');
     assert.equal(data.sku, product.id);
     assert.equal(data.description, product.description);
     if (product.contactOnly) assert.equal(data.offers, undefined);
     else {
-      assert.equal(data.offers.price, product.sellingPricePkr);
-      assert.equal(data.offers.priceCurrency, 'PKR');
-      assert.equal(data.offers.url, `${siteOrigin}/products/${product.id}`);
-      assert.equal(data.offers.seller['@id'], organizationData['@id']);
+      const offers = Array.isArray(data.offers) ? data.offers : [data.offers];
+      assert.deepEqual(
+        offers.map(({ price }) => price),
+        product.variants?.map(({ sellingPricePkr }) => sellingPricePkr) || [
+          product.sellingPricePkr,
+        ],
+      );
+      for (const offer of offers) {
+        assert.equal(offer.priceCurrency, 'PKR');
+        assert.equal(
+          offer.url,
+          product.variants
+            ? `${siteOrigin}/products/${product.id}#account-options`
+            : `${siteOrigin}/products/${product.id}`,
+        );
+        assert.equal(offer.seller['@id'], organizationData['@id']);
+        for (const key of [
+          'availability',
+          'priceValidUntil',
+          'hasMerchantReturnPolicy',
+        ])
+          assert.ok(!(key in offer));
+      }
     }
-    for (const key of ['aggregateRating', 'review', 'brand', 'gtin']) assert.ok(!(key in data));
-    if (data.offers) for (const key of ['availability', 'priceValidUntil', 'hasMerchantReturnPolicy']) assert.ok(!(key in data.offers));
+    for (const key of ['aggregateRating', 'review', 'brand', 'gtin'])
+      assert.ok(!(key in data));
   }
 });
 
 test('plan answers preserve annual payments, limited warranty and unknown duration', () => {
   const hostinger = products.find(({ id }) => id === 'p100');
   assert.match(productQuestions(hostinger)[1].answer, /PKR 4,500/);
-  assert.match(productQuestions(products.find(({ id }) => id === 'p013'))[2].answer, /25-day warranty/);
+  assert.match(
+    productQuestions(products.find(({ id }) => id === 'p013'))[2].answer,
+    /25-day warranty/,
+  );
+  const chatGptAnswers = productQuestions(
+    products.find(({ id }) => id === 'p093'),
+  );
+  assert.match(chatGptAnswers[0].answer, /PKR 3,499/);
+  assert.match(chatGptAnswers[0].answer, /PKR 2,999/);
   assert.doesNotMatch(productQuestions(hostinger)[2].answer, /25-day/);
   const unknown = { ...hostinger, duration: '-' };
   assert.match(productQuestions(unknown)[0].answer, /Review the access period/);
@@ -63,22 +135,40 @@ test('business identity uses the real founder and supplied contact links, not pr
   assert.equal(organizationData.telephone, '+923116185711');
   assert.equal(organizationData.founder.name, 'Syed Sarosh');
   assert.equal(organizationData.founder.url, founderProfile);
-  assert.deepEqual(organizationData.sameAs, socials.map(({ href }) => href));
+  assert.deepEqual(
+    organizationData.sameAs,
+    socials.map(({ href }) => href),
+  );
   assert.ok(!('address' in organizationData));
   assert.ok(!('aggregateRating' in organizationData));
   assert.equal(websiteData.publisher['@id'], organizationData['@id']);
-  assert.ok(!('potentialAction' in websiteData), 'Do not claim unsupported search features');
+  assert.ok(
+    !('potentialAction' in websiteData),
+    'Do not claim unsupported search features',
+  );
 });
 
 test('JSON-LD escapes script boundaries while preserving original data', () => {
-  const data = { name: '</script><script>alert("x")</script>', description: 'A & B < C' };
+  const data = {
+    name: '</script><script>alert("x")</script>',
+    description: 'A & B < C',
+  };
   const serialized = serializeJsonLd(data);
   assert.ok(!serialized.includes('<'));
   assert.deepEqual(JSON.parse(serialized), data);
 });
 
 test('breadcrumbs retain order and absolute canonical destinations', () => {
-  const data = breadcrumbData([{ name: 'Home', path: '/' }, { name: 'Full inventory', path: '/inventory' }]);
-  assert.deepEqual(data.itemListElement.map(({ position }) => position), [1, 2]);
-  assert.deepEqual(data.itemListElement.map(({ item }) => item), [`${siteOrigin}/`, `${siteOrigin}/inventory`]);
+  const data = breadcrumbData([
+    { name: 'Home', path: '/' },
+    { name: 'Full inventory', path: '/inventory' },
+  ]);
+  assert.deepEqual(
+    data.itemListElement.map(({ position }) => position),
+    [1, 2],
+  );
+  assert.deepEqual(
+    data.itemListElement.map(({ item }) => item),
+    [`${siteOrigin}/`, `${siteOrigin}/inventory`],
+  );
 });

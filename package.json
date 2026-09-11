@@ -9,6 +9,7 @@
     "dev": "vinext dev",
     "build": "vinext build",
     "build:static": "node scripts/build-static.mjs",
+    "deploy:prod": "npm run build:static && node scripts/package-commerce.mjs && vercel deploy --prebuilt --prod",
     "start": "wrangler dev --config dist/server/wrangler.json",
     "lint": "oxlint",
     "format": "oxfmt"
@@ -27,6 +28,8 @@
     "html-to-text": "^10.0.1",
     "input-otp": "1.4.2",
     "lucide-react": "1.31.0",
+    "mailauth": "^5.0.3",
+    "mailparser": "^3.9.24",
     "pg": "^8.23.0",
     "react": "19.2.6",
     "react-day-picker": "9.8.1",

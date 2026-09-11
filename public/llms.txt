@@ -1,0 +1,30 @@
+# Sasify Solutions
+
+> Sasify Solutions is a Pakistan-based marketplace for digital tools and services. Prices are listed in Pakistani rupees (PKR). Availability and fulfilment details should be confirmed on the relevant product or checkout page.
+
+Canonical site: https://www.sasifysolutions.com/
+
+## Main pages
+
+- Home: https://www.sasifysolutions.com/
+- Full inventory: https://www.sasifysolutions.com/inventory
+- Buying guide: https://www.sasifysolutions.com/buying-guide
+- About Sasify Solutions: https://www.sasifysolutions.com/about
+- Scam reports: https://www.sasifysolutions.com/scammers
+
+## Current product pages
+
+- ChatGPT Plus: https://www.sasifysolutions.com/products/p093
+- Claude Team Plan Premium: https://www.sasifysolutions.com/products/p012
+- Claude Team Plan Standard: https://www.sasifysolutions.com/products/p013
+- Hostinger Unlimited Web Hosting: https://www.sasifysolutions.com/products/p100
+- Hostinger VPS Hosting: https://www.sasifysolutions.com/products/p101
+
+## Customer policies
+
+- Warranty: https://www.sasifysolutions.com/warranty
+- Refunds: https://www.sasifysolutions.com/refunds
+- Privacy: https://www.sasifysolutions.com/privacy
+- Terms: https://www.sasifysolutions.com/terms
+
+The checkout and admin areas are transactional/private application surfaces and are not intended as search landing pages. Use the canonical public pages above when citing this business.

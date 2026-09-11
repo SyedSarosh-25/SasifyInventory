@@ -16,6 +16,7 @@ export type Product = {
 };
 
 export type ProductVariant = {
+  id?: string;
   name: string;
   duration: string;
   sellingPricePkr: number;
@@ -34,7 +35,24 @@ export const products: Product[] = [
     originalPrice: 'PKR 5,700/month',
     originalPricePkr: 5700,
     sourceUrl: 'https://openai.com/chatgpt/pricing/',
-    description: 'One-month ChatGPT Plus access for advanced models, higher limits, file analysis, image generation and productivity workflows.',
+    description:
+      'One-month ChatGPT Plus access for advanced models, higher limits, file analysis, image generation and productivity workflows.',
+    variants: [
+      {
+        id: 'p093-ultra',
+        name: 'Ultra Stable Account · Apple Pay',
+        duration: '1 Month',
+        sellingPricePkr: 3499,
+        originalPricePkr: 5700,
+      },
+      {
+        id: 'p093-momo',
+        name: 'Partially Stable Account · Momo Pay',
+        duration: '1 Month',
+        sellingPricePkr: 2999,
+        originalPricePkr: 5700,
+      },
+    ],
   },
   {
     id: 'p012',
@@ -47,7 +65,8 @@ export const products: Product[] = [
     originalPrice: 'PKR 35,000 per seat/month',
     originalPricePkr: 35000,
     sourceUrl: 'https://claude.com/pricing',
-    description: 'One-month Claude Team Premium seat for demanding writing, research, coding and document-analysis workflows, with higher usage capacity than a Standard seat.',
+    description:
+      'One-month Claude Team Premium seat for demanding writing, research, coding and document-analysis workflows, with higher usage capacity than a Standard seat.',
     details: [
       'Premium is the higher-usage seat type within Claude Team, not an API credit package.',
       'Claude Team includes Claude Code and Cowork. Feature access remains subject to the workspace settings and provider limits.',
@@ -65,7 +84,8 @@ export const products: Product[] = [
     originalPrice: 'PKR 7,500 per seat/month',
     originalPricePkr: 7500,
     sourceUrl: 'https://claude.com/pricing',
-    description: 'One-month Claude Team Standard seat for AI-assisted writing, research, document analysis and coding in a team workspace.',
+    description:
+      'One-month Claude Team Standard seat for AI-assisted writing, research, document analysis and coding in a team workspace.',
     details: [
       'Standard is the entry seat type within Claude Team, with usage limits set by Anthropic.',
       "This is a totally private seat delivered to the client's email, not a shared login.",
@@ -83,7 +103,8 @@ export const products: Product[] = [
     originalPrice: 'PKR 38,000/year',
     originalPricePkr: 38000,
     sourceUrl: 'https://www.hostinger.com/web-hosting',
-    description: 'Hostinger Unlimited web hosting for 12 months with generous website resources for personal and business sites.',
+    description:
+      'Hostinger Unlimited web hosting for 12 months with generous website resources for personal and business sites.',
   },
   {
     id: 'p101',
@@ -96,17 +117,38 @@ export const products: Product[] = [
     contactOnly: true,
     originalPrice: 'KVM packages from PKR 28,788',
     sourceUrl: 'https://www.hostinger.com/vps',
-    description: 'Hostinger KVM VPS packages for 12 months with dedicated resources, NVMe storage, high-speed bandwidth and full VPS access and control. Choose the KVM package that fits your project and contact Sasify Solutions on WhatsApp to purchase.',
+    description:
+      'Hostinger KVM VPS packages for 12 months with dedicated resources, NVMe storage, high-speed bandwidth and full VPS access and control. Choose the KVM package that fits your project and contact Sasify Solutions on WhatsApp to purchase.',
     details: [
       '12-month validity for every package.',
       'Powerful KVM VPS with dedicated resources, NVMe storage and high-speed bandwidth.',
       'Full VPS access and control. Contact us on WhatsApp for availability and purchase.',
     ],
     variants: [
-      { name: 'KVM1 VPS', duration: '12 Months', sellingPricePkr: 14999, originalPricePkr: 28788 },
-      { name: 'KVM2 VPS', duration: '12 Months', sellingPricePkr: 24999, originalPricePkr: 38388 },
-      { name: 'KVM4 VPS', duration: '12 Months', sellingPricePkr: 29999, originalPricePkr: 51588 },
-      { name: 'KVM8 VPS', duration: '12 Months', sellingPricePkr: 49999, originalPricePkr: 101988 },
+      {
+        name: 'KVM1 VPS',
+        duration: '12 Months',
+        sellingPricePkr: 14999,
+        originalPricePkr: 28788,
+      },
+      {
+        name: 'KVM2 VPS',
+        duration: '12 Months',
+        sellingPricePkr: 24999,
+        originalPricePkr: 38388,
+      },
+      {
+        name: 'KVM4 VPS',
+        duration: '12 Months',
+        sellingPricePkr: 29999,
+        originalPricePkr: 51588,
+      },
+      {
+        name: 'KVM8 VPS',
+        duration: '12 Months',
+        sellingPricePkr: 49999,
+        originalPricePkr: 101988,
+      },
     ],
   },
 ];

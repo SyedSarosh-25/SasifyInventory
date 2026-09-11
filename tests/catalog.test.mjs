@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { products } from '../app/products.ts';
 import { accessTypeLabel, has25DayWarranty, isAnnualPlan, originalPriceComparison, originalPricePkr, planMonths, productHref, productLogo, savingsPkr, whatsappLink } from '../app/product-utils.ts';
-import { featuredProducts, filterProducts, heroProducts, orbitTools, supplierEquivalentProductName } from '../app/catalog-selection.ts';
+import { featuredProducts, filterProducts, heroProducts, orbitTools, supplierEquivalentProductName, topProductSlots } from '../app/catalog-selection.ts';
 
 test('every inventory variant has a unique detail URL', () => {
   assert.equal(new Set(products.map(productHref)).size, products.length);
@@ -34,7 +34,7 @@ test('Hostinger VPS keeps all supplied KVM packages under one WhatsApp product',
     ['KVM4 VPS', 29999, 51588],
     ['KVM8 VPS', 49999, 101988],
   ]);
-  assert.equal(products.filter((p) => /^Hostinger KVM/.test(p.name)).length, 0);
+  assert.equal(products.filter((p) => p.name.startsWith('Hostinger KVM')).length, 0);
 });
 
 test('supplier-equivalent names collapse duration and fulfilment suffixes', () => {
@@ -124,6 +124,10 @@ test('savings preserve zero and negative differences and match all available ref
 test('landing selection has exactly ten distinct products with the requested first five', () => {
   assert.equal(featuredProducts.length, 4);
   assert.deepEqual(featuredProducts.map((product) => product.id), ['p013', 'p012', 'p100', 'p101']);
+});
+
+test('homepage top ten uses a fixed brand order instead of random supplier products', () => {
+  assert.deepEqual(topProductSlots.map((slot) => slot.label), ['Claude', 'ChatGPT', 'Hostinger', 'CapCut', 'Canva', 'Grok', 'LinkedIn', 'Figma', 'Microsoft', 'Codex API']);
 });
 
 test('static catalog contains only the approved local products', () => {

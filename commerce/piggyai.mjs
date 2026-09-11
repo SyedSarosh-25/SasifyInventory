@@ -3,12 +3,11 @@ import { providerLogo } from './provider-media.mjs';
 
 const endpoint = 'https://canboso.com';
 
-function configured() {
-  if (!process.env.PIGGYAI_API_KEY) throw Object.assign(new Error('PiggyAi API is not configured.'), { status: 503 });
-}
-
 async function request(path, init = {}, envName = 'PIGGYAI_API_KEY') {
-  if (!process.env[envName]) throw Object.assign(new Error(`${envName} is not configured.`), { status: 503 });
+  if (!process.env[envName])
+    throw Object.assign(new Error(`${envName} is not configured.`), {
+      status: 503,
+    });
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 20000);
   try {
@@ -24,14 +23,32 @@ async function request(path, init = {}, envName = 'PIGGYAI_API_KEY') {
     });
     const data = await response.json().catch(() => ({}));
     if (!response.ok || data.success === false) {
-      const message = data.message || data.error || `PiggyAi request failed (${response.status}).`;
-      throw Object.assign(new Error(message), { status: response.status >= 400 && response.status < 500 && response.status !== 429 ? 409 : 503, code: data.code || null, retryAfter: Number(response.headers.get('retry-after') || 0) });
+      const message =
+        data.message ||
+        data.error ||
+        `PiggyAi request failed (${response.status}).`;
+      throw Object.assign(new Error(message), {
+        status:
+          response.status >= 400 &&
+          response.status < 500 &&
+          response.status !== 429
+            ? 409
+            : 503,
+        code: data.code || null,
+        retryAfter: Number(response.headers.get('retry-after') || 0),
+      });
     }
     return data;
   } catch (error) {
-    if (error.name === 'AbortError') throw Object.assign(new Error('PiggyAi request timed out. It can be retried safely.'), { status: 503 });
+    if (error.name === 'AbortError')
+      throw Object.assign(
+        new Error('PiggyAi request timed out. It can be retried safely.'),
+        { status: 503 },
+      );
     throw error;
-  } finally { clearTimeout(timeout); }
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 function unwrap(data, key) {
@@ -48,32 +65,106 @@ export async function fetchPiggyAiProducts(envName = 'PIGGYAI_API_KEY') {
 }
 
 export function normalizePiggyAiProduct(product, defaultCurrency = 'USD') {
-  const id = String(product?.id ?? product?.product_id ?? product?.productId ?? '').trim();
-  const name = String(product?.name_en ?? product?.name ?? product?.title ?? '').trim();
-  const wholesalePrice = Number(product?.price_usd ?? product?.unit_price ?? product?.wholesale_price ?? product?.price?.amount ?? product?.price ?? product?.cost ?? product?.amount);
-  const rawStock = product?.stock ?? product?.quantity ?? product?.available_stock ?? product?.available ?? product?.availability?.available ?? product?.in_stock;
-  const stock = rawStock === null || rawStock === undefined ? 0 : Number(rawStock);
-  const currency = String(product?.currency || defaultCurrency || 'USD').trim().toUpperCase();
-  if (!id || !name || !Number.isFinite(wholesalePrice) || wholesalePrice < 0 || !Number.isSafeInteger(stock) || stock < 0) return null;
+  const id = String(
+    product?.id ?? product?.product_id ?? product?.productId ?? '',
+  ).trim();
+  const name = String(
+    product?.name_en ?? product?.name ?? product?.title ?? '',
+  ).trim();
+  const wholesalePrice = Number(
+    product?.price_usd ??
+      product?.unit_price ??
+      product?.wholesale_price ??
+      product?.price?.amount ??
+      product?.price ??
+      product?.cost ??
+      product?.amount,
+  );
+  const rawStock =
+    product?.stock ??
+    product?.quantity ??
+    product?.available_stock ??
+    product?.available ??
+    product?.availability?.available ??
+    product?.in_stock;
+  const stock =
+    rawStock === null || rawStock === undefined ? 0 : Number(rawStock);
+  const currency = String(product?.currency || defaultCurrency || 'USD')
+    .trim()
+    .toUpperCase();
+  if (
+    !id ||
+    !name ||
+    !Number.isFinite(wholesalePrice) ||
+    wholesalePrice < 0 ||
+    !Number.isSafeInteger(stock) ||
+    stock < 0
+  )
+    return null;
   const logo = providerLogo(product);
-  return { id, name, description: providerDescription(product), delivery_instruction: product?.activation_url ? String(product.activation_url) : null, wholesale_price: wholesalePrice, currency: currency.slice(0, 12), stock, canonical_key: String(product?.sku || product?.slug || `piggyai:${id}`).slice(0, 200), ...(logo ? { logo_url: logo } : {}) };
+  return {
+    id,
+    name,
+    description: providerDescription(product),
+    delivery_instruction: product?.activation_url
+      ? String(product.activation_url)
+      : null,
+    wholesale_price: wholesalePrice,
+    currency: currency.slice(0, 12),
+    stock,
+    canonical_key: String(
+      product?.sku || product?.slug || `piggyai:${id}`,
+    ).slice(0, 200),
+    ...(logo ? { logo_url: logo } : {}),
+  };
 }
 
 export async function fetchPiggyAiBalance(envName = 'PIGGYAI_API_KEY') {
   const data = await request('/api/v2/telegram-buyer/balance', {}, envName);
   const value = data.balance ?? data.data?.balance ?? data.wallet_balance ?? 0;
-  return { balance: Number(value), currency: String(data.currency || data.walletCurrency || data.data?.currency || 'USD') };
+  return {
+    balance: Number(value),
+    currency: String(
+      data.currency || data.walletCurrency || data.data?.currency || 'USD',
+    ),
+  };
 }
 
-export async function createPiggyAiOrder({ productId, quantity = 1, idempotencyKey, envName = 'PIGGYAI_API_KEY' }) {
-  return request('/api/v2/telegram-buyer/purchase', { method: 'POST', headers: { 'Idempotency-Key': idempotencyKey }, body: JSON.stringify({ product_id: productId, quantity }) }, envName);
+export async function createPiggyAiOrder({
+  productId,
+  quantity = 1,
+  idempotencyKey,
+  envName = 'PIGGYAI_API_KEY',
+}) {
+  return request(
+    '/api/v2/telegram-buyer/purchase',
+    {
+      method: 'POST',
+      headers: { 'Idempotency-Key': idempotencyKey },
+      body: JSON.stringify({ product_id: productId, quantity }),
+    },
+    envName,
+  );
 }
 
 export function piggyAiDelivery(data) {
   const order = data.order || data.data || data;
-  const raw = order.items ?? order.delivery ?? order.credentials ?? order.code ?? order.content ?? order.result;
-  if (raw === undefined || raw === null || raw === '') throw Object.assign(new Error('PiggyAi order completed without delivery data.'), { status: 503 });
-  return { content: typeof raw === 'string' ? raw : JSON.stringify(raw, null, 2), instructions: order.instructions || '' };
+  const raw =
+    order.items ??
+    order.delivery ??
+    order.credentials ??
+    order.code ??
+    order.content ??
+    order.result;
+  if (raw === undefined || raw === null || raw === '')
+    throw Object.assign(
+      new Error('PiggyAi order completed without delivery data.'),
+      { status: 503 },
+    );
+  return {
+    content: typeof raw === 'string' ? raw : JSON.stringify(raw, null, 2),
+    instructions: order.instructions || '',
+  };
 }
 
 export function piggyAiOrderId(data, fallback) {

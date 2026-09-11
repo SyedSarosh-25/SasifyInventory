@@ -49,6 +49,21 @@ export const orbitTools = [
   return { ...tool, product };
 });
 
+// The homepage's Top 10 is a curated, stable list. Supplier prices, stock and
+// logos remain live, but the product slots and their order must not be random.
+export const topProductSlots = [
+  { label: 'Claude', match: /claude/i },
+  { label: 'ChatGPT', match: /chatgpt|openai/i },
+  { label: 'Hostinger', match: /hostinger/i },
+  { label: 'CapCut', match: /capcut/i, preferredPrice: 999 },
+  { label: 'Canva', match: /canva/i, preferredPrice: 999 },
+  { label: 'Grok', match: /grok/i },
+  { label: 'LinkedIn', match: /linkedin/i },
+  { label: 'Figma', match: /figma/i },
+  { label: 'Microsoft', match: /microsoft|ms\s*office|office\s*365/i },
+  { label: 'Codex API', match: /codex.*(?:api|credit|token)|(?:api|credit|token).*codex/i },
+] as const;
+
 export function normalizeSearchText(value: string) {
   return value.toLowerCase().replace(/[^a-z0-9]+/g, '');
 }

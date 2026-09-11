@@ -6,7 +6,7 @@ import { PGlite } from '@electric-sql/pglite';
 import { createHandler } from '../commerce/handler.mjs';
 import { hash, signature } from '../commerce/core.mjs';
 
-test('retained Claude inventory supports checkout, verification, delivery and cancellation', async () => {
+test('ChatGPT Plus local inventory supports checkout, verification, delivery and cancellation', async () => {
   const database = new PGlite();
   await database.exec(await readFile(new URL('../commerce/schema.sql', import.meta.url), 'utf8'));
   const env = {
@@ -44,29 +44,29 @@ test('retained Claude inventory supports checkout, verification, delivery and ca
   }
   try {
     assert.equal((await request('admin-import', { productId: 'p013', accounts: 'claude@test.invalid|test-pass|test-2fa', purchaseCost: 1000 }, 'wrong')).code, 401);
-    assert.equal((await request('admin-import', { productId: 'p013', accounts: 'claude@test.invalid|test-pass|test-2fa', purchaseCost: 1000 }, env.COMMERCE_ADMIN_KEY)).code, 200);
+    assert.equal((await request('admin-import', { productId: 'p013', accounts: 'claude@test.invalid|test-pass|test-2fa', purchaseCost: 1000 }, env.COMMERCE_ADMIN_KEY)).code, 400);
+    assert.equal((await request('admin-import', { productId: 'p093', accounts: 'chatgpt@test.invalid|test-pass|test-2fa', purchaseCost: 1000 }, env.COMMERCE_ADMIN_KEY)).code, 200);
     const stock = await request('stock');
     assert.equal(stock.code, 200);
-    assert.equal(stock.data.products.find((product) => product.id === 'p013').available, 1);
-    assert.equal((await request('create', { productId: 'p093' })).code, 409);
+    assert.equal(stock.data.products.find((product) => product.id === 'p093').available, 1);
     assert.equal((await request('create', { productId: 'p013', couponCode: 'RESELL' })).code, 409);
-    const created = await request('create', { productId: 'p013' });
+    const created = await request('create', { productId: 'p093' });
     assert.equal(created.code, 200, JSON.stringify(created));
     const order = created.data;
     const claim = await request('claim', { id: order.id, transactionId: 'TMICFBPK100926055571425207' }, order.recovery);
     assert.equal(claim.code, 200, JSON.stringify(claim));
-    const payload = { subject: 'You got Rs. 5,199 from Bank Alfalah-0388 🎉', text: 'Amount Received\nRs. 5,199\nTransaction ID\nTMICFBPK100926055571425207\nSource Acc. Number\n****0388\nDestination Acc. Title\nSyed Adeen Sarosh', from: 'NayaPay <service@nayapay.com>', date: new Date().toISOString(), sentAt: String(Date.now()), messageId: 'integration-test', secret: env.NAYAPAY_WEBHOOK_SECRET };
+    const payload = { subject: 'You got Rs. 3,499 from Bank Alfalah-0388 🎉', text: 'Amount Received\nRs. 3,499\nTransaction ID\nTMICFBPK100926055571425207\nSource Acc. Number\n****0388\nDestination Acc. Title\nSyed Adeen Sarosh', from: 'NayaPay <service@nayapay.com>', date: new Date().toISOString(), sentAt: String(Date.now()), messageId: 'integration-test', secret: env.NAYAPAY_WEBHOOK_SECRET };
     payload.signature = signature(payload, env.NAYAPAY_SIGNING_KEY);
     assert.equal((await request('email-webhook', payload)).code, 200);
     const status = await request('status', undefined, order.recovery, order.id);
     assert.equal(status.data.status, 'delivered', JSON.stringify(status));
     assert.equal(status.data.credentials.password, 'test-pass');
     const metrics = (await request('admin-list', undefined, env.COMMERCE_ADMIN_KEY)).data.metrics;
-    assert.equal(metrics.income, 5199);
+    assert.equal(metrics.income, 3499);
     assert.equal(metrics.cost, 1000);
-    assert.equal(metrics.profit, 4199);
-    await request('admin-import', { productId: 'p013', accounts: 'cancel@test.invalid|cancel-pass|cancel-2fa', purchaseCost: 1000 }, env.COMMERCE_ADMIN_KEY);
-    const pending = await request('create', { productId: 'p013' });
+    assert.equal(metrics.profit, 2499);
+    await request('admin-import', { productId: 'p093', accounts: 'cancel@test.invalid|cancel-pass|cancel-2fa', purchaseCost: 1000 }, env.COMMERCE_ADMIN_KEY);
+    const pending = await request('create', { productId: 'p093' });
     assert.equal(pending.code, 200);
     assert.equal((await request('cancel', { id: pending.data.id }, pending.data.recovery)).code, 200);
     assert.equal((await request('status', undefined, pending.data.recovery, pending.data.id)).data.status, 'cancelled');

@@ -1,7 +1,18 @@
 import type { Product } from './products.ts';
 import { products } from './products.ts';
-import { formatPkr, has25DayWarranty, isAnnualPlan, productHref, productLogo } from './product-utils.ts';
-import { founderProfile, siteDescription, siteOrigin, socials } from './site-config.ts';
+import {
+  formatPkr,
+  has25DayWarranty,
+  isAnnualPlan,
+  productHref,
+  productLogo,
+} from './product-utils.ts';
+import {
+  founderProfile,
+  siteDescription,
+  siteOrigin,
+  socials,
+} from './site-config.ts';
 
 export function productTitle(product: Product) {
   const duration = product.duration === '-' ? '' : ` (${product.duration})`;
@@ -9,36 +20,61 @@ export function productTitle(product: Product) {
 }
 
 export function productDescription(product: Product) {
-  if (product.contactOnly) return `${product.name}: Choose from KVM1, KVM2, KVM4 and KVM8 packages, then contact Sasify Solutions on WhatsApp for pricing, availability and purchase.`;
+  if (product.contactOnly)
+    return `${product.name}: Choose from KVM1, KVM2, KVM4 and KVM8 packages, then contact Sasify Solutions on WhatsApp for pricing, availability and purchase.`;
   const duration = product.duration === '-' ? 'this package' : product.duration;
   return `${product.name}: ${formatPkr(product.sellingPricePkr)} for ${duration} in Pakistan. Check access, warranty and plan details, then buy online with automatic delivery after payment verification.`;
 }
 
 export function productQuestions(product: Product) {
-  if (product.contactOnly) return [
-    {
-      question: `How do I get ${product.name} pricing and details?`,
-      answer: `Choose your preferred package on this page, then contact Sasify Solutions on WhatsApp for availability, payment details and purchase of ${product.name}.`,
-    },
-    {
-      question: `Which options are available for ${product.name}?`,
-      answer: `${product.description} The available packages are KVM1, KVM2, KVM4 and KVM8. Ask our team which option fits your required resources before ordering.`,
-    },
-    {
-      question: `What support comes with ${product.name}?`,
-      answer: 'Sasify Solutions support is available on WhatsApp for availability, activation and plan questions.',
-    },
-  ];
+  if (product.contactOnly)
+    return [
+      {
+        question: `How do I get ${product.name} pricing and details?`,
+        answer: `Choose your preferred package on this page, then contact Sasify Solutions on WhatsApp for availability, payment details and purchase of ${product.name}.`,
+      },
+      {
+        question: `Which options are available for ${product.name}?`,
+        answer: `${product.description} The available packages are KVM1, KVM2, KVM4 and KVM8. Ask our team which option fits your required resources before ordering.`,
+      },
+      {
+        question: `What support comes with ${product.name}?`,
+        answer:
+          'Sasify Solutions support is available on WhatsApp for availability, activation and plan questions.',
+      },
+    ];
+  if (product.id === 'p093' && product.variants?.length)
+    return [
+      {
+        question:
+          'What are the ChatGPT Plus account options and prices in Pakistan?',
+        answer:
+          'Choose the Ultra Stable Account paid through Apple Pay for PKR 3,499, or the Partially Stable Account paid through Momo Pay for PKR 2,999. Both listings provide one month of ChatGPT Plus access; select the account type before paying.',
+      },
+      {
+        question: 'How do I choose Apple Pay or Momo Pay?',
+        answer:
+          'Select your preferred account type on this page. The main payment panel will update its price, availability and checkout link for the selected Apple Pay or Momo Pay inventory.',
+      },
+      {
+        question: `What warranty comes with ${product.name}?`,
+        answer:
+          'Both one-month ChatGPT Plus options include a full 25-day warranty from Sasify Solutions. WhatsApp support is available after payment for delivery or activation issues.',
+      },
+    ];
   const price = formatPkr(product.sellingPricePkr);
   return [
     {
       question: `What is the ${product.name} price in Pakistan?`,
-      answer: product.duration === '-'
-        ? `Sasify Solutions lists this package at ${price}. Review the access period and availability, then buy online through secure checkout.`
-        : `Sasify Solutions lists ${product.name} at ${price} for ${product.duration}. Review the listing and buy online through secure checkout.`,
+      answer:
+        product.duration === '-'
+          ? `Sasify Solutions lists this package at ${price}. Review the access period and availability, then buy online through secure checkout.`
+          : `Sasify Solutions lists ${product.name} at ${price} for ${product.duration}. Review the listing and buy online through secure checkout.`,
     },
     {
-      question: isAnnualPlan(product) ? 'Is this a one-time payment for the full year?' : 'What access is included in this package?',
+      question: isAnnualPlan(product)
+        ? 'Is this a one-time payment for the full year?'
+        : 'What access is included in this package?',
       answer: isAnnualPlan(product)
         ? `Yes. Pay ${price} once to Sasify Solutions for the full year. No monthly payments to us are needed during that year. Provider usage limits still apply.`
         : `${product.description} Review the account, device, invitation and usage requirements for this exact listing before ordering.`,
@@ -58,7 +94,12 @@ export const organizationData = {
   '@id': `${siteOrigin}/#organization`,
   name: 'Sasify Solutions',
   url: `${siteOrigin}/`,
-  logo: { '@type': 'ImageObject', url: `${siteOrigin}/sasify-logo.png`, width: 200, height: 200 },
+  logo: {
+    '@type': 'ImageObject',
+    url: `${siteOrigin}/sasify-logo.png`,
+    width: 200,
+    height: 200,
+  },
   description: siteDescription,
   telephone: '+923116185711',
   founder: { '@type': 'Person', name: 'Syed Sarosh', url: founderProfile },
@@ -81,7 +122,10 @@ export function breadcrumbData(items: { name: string; path: string }[]) {
     '@context': 'https://schema.org',
     '@type': 'BreadcrumbList',
     itemListElement: items.map((item, index) => ({
-      '@type': 'ListItem', position: index + 1, name: item.name, item: `${siteOrigin}${item.path}`,
+      '@type': 'ListItem',
+      position: index + 1,
+      name: item.name,
+      item: `${siteOrigin}${item.path}`,
     })),
   };
 }
@@ -94,21 +138,48 @@ export function productData(product: Product) {
     '@type': 'Product',
     '@id': `${url}#product`,
     url,
-    name: product.duration === '-' ? product.name : `${product.name} - ${product.duration}`,
+    name:
+      product.duration === '-'
+        ? product.name
+        : `${product.name} - ${product.duration}`,
     description: product.description,
     sku: product.id,
     category: product.category,
     ...(logo ? { image: [logo] } : {}),
-    ...(product.duration === '-' ? {} : {
-      additionalProperty: [{ '@type': 'PropertyValue', name: 'Access period / allocation', value: product.duration }],
-    }),
-    ...(product.contactOnly ? {} : { offers: {
-      '@type': 'Offer', url,
-      price: product.sellingPricePkr,
-      priceCurrency: 'PKR',
-      description: productQuestions(product)[0].answer,
-      seller: { '@id': `${siteOrigin}/#organization` },
-    } }),
+    ...(product.duration === '-'
+      ? {}
+      : {
+          additionalProperty: [
+            {
+              '@type': 'PropertyValue',
+              name: 'Access period / allocation',
+              value: product.duration,
+            },
+          ],
+        }),
+    ...(product.contactOnly
+      ? {}
+      : {
+          offers: product.variants?.length
+            ? product.variants.map((variant) => ({
+                '@type': 'Offer',
+                url: `${url}#account-options`,
+                sku: variant.id,
+                name: variant.name,
+                price: variant.sellingPricePkr,
+                priceCurrency: 'PKR',
+                description: `${variant.name}: ${variant.duration} for ${formatPkr(variant.sellingPricePkr)}.`,
+                seller: { '@id': `${siteOrigin}/#organization` },
+              }))
+            : {
+                '@type': 'Offer',
+                url,
+                price: product.sellingPricePkr,
+                priceCurrency: 'PKR',
+                description: productQuestions(product)[0].answer,
+                seller: { '@id': `${siteOrigin}/#organization` },
+              },
+        }),
   };
 }
 
@@ -116,30 +187,59 @@ export function serializeJsonLd(data: Record<string, unknown>) {
   return JSON.stringify(data).replaceAll('<', '\\u003c');
 }
 
-export function faqData(path: string, questions: { question: string; answer: string }[]) {
+export function faqData(
+  path: string,
+  questions: { question: string; answer: string }[],
+) {
   return {
-    '@context': 'https://schema.org', '@type': 'FAQPage',
-    '@id': `${siteOrigin}${path}#questions`, url: `${siteOrigin}${path}`,
-    inLanguage: 'en-PK', publisher: { '@id': organizationData['@id'] },
+    '@context': 'https://schema.org',
+    '@type': 'FAQPage',
+    '@id': `${siteOrigin}${path}#questions`,
+    url: `${siteOrigin}${path}`,
+    inLanguage: 'en-PK',
+    publisher: { '@id': organizationData['@id'] },
     mainEntity: questions.map(({ question, answer }) => ({
-      '@type': 'Question', name: question,
+      '@type': 'Question',
+      name: question,
       acceptedAnswer: { '@type': 'Answer', text: answer },
     })),
   };
 }
 
 export function sitemapEntries() {
-  return ['/', '/inventory', '/about', '/buying-guide', '/warranty', '/refunds', '/privacy', '/terms', ...products.map(productHref)].map((path) => ({ url: `${siteOrigin}${path}` }));
+  return [
+    '/',
+    '/inventory',
+    '/about',
+    '/buying-guide',
+    '/scammers',
+    '/warranty',
+    '/refunds',
+    '/privacy',
+    '/terms',
+    ...products.map(productHref),
+  ].map((path) => ({ url: `${siteOrigin}${path}` }));
 }
 
 export function robotsRules() {
-  return { rules: { userAgent: '*', allow: '/' }, sitemap: `${siteOrigin}/sitemap.xml` };
+  return {
+    rules: { userAgent: '*', allow: '/' },
+    sitemap: `${siteOrigin}/sitemap.xml`,
+  };
 }
 
 // Static exports do not emit Vinext's dynamic metadata routes yet.
 export function sitemapXml() {
-  const xmlEscape = (value: string) => value.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&apos;');
-  return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${sitemapEntries().map(({ url }) => `  <url><loc>${xmlEscape(url)}</loc></url>`).join('\n')}\n</urlset>\n`;
+  const xmlEscape = (value: string) =>
+    value
+      .replaceAll('&', '&amp;')
+      .replaceAll('<', '&lt;')
+      .replaceAll('>', '&gt;')
+      .replaceAll('"', '&quot;')
+      .replaceAll("'", '&apos;');
+  return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${sitemapEntries()
+    .map(({ url }) => `  <url><loc>${xmlEscape(url)}</loc></url>`)
+    .join('\n')}\n</urlset>\n`;
 }
 
 export function robotsText() {

@@ -20,7 +20,7 @@ import {
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { products } from './products';
-import { productHref, savingsPkr, whatsappLink } from './product-utils';
+import { productHref, whatsappLink } from './product-utils';
 import { orbitTools } from './catalog-selection';
 import { ProductLogo } from './components/product-logo';
 import { TopSupplierProducts } from './components/top-supplier-products';
