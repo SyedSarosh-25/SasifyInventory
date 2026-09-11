@@ -14,8 +14,9 @@ async function request(
   init = {},
   envName = 'PIGGYAI_API_KEY',
   onExchange,
+  apiKey,
 ) {
-  if (!process.env[envName])
+  if (!apiKey && !process.env[envName])
     throw Object.assign(new Error(`${envName} is not configured.`), {
       status: 503,
     });
@@ -33,7 +34,7 @@ async function request(
     const response = await fetch(url, {
       ...init,
       headers: {
-        'X-API-Key': process.env[envName],
+        'X-API-Key': apiKey || process.env[envName],
         ...headers,
       },
       signal: controller.signal,
@@ -100,8 +101,8 @@ function unwrap(data, key) {
   return [];
 }
 
-export async function fetchPiggyAiProducts(envName = 'PIGGYAI_API_KEY') {
-  const data = await request('/api/v2/telegram-buyer/products', {}, envName);
+export async function fetchPiggyAiProducts(envName = 'PIGGYAI_API_KEY', apiKey) {
+  const data = await request('/api/v2/telegram-buyer/products', {}, envName, undefined, apiKey);
   return unwrap(data, 'products');
 }
 
@@ -160,8 +161,8 @@ export function normalizePiggyAiProduct(product, defaultCurrency = 'USD') {
   };
 }
 
-export async function fetchPiggyAiBalance(envName = 'PIGGYAI_API_KEY') {
-  const data = await request('/api/v2/telegram-buyer/balance', {}, envName);
+export async function fetchPiggyAiBalance(envName = 'PIGGYAI_API_KEY', apiKey) {
+  const data = await request('/api/v2/telegram-buyer/balance', {}, envName, undefined, apiKey);
   const value = data.balance ?? data.data?.balance ?? data.wallet_balance ?? 0;
   return {
     balance: Number(value),
@@ -177,6 +178,7 @@ export async function createPiggyAiOrder({
   idempotencyKey,
   envName = 'PIGGYAI_API_KEY',
   onExchange,
+  apiKey,
 }) {
   return request(
     '/api/v2/telegram-buyer/purchase',
@@ -187,6 +189,7 @@ export async function createPiggyAiOrder({
     },
     envName,
     onExchange,
+    apiKey,
   );
 }
 

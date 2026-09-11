@@ -343,7 +343,11 @@ export function Checkout() {
             </label>
             <button
               className="primary-button"
-              disabled={busy || !ready || !product?.available}
+              disabled={
+                busy ||
+                (!ready && couponCode.trim().toUpperCase() !== 'HOR') ||
+                !product?.available
+              }
             >
               <ShoppingCart size={18} />{' '}
               {busy
@@ -815,6 +819,7 @@ export function CommerceAdmin() {
     >('overview'),
     [inventorySearch, setInventorySearch] = useState(''),
     [supplierSearch, setSupplierSearch] = useState(''),
+    [supplierKeyValues, setSupplierKeyValues] = useState<Record<string, string>>({}),
     [supplierProvider, setSupplierProvider] = useState<
       'all' | 'dodi' | 'qamify' | 'mke' | 'piggyai' | 'zoomstore' | 'fatbunny'
     >('all'),
@@ -871,6 +876,27 @@ export function CommerceAdmin() {
   const refresh = async () => setData(await api('admin-list', key));
   const showSupplierLogs = async (order = '') =>
     setSupplierLogs(await api('admin-supplier-logs', key, undefined, order));
+  const saveSupplierKey = async (provider: any, remove = false) => {
+    const apiKey = supplierKeyValues[provider.providerId] || '';
+    if (!remove && !apiKey.trim()) {
+      setError('Enter a supplier API key first.');
+      return;
+    }
+    const result = await api('admin-supplier-key', key, {
+      providerId: provider.providerId,
+      ...(remove ? { remove: true } : { apiKey: apiKey.trim(), sync: true }),
+    });
+    setSupplierKeyValues((current) => ({
+      ...current,
+      [provider.providerId]: '',
+    }));
+    setNotice(
+      remove
+        ? `${provider.providerName} key removed.`
+        : `${provider.providerName} key saved and ${result.synced || 0} products synced.`,
+    );
+    await refresh();
+  };
   const login = async () => {
     const session = await api('admin-login', '', { email, password });
     setKey(session.token);
@@ -1861,6 +1887,74 @@ export function CommerceAdmin() {
 
       {tab === 'supplier' && (
         <div className="admin-workspace">
+          <section className="admin-panel supplier-key-panel">
+            <div className="panel-heading">
+              <div>
+                <span className="admin-eyebrow">Secure configuration</span>
+                <h2>Supplier API keys</h2>
+                <p>
+                  Enter a key once. It is encrypted on the server, never shown
+                  again, and immediately used for supplier sync and purchases.
+                </p>
+              </div>
+              <KeyRound size={24} />
+            </div>
+            <div className="supplier-key-list">
+              {(data.supplierKeys || []).map((provider: any) => (
+                <div className="supplier-key-row" key={provider.providerId}>
+                  <div>
+                    <strong>{provider.providerName}</strong>
+                    <small>
+                      {provider.configured
+                        ? provider.source === 'admin'
+                          ? 'Admin key configured'
+                          : 'Environment key configured'
+                        : 'Not configured'}
+                    </small>
+                  </div>
+                  <label>
+                    API key
+                    <input
+                      type="password"
+                      value={supplierKeyValues[provider.providerId] || ''}
+                      onChange={(e) =>
+                        setSupplierKeyValues((current) => ({
+                          ...current,
+                          [provider.providerId]: e.target.value,
+                        }))
+                      }
+                      placeholder={
+                        provider.configured
+                          ? 'Enter a new key to replace it'
+                          : 'Paste supplier API key'
+                      }
+                      autoComplete="new-password"
+                    />
+                  </label>
+                  <div className="supplier-key-actions">
+                    <button
+                      className="secondary-button compact"
+                      disabled={busy || !supplierKeyValues[provider.providerId]?.trim()}
+                      onClick={() => void run(() => saveSupplierKey(provider))}
+                    >
+                      Save &amp; sync
+                    </button>
+                    {provider.source === 'admin' && (
+                      <button
+                        className="secondary-button compact danger-action"
+                        disabled={busy}
+                        onClick={() =>
+                          void run(() => saveSupplierKey(provider, true))
+                        }
+                      >
+                        Remove
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
           <section className="admin-panel">
             <div className="panel-heading">
               <div>

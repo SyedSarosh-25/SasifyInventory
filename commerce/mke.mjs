@@ -9,12 +9,12 @@ import {
 
 const endpoint = 'https://api.technysoft.com';
 
-function configured() {
-  if (!process.env.MKE_API_KEY) throw Object.assign(new Error('MKE Shop API is not configured.'), { status: 503 });
+function configured(apiKey) {
+  if (!apiKey && !process.env.MKE_API_KEY) throw Object.assign(new Error('MKE Shop API is not configured.'), { status: 503 });
 }
 
-async function request(path, init = {}, onExchange) {
-  configured();
+async function request(path, init = {}, onExchange, apiKey) {
+  configured(apiKey);
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 20000);
   const url = `${endpoint}${path}`;
@@ -28,7 +28,7 @@ async function request(path, init = {}, onExchange) {
   try {
     const response = await fetch(url, {
       ...init,
-      headers: { 'X-API-Key': process.env.MKE_API_KEY, ...headers },
+      headers: { 'X-API-Key': apiKey || process.env.MKE_API_KEY, ...headers },
       signal: controller.signal,
     });
     const data = await response.json().catch(() => ({}));
@@ -67,14 +67,14 @@ async function request(path, init = {}, onExchange) {
   } finally { clearTimeout(timeout); }
 }
 
-export async function fetchMkeProducts() {
-  const data = await request('/v1/products');
+export async function fetchMkeProducts(apiKey) {
+  const data = await request('/v1/products', {}, undefined, apiKey);
   if (!Array.isArray(data)) throw Object.assign(new Error('MKE Shop returned an invalid product catalog.'), { status: 503 });
   return data;
 }
 
-export async function fetchMkeBalance() {
-  const data = await request('/v1/me');
+export async function fetchMkeBalance(apiKey) {
+  const data = await request('/v1/me', {}, undefined, apiKey);
   return { balance: Number(data.balance), currency: String(data.currency || 'USD') };
 }
 
@@ -90,8 +90,8 @@ export function normalizeMkeProduct(product, defaultCurrency = 'USD') {
   return { id, name, description: providerDescription(product), delivery_instruction: product?.activation_url ? `Activate or redeem using this link: ${String(product.activation_url)}` : null, wholesale_price: wholesalePrice, currency: currency.slice(0, 12), stock, canonical_key: String(product?.sku || product?.slug || `mke:${id}`).slice(0, 200), ...(logo ? { logo_url: logo } : {}) };
 }
 
-export async function createMkeOrder({ productId, quantity = 1, idempotencyKey, onExchange }) {
-  return request('/v1/buy', { method: 'POST', headers: { 'Idempotency-Key': idempotencyKey }, body: JSON.stringify({ product_id: Number(productId), quantity }) }, onExchange);
+export async function createMkeOrder({ productId, quantity = 1, idempotencyKey, onExchange, apiKey }) {
+  return request('/v1/buy', { method: 'POST', headers: { 'Idempotency-Key': idempotencyKey }, body: JSON.stringify({ product_id: Number(productId), quantity }) }, onExchange, apiKey);
 }
 
 export function mkeDelivery(data) {

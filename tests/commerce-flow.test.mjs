@@ -61,16 +61,22 @@ test('ChatGPT Plus local inventory supports checkout, verification, delivery and
     assert.equal(freeStatus.data.credentials.email, 'chatgpt@test.invalid');
     assert.equal(freeStatus.data.teamCoupon, true);
     assert.equal((await request('admin-import', { productId: 'p093-momo', accounts: 'momo@test.invalid|momo-pass|momo-2fa', purchaseCost: 0 }, env.COMMERCE_ADMIN_KEY)).code, 200);
-    const momoFree = await request('create', { productId: 'p093-momo', couponCode: 'HOR' });
-    assert.equal(momoFree.code, 200, JSON.stringify(momoFree));
-    assert.equal(momoFree.data.amount, 0);
-    assert.equal(momoFree.data.originalAmount, 2999);
-    assert.equal(momoFree.data.couponDiscount, 2999);
-    assert.equal(momoFree.data.teamCoupon, true);
-    const momoStatus = await request('status', undefined, momoFree.data.recovery, momoFree.data.id);
-    assert.equal(momoStatus.data.status, 'delivered', JSON.stringify(momoStatus));
-    assert.equal(momoStatus.data.credentials.email, 'momo@test.invalid');
-    assert.equal(momoStatus.data.teamCoupon, true);
+    const paymentTitle = process.env.PAYMENT_ACCOUNT_TITLE;
+    delete process.env.PAYMENT_ACCOUNT_TITLE;
+    try {
+      const momoFree = await request('create', { productId: 'p093-momo', couponCode: 'HOR' });
+      assert.equal(momoFree.code, 200, JSON.stringify(momoFree));
+      assert.equal(momoFree.data.amount, 0);
+      assert.equal(momoFree.data.originalAmount, 2999);
+      assert.equal(momoFree.data.couponDiscount, 2999);
+      assert.equal(momoFree.data.teamCoupon, true);
+      const momoStatus = await request('status', undefined, momoFree.data.recovery, momoFree.data.id);
+      assert.equal(momoStatus.data.status, 'delivered', JSON.stringify(momoStatus));
+      assert.equal(momoStatus.data.credentials.email, 'momo@test.invalid');
+      assert.equal(momoStatus.data.teamCoupon, true);
+    } finally {
+      process.env.PAYMENT_ACCOUNT_TITLE = paymentTitle;
+    }
     const coupons = (await request('admin-list', undefined, env.COMMERCE_ADMIN_KEY)).data.coupons;
     const hor = coupons.find((coupon) => coupon.code_display === 'HOR');
     assert.ok(hor);

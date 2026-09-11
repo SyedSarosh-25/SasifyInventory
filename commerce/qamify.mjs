@@ -9,12 +9,12 @@ import {
 
 const endpoint = 'https://api.qamify.site';
 
-function configured() {
-  if (!process.env.QAMIFY_API_KEY) throw Object.assign(new Error('Qamify API is not configured.'), { status: 503 });
+function configured(apiKey) {
+  if (!apiKey && !process.env.QAMIFY_API_KEY) throw Object.assign(new Error('Qamify API is not configured.'), { status: 503 });
 }
 
-async function request(path, init = {}, onExchange) {
-  configured();
+async function request(path, init = {}, onExchange, apiKey) {
+  configured(apiKey);
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 20000);
   const url = `${endpoint}${path}`;
@@ -29,7 +29,7 @@ async function request(path, init = {}, onExchange) {
     const response = await fetch(url, {
       ...init,
       headers: {
-        Authorization: `Bearer ${process.env.QAMIFY_API_KEY}`,
+        Authorization: `Bearer ${apiKey || process.env.QAMIFY_API_KEY}`,
         ...headers,
       },
       signal: controller.signal,
@@ -70,8 +70,8 @@ async function request(path, init = {}, onExchange) {
   } finally { clearTimeout(timeout); }
 }
 
-export async function fetchQamifyProducts() {
-  const data = await request('/v1/products');
+export async function fetchQamifyProducts(apiKey) {
+  const data = await request('/v1/products', {}, undefined, apiKey);
   if (!Array.isArray(data.products)) throw Object.assign(new Error('Qamify returned an invalid catalog.'), { status: 503 });
   return data.products;
 }
@@ -97,17 +97,17 @@ export function normalizeQamifyProduct(product, defaultCurrency = 'USD') {
   };
 }
 
-export async function fetchQamifyBalance() {
-  const data = await request('/v1/balance');
+export async function fetchQamifyBalance(apiKey) {
+  const data = await request('/v1/balance', {}, undefined, apiKey);
   return { balance: Number(data.balance), currency: String(data.currency || 'USD') };
 }
 
-export async function createQamifyOrder({ productId, quantity = 1, idempotencyKey, onExchange }) {
+export async function createQamifyOrder({ productId, quantity = 1, idempotencyKey, onExchange, apiKey }) {
   return request('/v1/orders', {
     method: 'POST',
     headers: { 'Idempotency-Key': idempotencyKey },
     body: JSON.stringify({ product_id: Number(productId), qty: quantity }),
-  }, onExchange);
+  }, onExchange, apiKey);
 }
 
 export function qamifyDelivery(data) {

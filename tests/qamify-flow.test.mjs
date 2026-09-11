@@ -107,6 +107,19 @@ test('Qamify catalog sync and paid order fulfilment use provider IDs and idempot
     assert.equal(logs.every((log) => !('Authorization' in log.request_headers)), true);
     const successfulLog = logs.find((log) => log.response_status === 200);
     assert.equal(successfulLog.response_body.order.items, '[REDACTED]');
+    delete process.env.QAMIFY_API_KEY;
+    const configured = await request('admin-supplier-key', { providerId: 'qamify', apiKey: 'admin-qamify-key' }, process.env.COMMERCE_ADMIN_KEY);
+    assert.equal(configured.code, 200, JSON.stringify(configured));
+    assert.equal(configured.data.configured, true);
+    assert.equal(JSON.stringify((await request('admin-list', undefined, process.env.COMMERCE_ADMIN_KEY)).data).includes('admin-qamify-key'), false);
+    const encryptedKey = (await database.query('SELECT encrypted_api_key FROM commerce_supplier_secrets WHERE provider_id=$1', ['qamify'])).rows[0].encrypted_api_key;
+    assert.equal(encryptedKey.includes('admin-qamify-key'), false);
+    const keySync = await request('admin-supplier-sync', {}, process.env.COMMERCE_ADMIN_KEY);
+    assert.equal(keySync.code, 200, JSON.stringify(keySync));
+    const keyRequest = calls.findLast((call) => call.url.endsWith('/v1/products'));
+    assert.equal(keyRequest.init.headers.Authorization, 'Bearer admin-qamify-key');
+    const removed = await request('admin-supplier-key', { providerId: 'qamify', remove: true }, process.env.COMMERCE_ADMIN_KEY);
+    assert.equal(removed.code, 200, JSON.stringify(removed));
   } finally {
     globalThis.fetch = previousFetch;
     for (const [name,value] of Object.entries(previousEnv)) {

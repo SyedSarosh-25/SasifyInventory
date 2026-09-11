@@ -60,6 +60,22 @@ import catalog from './catalog.json' with { type: 'json' };
 
 const fail = (status, message) => Object.assign(new Error(message), { status });
 const TEAM_COUPON_CODE = 'HOR';
+const SUPPLIER_API_ENV = Object.freeze({
+  dodi: 'DODI_RESELLER_API_KEY',
+  qamify: 'QAMIFY_API_KEY',
+  mke: 'MKE_API_KEY',
+  fatbunny: 'FATBUNNY_API_KEY',
+  piggyai: 'PIGGYAI_API_KEY',
+  zoomstore: 'ZOOMSTORE_API_KEY',
+});
+const SUPPLIER_PROVIDER_NAMES = Object.freeze({
+  dodi: 'DODI Store',
+  qamify: 'Qamify',
+  mke: 'MKE Shop',
+  fatbunny: 'Fat Bunny Hub',
+  piggyai: 'PiggyAi',
+  zoomstore: 'Zoom Store',
+});
 const bearer = (req) =>
   String(req.headers.authorization || '').replace(/^Bearer /, '');
 const adminCookie = (req) =>
@@ -283,6 +299,50 @@ async function ensureSupplierApiLogSchema(db) {
   }
   await supplierApiLogSchemaReady;
 }
+let supplierSecretSchemaReady;
+async function ensureSupplierSecretSchema(db) {
+  if (!supplierSecretSchemaReady) {
+    supplierSecretSchemaReady = db
+      .query(`CREATE TABLE IF NOT EXISTS commerce_supplier_secrets (
+        provider_id text PRIMARY KEY, encrypted_api_key text NOT NULL,
+        created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now()
+      )`)
+      .catch((error) => {
+        supplierSecretSchemaReady = null;
+        throw error;
+      });
+  }
+  await supplierSecretSchemaReady;
+}
+async function readSupplierApiKeys(db, key) {
+  const keys = {};
+  const rows = (
+    await db.query(
+      'SELECT provider_id,encrypted_api_key FROM commerce_supplier_secrets',
+    )
+  ).rows;
+  for (const row of rows) {
+    if (!SUPPLIER_API_ENV[row.provider_id]) continue;
+    try {
+      keys[row.provider_id] = decrypt(row.encrypted_api_key, key);
+    } catch {
+      throw fail(503, 'A stored supplier API key could not be decrypted.');
+    }
+  }
+  return keys;
+}
+function supplierKeyStatus(keys) {
+  return Object.entries(SUPPLIER_PROVIDER_NAMES).map(([providerId, providerName]) => ({
+    providerId,
+    providerName,
+    configured: !!(keys[providerId] || process.env[SUPPLIER_API_ENV[providerId]]),
+    source: keys[providerId]
+      ? 'admin'
+      : process.env[SUPPLIER_API_ENV[providerId]]
+        ? 'environment'
+        : null,
+  }));
+}
 async function insertSupplierApiLogs(db, logs) {
   for (const log of logs)
     await db.query(
@@ -406,14 +466,14 @@ function supplierEquivalentProductName(staticName, supplierName) {
 function isChatGptPlusProduct(name) {
   return /\bchatgpt\s+plus\b/i.test(String(name || ''));
 }
-function supplierProviders() {
+function supplierProviders(keys = {}) {
   return [
     {
       id: 'dodi',
       name: 'DODI Store',
-      configured: !!process.env.DODI_RESELLER_API_KEY,
+      configured: !!(keys.dodi || process.env.DODI_RESELLER_API_KEY),
       async catalog() {
-        const result = await fetchSupplierProducts();
+        const result = await fetchSupplierProducts(keys.dodi);
         return {
           ...result,
           currency: 'USDT',
@@ -424,11 +484,11 @@ function supplierProviders() {
     {
       id: 'qamify',
       name: 'Qamify',
-      configured: !!process.env.QAMIFY_API_KEY,
+      configured: !!(keys.qamify || process.env.QAMIFY_API_KEY),
       async catalog() {
         const [products, state] = await Promise.all([
-          fetchQamifyProducts(),
-          fetchQamifyBalance(),
+          fetchQamifyProducts(keys.qamify),
+          fetchQamifyBalance(keys.qamify),
         ]);
         return {
           ...state,
@@ -441,11 +501,11 @@ function supplierProviders() {
     {
       id: 'mke',
       name: 'MKE Shop',
-      configured: !!process.env.MKE_API_KEY,
+      configured: !!(keys.mke || process.env.MKE_API_KEY),
       async catalog() {
         const [products, state] = await Promise.all([
-          fetchMkeProducts(),
-          fetchMkeBalance(),
+          fetchMkeProducts(keys.mke),
+          fetchMkeBalance(keys.mke),
         ]);
         return {
           ...state,
@@ -458,12 +518,12 @@ function supplierProviders() {
     {
       id: 'fatbunny',
       name: 'Fat Bunny Hub',
-      configured: !!process.env.FATBUNNY_API_KEY,
+      configured: !!(keys.fatbunny || process.env.FATBUNNY_API_KEY),
       async catalog() {
-        const products = await fetchPiggyAiProducts('FATBUNNY_API_KEY');
+        const products = await fetchPiggyAiProducts('FATBUNNY_API_KEY', keys.fatbunny);
         let state = { balance: null, currency: 'USD' };
         try {
-          state = await fetchPiggyAiBalance('FATBUNNY_API_KEY');
+          state = await fetchPiggyAiBalance('FATBUNNY_API_KEY', keys.fatbunny);
         } catch (error) {
           console.error(
             'fat-bunny-balance-error',
@@ -485,12 +545,12 @@ function supplierProviders() {
     {
       id: 'piggyai',
       name: 'PiggyAi',
-      configured: !!process.env.PIGGYAI_API_KEY,
+      configured: !!(keys.piggyai || process.env.PIGGYAI_API_KEY),
       async catalog() {
-        const products = await fetchPiggyAiProducts();
+        const products = await fetchPiggyAiProducts('PIGGYAI_API_KEY', keys.piggyai);
         let state = { balance: null, currency: 'USD' };
         try {
-          state = await fetchPiggyAiBalance();
+          state = await fetchPiggyAiBalance('PIGGYAI_API_KEY', keys.piggyai);
         } catch (error) {
           console.error(
             'piggyai-balance-error',
@@ -509,11 +569,11 @@ function supplierProviders() {
     {
       id: 'zoomstore',
       name: 'Zoom Store',
-      configured: !!process.env.ZOOMSTORE_API_KEY,
+      configured: !!(keys.zoomstore || process.env.ZOOMSTORE_API_KEY),
       async catalog() {
         const [products, state] = await Promise.all([
-          fetchZoomStoreProducts(),
-          fetchZoomStoreBalance(),
+          fetchZoomStoreProducts(keys.zoomstore),
+          fetchZoomStoreBalance(keys.zoomstore),
         ]);
         return {
           ...state,
@@ -608,7 +668,7 @@ async function rate(db, key, max) {
   if (result.rows[0].hits > max)
     throw fail(429, 'Too many requests. Please wait a minute.');
 }
-async function syncSupplierCatalog(db, force = false) {
+async function syncSupplierCatalog(db, force = false, keys = {}, onlyProviderId = '') {
   await db.query(
     "UPDATE commerce_supplier_products SET id='fatbunny:'||external_product_id, provider_id='fatbunny' WHERE provider_id='piggyai' AND provider_name='Fat Bunny Hub'",
   );
@@ -616,8 +676,8 @@ async function syncSupplierCatalog(db, force = false) {
     "UPDATE commerce_provider_state SET provider_id='fatbunny' WHERE provider_id='piggyai' AND provider_name='Fat Bunny Hub'",
   );
   const results = [];
-  for (const provider of supplierProviders().filter(
-    (item) => item.configured,
+  for (const provider of supplierProviders(keys).filter(
+    (item) => item.configured && (!onlyProviderId || item.id === onlyProviderId),
   )) {
     const lockKey = `supplier-catalog-sync:${provider.id}`;
     const lock = force
@@ -731,7 +791,7 @@ async function expire(db, includeReview = true) {
     SELECT inventory_id FROM commerce_orders WHERE status='expired' AND expires_at<now() AND inventory_id IS NOT NULL
   )`);
 }
-async function placeSupplierOrder(product, order, onExchange) {
+async function placeSupplierOrder(product, order, onExchange, keys = {}) {
   if (product.provider_id === 'qamify') {
     if (!/^\d+$/.test(String(product.external_product_id || '')))
       throw fail(503, 'Qamify product ID is invalid.');
@@ -739,6 +799,7 @@ async function placeSupplierOrder(product, order, onExchange) {
       productId: Number(product.external_product_id),
       idempotencyKey: `sasify-${order.id}-${product.external_product_id}`,
       onExchange,
+      apiKey: keys.qamify,
     });
     return {
       delivery: qamifyDelivery(result),
@@ -752,6 +813,7 @@ async function placeSupplierOrder(product, order, onExchange) {
       productId: Number(product.external_product_id),
       idempotencyKey: `sasify-${order.id}-${product.external_product_id}`,
       onExchange,
+      apiKey: keys.mke,
     });
     return {
       delivery: mkeDelivery(result),
@@ -774,6 +836,7 @@ async function placeSupplierOrder(product, order, onExchange) {
       idempotencyKey: `sasify-${order.id}-${product.external_product_id}`,
       envName,
       onExchange,
+      apiKey: keys[product.provider_id],
     });
     return {
       delivery: piggyAiDelivery(result),
@@ -787,6 +850,7 @@ async function placeSupplierOrder(product, order, onExchange) {
       productId: product.external_product_id,
       idempotencyKey: `sasify-${order.id}-${product.external_product_id}`,
       onExchange,
+      apiKey: keys.zoomstore,
     });
     return {
       delivery: zoomStoreDelivery(result),
@@ -798,6 +862,7 @@ async function placeSupplierOrder(product, order, onExchange) {
       productId: product.external_product_id || product.id,
       externalOrderId: order.id,
       onExchange,
+      apiKey: keys.dodi,
     });
     return {
       delivery: supplierDelivery(result),
@@ -812,6 +877,7 @@ async function fulfill(
   paymentId,
   manual = false,
   onSupplierExchange,
+  supplierApiKeys = {},
 ) {
   const supplierLogs = [];
   const order = (
@@ -890,7 +956,7 @@ async function fulfill(
           exchange.orderId = order.id;
           supplierLogs.push(exchange);
           onSupplierExchange?.(exchange);
-        });
+        }, supplierApiKeys);
         product = candidate;
         break;
       } catch (error) {
@@ -1167,11 +1233,13 @@ export function createHandler(
         throw fail(405, 'Method not allowed.');
       await ensureCouponSchema(db);
       await ensureSupplierApiLogSchema(db);
+      await ensureSupplierSecretSchema(db);
       await ensureSupplierMediaSchema(db);
       await ensureScamSchema(db);
       await ensureInventoryVariants(db);
       await db.query('BEGIN');
       await ensureDefaultCoupon(db);
+      const supplierApiKeys = await readSupplierApiKeys(db, key);
       await expire(db, !['email-webhook', 'inbound-email'].includes(action));
       let output;
       if (action === 'admin-login') {
@@ -1342,7 +1410,9 @@ export function createHandler(
               price: supplierProduct.selling_price,
             };
         }
-        if (!product || !process.env.PAYMENT_ACCOUNT_TITLE)
+        const requestedCouponCode = normalizeCouponCode(body.couponCode);
+        const isRequestedTeamCoupon = requestedCouponCode === TEAM_COUPON_CODE;
+        if (!product || (!process.env.PAYMENT_ACCOUNT_TITLE && !isRequestedTeamCoupon))
           throw fail(
             409,
             'Online purchasing is not available for this product yet.',
@@ -1362,7 +1432,7 @@ export function createHandler(
         let item;
         let coupon = null;
         let discount = 0;
-        const couponCode = normalizeCouponCode(body.couponCode);
+        const couponCode = requestedCouponCode;
         const isTeamCoupon = couponCode === TEAM_COUPON_CODE;
         if (couponCode) {
           if (
@@ -1499,7 +1569,14 @@ export function createHandler(
             );
             await db.query('SAVEPOINT delivery');
             try {
-              await fulfill(db, id, payment.id, false, captureSupplierExchange);
+              await fulfill(
+                db,
+                id,
+                payment.id,
+                false,
+                captureSupplierExchange,
+                supplierApiKeys,
+              );
             } catch (e) {
               if (!e.status) throw e;
               await db.query('ROLLBACK TO SAVEPOINT delivery');
@@ -1639,6 +1716,7 @@ export function createHandler(
                 inserted.rows[0].id,
                 false,
                 captureSupplierExchange,
+                supplierApiKeys,
               );
             } catch (e) {
               if (!e.status) throw e;
@@ -1796,8 +1874,67 @@ export function createHandler(
           [item.id],
         );
         output = { ok: true };
+      } else if (action === 'admin-supplier-key') {
+        const providerId = String(body.providerId || '').trim().toLowerCase();
+        if (!SUPPLIER_API_ENV[providerId])
+          throw fail(400, 'Unsupported supplier provider.');
+        const apiKey = String(body.apiKey || '').trim();
+        if (body.remove === true || !apiKey) {
+          await db.query(
+            'DELETE FROM commerce_supplier_secrets WHERE provider_id=$1',
+            [providerId],
+          );
+          delete supplierApiKeys[providerId];
+          await db.query(
+            "INSERT INTO commerce_audit(action,object_id) VALUES('supplier_key_remove',$1)",
+            [providerId],
+          );
+          output = {
+            ok: true,
+            providerId,
+            providerName: SUPPLIER_PROVIDER_NAMES[providerId],
+            configured: !!process.env[SUPPLIER_API_ENV[providerId]],
+            source: process.env[SUPPLIER_API_ENV[providerId]]
+              ? 'environment'
+              : null,
+          };
+        } else {
+          if (apiKey.length > 500 || /[\r\n]/.test(apiKey))
+            throw fail(400, 'Supplier API key is invalid.');
+          await db.query(
+            `INSERT INTO commerce_supplier_secrets(provider_id,encrypted_api_key)
+             VALUES($1,$2) ON CONFLICT(provider_id) DO UPDATE SET encrypted_api_key=excluded.encrypted_api_key,updated_at=now()`,
+            [providerId, encrypt(apiKey, key)],
+          );
+          supplierApiKeys[providerId] = apiKey;
+          await db.query(
+            "INSERT INTO commerce_audit(action,object_id) VALUES('supplier_key_save',$1)",
+            [providerId],
+          );
+          let synced = 0;
+          if (body.sync === true) {
+            const providers = await syncSupplierCatalog(
+              db,
+              true,
+              supplierApiKeys,
+              providerId,
+            );
+            synced = providers.reduce(
+              (sum, provider) => sum + provider.synced,
+              0,
+            );
+          }
+          output = {
+            ok: true,
+            providerId,
+            providerName: SUPPLIER_PROVIDER_NAMES[providerId],
+            configured: true,
+            source: 'admin',
+            synced,
+          };
+        }
       } else if (action === 'admin-supplier-sync') {
-        const providers = await syncSupplierCatalog(db, true);
+        const providers = await syncSupplierCatalog(db, true, supplierApiKeys);
         if (!providers.length)
           throw fail(503, 'No supplier API is configured.');
         const synced = providers.reduce(
@@ -1944,6 +2081,7 @@ export function createHandler(
           supplierUsdtPkrRate: supplierUsdtRate(),
           supplierUsdPkrRate: supplierUsdRate(),
           profitBreakdown,
+          supplierKeys: supplierKeyStatus(supplierApiKeys),
         };
       } else if (action === 'admin-supplier-logs') {
         const logOrderId = req.query?.id || null;
@@ -2107,6 +2245,7 @@ export function createHandler(
           body.paymentId,
           true,
           captureSupplierExchange,
+          supplierApiKeys,
         );
         output = { ok: true };
       } else if (action === 'admin-manual-delivery') {

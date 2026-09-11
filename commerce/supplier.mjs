@@ -7,12 +7,12 @@ import {
 } from './supplier-api-log.mjs';
 import { providerLogo } from './provider-media.mjs';
 
-function configured() {
-  if (!process.env.DODI_RESELLER_API_KEY) throw Object.assign(new Error('Supplier API is not configured.'), { status: 503 });
+function configured(apiKey) {
+  if (!apiKey && !process.env.DODI_RESELLER_API_KEY) throw Object.assign(new Error('Supplier API is not configured.'), { status: 503 });
 }
 
-async function request(action, init = {}, onExchange) {
-  configured();
+async function request(action, init = {}, onExchange, apiKey) {
+  configured(apiKey);
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 20000);
   const url = `${endpoint}?action=${action}`;
@@ -26,7 +26,7 @@ async function request(action, init = {}, onExchange) {
     const response = await fetch(url, {
       ...init,
       headers: {
-        Authorization: `Bearer ${process.env.DODI_RESELLER_API_KEY}`,
+        Authorization: `Bearer ${apiKey || process.env.DODI_RESELLER_API_KEY}`,
         ...headers,
       },
       signal: controller.signal,
@@ -69,8 +69,8 @@ async function request(action, init = {}, onExchange) {
   }
 }
 
-export async function fetchSupplierProducts() {
-  const data = await request('products');
+export async function fetchSupplierProducts(apiKey) {
+  const data = await request('products', {}, undefined, apiKey);
   if (!Array.isArray(data.products)) throw Object.assign(new Error('Supplier returned an invalid product catalog.'), { status: 503 });
   return { products: data.products, balance: data.reseller?.balance ?? null };
 }
@@ -86,16 +86,16 @@ export function normalizeSupplierProduct(product) {
   };
 }
 
-export async function fetchSupplierBalance() {
-  const data = await request('balance');
+export async function fetchSupplierBalance(apiKey) {
+  const data = await request('balance', {}, undefined, apiKey);
   return data.reseller?.balance ?? null;
 }
 
-export async function createSupplierOrder({ productId, quantity = 1, externalOrderId, onExchange }) {
+export async function createSupplierOrder({ productId, quantity = 1, externalOrderId, onExchange, apiKey }) {
   return request('order', {
     method: 'POST',
     body: JSON.stringify({ product_id: productId, quantity, external_order_id: externalOrderId }),
-  }, onExchange);
+  }, onExchange, apiKey);
 }
 
 export function supplierDelivery(data) {

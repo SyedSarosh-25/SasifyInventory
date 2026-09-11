@@ -4,12 +4,12 @@ import { notifySupplierApiExchange, supplierErrorMessage, supplierLogHeaders, su
 
 const endpoint = 'https://api.zoomstore255.com/api/v1';
 
-function configured() {
-  if (!process.env.ZOOMSTORE_API_KEY) throw Object.assign(new Error('Zoom Store API is not configured.'), { status: 503 });
+function configured(apiKey) {
+  if (!apiKey && !process.env.ZOOMSTORE_API_KEY) throw Object.assign(new Error('Zoom Store API is not configured.'), { status: 503 });
 }
 
-async function request(path, init = {}, onExchange) {
-  configured();
+async function request(path, init = {}, onExchange, apiKey) {
+  configured(apiKey);
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 20000);
   const url = `${endpoint}${path}`;
@@ -17,7 +17,7 @@ async function request(path, init = {}, onExchange) {
   const headers = { Accept: 'application/json', ...(init.body ? { 'Content-Type': 'application/json' } : {}), ...init.headers };
   let exchangeLogged = false;
   try {
-    const response = await fetch(url, { ...init, headers: { 'X-API-Key': process.env.ZOOMSTORE_API_KEY, ...headers }, signal: controller.signal });
+    const response = await fetch(url, { ...init, headers: { 'X-API-Key': apiKey || process.env.ZOOMSTORE_API_KEY, ...headers }, signal: controller.signal });
     const data = await response.json().catch(() => ({}));
     await notifySupplierApiExchange(onExchange, { providerId: 'zoomstore', operation: 'purchase', endpoint: url, requestMethod: method, requestHeaders: supplierLogHeaders(headers), requestBody: supplierLogPayload(init.body), responseStatus: response.status, responseBody: supplierLogPayload(data), errorMessage: null });
     exchangeLogged = true;
@@ -35,7 +35,7 @@ async function request(path, init = {}, onExchange) {
 
 function list(data, key) { return Array.isArray(data) ? data : Array.isArray(data?.[key]) ? data[key] : Array.isArray(data?.data) ? data.data : Array.isArray(data?.data?.[key]) ? data.data[key] : []; }
 
-export async function fetchZoomStoreProducts() { return list(await request('/products'), 'products'); }
+export async function fetchZoomStoreProducts(apiKey) { return list(await request('/products', {}, undefined, apiKey), 'products'); }
 
 export function normalizeZoomStoreProduct(product, defaultCurrency = 'USD') {
   const id = String(product?.id ?? product?.product_id ?? product?.sku ?? '').trim();
@@ -48,7 +48,7 @@ export function normalizeZoomStoreProduct(product, defaultCurrency = 'USD') {
   return { id, name, description: providerDescription(product), delivery_instruction: product?.activation_url ? String(product.activation_url) : null, wholesale_price: wholesalePrice, currency: currency.slice(0, 12), stock, canonical_key: String(product?.slug || `zoomstore:${id}`).slice(0, 200), ...(logo ? { logo_url: logo } : {}) };
 }
 
-export async function fetchZoomStoreBalance() { const data = await request('/balance'); const source = data.data || data; return { balance: Number(source.balance ?? source.wallet_balance ?? 0), currency: String(source.currency || 'USD') }; }
-export async function createZoomStoreOrder({ productId, quantity = 1, idempotencyKey, onExchange }) { return request('/purchase', { method: 'POST', headers: { 'Idempotency-Key': idempotencyKey }, body: JSON.stringify({ product_id: productId, quantity }) }, onExchange); }
+export async function fetchZoomStoreBalance(apiKey) { const data = await request('/balance', {}, undefined, apiKey); const source = data.data || data; return { balance: Number(source.balance ?? source.wallet_balance ?? 0), currency: String(source.currency || 'USD') }; }
+export async function createZoomStoreOrder({ productId, quantity = 1, idempotencyKey, onExchange, apiKey }) { return request('/purchase', { method: 'POST', headers: { 'Idempotency-Key': idempotencyKey }, body: JSON.stringify({ product_id: productId, quantity }) }, onExchange, apiKey); }
 export function zoomStoreDelivery(data) { const order = data.order || data.data || data; const raw = order.items ?? order.delivery ?? order.credentials ?? order.code ?? order.content ?? order.result; if (raw === undefined || raw === null || raw === '') throw Object.assign(new Error('Zoom Store order completed without delivery data.'), { status: 503 }); return { content: typeof raw === 'string' ? raw : JSON.stringify(raw, null, 2), instructions: order.instructions || '' }; }
 export function zoomStoreOrderId(data, fallback) { const order = data.order || data.data || data; return String(order.id || order.order_id || order.purchase_id || fallback); }
