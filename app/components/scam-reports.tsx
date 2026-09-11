@@ -120,7 +120,10 @@ export function ScamReports() {
   }
 
   function openSubmission() {
+    setSelectedReport(null);
+    setDetailError('');
     setShowForm(true);
+    window.history.pushState({}, '', '/scammers#submit-scam-report');
     window.setTimeout(
       () =>
         document
@@ -263,7 +266,7 @@ export function ScamReports() {
   return (
     <div className="scam-reports-page">
       <section className="scam-intro">
-        <div>
+        <div className="scam-intro-copy">
           <span className="section-kicker">
             <ShieldAlert size={16} /> Community safety
           </span>
@@ -272,6 +275,20 @@ export function ScamReports() {
             Review verified community reports before sending money to an
             unfamiliar account, username or seller.
           </p>
+          <div className="scam-intro-actions">
+            <button
+              type="button"
+              className="scam-intro-submit"
+              onClick={openSubmission}
+              aria-controls="submit-scam-report"
+              aria-expanded={showForm}
+            >
+              <Send size={18} /> Submit a scam report
+            </button>
+            <span>
+              Every submission is checked by an admin before publication.
+            </span>
+          </div>
         </div>
         <div className="scam-disclaimer">
           <AlertTriangle size={20} />

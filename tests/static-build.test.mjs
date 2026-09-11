@@ -112,6 +112,13 @@ test('homepage, inventory and every product have populated static HTML', async (
   }
 });
 
+test('scam reports page exposes the public submission action before any report is opened', async () => {
+  const html = await read('scammers.html');
+  assert.match(html, /Submit a scam report/);
+  assert.match(html, /aria-controls="submit-scam-report"/);
+  assert.match(html, /checked by an admin before publication/);
+});
+
 test('inventory includes category navigation arrows and selected category state', async () => {
   const html = await read('inventory.html');
   assert.match(html, /aria-label="Previous categories"/);
