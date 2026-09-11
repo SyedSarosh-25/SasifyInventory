@@ -57,7 +57,7 @@ Historical Search Console data from 3 September applied to an older 96-product s
 - Install: `npm ci`
 - Development: `npm run dev`
 - Lint: `npm run lint`
-- Full tests: `node --test tests/*.test.mjs`
+- Full clean-build test: `npm test`
 - Static build: `npm run build:static`
 - Production: `npm run deploy:prod`
 

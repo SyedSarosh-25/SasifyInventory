@@ -26,8 +26,7 @@ Run verification:
 
 ```powershell
 npm run lint
-node --test tests/*.test.mjs
-npm run build:static
+npm test
 ```
 
 ## Production deployment
