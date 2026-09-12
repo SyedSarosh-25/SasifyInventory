@@ -2590,3 +2590,88 @@ svg { flex-shrink: 0; }
   .snapshot-grid { border-radius: 12px; }
   .supplier-key-row { padding: 15px; }
 }
+
+.supplier-key-heading { align-items: flex-start; }
+.supplier-key-toggle { flex: 0 0 auto; white-space: nowrap; }
+.supplier-key-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(165px, 1fr));
+  gap: 10px;
+  margin-top: 4px;
+}
+.supplier-key-pill {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 0;
+  padding: 11px 13px;
+  border: 1px solid #dbe5f2;
+  border-radius: 12px;
+  background: #f7faff;
+}
+.supplier-key-pill strong {
+  overflow: hidden;
+  color: #173d78;
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.supplier-key-pill small { color: #6f83a0; white-space: nowrap; }
+.supplier-key-pill.configured { border-color: #b8e7dc; background: #f1fcf8; }
+.supplier-key-pill.configured small { color: #087d6a; }
+.supplier-key-pill.missing { border-color: #f0d7a5; background: #fffaf0; }
+.supplier-key-pill.missing small { color: #a66c08; }
+.supplier-key-list { margin-top: 16px; }
+.order-filter-bar {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  margin: 4px 0 8px;
+  padding: 5px;
+  border: 1px solid #dce6f3;
+  border-radius: 14px;
+  background: #f6f9fd;
+  scrollbar-width: thin;
+}
+.order-filter-bar button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 38px;
+  padding: 8px 13px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: transparent;
+  color: #607592;
+  font-size: 13px;
+  font-weight: 750;
+  white-space: nowrap;
+}
+.order-filter-bar button:hover { background: #e8f0ff; color: #173d78; }
+.order-filter-bar button.active {
+  border-color: #c2d3ef;
+  background: #173d78;
+  color: #fff;
+  box-shadow: 0 5px 12px rgba(23, 61, 120, .16);
+}
+.order-filter-bar button span {
+  min-width: 22px;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: #e2ebf8;
+  color: #456488;
+  font-size: 11px;
+  text-align: center;
+}
+.order-filter-bar button.active span { background: rgba(255,255,255,.18); color: #fff; }
+.order-filter-summary { margin: 0 0 14px; color: #7890ad; font-size: 13px; }
+
+@media (max-width: 700px) {
+  .supplier-key-heading { gap: 14px; }
+  .supplier-key-toggle { width: 100%; }
+  .supplier-key-summary { grid-template-columns: minmax(0, 1fr); }
+  .order-filter-bar { margin-inline: -2px; }
+  .order-filter-bar button { flex: 0 0 auto; }
+}

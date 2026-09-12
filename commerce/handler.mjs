@@ -275,6 +275,38 @@ async function ensureDefaultCoupon(db) {
     [randomUUID(), codeHash],
   );
 }
+let orderFinanceSchemaReady;
+async function ensureOrderFinanceSchema(db) {
+  if (!orderFinanceSchemaReady) {
+    orderFinanceSchemaReady = (async () => {
+      await db.query(
+        'ALTER TABLE commerce_orders ADD COLUMN IF NOT EXISTS fulfillment_cost_pkr integer CHECK(fulfillment_cost_pkr>=0)',
+      );
+      await db.query(
+        `UPDATE commerce_orders o
+         SET fulfillment_cost_pkr = CASE
+           WHEN o.supplier_product_id IS NOT NULL THEN o.supplier_cost_pkr
+           ELSE i.purchase_cost
+         END
+         FROM commerce_inventory i
+         WHERE o.inventory_id=i.id
+           AND o.status='delivered'
+           AND o.fulfillment_cost_pkr IS NULL`,
+      );
+      await db.query(
+        `UPDATE commerce_orders
+         SET fulfillment_cost_pkr = COALESCE(supplier_cost_pkr, 0)
+         WHERE status='delivered'
+           AND fulfillment_cost_pkr IS NULL
+           AND supplier_product_id IS NOT NULL`,
+      );
+    })().catch((error) => {
+      orderFinanceSchemaReady = null;
+      throw error;
+    });
+  }
+  await orderFinanceSchemaReady;
+}
 let supplierApiLogSchemaReady;
 async function ensureSupplierApiLogSchema(db) {
   if (!supplierApiLogSchemaReady) {
@@ -980,7 +1012,7 @@ async function fulfill(
       payment.id,
     ]);
     await db.query(
-      "UPDATE commerce_orders SET status='delivered',delivered_at=now(),supplier_product_id=$1,supplier_cost_pkr=$2,supplier_order_id=$3,supplier_status='delivered',supplier_delivery=$4 WHERE id=$5",
+      "UPDATE commerce_orders SET status='delivered',delivered_at=now(),supplier_product_id=$1,supplier_cost_pkr=$2,fulfillment_cost_pkr=$2,supplier_order_id=$3,supplier_status='delivered',supplier_delivery=$4 WHERE id=$5",
       [
         product.id,
         product.cost_pkr || 0,
@@ -1028,8 +1060,8 @@ async function fulfill(
     payment.id,
   ]);
   await db.query(
-    "UPDATE commerce_orders SET status='delivered',delivered_at=now() WHERE id=$1",
-    [order.id],
+    "UPDATE commerce_orders SET status='delivered',delivered_at=now(),fulfillment_cost_pkr=(SELECT purchase_cost FROM commerce_inventory WHERE id=$1) WHERE id=$2",
+    [order.inventory_id, order.id],
   );
   await db.query('INSERT INTO commerce_audit(action,object_id) VALUES($1,$2)', [
     manual ? 'manual_delivery' : 'auto_delivery',
@@ -1052,8 +1084,8 @@ async function fulfillFreeOrder(db, orderId) {
   );
   if (!changed.rowCount) throw fail(409, 'Reserved stock is unavailable.');
   await db.query(
-    "UPDATE commerce_orders SET status='delivered',delivered_at=now() WHERE id=$1",
-    [order.id],
+    "UPDATE commerce_orders SET status='delivered',delivered_at=now(),fulfillment_cost_pkr=(SELECT purchase_cost FROM commerce_inventory WHERE id=$1) WHERE id=$2",
+    [order.inventory_id, order.id],
   );
   await db.query(
     "INSERT INTO commerce_audit(action,object_id) VALUES('coupon_free_delivery',$1)",
@@ -1116,8 +1148,8 @@ async function manualDeliverLocalOrder(db, orderId, inventoryId, key) {
   );
   if (!changed.rowCount) throw fail(409, 'Selected credential is no longer available.');
   await db.query(
-    "UPDATE commerce_orders SET inventory_id=$1,status='delivered',delivered_at=now() WHERE id=$2",
-    [item.id, order.id],
+    "UPDATE commerce_orders SET inventory_id=$1,status='delivered',delivered_at=now(),fulfillment_cost_pkr=$2 WHERE id=$3",
+    [item.id, item.purchase_cost, order.id],
   );
   await db.query(
     "INSERT INTO commerce_audit(action,object_id) VALUES('manual_admin_delivery',$1)",
@@ -1232,6 +1264,7 @@ export function createHandler(
       )
         throw fail(405, 'Method not allowed.');
       await ensureCouponSchema(db);
+      await ensureOrderFinanceSchema(db);
       await ensureSupplierApiLogSchema(db);
       await ensureSupplierSecretSchema(db);
       await ensureSupplierMediaSchema(db);
@@ -2018,24 +2051,28 @@ export function createHandler(
           };
         });
         const metrics = (
-          await db.query(`SELECT
-        COALESCE(SUM(o.amount) FILTER (WHERE o.status='delivered'),0)::int AS income,
-        COALESCE(SUM(COALESCE(i.purchase_cost,o.supplier_cost_pkr,0)) FILTER (WHERE o.status='delivered'),0)::int AS cost,
-        COALESCE(SUM(o.amount-COALESCE(i.purchase_cost,o.supplier_cost_pkr,0)) FILTER (WHERE o.status='delivered'),0)::int AS profit,
-        COALESCE(SUM(o.amount) FILTER (WHERE o.status='delivered' AND o.delivered_at>=date_trunc('month',now())),0)::int AS monthly_income,
-        COALESCE(SUM(o.amount-COALESCE(i.purchase_cost,o.supplier_cost_pkr,0)) FILTER (WHERE o.status='delivered' AND o.delivered_at>=date_trunc('month',now())),0)::int AS monthly_profit,
-        COUNT(*) FILTER (WHERE o.status='delivered')::int AS delivered_orders,
-        COUNT(*) FILTER (WHERE o.status IN ('pending','review'))::int AS active_orders,
-        COUNT(*) FILTER (WHERE o.status='delivered' AND COALESCE(i.purchase_cost,o.supplier_cost_pkr,0)=0)::int AS missing_costs
-        FROM commerce_orders o LEFT JOIN commerce_inventory i ON i.id=o.inventory_id`)
+          await db.query(`WITH delivered_finance AS (
+        SELECT amount,delivered_at,fulfillment_cost_pkr
+        FROM commerce_orders
+        WHERE status='delivered'
+      ) SELECT
+        COALESCE(SUM(amount),0)::int AS income,
+        COALESCE(SUM(COALESCE(fulfillment_cost_pkr,0)),0)::int AS cost,
+        COALESCE(SUM(amount-COALESCE(fulfillment_cost_pkr,0)),0)::int AS profit,
+        COALESCE(SUM(amount) FILTER (WHERE delivered_at>=date_trunc('month',now())),0)::int AS monthly_income,
+        COALESCE(SUM(amount-COALESCE(fulfillment_cost_pkr,0)) FILTER (WHERE delivered_at>=date_trunc('month',now())),0)::int AS monthly_profit,
+        COUNT(*)::int AS delivered_orders,
+        (SELECT COUNT(*)::int FROM commerce_orders WHERE status IN ('pending','review')) AS active_orders,
+        COUNT(*) FILTER (WHERE fulfillment_cost_pkr IS NULL)::int AS missing_costs
+        FROM delivered_finance`)
         ).rows[0];
         const profitBreakdown = (
           await db.query(`SELECT CASE WHEN o.supplier_product_id IS NULL THEN 'local' ELSE 'supplier' END AS source,
         COALESCE(SUM(o.amount),0)::int AS income,
-        COALESCE(SUM(COALESCE(i.purchase_cost,o.supplier_cost_pkr,0)),0)::int AS cost,
-        COALESCE(SUM(o.amount-COALESCE(i.purchase_cost,o.supplier_cost_pkr,0)),0)::int AS profit,
+        COALESCE(SUM(COALESCE(o.fulfillment_cost_pkr,0)),0)::int AS cost,
+        COALESCE(SUM(o.amount-COALESCE(o.fulfillment_cost_pkr,0)),0)::int AS profit,
         COUNT(*)::int AS orders
-        FROM commerce_orders o LEFT JOIN commerce_inventory i ON i.id=o.inventory_id
+        FROM commerce_orders o
         WHERE o.status='delivered' GROUP BY 1 ORDER BY 1`)
         ).rows;
         const coupons = (
@@ -2064,7 +2101,13 @@ export function createHandler(
           ).rows,
           orders: (
             await db.query(
-              'SELECT o.id,o.product_id,o.amount,o.status,o.transaction_id,o.payer_name,o.supplier_order_id,o.supplier_status,sp.provider_name AS supplier_name,sp.name AS supplier_product_name,o.created_at,o.delivered_at FROM commerce_orders o LEFT JOIN commerce_supplier_products sp ON sp.id=o.supplier_product_id ORDER BY o.created_at DESC LIMIT 100',
+              `SELECT o.id,o.product_id,o.amount,o.status,o.transaction_id,o.payer_name,o.supplier_order_id,o.supplier_status,
+                sp.provider_name AS supplier_name,sp.name AS supplier_product_name,o.created_at,o.delivered_at,
+                o.fulfillment_cost_pkr AS cost_pkr,
+                CASE WHEN o.status='delivered' THEN o.amount-COALESCE(o.fulfillment_cost_pkr,0) ELSE NULL END AS profit_pkr
+               FROM commerce_orders o
+               LEFT JOIN commerce_supplier_products sp ON sp.id=o.supplier_product_id
+               ORDER BY o.created_at DESC`,
             )
           ).rows,
           payments: (

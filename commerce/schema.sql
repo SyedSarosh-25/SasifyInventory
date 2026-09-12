@@ -24,6 +24,7 @@ ALTER TABLE commerce_orders ADD COLUMN IF NOT EXISTS supplier_order_id text;
 ALTER TABLE commerce_orders ADD COLUMN IF NOT EXISTS supplier_delivery text;
 ALTER TABLE commerce_orders ADD COLUMN IF NOT EXISTS supplier_status text;
 ALTER TABLE commerce_orders ADD COLUMN IF NOT EXISTS supplier_cost_pkr integer CHECK(supplier_cost_pkr>=0);
+ALTER TABLE commerce_orders ADD COLUMN IF NOT EXISTS fulfillment_cost_pkr integer CHECK(fulfillment_cost_pkr>=0);
 ALTER TABLE commerce_orders ADD COLUMN IF NOT EXISTS coupon_id uuid;
 ALTER TABLE commerce_orders ADD COLUMN IF NOT EXISTS coupon_discount integer NOT NULL DEFAULT 0 CHECK(coupon_discount>=0);
 ALTER TABLE commerce_orders ADD COLUMN IF NOT EXISTS coupon_usage_released boolean NOT NULL DEFAULT false;
