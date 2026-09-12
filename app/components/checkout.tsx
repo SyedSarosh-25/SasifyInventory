@@ -1445,20 +1445,23 @@ export function CommerceAdmin() {
         <div className="admin-workspace">
           <section className="metric-grid">
             <article>
-              <span>Total income</span>
+              <span>Net sales after coupons</span>
               <strong>{money(data.metrics.income)}</strong>
-              <small>{data.metrics.delivered_orders} delivered orders</small>
+              <small>
+                Gross {money(data.metrics.gross_income)} · Discounts{' '}
+                {money(data.metrics.coupon_discounts)}
+              </small>
             </article>
             <button
               type="button"
               className="metric-card metric-profit-card"
               onClick={() => setTab('profit')}
             >
-              <span>Total profit</span>
+              <span>Net profit after coupons</span>
               <strong className="metric-profit">
                 {money(data.metrics.profit)}
               </strong>
-              <small>Click for local vs supplier details</small>
+              <small>Net sales minus delivered purchase cost</small>
             </button>
             <article>
               <span>This month</span>
@@ -1513,8 +1516,9 @@ export function CommerceAdmin() {
                 <span className="admin-eyebrow">Financial breakdown</span>
                 <h2>Profit details</h2>
                 <p>
-                  Delivered sales grouped by fulfilment source. Profit is sales
-                  minus the recorded cost.
+                  Profit is calculated per delivered order as net sale price
+                  after its coupon discount minus recorded purchase cost. HOR,
+                  reseller and other coupon orders are included.
                 </p>
               </div>
               <button
@@ -1528,7 +1532,14 @@ export function CommerceAdmin() {
               {['local', 'supplier'].map((source) => {
                 const row = data.profitBreakdown?.find(
                   (item: any) => item.source === source,
-                ) || { income: 0, cost: 0, profit: 0, orders: 0 };
+                ) || {
+                  income: 0,
+                  gross_income: 0,
+                  coupon_discounts: 0,
+                  cost: 0,
+                  profit: 0,
+                  orders: 0,
+                };
                 return (
                   <article
                     key={source}
@@ -1551,6 +1562,10 @@ export function CommerceAdmin() {
                     <div>
                       <span>Recorded cost</span>
                       <strong>{money(row.cost)}</strong>
+                    </div>
+                    <div>
+                      <span>Coupon discounts</span>
+                      <strong>{money(row.coupon_discounts)}</strong>
                     </div>
                     <div>
                       <span>Profit</span>

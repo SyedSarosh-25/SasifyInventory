@@ -2052,15 +2052,20 @@ export function createHandler(
         });
         const metrics = (
           await db.query(`WITH delivered_finance AS (
-        SELECT amount,delivered_at,fulfillment_cost_pkr
+        SELECT amount AS net_amount,
+          amount+COALESCE(coupon_discount,0) AS gross_amount,
+          COALESCE(coupon_discount,0) AS coupon_discount,
+          delivered_at,fulfillment_cost_pkr
         FROM commerce_orders
         WHERE status='delivered'
       ) SELECT
-        COALESCE(SUM(amount),0)::int AS income,
+        COALESCE(SUM(net_amount),0)::int AS income,
+        COALESCE(SUM(gross_amount),0)::int AS gross_income,
+        COALESCE(SUM(coupon_discount),0)::int AS coupon_discounts,
         COALESCE(SUM(COALESCE(fulfillment_cost_pkr,0)),0)::int AS cost,
-        COALESCE(SUM(amount-COALESCE(fulfillment_cost_pkr,0)),0)::int AS profit,
-        COALESCE(SUM(amount) FILTER (WHERE delivered_at>=date_trunc('month',now())),0)::int AS monthly_income,
-        COALESCE(SUM(amount-COALESCE(fulfillment_cost_pkr,0)) FILTER (WHERE delivered_at>=date_trunc('month',now())),0)::int AS monthly_profit,
+        COALESCE(SUM(net_amount-COALESCE(fulfillment_cost_pkr,0)),0)::int AS profit,
+        COALESCE(SUM(net_amount) FILTER (WHERE delivered_at>=date_trunc('month',now())),0)::int AS monthly_income,
+        COALESCE(SUM(net_amount-COALESCE(fulfillment_cost_pkr,0)) FILTER (WHERE delivered_at>=date_trunc('month',now())),0)::int AS monthly_profit,
         COUNT(*)::int AS delivered_orders,
         (SELECT COUNT(*)::int FROM commerce_orders WHERE status IN ('pending','review')) AS active_orders,
         COUNT(*) FILTER (WHERE fulfillment_cost_pkr IS NULL)::int AS missing_costs
@@ -2069,6 +2074,8 @@ export function createHandler(
         const profitBreakdown = (
           await db.query(`SELECT CASE WHEN o.supplier_product_id IS NULL THEN 'local' ELSE 'supplier' END AS source,
         COALESCE(SUM(o.amount),0)::int AS income,
+        COALESCE(SUM(o.amount+COALESCE(o.coupon_discount,0)),0)::int AS gross_income,
+        COALESCE(SUM(COALESCE(o.coupon_discount,0)),0)::int AS coupon_discounts,
         COALESCE(SUM(COALESCE(o.fulfillment_cost_pkr,0)),0)::int AS cost,
         COALESCE(SUM(o.amount-COALESCE(o.fulfillment_cost_pkr,0)),0)::int AS profit,
         COUNT(*)::int AS orders
