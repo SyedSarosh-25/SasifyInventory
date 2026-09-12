@@ -52,6 +52,13 @@ export function has25DayWarranty(product: Product) {
   return /^(1 month|30 days)$/i.test(product.duration.trim());
 }
 
+export function warrantyDays(product: Product, variantId?: string) {
+  const variant = variantId
+    ? product.variants?.find((item) => item.id === variantId)
+    : undefined;
+  return variant?.warrantyDays ?? (has25DayWarranty(product) ? 25 : null);
+}
+
 export function planMonths(product: Product) {
   const duration = product.duration.trim();
   if (/^30 days$/i.test(duration)) return 1;

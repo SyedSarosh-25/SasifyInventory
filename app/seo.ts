@@ -59,7 +59,7 @@ export function productQuestions(product: Product) {
       {
         question: `What warranty comes with ${product.name}?`,
         answer:
-          'Both one-month ChatGPT Plus options include a full 25-day warranty from Sasify Solutions. WhatsApp support is available after payment for delivery or activation issues.',
+          'The Ultra Stable Apple Pay option includes a full 25-day warranty, while the Partially Stable Momo Pay option includes a full 20-day warranty from Sasify Solutions. WhatsApp support is available after payment for delivery or activation issues.',
       },
     ];
   const price = formatPkr(product.sellingPricePkr);

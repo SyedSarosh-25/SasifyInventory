@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { products } from '../app/products.ts';
-import { accessTypeLabel, has25DayWarranty, isAnnualPlan, originalPriceComparison, originalPricePkr, planMonths, productHref, productLogo, savingsPkr, whatsappLink } from '../app/product-utils.ts';
+import { accessTypeLabel, has25DayWarranty, isAnnualPlan, originalPriceComparison, originalPricePkr, planMonths, productHref, productLogo, savingsPkr, warrantyDays, whatsappLink } from '../app/product-utils.ts';
 import { featuredProducts, filterProducts, heroProducts, orbitTools, supplierEquivalentProductName, topProductSlots } from '../app/catalog-selection.ts';
 
 test('every inventory variant has a unique detail URL', () => {
@@ -66,6 +66,12 @@ test('savings subtract our price from the listed original with the fixed USD rat
   assert.equal(savingsPkr(products.find((p) => p.id === 'p013')), 2301);
   assert.equal(savingsPkr(products.find((p) => p.id === 'p012')), 10001);
   assert.equal(savingsPkr(products.find((p) => p.id === 'p100')), 33500);
+});
+
+test('ChatGPT Plus warranty differs by payment option', () => {
+  const product = products.find((p) => p.id === 'p093');
+  assert.equal(warrantyDays(product, 'p093-ultra'), 25);
+  assert.equal(warrantyDays(product, 'p093-momo'), 20);
 });
 
 test('monthly references are multiplied by the complete plan duration', () => {

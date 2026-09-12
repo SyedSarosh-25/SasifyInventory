@@ -33,6 +33,7 @@ import {
   productLogo,
   savingsPkr,
   siteOrigin,
+  warrantyDays,
   whatsappLink,
 } from '../../product-utils';
 
@@ -74,6 +75,8 @@ export default async function ProductPage({ params }: Props) {
   if (!product) notFound();
   const annual = isAnnualPlan(product);
   const warranty = has25DayWarranty(product);
+  const appleWarrantyDays = warrantyDays(product, 'p093-ultra') ?? 25;
+  const momoWarrantyDays = warrantyDays(product, 'p093-momo') ?? 20;
   const savings = savingsPkr(product);
   const original = originalPricePkr(product);
   const comparison = originalPriceComparison(product);
@@ -300,7 +303,23 @@ export default async function ProductPage({ params }: Props) {
                   ordering.
                 </p>
               )}
-              {warranty ? (
+              {product.id === 'p093' ? (
+                <>
+                  <p className="chatgpt-ultra-only">
+                    <strong>Full {appleWarrantyDays}-day warranty included.</strong> This
+                    Apple Pay / Ultra Stable one-month product comes with a
+                    full {appleWarrantyDays}-day warranty from Sasify Solutions. Use the
+                    WhatsApp support button shown with your order if you need
+                    help.
+                  </p>
+                  <p className="chatgpt-momo-only">
+                    <strong>Full {momoWarrantyDays}-day warranty included.</strong> This Momo
+                    Pay / Partially Stable one-month product comes with a full
+                    {momoWarrantyDays}-day warranty from Sasify Solutions. Use the WhatsApp
+                    support button shown with your order if you need help.
+                  </p>
+                </>
+              ) : warranty ? (
                 <p>
                   <strong>Full 25-day warranty included.</strong> This 30-day /
                   one-month product comes with a full 25-day warranty from
@@ -508,11 +527,23 @@ export default async function ProductPage({ params }: Props) {
               <ShieldCheck className="h-5 w-5" />
               <span>
                 <strong>
-                  {warranty ? 'Full 25-day warranty' : 'Warranty included'}
+                  {product.id === 'p093' ? (
+                    <>
+                      <span className="chatgpt-ultra-only">Full {appleWarrantyDays}-day warranty</span>
+                      <span className="chatgpt-momo-only">Full {momoWarrantyDays}-day warranty</span>
+                    </>
+                  ) : warranty ? 'Full 25-day warranty' : 'Warranty included'}
                 </strong>
-                {warranty
-                  ? 'Included with this one-month plan.'
-                  : "Review this plan's warranty period before payment."}
+                {product.id === 'p093' ? (
+                  <>
+                    <span className="chatgpt-ultra-only">Included with this Apple Pay plan.</span>
+                    <span className="chatgpt-momo-only">Included with this Momo Pay plan.</span>
+                  </>
+                ) : warranty ? (
+                  'Included with this one-month plan.'
+                ) : (
+                  "Review this plan's warranty period before payment."
+                )}
               </span>
             </div>
             {!product.contactOnly && product.id === 'p093' ? (
