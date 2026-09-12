@@ -2118,6 +2118,19 @@ svg { flex-shrink: 0; }
 .checkout-heading strong { color: #285cff; font-size: 28px; }
 .checkout-heading .coupon-savings { color: #087d53; }
 .order-state { padding: 7px 10px; border-radius: 999px; background: #eef4ff; font-weight: 700; text-transform: capitalize; }
+.commission-summary-grid { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 14px; margin: 22px 0; }
+.commission-summary-card { display: grid; gap: 7px; padding: 19px; border: 1px solid #d5e1f1; border-top: 4px solid #285cff; border-radius: 12px; background: linear-gradient(145deg,#fff,#f7faff); }
+.commission-summary-card.due { border-top-color: #d58a1c; background: linear-gradient(145deg,#fffdf7,#fff8e9); }
+.commission-summary-card span { color: #66768d; font-size: 13px; font-weight: 750; }
+.commission-summary-card strong { color: #172237; font-size: 25px; }
+.commission-summary-card.due strong { color: #a86408; }
+.commission-summary-card small { color: #718096; line-height: 1.4; }
+.commission-table { border: 1px solid #d5e1f1; border-radius: 12px; background: #fff; }
+.commission-table table { min-width: 820px; }
+.commission-amount { color: #a86408; }
+.commission-due { display: inline-flex; align-items: center; border: 1px solid #f1d59e; border-radius: 999px; padding: 6px 10px; background: #fff8e9; color: #a86408; font-size: 12px; font-weight: 800; }
+.commission-empty { padding: 26px; border: 1px dashed #c9d6e9; border-radius: 12px; background: #f9fbff; color: #63728a; text-align: center; }
+@media(max-width:700px){.commission-summary-grid{grid-template-columns:1fr}.commission-summary-card{padding:16px}}
 .order-state.review { color: #805500; background: #fff5d8; }
 .order-state.delivered { color: #087d53; background: #e8f8f1; }
 .payment-callout { padding: 14px; border-left: 4px solid #285cff; background: #eef4ff; }

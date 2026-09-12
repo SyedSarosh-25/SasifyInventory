@@ -60,6 +60,7 @@ import catalog from './catalog.json' with { type: 'json' };
 
 const fail = (status, message) => Object.assign(new Error(message), { status });
 const TEAM_COUPON_CODE = 'HOR';
+const TEAM_COMMISSION_PKR = 50;
 const SUPPLIER_API_ENV = Object.freeze({
   dodi: 'DODI_RESELLER_API_KEY',
   qamify: 'QAMIFY_API_KEY',
@@ -2093,6 +2094,18 @@ export function createHandler(
             'SELECT id,code_display,discount_percent,max_uses,used_count,enabled,created_at,updated_at FROM commerce_coupons ORDER BY created_at DESC',
           )
         ).rows;
+        const commissionOrders = (
+          await db.query(
+            `SELECT o.id,o.product_id,o.amount,o.coupon_discount,o.delivered_at,
+                sp.provider_name AS supplier_name,sp.name AS supplier_product_name
+             FROM commerce_orders o
+             LEFT JOIN commerce_supplier_products sp ON sp.id=o.supplier_product_id
+             INNER JOIN commerce_coupons c ON c.id=o.coupon_id
+             WHERE o.status='delivered' AND c.code_display=$1
+             ORDER BY o.delivered_at DESC`,
+            [TEAM_COUPON_CODE],
+          )
+        ).rows;
         output = {
           metrics,
           coupons,
@@ -2142,6 +2155,16 @@ export function createHandler(
           supplierUsdPkrRate: supplierUsdRate(),
           profitBreakdown,
           supplierKeys: supplierKeyStatus(supplierApiKeys),
+          commissions: {
+            ratePkr: TEAM_COMMISSION_PKR,
+            totalPkr: commissionOrders.length * TEAM_COMMISSION_PKR,
+            orders: commissionOrders.map((row) => ({
+              ...row,
+              original_sale_pkr:
+                Number(row.amount || 0) + Number(row.coupon_discount || 0),
+              commission_pkr: TEAM_COMMISSION_PKR,
+            })),
+          },
         };
       } else if (action === 'admin-supplier-logs') {
         const logOrderId = req.query?.id || null;

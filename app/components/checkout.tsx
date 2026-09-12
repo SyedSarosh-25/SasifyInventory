@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import {
   ClipboardList,
   Copy,
+  BadgeDollarSign,
   KeyRound,
   LayoutDashboard,
   MessageCircle,
@@ -815,6 +816,7 @@ export function CommerceAdmin() {
       | 'orders'
       | 'payments'
       | 'coupons'
+      | 'commissions'
       | 'scammers'
     >('overview'),
     [inventorySearch, setInventorySearch] = useState(''),
@@ -989,6 +991,11 @@ export function CommerceAdmin() {
       if (filter === 'cancelled') return ['cancelled', 'expired'].includes(row.status);
       return ['pending', 'review'].includes(row.status);
     }).length;
+  const commissionData = data?.commissions || {
+    ratePkr: 50,
+    totalPkr: 0,
+    orders: [],
+  };
   const beginEdit = (item: any) => {
     setEditing(item);
     setEditCost(String(item.purchaseCost));
@@ -1118,6 +1125,7 @@ export function CommerceAdmin() {
           ['orders', 'Orders', ClipboardList],
           ['payments', 'Payments', WalletCards],
           ['coupons', 'Coupons', TicketPercent],
+          ['commissions', 'Commissions', BadgeDollarSign],
           ['scammers', 'Scam reports', ShieldAlert],
         ].map(([value, label, Icon]: any) => (
           <button
@@ -1588,6 +1596,104 @@ export function CommerceAdmin() {
                 );
               })}
             </div>
+          </section>
+        </div>
+      )}
+
+      {tab === 'commissions' && (
+        <div className="admin-workspace">
+          <section className="admin-panel">
+            <div className="panel-heading">
+              <div>
+                <span className="admin-eyebrow">
+                  <BadgeDollarSign size={15} /> Team commissions
+                </span>
+                <h2>HOR commissions</h2>
+                <p>
+                  PKR {Number(commissionData.ratePkr).toLocaleString('en-PK')}{' '}
+                  is owed for each delivered HOR/team order. These commissions
+                  are tracked separately and are not deducted from main profit.
+                </p>
+              </div>
+              <button
+                className="secondary-button compact"
+                disabled={busy}
+                onClick={() => void run(refresh)}
+              >
+                Refresh commissions
+              </button>
+            </div>
+            <div className="commission-summary-grid">
+              <article className="commission-summary-card due">
+                <span>Commission due</span>
+                <strong>{money(commissionData.totalPkr)}</strong>
+                <small>Current tracked amount to pay</small>
+              </article>
+              <article className="commission-summary-card">
+                <span>Delivered HOR orders</span>
+                <strong>{commissionData.orders.length}</strong>
+                <small>Only successfully delivered team orders</small>
+              </article>
+              <article className="commission-summary-card">
+                <span>Rate per order</span>
+                <strong>{money(commissionData.ratePkr)}</strong>
+                <small>Fixed HR/team commission</small>
+              </article>
+            </div>
+            {commissionData.orders.length ? (
+              <div className="commerce-table commission-table">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Order</th>
+                      <th>Product</th>
+                      <th>Supplier</th>
+                      <th>Original sale</th>
+                      <th>Commission</th>
+                      <th>Delivered</th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {commissionData.orders.map((row: any) => (
+                      <tr key={row.id}>
+                        <td>
+                          <button
+                            className="table-select"
+                            onClick={() => {
+                              setTab('orders');
+                              setOrderId(row.id);
+                            }}
+                          >
+                            {row.id.slice(0, 8)}
+                          </button>
+                        </td>
+                        <td>{row.supplier_product_name || row.product_id}</td>
+                        <td>{row.supplier_name || 'Local inventory'}</td>
+                        <td>{money(row.original_sale_pkr)}</td>
+                        <td>
+                          <strong className="commission-amount">
+                            {money(row.commission_pkr)}
+                          </strong>
+                        </td>
+                        <td>
+                          {row.delivered_at
+                            ? new Date(row.delivered_at).toLocaleString()
+                            : '—'}
+                        </td>
+                        <td>
+                          <span className="commission-due">Due</span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="commission-empty">
+                No delivered HOR/team orders currently have a commission due.
+              </div>
+            )}
           </section>
         </div>
       )}

@@ -92,10 +92,14 @@ test('ChatGPT Plus local inventory supports checkout, verification, delivery and
     const status = await request('status', undefined, order.recovery, order.id);
     assert.equal(status.data.status, 'delivered', JSON.stringify(status));
     assert.equal(status.data.credentials.password, 'test-pass');
-    const metrics = (await request('admin-list', undefined, env.COMMERCE_ADMIN_KEY)).data.metrics;
+    const adminSnapshot = (await request('admin-list', undefined, env.COMMERCE_ADMIN_KEY)).data;
+    const metrics = adminSnapshot.metrics;
     assert.equal(metrics.income, 3499);
     assert.equal(metrics.cost, 2000);
     assert.equal(metrics.profit, 7997);
+    assert.equal(adminSnapshot.commissions.ratePkr, 50);
+    assert.equal(adminSnapshot.commissions.orders.length, 2);
+    assert.equal(adminSnapshot.commissions.totalPkr, 100);
     await request('admin-import', { productId: 'p093', accounts: 'cancel@test.invalid|cancel-pass|cancel-2fa', purchaseCost: 1000 }, env.COMMERCE_ADMIN_KEY);
     const pending = await request('create', { productId: 'p093' });
     assert.equal(pending.code, 200);
