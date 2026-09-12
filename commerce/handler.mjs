@@ -2052,20 +2052,25 @@ export function createHandler(
         });
         const metrics = (
           await db.query(`WITH delivered_finance AS (
-        SELECT amount AS net_amount,
-          amount+COALESCE(coupon_discount,0) AS gross_amount,
-          COALESCE(coupon_discount,0) AS coupon_discount,
-          delivered_at,fulfillment_cost_pkr
-        FROM commerce_orders
+        SELECT o.amount AS net_amount,
+          o.amount+COALESCE(o.coupon_discount,0) AS gross_amount,
+          COALESCE(o.coupon_discount,0) AS coupon_discount,
+          CASE WHEN c.code_display='HOR'
+            THEN o.amount+COALESCE(o.coupon_discount,0)
+            ELSE o.amount END AS profit_basis,
+          o.delivered_at,o.fulfillment_cost_pkr
+        FROM commerce_orders o
+        LEFT JOIN commerce_coupons c ON c.id=o.coupon_id
         WHERE status='delivered'
       ) SELECT
         COALESCE(SUM(net_amount),0)::int AS income,
         COALESCE(SUM(gross_amount),0)::int AS gross_income,
         COALESCE(SUM(coupon_discount),0)::int AS coupon_discounts,
+        COALESCE(SUM(gross_amount-net_amount) FILTER (WHERE profit_basis<>net_amount),0)::int AS hor_profit_credit,
         COALESCE(SUM(COALESCE(fulfillment_cost_pkr,0)),0)::int AS cost,
-        COALESCE(SUM(net_amount-COALESCE(fulfillment_cost_pkr,0)),0)::int AS profit,
+        COALESCE(SUM(profit_basis-COALESCE(fulfillment_cost_pkr,0)),0)::int AS profit,
         COALESCE(SUM(net_amount) FILTER (WHERE delivered_at>=date_trunc('month',now())),0)::int AS monthly_income,
-        COALESCE(SUM(net_amount-COALESCE(fulfillment_cost_pkr,0)) FILTER (WHERE delivered_at>=date_trunc('month',now())),0)::int AS monthly_profit,
+        COALESCE(SUM(profit_basis-COALESCE(fulfillment_cost_pkr,0)) FILTER (WHERE delivered_at>=date_trunc('month',now())),0)::int AS monthly_profit,
         COUNT(*)::int AS delivered_orders,
         (SELECT COUNT(*)::int FROM commerce_orders WHERE status IN ('pending','review')) AS active_orders,
         COUNT(*) FILTER (WHERE fulfillment_cost_pkr IS NULL)::int AS missing_costs
@@ -2076,10 +2081,11 @@ export function createHandler(
         COALESCE(SUM(o.amount),0)::int AS income,
         COALESCE(SUM(o.amount+COALESCE(o.coupon_discount,0)),0)::int AS gross_income,
         COALESCE(SUM(COALESCE(o.coupon_discount,0)),0)::int AS coupon_discounts,
+        COALESCE(SUM(CASE WHEN c.code_display='HOR' THEN COALESCE(o.coupon_discount,0) ELSE 0 END),0)::int AS hor_profit_credit,
         COALESCE(SUM(COALESCE(o.fulfillment_cost_pkr,0)),0)::int AS cost,
-        COALESCE(SUM(o.amount-COALESCE(o.fulfillment_cost_pkr,0)),0)::int AS profit,
+        COALESCE(SUM((CASE WHEN c.code_display='HOR' THEN o.amount+COALESCE(o.coupon_discount,0) ELSE o.amount END)-COALESCE(o.fulfillment_cost_pkr,0)),0)::int AS profit,
         COUNT(*)::int AS orders
-        FROM commerce_orders o
+        FROM commerce_orders o LEFT JOIN commerce_coupons c ON c.id=o.coupon_id
         WHERE o.status='delivered' GROUP BY 1 ORDER BY 1`)
         ).rows;
         const coupons = (
@@ -2111,9 +2117,13 @@ export function createHandler(
               `SELECT o.id,o.product_id,o.amount,o.status,o.transaction_id,o.payer_name,o.supplier_order_id,o.supplier_status,
                 sp.provider_name AS supplier_name,sp.name AS supplier_product_name,o.created_at,o.delivered_at,
                 o.fulfillment_cost_pkr AS cost_pkr,
-                CASE WHEN o.status='delivered' THEN o.amount-COALESCE(o.fulfillment_cost_pkr,0) ELSE NULL END AS profit_pkr
+                c.code_display AS coupon_code,
+                CASE WHEN o.status='delivered' THEN
+                  (CASE WHEN c.code_display='HOR' THEN o.amount+COALESCE(o.coupon_discount,0) ELSE o.amount END)-COALESCE(o.fulfillment_cost_pkr,0)
+                  ELSE NULL END AS profit_pkr
                FROM commerce_orders o
                LEFT JOIN commerce_supplier_products sp ON sp.id=o.supplier_product_id
+               LEFT JOIN commerce_coupons c ON c.id=o.coupon_id
                ORDER BY o.created_at DESC`,
             )
           ).rows,

@@ -1457,11 +1457,14 @@ export function CommerceAdmin() {
               className="metric-card metric-profit-card"
               onClick={() => setTab('profit')}
             >
-              <span>Net profit after coupons</span>
+              <span>Profit after coupon rules</span>
               <strong className="metric-profit">
                 {money(data.metrics.profit)}
               </strong>
-              <small>Net sales minus delivered purchase cost</small>
+              <small>
+                HOR value credited {money(data.metrics.hor_profit_credit)} ·
+                other coupons use discounted sale price
+              </small>
             </button>
             <article>
               <span>This month</span>
@@ -1516,9 +1519,9 @@ export function CommerceAdmin() {
                 <span className="admin-eyebrow">Financial breakdown</span>
                 <h2>Profit details</h2>
                 <p>
-                  Profit is calculated per delivered order as net sale price
-                  after its coupon discount minus recorded purchase cost. HOR,
-                  reseller and other coupon orders are included.
+                  Profit is calculated per delivered order. HOR uses the original
+                  sale value; reseller and other coupons use sale value after
+                  discount. Each result is reduced by purchase cost and added.
                 </p>
               </div>
               <button
@@ -1536,6 +1539,7 @@ export function CommerceAdmin() {
                   income: 0,
                   gross_income: 0,
                   coupon_discounts: 0,
+                  hor_profit_credit: 0,
                   cost: 0,
                   profit: 0,
                   orders: 0,
@@ -1566,6 +1570,10 @@ export function CommerceAdmin() {
                     <div>
                       <span>Coupon discounts</span>
                       <strong>{money(row.coupon_discounts)}</strong>
+                    </div>
+                    <div>
+                      <span>HOR value credited</span>
+                      <strong>{money(row.hor_profit_credit)}</strong>
                     </div>
                     <div>
                       <span>Profit</span>
@@ -2334,7 +2342,10 @@ export function CommerceAdmin() {
                           <small>{row.supplier_status}</small>
                         )}
                       </td>
-                      <td>{money(row.amount)}</td>
+                      <td>
+                        {money(row.amount)}
+                        {row.coupon_code && <small>{row.coupon_code}</small>}
+                      </td>
                       <td>{row.cost_pkr == null ? '—' : money(row.cost_pkr)}</td>
                       <td>
                         {row.profit_pkr == null ? '—' : money(row.profit_pkr)}
