@@ -40,7 +40,7 @@ type Stock = {
 type AccountCredentials = {
   email: string;
   password: string;
-  twoFactor: string;
+  twoFactor?: string;
 };
 type Order = {
   id: string;
@@ -63,6 +63,7 @@ type Order = {
   sharedSlotsFilled?: number;
   sharedSlotsTotal?: number;
   sharedAccountStatus?: string | null;
+  twoFactorCodeAvailable?: boolean;
   payment: { number: string; title: string; provider: string };
   credentials?: AccountCredentials;
   delivery?: { content: string; instructions?: string };
@@ -139,6 +140,11 @@ export function Checkout() {
   const [order, setOrder] = useState<Order | null>(null),
     [id, setId] = useState(''),
     [key, setKey] = useState('');
+  const [twoFactorCode, setTwoFactorCode] = useState('');
+  const [twoFactorCodeExpiresAt, setTwoFactorCodeExpiresAt] = useState('');
+  const [twoFactorCodeBusy, setTwoFactorCodeBusy] = useState(false);
+  const [showTwoFactorStep, setShowTwoFactorStep] = useState(false);
+  const twoFactorCodeTimer = useRef<number | null>(null);
   const [couponCode, setCouponCode] = useState('');
   const [customerEmail, setCustomerEmail] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<'wallet' | 'bank'>('wallet');
@@ -254,11 +260,19 @@ export function Checkout() {
     setKey(recovery);
   }
   function clear() {
+    if (twoFactorCodeTimer.current !== null) {
+      window.clearTimeout(twoFactorCodeTimer.current);
+      twoFactorCodeTimer.current = null;
+    }
     localStorage.removeItem('sasify-order');
     sessionStorage.removeItem('sasify-order');
     setOrder(null);
     setId('');
     setKey('');
+    setTwoFactorCode('');
+    setTwoFactorCodeExpiresAt('');
+    setTwoFactorCodeBusy(false);
+    setShowTwoFactorStep(false);
   }
   const product = products.find((p) => p.id === selected);
   const checkoutProducts = products.filter((p) => p.id !== 'p093');
@@ -299,6 +313,28 @@ export function Checkout() {
       setNotice('Copied.');
     } catch {
       setNotice('Select the text and copy it.');
+    }
+  }
+  async function requestTwoFactorCode() {
+    if (!order?.twoFactorCodeAvailable || !id || !key || twoFactorCodeBusy) return;
+    setTwoFactorCodeBusy(true);
+    setError('');
+    try {
+      const data = await api('shared-2fa-code', key, { id });
+      setTwoFactorCode(data.code);
+      setTwoFactorCodeExpiresAt(data.expiresAt);
+      setNotice('This one-time 2FA code is shown only once. Enter it immediately on the login screen.');
+      setOrder((current) => current ? { ...current, twoFactorCodeAvailable: false } : current);
+      twoFactorCodeTimer.current = window.setTimeout(() => {
+        setTwoFactorCode('');
+        setTwoFactorCodeExpiresAt('');
+        setNotice('The one-time 2FA code has expired and cannot be requested again for this order.');
+        twoFactorCodeTimer.current = null;
+      }, Math.max(0, new Date(data.expiresAt).getTime() - Date.now()));
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setTwoFactorCodeBusy(false);
     }
   }
   return (
@@ -675,21 +711,89 @@ export function Checkout() {
               <h2>
                 <ShieldCheck size={20} /> Your account is ready
               </h2>
+              {order.sharedSlot && (
+                <p className="shared-two-factor-step-heading">
+                  <strong>Step 1: Log in with your email and password</strong>
+                  <br />
+                  Open ChatGPT in a new tab or window, use the credentials
+                  below, and then return here to continue to the 2FA step.
+                </p>
+              )}
               {Object.entries(order.credentials).map(([field, value]) => (
                 <label key={field}>
                   {field === 'twoFactor' ? '2FA' : field}
                   <div className="commerce-secret">
-                    <code>{value}</code>
+                    <code>{String(value)}</code>
                     <button
                       title={`Copy ${field}`}
                       aria-label={`Copy ${field}`}
-                      onClick={() => void copy(value)}
+                      onClick={() => void copy(String(value))}
                     >
                       <Copy size={18} />
                     </button>
                   </div>
                 </label>
               ))}
+              {order.sharedSlot && !showTwoFactorStep && order.twoFactorCodeAvailable && !twoFactorCode && (
+                <button
+                  type="button"
+                  className="primary-button"
+                  onClick={() => setShowTwoFactorStep(true)}
+                >
+                  I have logged in — continue
+                </button>
+              )}
+              {order.sharedSlot && showTwoFactorStep && order.twoFactorCodeAvailable && !twoFactorCode && (
+                <div className="shared-two-factor">
+                  <strong>Step 2: Enter your one-time 2FA code</strong>
+                  <p className="shared-two-factor-warning">
+                    You will be shown this code only once, so handle it
+                    properly and enter it immediately on the ChatGPT 2FA login
+                    screen.
+                  </p>
+                  <p>
+                    This strict action is intended to ensure that only the four
+                    assigned members access this shared account and that it is
+                    not shared beyond the four available slots.
+                  </p>
+                  <button
+                    type="button"
+                    className="secondary-button"
+                    disabled={twoFactorCodeBusy}
+                    onClick={() => void requestTwoFactorCode()}
+                  >
+                    {twoFactorCodeBusy ? 'Generating code...' : 'Show one-time 2FA code'}
+                  </button>
+                </div>
+              )}
+              {order.sharedSlot && twoFactorCode && (
+                <label>
+                  Step 2: One-time 2FA code
+                  <div className="commerce-secret">
+                    <code>{twoFactorCode}</code>
+                    <button
+                      type="button"
+                      title="Copy one-time 2FA code"
+                      aria-label="Copy one-time 2FA code"
+                      onClick={() => void copy(twoFactorCode)}
+                    >
+                      <Copy size={18} />
+                    </button>
+                  </div>
+                  <small>
+                    Enter this code immediately on the same device. It is shown
+                    once and expires in 30 seconds
+                    {twoFactorCodeExpiresAt
+                      ? ` (at ${new Date(twoFactorCodeExpiresAt).toLocaleTimeString()}).`
+                      : '.'}
+                  </small>
+                </label>
+              )}
+              {order.sharedSlot && !twoFactorCode && !order.twoFactorCodeAvailable && (
+                <p className="shared-two-factor-locked">
+                  The one-time 2FA code has already been issued for this order.
+                </p>
+              )}
             </section>
           )}
           {order.delivery && (

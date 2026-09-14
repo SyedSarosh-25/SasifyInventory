@@ -46,8 +46,9 @@ test('shared ChatGPT inventory rotates four slots and allocates profit per slot'
     };
     const res = {
       statusCode: 200,
-      setHeader() {},
-      end(text) { result = { code: this.statusCode, data: JSON.parse(text) }; },
+      headers: {},
+      setHeader(name, value) { this.headers[String(name).toLowerCase()] = value; },
+      end(text) { result = { code: this.statusCode, data: JSON.parse(text), headers: this.headers }; },
     };
     await handler(req, res);
     return result;
@@ -55,7 +56,7 @@ test('shared ChatGPT inventory rotates four slots and allocates profit per slot'
 
   const imported = await request('admin-import', {
     productId: 'p093-ultra',
-    accounts: 'shared-one@test.invalid|test-pass|test-2fa\nshared-two@test.invalid|test-pass|test-2fa-2',
+    accounts: 'shared-one@test.invalid|test-pass|GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ\nshared-two@test.invalid|test-pass|JBSWY3DPEHPK3PXP',
     purchaseCost: 1000,
   }, env.COMMERCE_ADMIN_KEY);
   assert.equal(imported.code, 200, JSON.stringify(imported));
@@ -91,6 +92,37 @@ test('shared ChatGPT inventory rotates four slots and allocates profit per slot'
     const status = await request('status', undefined, created.data.recovery, created.data.id);
     assert.equal(status.data.status, 'delivered', JSON.stringify(status));
     assert.equal(status.data.credentials.password, 'test-pass');
+    if (index === 0) {
+      assert.equal(status.data.credentials.twoFactor, undefined);
+      assert.equal(status.data.twoFactorCodeAvailable, true);
+      const wrongDevice = await request(
+        'shared-2fa-code',
+        { id: created.data.id },
+        created.data.recovery,
+      );
+      assert.equal(wrongDevice.code, 403, JSON.stringify(wrongDevice));
+      const code = await request(
+        'shared-2fa-code',
+        { id: created.data.id },
+        created.data.recovery,
+        '',
+        { cookie: created.headers['set-cookie'] },
+      );
+      assert.equal(code.code, 200, JSON.stringify(code));
+      assert.match(code.data.code, /^\d{6}$/);
+      assert.equal(code.data.oneTime, true);
+      const repeated = await request(
+        'shared-2fa-code',
+        { id: created.data.id },
+        created.data.recovery,
+        '',
+        { cookie: created.headers['set-cookie'] },
+      );
+      assert.equal(repeated.code, 409, JSON.stringify(repeated));
+      const afterCode = await request('status', undefined, created.data.recovery, created.data.id);
+      assert.equal(afterCode.data.twoFactorCodeAvailable, false);
+      assert.equal(afterCode.data.credentials.twoFactor, undefined);
+    }
     deliveredOrders.push(status.data);
   }
   assert.deepEqual(deliveredOrders.slice(0, 4).map((order) => order.sharedSlot), [1, 2, 3, 4]);

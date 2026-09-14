@@ -39,12 +39,12 @@ const catalogProducts: Product[] = [
     originalPricePkr: 5700,
     sourceUrl: 'https://openai.com/chatgpt/pricing/',
     description:
-      'One-month ChatGPT Plus access through a shared account. Each account is shared by up to four members, with the same email, password and 2FA access delivered after payment verification.',
+      'One-month ChatGPT Plus access through a shared account. Each account is shared by up to four members, with the email and password delivered after payment verification and a one-time 2FA login code available on the original checkout device.',
     details: [
       'Shared ChatGPT account: your data and activity are not private and may be visible to the other members using the same account.',
       'Usage is shared between all four members. Sasify Solutions cannot guarantee individual usage limits or availability after the shared allowance is reached.',
       'Because this is shared access, it is sold without replacement, warranty or refund once the credentials have been delivered or the shared usage limit has been reached.',
-      'The shared pool is filled slot-by-slot: 1/4, 2/4, 3/4 and 4/4. A new admin-approved account is used automatically when the current account is full.',
+      'The shared pool is filled slot-by-slot: 1/4, 2/4, 3/4 and 4/4. A new admin-approved account is used automatically when the current account is full. The authenticator secret is never shown to customers.',
     ],
   },
   {

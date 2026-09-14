@@ -137,6 +137,16 @@ ALTER TABLE commerce_shared_accounts ADD COLUMN IF NOT EXISTS sold_at timestampt
 CREATE INDEX IF NOT EXISTS commerce_shared_accounts_queue ON commerce_shared_accounts(status,created_at,id);
 DROP INDEX IF EXISTS commerce_inventory_assignment;
 CREATE UNIQUE INDEX IF NOT EXISTS commerce_inventory_assignment ON commerce_orders(inventory_id) WHERE shared_account_id IS NULL AND status IN ('pending','review','delivered');
+CREATE TABLE IF NOT EXISTS commerce_two_factor_challenges (
+ id uuid PRIMARY KEY,
+ order_id uuid NOT NULL UNIQUE REFERENCES commerce_orders(id) ON DELETE CASCADE,
+ device_hash text NOT NULL,
+ code_hash text NOT NULL,
+ issued_at timestamptz NOT NULL DEFAULT now(),
+ expires_at timestamptz NOT NULL,
+ consumed_at timestamptz
+);
+CREATE INDEX IF NOT EXISTS commerce_two_factor_challenges_expiry ON commerce_two_factor_challenges(expires_at);
 CREATE TABLE IF NOT EXISTS commerce_payments (
  id uuid PRIMARY KEY, event_hash text NOT NULL UNIQUE, transaction_id text UNIQUE,
  amount integer, payer_name text, source_last4 text, received_at timestamptz, verified boolean NOT NULL DEFAULT false,

@@ -6,6 +6,7 @@ import {
   signature,
   encrypt,
   decrypt,
+  totpCode,
   parseEmail,
   parseInventory,
   normalizeTransaction,
@@ -118,6 +119,10 @@ const adminCookie = (req) =>
 const teamCookie = (req) =>
   String(req.headers.cookie || '').match(
     /(?:^|;\s*)sasify_team=([^;]+)/,
+  )?.[1] || '';
+const checkoutCookie = (req) =>
+  String(req.headers.cookie || '').match(
+    /(?:^|;\s*)sasify_checkout=([a-f0-9]{64})(?:;|$)/i,
   )?.[1] || '';
 const idOk = (value) => /^[a-f0-9-]{36}$/i.test(String(value || ''));
 const json = (res, status, body) => {
@@ -1295,6 +1300,29 @@ async function ensureSharedAccountSchema(db) {
   }
   await sharedAccountSchemaReady;
 }
+let twoFactorChallengeSchemaReady;
+async function ensureTwoFactorChallengeSchema(db) {
+  if (!twoFactorChallengeSchemaReady) {
+    twoFactorChallengeSchemaReady = (async () => {
+      await db.query(`CREATE TABLE IF NOT EXISTS commerce_two_factor_challenges (
+        id uuid PRIMARY KEY,
+        order_id uuid NOT NULL UNIQUE REFERENCES commerce_orders(id) ON DELETE CASCADE,
+        device_hash text NOT NULL,
+        code_hash text NOT NULL,
+        issued_at timestamptz NOT NULL DEFAULT now(),
+        expires_at timestamptz NOT NULL,
+        consumed_at timestamptz
+      )`);
+      await db.query(
+        'CREATE INDEX IF NOT EXISTS commerce_two_factor_challenges_expiry ON commerce_two_factor_challenges(expires_at)',
+      );
+    })().catch((error) => {
+      twoFactorChallengeSchemaReady = null;
+      throw error;
+    });
+  }
+  await twoFactorChallengeSchemaReady;
+}
 async function releaseSharedSlot(db, order) {
   if (!order?.shared_account_id || order.shared_slot_released) return;
   const changed = await db.query(
@@ -1335,6 +1363,59 @@ async function reserveSharedAccount(db) {
     [slot, shared.id],
   );
   return { id: shared.id, inventoryId: shared.inventory_id, slot };
+}
+async function issueSharedTwoFactorCode(db, req, orderId, key) {
+  const session = checkoutCookie(req);
+  const order = (
+    await db.query(
+      `SELECT o.*,i.credentials
+       FROM commerce_orders o
+       INNER JOIN commerce_inventory i ON i.id=o.inventory_id
+       WHERE o.id=$1 AND o.shared_account_id IS NOT NULL
+       FOR UPDATE OF o,i`,
+      [orderId],
+    )
+  ).rows[0];
+  if (!order || !same(hash(bearer(req)), order.recovery_hash))
+    throw fail(404, 'Order not found or recovery key is incorrect.');
+  if (order.status !== 'delivered')
+    throw fail(409, 'The shared account is not ready for login yet.');
+  // Bind issuance to the original checkout browser cookie. The customer never
+  // receives the cookie value, and a copied order recovery key alone is not enough.
+  if (!session || !same(hash(session), order.session_hash))
+    throw fail(403, 'Open this order on the original checkout device to request the code.');
+  const existing = (
+    await db.query(
+      'SELECT id,expires_at FROM commerce_two_factor_challenges WHERE order_id=$1',
+      [order.id],
+    )
+  ).rows[0];
+  if (existing)
+    throw fail(409, 'The one-time 2FA code has already been issued for this order.');
+  const credentials = decrypt(order.credentials, key);
+  let code;
+  try {
+    code = totpCode(credentials.twoFactor);
+  } catch {
+    throw fail(409, 'This account does not have a valid TOTP authenticator secret. Contact support.');
+  }
+  const expiresAt = new Date(Date.now() + 30 * 1000);
+  await db.query(
+    `INSERT INTO commerce_two_factor_challenges(id,order_id,device_hash,code_hash,expires_at)
+     VALUES($1,$2,$3,$4,$5)`,
+    [
+      randomUUID(),
+      order.id,
+      hash(`${session}:${String(req.headers['user-agent'] || '')}`),
+      hash(code),
+      expiresAt,
+    ],
+  );
+  await db.query(
+    "INSERT INTO commerce_audit(action,object_id) VALUES('shared_2fa_code_issued',$1)",
+    [order.id],
+  );
+  return { code, expiresAt: expiresAt.toISOString(), oneTime: true };
 }
 async function rate(db, key, max) {
   const result = await db.query(
@@ -2184,6 +2265,7 @@ export function createHandler(
       await ensureInventoryVariants(db);
       await ensureTeamSchema(db);
       await ensureSharedAccountSchema(db);
+      await ensureTwoFactorChallengeSchema(db);
       await db.query('BEGIN');
       await ensureDefaultCoupon(db);
       const supplierApiKeys = await readSupplierApiKeys(db, key);
@@ -2714,6 +2796,9 @@ export function createHandler(
           paymentWindowMinutes,
         };
         telegramMessages.push(`New order placed\nOrder: ${id.slice(0, 8)}\nProduct: ${String(product.name || product.id).slice(0, 120)}\nAmount: PKR ${paymentAmount.toLocaleString()}${isTeamCoupon ? '\nTeam coupon: HOR' : commissionCode ? `\nCoupon: ${commissionCode}` : ''}`);
+      } else if (action === 'shared-2fa-code') {
+        if (!idOk(body.id)) throw fail(400, 'Invalid order ID.');
+        output = await issueSharedTwoFactorCode(db, req, body.id, key);
       } else if (['status', 'claim', 'cancel'].includes(action)) {
         const id = req.query?.id || body.id;
         if (!idOk(id)) throw fail(404, 'Order not found.');
@@ -2873,6 +2958,15 @@ export function createHandler(
                 )
               ).rows[0]
             : null;
+          const sharedTwoFactorChallenge =
+            order.shared_account_id && order.status === 'delivered'
+              ? (
+                  await db.query(
+                    'SELECT id FROM commerce_two_factor_challenges WHERE order_id=$1',
+                    [order.id],
+                  )
+                ).rows[0]
+              : null;
           output = {
             id,
             product: orderProduct ? customerProductName({ id: order.product_id, name: orderProduct }) : orderProduct,
@@ -2905,6 +2999,9 @@ export function createHandler(
                   sharedAccountStatus: sharedState?.status || null,
                 }
               : {}),
+            ...(order.shared_account_id && order.status === 'delivered'
+              ? { twoFactorCodeAvailable: !sharedTwoFactorChallenge }
+              : {}),
             payment: {
               number: process.env.PAYMENT_ACCOUNT_NUMBER || '03450485711',
               provider: 'NayaPay',
@@ -2924,7 +3021,12 @@ export function createHandler(
                   [order.inventory_id],
                 )
               ).rows[0];
-              output.credentials = decrypt(item.credentials, key);
+              const credentials = decrypt(item.credentials, key);
+              output.credentials = order.shared_account_id
+                ? Object.fromEntries(
+                    Object.entries(credentials).filter(([field]) => field !== 'twoFactor'),
+                  )
+                : credentials;
             }
           }
         }

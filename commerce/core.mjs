@@ -17,6 +17,64 @@ export function decrypt(value, key) {
   cipher.setAuthTag(tag);
   return JSON.parse(Buffer.concat([cipher.update(data), cipher.final()]).toString());
 }
+function decodeBase32(value) {
+  const normalized = String(value || '')
+    .trim()
+    .replace(/[\s-]/g, '')
+    .replace(/=+$/, '')
+    .toUpperCase();
+  if (!normalized || !/^[A-Z2-7]+$/.test(normalized))
+    throw new Error('Authenticator secret is not a valid Base32 value.');
+  const bytes = [];
+  let buffer = 0;
+  let bits = 0;
+  for (const character of normalized) {
+    buffer = (buffer << 5) | ('ABCDEFGHIJKLMNOPQRSTUVWXYZ234567'.indexOf(character));
+    bits += 5;
+    if (bits >= 8) {
+      bits -= 8;
+      bytes.push((buffer >> bits) & 0xff);
+    }
+  }
+  return Buffer.from(bytes);
+}
+export function totpCode(secret, timestamp = Date.now()) {
+  let value = String(secret || '').trim();
+  let algorithm = 'sha1';
+  let digits = 6;
+  let period = 30;
+  if (value.toLowerCase().startsWith('otpauth://')) {
+    let uri;
+    try {
+      uri = new URL(value);
+    } catch {
+      throw new Error('Authenticator URI is invalid.');
+    }
+    if (uri.protocol !== 'otpauth:' || uri.hostname.toLowerCase() !== 'totp')
+      throw new Error('Only TOTP authenticator secrets are supported.');
+    value = uri.searchParams.get('secret') || '';
+    algorithm = String(uri.searchParams.get('algorithm') || 'SHA1').toLowerCase();
+    digits = Number(uri.searchParams.get('digits') || 6);
+    period = Number(uri.searchParams.get('period') || 30);
+  }
+  if (!['sha1', 'sha256', 'sha512'].includes(algorithm))
+    throw new Error('Authenticator algorithm is not supported.');
+  if (![6, 7, 8].includes(digits) || !Number.isInteger(period) || period < 15 || period > 120)
+    throw new Error('Authenticator settings are invalid.');
+  const counter = Math.floor(Number(timestamp) / 1000 / period);
+  if (!Number.isSafeInteger(counter) || counter < 0)
+    throw new Error('Authenticator timestamp is invalid.');
+  const counterBuffer = Buffer.alloc(8);
+  counterBuffer.writeBigUInt64BE(BigInt(counter));
+  const digest = createHmac(algorithm, decodeBase32(value)).update(counterBuffer).digest();
+  const offset = digest[digest.length - 1] & 0x0f;
+  const binary =
+    ((digest[offset] & 0x7f) << 24) |
+    (digest[offset + 1] << 16) |
+    (digest[offset + 2] << 8) |
+    digest[offset + 3];
+  return String(binary % 10 ** digits).padStart(digits, '0');
+}
 export function normalizeTransaction(value) {
   const result = String(value || '').trim().toUpperCase();
   if (!/^[A-Z0-9-]{6,80}$/.test(result)) throw new Error('Enter the complete transaction ID from your receipt.');

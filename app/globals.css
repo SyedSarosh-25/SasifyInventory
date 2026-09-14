@@ -1897,6 +1897,11 @@ svg { flex-shrink: 0; }
 .commerce-secret { display: flex; gap: 12px; align-items: center; padding: 12px; background: #eef4ff; border-radius: 6px; }
 .commerce-secret code { overflow-wrap: anywhere; min-width: 0; flex: 1; }
 .commerce-secret pre { min-width: 0; flex: 1; margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; font: inherit; }
+.shared-two-factor { display: grid; gap: 12px; margin-top: 18px; padding: 14px; border: 1px solid #b8d9ef; border-radius: 8px; background: #f2f9ff; }
+.shared-two-factor p { margin: 0; color: #2b5272; line-height: 1.55; }
+.shared-two-factor-step-heading { margin: 0 0 16px; color: #2b5272; line-height: 1.6; }
+.shared-two-factor-warning { color: #8a5700 !important; font-weight: 700; }
+.shared-two-factor-locked { margin: 18px 0 0; color: #6b7890; font-size: .88rem; }
 .delivery-instructions { margin-top: 16px; padding: 16px; border-left: 3px solid #285cff; background: #f6f9ff; }
 .delivery-instructions p { margin: 7px 0 0; white-space: pre-wrap; }
 .commerce-shell .commerce-check { display: flex; align-items: flex-start; gap: 10px; }

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { randomBytes } from 'node:crypto';
-import { encrypt,decrypt,parseEmail,parseInventory,normalizeTransaction,same } from '../commerce/core.mjs';
+import { encrypt,decrypt,parseEmail,parseInventory,normalizeTransaction,same,totpCode } from '../commerce/core.mjs';
 import { normalizeQamifyProduct, qamifyDelivery, qamifyOrderId } from '../commerce/qamify.mjs';
 import { providerDescription } from '../commerce/description.mjs';
 test('credentials are authenticated ciphertext and wrong keys cannot decrypt',()=>{
@@ -9,6 +9,12 @@ test('credentials are authenticated ciphertext and wrong keys cannot decrypt',()
   const ciphertext=encrypt(credentials,key);
   assert(!ciphertext.includes(credentials.password));assert.deepEqual(decrypt(ciphertext,key),credentials);
   assert.throws(()=>decrypt(ciphertext,randomBytes(32).toString('hex')));
+});
+test('TOTP codes support raw Base32 and otpauth URI secrets without exposing the seed',()=>{
+  const secret='GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ';
+  assert.equal(totpCode(secret,59000),'287082');
+  assert.equal(totpCode(`otpauth://totp/Example?secret=${secret}&digits=8`,59000),'94287082');
+  assert.throws(()=>totpCode('BAD0SECRET',59000));
 });
 test('inventory import rejects duplicates and malformed rows atomically',()=>{
   assert.equal(parseInventory('one@test.invalid | pass | seed').length,1);

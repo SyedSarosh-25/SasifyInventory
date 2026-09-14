@@ -284,6 +284,9 @@ export default async function ProductPage({ params }: Props) {
                   <strong>Shared-account terms.</strong> This ChatGPT Plus
                   account is shared by up to four customers. Your data and
                   activity are not private and may be visible to other members.
+                  After payment, the email and password are delivered and one
+                  2FA login code is shown once on the original checkout device;
+                  the authenticator secret is never shared.
                   Usage is shared, so no individual usage-limit guarantee is
                   provided. After delivery, this shared access is not eligible
                   for replacement, warranty or refund if the shared allowance
