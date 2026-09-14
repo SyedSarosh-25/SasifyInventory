@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, type SyntheticEvent } from 'react';
-import { ArrowRight, CheckCircle2, Send, Sparkles } from 'lucide-react';
+import { ArrowRight, Send, Sparkles } from 'lucide-react';
 
 export function ToolRequest() {
   const [toolName, setToolName] = useState('');
@@ -46,7 +46,6 @@ export function ToolRequest() {
           <p>Can&apos;t find a tool in our catalog? Send the name and your requirement. We&apos;ll check availability and contact you when we can arrange it.</p>
           <a className="secondary-button" href="/inventory">Browse available tools <ArrowRight size={17} /></a>
         </div>
-        <div className="tool-request-promise"><CheckCircle2 size={20} /><span>One request is reviewed by our team and kept private inside the admin workspace.</span></div>
       </section>
       <section className="tool-request-card" aria-labelledby="tool-request-title">
         <div className="panel-heading"><div><span className="section-kicker"><Send size={16} /> Send a request</span><h2 id="tool-request-title">Request a tool</h2><p>Share enough detail for us to find the right plan or access type.</p></div></div>
