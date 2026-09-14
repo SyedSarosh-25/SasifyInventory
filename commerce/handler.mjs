@@ -64,6 +64,7 @@ import {
   publicScamReport,
   publicScamReportSummary,
 } from './scam-reports.mjs';
+import { normalizeToolRequest } from './tool-requests.mjs';
 import {
   DEFAULT_REVIEWS_URL,
   fetchGoogleReviews,
@@ -1101,6 +1102,26 @@ async function ensureScamSchema(db) {
   }
   await scamSchemaReady;
 }
+let toolRequestSchemaReady;
+async function ensureToolRequestSchema(db) {
+  if (!toolRequestSchemaReady) {
+    toolRequestSchemaReady = (async () => {
+      await db.query(`CREATE TABLE IF NOT EXISTS commerce_tool_requests (
+        id uuid PRIMARY KEY, tool_name text NOT NULL, requirement text NOT NULL,
+        priority text NOT NULL DEFAULT 'moderate' CHECK(priority IN ('urgent','moderate','low')),
+        contact_number text NOT NULL, status text NOT NULL DEFAULT 'new'
+          CHECK(status IN ('new','contacted','fulfilled','closed')),
+        created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now()
+      )`);
+      await db.query('CREATE INDEX IF NOT EXISTS commerce_tool_requests_created ON commerce_tool_requests(created_at DESC)');
+      await db.query('CREATE INDEX IF NOT EXISTS commerce_tool_requests_queue ON commerce_tool_requests(status,priority,created_at DESC)');
+    })().catch((error) => {
+      toolRequestSchemaReady = null;
+      throw error;
+    });
+  }
+  await toolRequestSchemaReady;
+}
 let inventoryVariantMigrationReady;
 async function ensureInventoryVariants(db) {
   if (!inventoryVariantMigrationReady) {
@@ -1879,6 +1900,8 @@ export function createHandler(
             ? 5
             : action === 'scam-submit'
               ? 4
+              : action === 'tool-request'
+                ? 4
               : 20,
       );
       if (
@@ -1928,6 +1951,7 @@ export function createHandler(
       await ensureSupplierSecretSchema(db);
       await ensureSupplierMediaSchema(db);
       await ensureScamSchema(db);
+      await ensureToolRequestSchema(db);
       await ensureGoogleReviewSchema(db);
       await ensureInventoryVariants(db);
       await ensureTeamSchema(db);
@@ -2216,6 +2240,33 @@ export function createHandler(
         );
         await db.query(
           "INSERT INTO commerce_audit(action,object_id) VALUES('scam_report_submit',$1)",
+          [inserted.rows[0].id],
+        );
+        output = {
+          ok: true,
+          id: inserted.rows[0].id,
+          createdAt: inserted.rows[0].created_at,
+        };
+      } else if (action === 'tool-request') {
+        let request;
+        try {
+          request = normalizeToolRequest(body);
+        } catch (error) {
+          throw fail(400, error.message);
+        }
+        const inserted = await db.query(
+          `INSERT INTO commerce_tool_requests(id,tool_name,requirement,priority,contact_number)
+           VALUES($1,$2,$3,$4,$5) RETURNING id,created_at`,
+          [
+            randomUUID(),
+            request.toolName,
+            request.requirement,
+            request.priority,
+            request.contactNumber,
+          ],
+        );
+        await db.query(
+          "INSERT INTO commerce_audit(action,object_id) VALUES('tool_request_submit',$1)",
           [inserted.rows[0].id],
         );
         output = {
@@ -3107,6 +3158,14 @@ export function createHandler(
               'SELECT id,name,description,amount_pkr,identifiers,payment_methods,status,created_at,reviewed_at,jsonb_array_length(evidence) AS evidence_count FROM commerce_scam_reports ORDER BY created_at DESC LIMIT 200',
             )
           ).rows,
+          toolRequests: (
+            await db.query(
+              `SELECT id,tool_name,requirement,priority,contact_number,status,created_at,updated_at
+               FROM commerce_tool_requests
+               ORDER BY CASE priority WHEN 'urgent' THEN 0 WHEN 'moderate' THEN 1 ELSE 2 END, created_at DESC
+               LIMIT 200`,
+            )
+          ).rows,
           supplierProducts: (
             await db.query(
               'SELECT * FROM commerce_supplier_products ORDER BY provider_name,name',
@@ -3351,6 +3410,21 @@ export function createHandler(
           [`${status}_scam_report`, body.reportId],
         );
         output = { ok: true, reportId: body.reportId, status };
+      } else if (action === 'admin-tool-request-update') {
+        if (!idOk(body.requestId)) throw fail(400, 'Invalid tool request ID.');
+        const status = String(body.status || '').trim();
+        if (!['new', 'contacted', 'fulfilled', 'closed'].includes(status))
+          throw fail(400, 'Invalid tool request status.');
+        const changed = await db.query(
+          'UPDATE commerce_tool_requests SET status=$1,updated_at=now() WHERE id=$2 RETURNING id,status',
+          [status, body.requestId],
+        );
+        if (!changed.rowCount) throw fail(404, 'Tool request not found.');
+        await db.query(
+          "INSERT INTO commerce_audit(action,object_id) VALUES('tool_request_update',$1)",
+          [body.requestId],
+        );
+        output = { ok: true, requestId: body.requestId, status };
       } else if (action === 'admin-approve') {
         if (
           !idOk(body.orderId) ||

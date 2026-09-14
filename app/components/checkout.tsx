@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { AdminShell } from './admin-shell';
 import { AdminOperations } from './admin-operations';
 import { AdminRecordControls, useRecordView } from './admin-record-controls';
+import { AdminToolRequests } from './admin-tool-requests';
 import {
   ClipboardList,
   Copy,
@@ -921,6 +922,7 @@ export function CommerceAdmin() {
       | 'coupons'
       | 'scammers'
       | 'team'
+      | 'toolRequests'
     >('overview'),
     [inventorySearch, setInventorySearch] = useState(''),
     [supplierSearch, setSupplierSearch] = useState(''),
@@ -1828,6 +1830,19 @@ export function CommerceAdmin() {
             </section>
           )}
         </div>
+      )}
+      {tab === 'toolRequests' && (
+        <AdminToolRequests
+          requests={data.toolRequests || []}
+          busy={busy}
+          onStatus={(requestId, status) => {
+            void run(async () => {
+              await api('admin-tool-request-update', key, { requestId, status });
+              setNotice(`Tool request marked ${status}.`);
+              await refresh();
+            });
+          }}
+        />
       )}
 
       {tab === 'team' && (

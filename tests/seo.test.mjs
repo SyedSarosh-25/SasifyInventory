@@ -25,15 +25,16 @@ import {
 test('sitemap contains only unique canonical pages at the configured domain', () => {
   assert.equal(defaultSiteOrigin, 'https://www.sasifysolutions.com');
   const entries = sitemapEntries();
-  assert.equal(entries.length, products.length + 9);
+  assert.equal(entries.length, products.length + 10);
   assert.equal(new Set(entries.map(({ url }) => url)).size, entries.length);
   assert.deepEqual(
-    entries.slice(0, 9).map(({ url }) => url),
+    entries.slice(0, 10).map(({ url }) => url),
     [
       '/',
       '/inventory',
       '/about',
       '/buying-guide',
+      '/request-tool',
       '/scammers',
       '/warranty',
       '/refunds',

@@ -176,6 +176,18 @@ CREATE TABLE IF NOT EXISTS commerce_scam_reports (
 );
 ALTER TABLE commerce_scam_reports ADD COLUMN IF NOT EXISTS amount_pkr integer CHECK(amount_pkr>=0);
 CREATE INDEX IF NOT EXISTS commerce_scam_reports_status_created ON commerce_scam_reports(status, created_at DESC);
+CREATE TABLE IF NOT EXISTS commerce_tool_requests (
+ id uuid PRIMARY KEY,
+ tool_name text NOT NULL,
+ requirement text NOT NULL,
+ priority text NOT NULL DEFAULT 'moderate' CHECK(priority IN ('urgent','moderate','low')),
+ contact_number text NOT NULL,
+ status text NOT NULL DEFAULT 'new' CHECK(status IN ('new','contacted','fulfilled','closed')),
+ created_at timestamptz NOT NULL DEFAULT now(),
+ updated_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS commerce_tool_requests_created ON commerce_tool_requests(created_at DESC);
+CREATE INDEX IF NOT EXISTS commerce_tool_requests_queue ON commerce_tool_requests(status, priority, created_at DESC);
 CREATE TABLE IF NOT EXISTS commerce_google_reviews (
  id text PRIMARY KEY, name text NOT NULL, quote text NOT NULL, language text NOT NULL DEFAULT 'en',
  rating integer NOT NULL CHECK(rating BETWEEN 1 AND 5), excerpt boolean NOT NULL DEFAULT true,

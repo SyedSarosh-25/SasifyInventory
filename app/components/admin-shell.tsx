@@ -17,6 +17,7 @@ import {
   RefreshCw,
   LogOut,
   ArrowUpRight,
+  MessageSquarePlus,
 } from 'lucide-react';
 import {
   Sheet,
@@ -36,6 +37,7 @@ export const adminSections = [
   ['commissions', 'Commissions', BadgeDollarSign],
   ['profit', 'Profit', WalletCards],
   ['team', 'Team access', Users],
+  ['toolRequests', 'Tool requests', MessageSquarePlus],
   ['scammers', 'Scam reports', ShieldAlert],
 ] as const;
 export type AdminSection = (typeof adminSections)[number][0];

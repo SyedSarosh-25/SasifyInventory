@@ -206,6 +206,7 @@ export function sitemapEntries() {
     '/inventory',
     '/about',
     '/buying-guide',
+    '/request-tool',
     '/scammers',
     '/warranty',
     '/refunds',

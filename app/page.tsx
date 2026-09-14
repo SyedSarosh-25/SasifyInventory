@@ -11,7 +11,6 @@ import {
   HeartHandshake,
   Landmark,
   Maximize2,
-  MessageCircle,
   RotateCcw,
   ShieldCheck,
   Star,
@@ -20,7 +19,7 @@ import {
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { products } from './products';
-import { productHref, whatsappLink } from './product-utils';
+import { productHref } from './product-utils';
 import { orbitTools } from './catalog-selection';
 import { ProductLogo } from './components/product-logo';
 import { TopSupplierProducts } from './components/top-supplier-products';
@@ -625,8 +624,8 @@ export default function Home() {
               <a href="#catalog" className="primary-button">
                 Explore top products <ArrowRight className="h-4 w-4" />
               </a>
-              <a href={whatsappLink()} target="_blank" rel="noreferrer" className="secondary-button">
-                <MessageCircle className="h-4 w-4" /> Request a tool
+              <a href="/request-tool" className="secondary-button">
+                Request a tool <ArrowRight className="h-4 w-4" />
               </a>
             </div>
           </div>
