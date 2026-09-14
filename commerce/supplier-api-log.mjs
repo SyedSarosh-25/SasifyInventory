@@ -1,4 +1,4 @@
-const sensitiveKey = /(authorization|api[-_]?key|access[-_]?token|refresh[-_]?token|secret|password|credential|cookie|set-cookie|delivery|items|content|result|\bcode\b)/i;
+const sensitiveKey = /(authorization|api[-_]?key|access[-_]?token|refresh[-_]?token|secret|password|credential|cookie|set-cookie|delivery|items|content|result|email|\bcode\b)/i;
 
 function trimText(value, limit = 12000) {
   const text = String(value ?? '');

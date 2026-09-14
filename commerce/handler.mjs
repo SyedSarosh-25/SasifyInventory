@@ -50,6 +50,10 @@ import {
   zoomStoreDelivery,
   zoomStoreOrderId,
 } from './zoomstore.mjs';
+import {
+  normalizeCustomerEmail,
+  supplierRequiresCustomerEmail,
+} from './supplier-capabilities.mjs';
 import { authenticateInboundEmail } from './inbound-email.mjs';
 import {
   normalizeScamReport,
@@ -67,6 +71,7 @@ const TEAM_COUPON_CODE = 'HOR';
 const TEAM_COUPON_ENABLED = false;
 const CUSTOMER_COUPON_CODE = 'CUST';
 const TEAM_COMMISSION_PKR = 50;
+const SUPPLIER_MAX_FAILURES = 3;
 const SUPPLIER_API_ENV = Object.freeze({
   dodi: 'DODI_RESELLER_API_KEY',
   qamify: 'QAMIFY_API_KEY',
@@ -573,6 +578,9 @@ async function ensureOrderFinanceSchema(db) {
   if (!orderFinanceSchemaReady) {
     orderFinanceSchemaReady = (async () => {
       await db.query(
+        'ALTER TABLE commerce_orders ADD COLUMN IF NOT EXISTS customer_email text',
+      );
+      await db.query(
         'ALTER TABLE commerce_orders ADD COLUMN IF NOT EXISTS fulfillment_cost_pkr integer CHECK(fulfillment_cost_pkr>=0)',
       );
       await db.query(
@@ -948,7 +956,9 @@ function supplierProviders(keys = {}) {
           );
         }
         const normalized = products
-          .map((product) => normalizePiggyAiProduct(product, state.currency))
+          .map((product) =>
+            normalizePiggyAiProduct(product, state.currency, 'fatbunny'),
+          )
           .filter(Boolean);
         console.error(
           'fat-bunny-catalog-count',
@@ -977,7 +987,9 @@ function supplierProviders(keys = {}) {
         return {
           ...state,
           products: products
-            .map((product) => normalizePiggyAiProduct(product, state.currency))
+            .map((product) =>
+              normalizePiggyAiProduct(product, state.currency, 'piggyai'),
+            )
             .filter(Boolean),
         };
       },
@@ -1006,10 +1018,14 @@ function supplierProviders(keys = {}) {
 let supplierMediaSchemaReady;
 async function ensureSupplierMediaSchema(db) {
   if (!supplierMediaSchemaReady) {
-    supplierMediaSchemaReady = db
-      .query(
+    supplierMediaSchemaReady = (async () => {
+      await db.query(
         'ALTER TABLE commerce_supplier_products ADD COLUMN IF NOT EXISTS logo_url text',
-      )
+      );
+      await db.query(
+        'ALTER TABLE commerce_supplier_products ADD COLUMN IF NOT EXISTS requires_customer_email boolean NOT NULL DEFAULT false',
+      );
+    })()
       .catch((error) => {
         supplierMediaSchemaReady = null;
         throw error;
@@ -1144,13 +1160,14 @@ async function syncSupplierCatalog(db, force = false, keys = {}, onlyProviderId 
         .slice(0, 12)
         .toUpperCase();
       await db.query(
-        `INSERT INTO commerce_supplier_products(id,name,description,delivery_instruction,wholesale_price,currency,supplier_stock,cost_pkr,provider_id,provider_name,external_product_id,canonical_key,logo_url,synced_at)
-        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,now()) ON CONFLICT(id) DO UPDATE SET name=excluded.name,description=excluded.description,
+        `INSERT INTO commerce_supplier_products(id,name,description,delivery_instruction,wholesale_price,currency,supplier_stock,cost_pkr,provider_id,provider_name,external_product_id,canonical_key,logo_url,requires_customer_email,synced_at)
+        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,now()) ON CONFLICT(id) DO UPDATE SET name=excluded.name,description=excluded.description,
         delivery_instruction=excluded.delivery_instruction,wholesale_price=excluded.wholesale_price,currency=excluded.currency,supplier_stock=excluded.supplier_stock,
         provider_id=excluded.provider_id,provider_name=excluded.provider_name,external_product_id=excluded.external_product_id,
         canonical_key=CASE WHEN commerce_supplier_products.canonical_manual THEN commerce_supplier_products.canonical_key ELSE excluded.canonical_key END,
         canonical_manual=commerce_supplier_products.canonical_manual,
         logo_url=COALESCE(NULLIF(excluded.logo_url,''),commerce_supplier_products.logo_url),
+        requires_customer_email=excluded.requires_customer_email,
         cost_pkr=CASE WHEN commerce_supplier_products.cost_manual THEN commerce_supplier_products.cost_pkr ELSE excluded.cost_pkr END,synced_at=now()`,
         [
           id,
@@ -1172,6 +1189,7 @@ async function syncSupplierCatalog(db, force = false, keys = {}, onlyProviderId 
               `${provider.id}:${externalId}`,
           ).slice(0, 200),
           product.logo_url ? String(product.logo_url).slice(0, 2000) : null,
+          Boolean(product.requires_customer_email),
         ],
       );
       accepted++;
@@ -1213,12 +1231,19 @@ async function expire(db, includeReview = true) {
   )`);
 }
 async function placeSupplierOrder(product, order, onExchange, keys = {}) {
+  const requiresCustomerEmail = Boolean(
+    product.requires_customer_email ||
+      supplierRequiresCustomerEmail(product, product.provider_id),
+  );
+  if (requiresCustomerEmail && !order.customer_email)
+    throw fail(409, 'Customer email is required before this supplier order can be processed.');
   if (product.provider_id === 'qamify') {
     if (!/^\d+$/.test(String(product.external_product_id || '')))
       throw fail(503, 'Qamify product ID is invalid.');
     const result = await createQamifyOrder({
       productId: Number(product.external_product_id),
       idempotencyKey: `sasify-${order.id}-${product.external_product_id}`,
+      customerEmail: requiresCustomerEmail ? order.customer_email : undefined,
       onExchange,
       apiKey: keys.qamify,
     });
@@ -1233,6 +1258,7 @@ async function placeSupplierOrder(product, order, onExchange, keys = {}) {
     const result = await createMkeOrder({
       productId: Number(product.external_product_id),
       idempotencyKey: `sasify-${order.id}-${product.external_product_id}`,
+      customerEmail: requiresCustomerEmail ? order.customer_email : undefined,
       onExchange,
       apiKey: keys.mke,
     });
@@ -1255,6 +1281,7 @@ async function placeSupplierOrder(product, order, onExchange, keys = {}) {
     const result = await createPiggyAiOrder({
       productId: product.external_product_id,
       idempotencyKey: `sasify-${order.id}-${product.external_product_id}`,
+      customerEmail: requiresCustomerEmail ? order.customer_email : undefined,
       envName,
       onExchange,
       apiKey: keys[product.provider_id],
@@ -1270,6 +1297,7 @@ async function placeSupplierOrder(product, order, onExchange, keys = {}) {
     const result = await createZoomStoreOrder({
       productId: product.external_product_id,
       idempotencyKey: `sasify-${order.id}-${product.external_product_id}`,
+      customerEmail: requiresCustomerEmail ? order.customer_email : undefined,
       onExchange,
       apiKey: keys.zoomstore,
     });
@@ -1282,6 +1310,7 @@ async function placeSupplierOrder(product, order, onExchange, keys = {}) {
     const result = await createSupplierOrder({
       productId: product.external_product_id || product.id,
       externalOrderId: order.id,
+      customerEmail: requiresCustomerEmail ? order.customer_email : undefined,
       onExchange,
       apiKey: keys.dodi,
     });
@@ -1372,22 +1401,54 @@ async function fulfill(
       candidates.unshift(selected);
     let placed, product, lastError;
     for (const candidate of candidates) {
-      try {
-        placed = await placeSupplierOrder(candidate, order, (exchange) => {
-          exchange.orderId = order.id;
-          supplierLogs.push(exchange);
-          onSupplierExchange?.(exchange);
-        }, supplierApiKeys);
-        product = candidate;
-        break;
-      } catch (error) {
-        lastError = error;
-        if (error.code !== 'out_of_stock') throw error;
-        await db.query(
-          'UPDATE commerce_supplier_products SET supplier_stock=0 WHERE id=$1',
-          [candidate.id],
-        );
+      let candidateOutOfStock = false;
+      const candidateLogStart = supplierLogs.length;
+      for (let attempt = 1; attempt <= SUPPLIER_MAX_FAILURES; attempt++) {
+        try {
+          placed = await placeSupplierOrder(candidate, order, (exchange) => {
+            exchange.orderId = order.id;
+            supplierLogs.push(exchange);
+            onSupplierExchange?.(exchange);
+          }, supplierApiKeys);
+          product = candidate;
+          break;
+        } catch (error) {
+          lastError = error;
+          if (error.code === 'out_of_stock') {
+            candidateOutOfStock = true;
+            await db.query(
+              'UPDATE commerce_supplier_products SET supplier_stock=0 WHERE id=$1',
+              [candidate.id],
+            );
+            break;
+          }
+          // Configuration and validation errors happen before an HTTP exchange;
+          // do not turn those into three fake supplier retries.
+          if (supplierLogs.length === candidateLogStart) throw error;
+          if (attempt < SUPPLIER_MAX_FAILURES) continue;
+
+          await insertSupplierApiLogs(db, supplierLogs);
+          await db.query(
+            "UPDATE commerce_orders SET status='cancelled',supplier_status='cancelled_after_3_supplier_failures' WHERE id=$1 AND status IN ('pending','review','expired')",
+            [order.id],
+          );
+          await db.query(
+            "UPDATE commerce_inventory SET state='available' WHERE id=$1 AND state='reserved'",
+            [order.inventory_id],
+          );
+          await releaseCoupon(db, order);
+          await db.query(
+            "INSERT INTO commerce_audit(action,object_id) VALUES('supplier_auto_cancel_after_3_failures',$1)",
+            [order.id],
+          );
+          return {
+            cancelled: true,
+            reason: 'supplier_failed_three_times',
+          };
+        }
       }
+      if (placed && product) break;
+      if (!candidateOutOfStock) break;
     }
     if (!placed || !product)
       throw (
@@ -1747,10 +1808,10 @@ export function createHandler(
         ).rows;
         const supplierProducts = (
           await db.query(`WITH ranked AS (
-        SELECT id,name,description,delivery_instruction,logo_url,selling_price AS price,supplier_stock AS available,provider_id,provider_name,canonical_key,
+        SELECT id,name,description,delivery_instruction,logo_url,requires_customer_email,selling_price AS price,supplier_stock AS available,provider_id,provider_name,canonical_key,
           row_number() OVER(PARTITION BY canonical_key ORDER BY cost_pkr ASC NULLS LAST,wholesale_price ASC,id) AS choice
         FROM commerce_supplier_products WHERE enabled=true AND selling_price IS NOT NULL AND supplier_stock>0)
-        SELECT id,name,description,delivery_instruction,logo_url,price,available,provider_id,provider_name,canonical_key FROM ranked WHERE choice=1 ORDER BY name`)
+        SELECT id,name,description,delivery_instruction,logo_url,requires_customer_email,price,available,provider_id,provider_name,canonical_key FROM ranked WHERE choice=1 ORDER BY name`)
         ).rows.filter((product) => !isChatGptPlusProduct(product.name));
         const supplierTotal = Number(
           (
@@ -1912,6 +1973,25 @@ export function createHandler(
           );
         if (supplierProduct && isChatGptPlusProduct(supplierProduct.name))
           throw fail(409, 'ChatGPT Plus is sold from local inventory only.');
+        const requiresCustomerEmail = Boolean(
+          supplierProduct &&
+          (supplierProduct.requires_customer_email ||
+            supplierRequiresCustomerEmail(
+              supplierProduct,
+              supplierProduct.provider_id,
+            )),
+        );
+        const customerEmail = requiresCustomerEmail
+          ? (() => {
+              try {
+                return normalizeCustomerEmail(body.customerEmail);
+              } catch (error) {
+                throw fail(400, error.message);
+              }
+            })()
+          : null;
+        if (requiresCustomerEmail && !customerEmail)
+          throw fail(400, 'Email is required for this supplier product.');
         const session =
           String(req.headers.cookie || '').match(
             /(?:^|;\s*)sasify_checkout=([a-f0-9]{64})(?:;|$)/,
@@ -1991,13 +2071,14 @@ export function createHandler(
             [coupon.id],
           );
         await db.query(
-          `INSERT INTO commerce_orders(id,product_id,amount,listed_amount,recovery_hash,session_hash,inventory_id,supplier_product_id,supplier_cost_pkr,coupon_id,coupon_discount,commission_code,commission_rate,commission_amount,expires_at)
-        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,now()+interval '5 minutes')`,
+          `INSERT INTO commerce_orders(id,product_id,amount,listed_amount,customer_email,recovery_hash,session_hash,inventory_id,supplier_product_id,supplier_cost_pkr,coupon_id,coupon_discount,commission_code,commission_rate,commission_amount,expires_at)
+        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,now()+interval '5 minutes')`,
           [
             id,
             product.id,
             paymentAmount,
             listedAmount,
+            customerEmail,
             hash(recovery),
             hash(session),
             item?.id || null,
@@ -2092,6 +2173,7 @@ export function createHandler(
               ).rows;
           const payment =
             matchingPayments.length === 1 ? matchingPayments[0] : null;
+          let fulfillment;
           if (payment) {
             // NayaPay's app can expose only the trailing reference digits while its
             // receipt email contains the complete prefixed transaction ID.
@@ -2102,7 +2184,7 @@ export function createHandler(
             if (order.status !== 'expired') {
               await db.query('SAVEPOINT delivery');
               try {
-                await fulfill(
+                fulfillment = await fulfill(
                   db,
                   id,
                   payment.id,
@@ -2117,7 +2199,9 @@ export function createHandler(
               }
             }
           }
-          output = { ok: true };
+          output = fulfillment?.cancelled
+            ? { ok: true, status: 'cancelled', reason: fulfillment.reason }
+            : { ok: true };
         } else {
           const orderProduct =
             catalog.find((p) => p.id === order.product_id)?.name ||
@@ -2140,6 +2224,7 @@ export function createHandler(
               Number(order.listed_amount ?? order.amount) - order.amount,
             teamCoupon: order.coupon_code === TEAM_COUPON_CODE,
             status: order.status,
+            supplierStatus: order.supplier_status,
             expiresAt: order.expires_at,
             paymentSubmittedAt:
               order.payment_submitted_at ||
@@ -2862,7 +2947,7 @@ export function createHandler(
         )
           throw fail(400, 'Select an order and payment, then confirm the receipt and exact amount.');
         await attachPaymentForManualApproval(db, body.orderId, body.paymentId);
-        await fulfill(
+        const fulfillment = await fulfill(
           db,
           body.orderId,
           body.paymentId,
@@ -2870,7 +2955,9 @@ export function createHandler(
           captureSupplierExchange,
           supplierApiKeys,
         );
-        output = { ok: true };
+        output = fulfillment?.cancelled
+          ? { ok: true, status: 'cancelled', reason: fulfillment.reason }
+          : { ok: true };
       } else if (action === 'admin-manual-delivery') {
         if (!idOk(body.orderId) || body.confirmed !== true)
           throw fail(400, 'Confirm manual credential delivery first.');

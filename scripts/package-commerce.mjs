@@ -36,6 +36,7 @@ for (const name of [
   'core.mjs',
   'inbound-email.mjs',
   'supplier.mjs',
+  'supplier-capabilities.mjs',
   'supplier-api-log.mjs',
   'description.mjs',
   'provider-media.mjs',

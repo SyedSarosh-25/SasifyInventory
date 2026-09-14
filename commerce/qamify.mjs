@@ -1,5 +1,6 @@
 import { providerDescription } from './description.mjs';
 import { providerLogo } from './provider-media.mjs';
+import { supplierRequiresCustomerEmail } from './supplier-capabilities.mjs';
 import {
   notifySupplierApiExchange,
   supplierErrorMessage,
@@ -93,6 +94,9 @@ export function normalizeQamifyProduct(product, defaultCurrency = 'USD') {
     currency: currency.slice(0, 12),
     stock,
     canonical_key: String(product?.sku || product?.slug || `qamify:${id}`).slice(0, 200),
+    ...(supplierRequiresCustomerEmail(product, 'qamify')
+      ? { requires_customer_email: true }
+      : {}),
     ...(logo ? { logo_url: logo } : {}),
   };
 }
@@ -102,11 +106,15 @@ export async function fetchQamifyBalance(apiKey) {
   return { balance: Number(data.balance), currency: String(data.currency || 'USD') };
 }
 
-export async function createQamifyOrder({ productId, quantity = 1, idempotencyKey, onExchange, apiKey }) {
+export async function createQamifyOrder({ productId, quantity = 1, idempotencyKey, customerEmail, onExchange, apiKey }) {
   return request('/v1/orders', {
     method: 'POST',
     headers: { 'Idempotency-Key': idempotencyKey },
-    body: JSON.stringify({ product_id: Number(productId), qty: quantity }),
+    body: JSON.stringify({
+      product_id: Number(productId),
+      qty: quantity,
+      ...(customerEmail ? { email: customerEmail } : {}),
+    }),
   }, onExchange, apiKey);
 }
 

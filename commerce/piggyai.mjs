@@ -1,5 +1,6 @@
 import { providerDescription } from './description.mjs';
 import { providerLogo } from './provider-media.mjs';
+import { supplierRequiresCustomerEmail } from './supplier-capabilities.mjs';
 import {
   notifySupplierApiExchange,
   supplierErrorMessage,
@@ -106,7 +107,11 @@ export async function fetchPiggyAiProducts(envName = 'PIGGYAI_API_KEY', apiKey) 
   return unwrap(data, 'products');
 }
 
-export function normalizePiggyAiProduct(product, defaultCurrency = 'USD') {
+export function normalizePiggyAiProduct(
+  product,
+  defaultCurrency = 'USD',
+  providerId = 'piggyai',
+) {
   const id = String(
     product?.id ?? product?.product_id ?? product?.productId ?? '',
   ).trim();
@@ -157,6 +162,9 @@ export function normalizePiggyAiProduct(product, defaultCurrency = 'USD') {
     canonical_key: String(
       product?.sku || product?.slug || `piggyai:${id}`,
     ).slice(0, 200),
+    ...(supplierRequiresCustomerEmail(product, providerId)
+      ? { requires_customer_email: true }
+      : {}),
     ...(logo ? { logo_url: logo } : {}),
   };
 }
@@ -176,6 +184,7 @@ export async function createPiggyAiOrder({
   productId,
   quantity = 1,
   idempotencyKey,
+  customerEmail,
   envName = 'PIGGYAI_API_KEY',
   onExchange,
   apiKey,
@@ -185,7 +194,11 @@ export async function createPiggyAiOrder({
     {
       method: 'POST',
       headers: { 'Idempotency-Key': idempotencyKey },
-      body: JSON.stringify({ product_id: productId, quantity }),
+      body: JSON.stringify({
+        product_id: productId,
+        quantity,
+        ...(customerEmail ? { email: customerEmail } : {}),
+      }),
     },
     envName,
     onExchange,

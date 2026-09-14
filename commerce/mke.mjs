@@ -1,5 +1,6 @@
 import { providerDescription } from './description.mjs';
 import { providerLogo } from './provider-media.mjs';
+import { supplierRequiresCustomerEmail } from './supplier-capabilities.mjs';
 import {
   notifySupplierApiExchange,
   supplierErrorMessage,
@@ -44,9 +45,9 @@ async function request(path, init = {}, onExchange, apiKey) {
       errorMessage: null,
     });
     exchangeLogged = true;
-    if (!response.ok) {
+    if (!response.ok || data.success === false || data.ok === false) {
       const message = supplierErrorMessage(data, `MKE Shop request failed (${response.status}).`);
-      throw Object.assign(new Error(message), { status: response.status === 409 ? 409 : response.status === 402 ? 402 : response.status >= 400 && response.status < 500 ? 409 : 503, code: data.error?.code || null });
+      throw Object.assign(new Error(message), { status: response.status === 409 ? 409 : response.status === 402 ? 402 : response.status >= 400 && response.status < 500 ? 409 : 503, code: data.error?.code || data.code || null });
     }
     return data;
   } catch (error) {
@@ -87,11 +88,11 @@ export function normalizeMkeProduct(product, defaultCurrency = 'USD') {
   const currency = String(product?.currency || defaultCurrency || 'USD').trim().toUpperCase();
   if (!id || !name || !Number.isFinite(wholesalePrice) || wholesalePrice < 0 || !Number.isSafeInteger(stock) || stock < 0) return null;
   const logo = providerLogo(product);
-  return { id, name, description: providerDescription(product), delivery_instruction: product?.activation_url ? `Activate or redeem using this link: ${String(product.activation_url)}` : null, wholesale_price: wholesalePrice, currency: currency.slice(0, 12), stock, canonical_key: String(product?.sku || product?.slug || `mke:${id}`).slice(0, 200), ...(logo ? { logo_url: logo } : {}) };
+  return { id, name, description: providerDescription(product), delivery_instruction: product?.activation_url ? `Activate or redeem using this link: ${String(product.activation_url)}` : null, wholesale_price: wholesalePrice, currency: currency.slice(0, 12), stock, canonical_key: String(product?.sku || product?.slug || `mke:${id}`).slice(0, 200), ...(supplierRequiresCustomerEmail(product, 'mke') ? { requires_customer_email: true } : {}), ...(logo ? { logo_url: logo } : {}) };
 }
 
-export async function createMkeOrder({ productId, quantity = 1, idempotencyKey, onExchange, apiKey }) {
-  return request('/v1/buy', { method: 'POST', headers: { 'Idempotency-Key': idempotencyKey }, body: JSON.stringify({ product_id: Number(productId), quantity }) }, onExchange, apiKey);
+export async function createMkeOrder({ productId, quantity = 1, idempotencyKey, customerEmail, onExchange, apiKey }) {
+  return request('/v1/buy', { method: 'POST', headers: { 'Idempotency-Key': idempotencyKey }, body: JSON.stringify({ product_id: Number(productId), quantity, ...(customerEmail ? { email: customerEmail } : {}) }) }, onExchange, apiKey);
 }
 
 export function mkeDelivery(data) {

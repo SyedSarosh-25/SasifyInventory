@@ -1,5 +1,6 @@
 import { providerDescription } from './description.mjs';
 import { providerLogo } from './provider-media.mjs';
+import { supplierRequiresCustomerEmail } from './supplier-capabilities.mjs';
 import { notifySupplierApiExchange, supplierErrorMessage, supplierLogHeaders, supplierLogPayload } from './supplier-api-log.mjs';
 
 const endpoint = 'https://api.zoomstore255.com/api/v1';
@@ -45,10 +46,10 @@ export function normalizeZoomStoreProduct(product, defaultCurrency = 'USD') {
   const currency = String(product?.currency || defaultCurrency || 'USD').trim().toUpperCase();
   if (!id || !name || !Number.isFinite(wholesalePrice) || wholesalePrice < 0 || !Number.isSafeInteger(stock) || stock < 0) return null;
   const logo = providerLogo(product);
-  return { id, name, description: providerDescription(product), delivery_instruction: product?.activation_url ? String(product.activation_url) : null, wholesale_price: wholesalePrice, currency: currency.slice(0, 12), stock, canonical_key: String(product?.slug || `zoomstore:${id}`).slice(0, 200), ...(logo ? { logo_url: logo } : {}) };
+  return { id, name, description: providerDescription(product), delivery_instruction: product?.activation_url ? String(product.activation_url) : null, wholesale_price: wholesalePrice, currency: currency.slice(0, 12), stock, canonical_key: String(product?.slug || `zoomstore:${id}`).slice(0, 200), ...(supplierRequiresCustomerEmail(product, 'zoomstore') ? { requires_customer_email: true } : {}), ...(logo ? { logo_url: logo } : {}) };
 }
 
 export async function fetchZoomStoreBalance(apiKey) { const data = await request('/balance', {}, undefined, apiKey); const source = data.data || data; return { balance: Number(source.balance ?? source.wallet_balance ?? 0), currency: String(source.currency || 'USD') }; }
-export async function createZoomStoreOrder({ productId, quantity = 1, idempotencyKey, onExchange, apiKey }) { return request('/purchase', { method: 'POST', headers: { 'Idempotency-Key': idempotencyKey }, body: JSON.stringify({ product_id: productId, quantity }) }, onExchange, apiKey); }
+export async function createZoomStoreOrder({ productId, quantity = 1, idempotencyKey, customerEmail, onExchange, apiKey }) { return request('/purchase', { method: 'POST', headers: { 'Idempotency-Key': idempotencyKey }, body: JSON.stringify({ product_id: productId, quantity, ...(customerEmail ? { email: customerEmail } : {}) }) }, onExchange, apiKey); }
 export function zoomStoreDelivery(data) { const order = data.order || data.data || data; const raw = order.items ?? order.delivery ?? order.credentials ?? order.code ?? order.content ?? order.result; if (raw === undefined || raw === null || raw === '') throw Object.assign(new Error('Zoom Store order completed without delivery data.'), { status: 503 }); return { content: typeof raw === 'string' ? raw : JSON.stringify(raw, null, 2), instructions: order.instructions || '' }; }
 export function zoomStoreOrderId(data, fallback) { const order = data.order || data.data || data; return String(order.id || order.order_id || order.purchase_id || fallback); }

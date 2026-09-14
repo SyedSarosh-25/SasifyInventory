@@ -31,6 +31,7 @@ type Stock = {
   delivery_instruction?: string;
   provider_id?: string;
   provider_name?: string;
+  requires_customer_email?: boolean;
 };
 type AccountCredentials = {
   email: string;
@@ -47,6 +48,7 @@ type Order = {
   paymentAdjustment?: number;
   teamCoupon?: boolean;
   status: string;
+  supplierStatus?: string | null;
   expiresAt: string;
   paymentSubmittedAt?: string | null;
   createdAt?: string;
@@ -119,6 +121,7 @@ export function Checkout() {
     [id, setId] = useState(''),
     [key, setKey] = useState('');
   const [couponCode, setCouponCode] = useState('');
+  const [customerEmail, setCustomerEmail] = useState('');
   const [now, setNow] = useState(Date.now());
   const [error, setError] = useState(''),
     [notice, setNotice] = useState(''),
@@ -259,6 +262,7 @@ export function Checkout() {
       : 0;
   const supportEnabled =
     order?.status === 'delivered' ||
+    order?.status === 'cancelled' ||
     (order &&
       ['review', 'expired'].includes(order.status) &&
       !!order.paymentSubmittedAt &&
@@ -322,6 +326,9 @@ export function Checkout() {
                 const data = await api('create', '', {
                   productId: selected,
                   couponCode,
+                  ...(product?.requires_customer_email
+                    ? { customerEmail: customerEmail.trim() }
+                    : {}),
                 });
                 remember(data.id, data.recovery);
               });
@@ -356,6 +363,24 @@ export function Checkout() {
                 </div>
               </div>
             )}
+            {product?.requires_customer_email && (
+              <label>
+                Customer email (required by this supplier)
+                <input
+                  type="email"
+                  value={customerEmail}
+                  onChange={(e) => setCustomerEmail(e.target.value)}
+                  placeholder="you@example.com"
+                  autoComplete="email"
+                  maxLength={254}
+                  required
+                />
+                <small>
+                  The supplier will use this email to process and deliver your
+                  purchase.
+                </small>
+              </label>
+            )}
             <label>
               Reseller coupon (optional)
               <input
@@ -371,7 +396,8 @@ export function Checkout() {
               disabled={
                 busy ||
                 !ready ||
-                !product?.available
+                !product?.available ||
+                (product.requires_customer_email && !customerEmail.trim())
               }
             >
               <ShoppingCart size={18} />{' '}
@@ -428,6 +454,17 @@ export function Checkout() {
               {order.status === 'review' ? 'Verifying payment' : order.status}
             </span>
           </div>
+          {order.status === 'cancelled' && (
+            <section className="description-section" role="alert">
+              <h2>Order cancelled</h2>
+              <p>
+                {order.supplierStatus ===
+                'cancelled_after_3_supplier_failures'
+                  ? 'The supplier failed three times after payment verification, so this order was cancelled automatically. Please contact support to arrange a refund or replacement.'
+                  : 'This order is closed and no credentials were delivered.'}
+              </p>
+            </section>
+          )}
           {order.status === 'pending' && (
             <section className="description-section">
               <h2>Pay with NayaPay for automatic instant delivery</h2>

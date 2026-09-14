@@ -63,6 +63,7 @@ Keep values in local or Vercel environment configuration, never in source contro
 - `QAMIFY_USD_PKR_RATE`
 - `SUPPLIER_USD_PKR_RATE`
 - `SUPPLIER_USDT_PKR_RATE`
+- `SUPPLIER_EMAIL_REQUIRED_PROVIDERS` (optional comma-separated provider IDs such as `qamify,fatbunny`; product-level API flags are detected automatically)
 - `NEXT_PUBLIC_SITE_ORIGIN`
 
 ## Repository and operational notes

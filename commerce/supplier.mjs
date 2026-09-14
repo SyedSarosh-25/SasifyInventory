@@ -6,6 +6,7 @@ import {
   supplierLogPayload,
 } from './supplier-api-log.mjs';
 import { providerLogo } from './provider-media.mjs';
+import { supplierRequiresCustomerEmail } from './supplier-capabilities.mjs';
 
 function configured(apiKey) {
   if (!apiKey && !process.env.DODI_RESELLER_API_KEY) throw Object.assign(new Error('Supplier API is not configured.'), { status: 503 });
@@ -82,6 +83,9 @@ export function normalizeSupplierProduct(product) {
     delivery_instruction: product.delivery_instruction ? String(product.delivery_instruction) : null,
     wholesale_price: Number(product.wholesale_price), currency: String(product.currency || 'USDT').slice(0, 12).toUpperCase(),
     stock: Number(product.stock), canonical_key: String(product.sku || product.slug || `dodi:${product.id}`).slice(0, 200),
+    ...(supplierRequiresCustomerEmail(product, 'dodi')
+      ? { requires_customer_email: true }
+      : {}),
     ...(logo ? { logo_url: logo } : {}),
   };
 }
@@ -91,10 +95,15 @@ export async function fetchSupplierBalance(apiKey) {
   return data.reseller?.balance ?? null;
 }
 
-export async function createSupplierOrder({ productId, quantity = 1, externalOrderId, onExchange, apiKey }) {
+export async function createSupplierOrder({ productId, quantity = 1, externalOrderId, customerEmail, onExchange, apiKey }) {
   return request('order', {
     method: 'POST',
-    body: JSON.stringify({ product_id: productId, quantity, external_order_id: externalOrderId }),
+    body: JSON.stringify({
+      product_id: productId,
+      quantity,
+      external_order_id: externalOrderId,
+      ...(customerEmail ? { email: customerEmail } : {}),
+    }),
   }, onExchange, apiKey);
 }
 

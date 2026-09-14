@@ -8,6 +8,7 @@ ALTER TABLE commerce_inventory DROP CONSTRAINT IF EXISTS commerce_inventory_stat
 ALTER TABLE commerce_inventory ADD CONSTRAINT commerce_inventory_state_check CHECK (state IN ('available','reserved','delivered','quarantined','withdrawn'));
 CREATE TABLE IF NOT EXISTS commerce_orders (
  id uuid PRIMARY KEY, product_id text NOT NULL, amount integer NOT NULL CHECK(amount>=0), listed_amount integer NOT NULL DEFAULT 0 CHECK(listed_amount>=0),
+ customer_email text,
  recovery_hash text NOT NULL, session_hash text NOT NULL, inventory_id uuid REFERENCES commerce_inventory(id),
  status text NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','review','delivered','expired','cancelled')),
  transaction_id text, payer_name text, source_last4 text, payment_submitted_at timestamptz,
@@ -16,6 +17,7 @@ CREATE TABLE IF NOT EXISTS commerce_orders (
  created_at timestamptz NOT NULL DEFAULT now(), expires_at timestamptz NOT NULL DEFAULT now()+interval '5 minutes', delivered_at timestamptz
 );
 ALTER TABLE commerce_orders ADD COLUMN IF NOT EXISTS payment_submitted_at timestamptz;
+ALTER TABLE commerce_orders ADD COLUMN IF NOT EXISTS customer_email text;
 ALTER TABLE commerce_orders ADD COLUMN IF NOT EXISTS listed_amount integer;
 UPDATE commerce_orders SET listed_amount=amount WHERE listed_amount IS NULL OR (listed_amount=0 AND amount>0);
 ALTER TABLE commerce_orders ALTER COLUMN listed_amount SET DEFAULT 0;
@@ -72,9 +74,11 @@ CREATE TABLE IF NOT EXISTS commerce_supplier_products (
  cost_manual boolean NOT NULL DEFAULT false,
  selling_price integer CHECK(selling_price>0),
  enabled boolean NOT NULL DEFAULT false,
+ requires_customer_email boolean NOT NULL DEFAULT false,
  synced_at timestamptz NOT NULL DEFAULT now()
 );
 ALTER TABLE commerce_supplier_products ADD COLUMN IF NOT EXISTS logo_url text;
+ALTER TABLE commerce_supplier_products ADD COLUMN IF NOT EXISTS requires_customer_email boolean NOT NULL DEFAULT false;
 ALTER TABLE commerce_supplier_products ADD COLUMN IF NOT EXISTS cost_manual boolean NOT NULL DEFAULT false;
 ALTER TABLE commerce_supplier_products ADD COLUMN IF NOT EXISTS provider_id text NOT NULL DEFAULT 'dody';
 ALTER TABLE commerce_supplier_products ADD COLUMN IF NOT EXISTS provider_name text NOT NULL DEFAULT 'Dody Store';
