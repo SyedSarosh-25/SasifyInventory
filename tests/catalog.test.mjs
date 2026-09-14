@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { products } from '../app/products.ts';
-import { accessTypeLabel, has25DayWarranty, isAnnualPlan, originalPriceComparison, originalPricePkr, planMonths, productHref, productLogo, savingsPkr, warrantyDays, whatsappLink } from '../app/product-utils.ts';
+import { accessTypeLabel, fullPlanWarranty, has25DayWarranty, isAnnualPlan, originalPriceComparison, originalPricePkr, planMonths, productHref, productLogo, savingsPkr, warrantyDays, whatsappLink } from '../app/product-utils.ts';
 import { featuredProducts, filterProducts, heroProducts, orbitTools, selectRandomTopProducts, supplierEquivalentProductName } from '../app/catalog-selection.ts';
 
 test('every inventory variant has a unique detail URL', () => {
@@ -20,7 +20,7 @@ test('Claude Team prices and seat types match the requested offers', () => {
     const product = products.find((p) => p.id === id);
     assert.equal(product.duration, '1 Month');
     assert.equal(has25DayWarranty(product), false);
-    assert.match(product.description, /Full warranty.*entire 1 Month plan duration/);
+    assert.match(fullPlanWarranty(product), /Full warranty.*entire 1 Month plan duration/);
     assert.match(product.originalPrice, /per seat\/month/);
   }
 });
@@ -63,7 +63,7 @@ test('25-day warranty is scoped to one-month ChatGPT, other plans cover their fu
   for (const duration of ['3 Months', '1 Year', 'Lifetime Credits']) assert.equal(has25DayWarranty({ ...base, duration }), false);
   for (const product of products.filter(product => product.id !== 'p093')) {
     assert.equal(has25DayWarranty(product), false);
-    assert.match(product.description, /Full warranty from Sasify Solutions for the entire/);
+    assert.match(fullPlanWarranty(product), /Full warranty from Sasify Solutions for the entire/);
   }
 });
 

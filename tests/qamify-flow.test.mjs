@@ -79,7 +79,7 @@ test('Qamify catalog sync and paid order fulfilment use provider IDs and idempot
     assert.equal(product.available, 2);
     assert.equal(product.price, 999);
     assert.equal(product.name, 'Qamify Test Cheapest 1 Month');
-    assert.match(product.description, /Full warranty.*entire plan duration/);
+    assert.match(product.warranty, /Full warranty.*entire plan duration/);
     assert.doesNotMatch(product.description, /non warranty/i);
     const sourceProduct = (await database.query("SELECT name,description FROM commerce_supplier_products WHERE id='qamify:43'")).rows[0];
     assert.match(sourceProduct.name, /NW$/);

@@ -11,7 +11,7 @@ test('public names omit non-warranty labels while preserving plan duration and i
     assert.equal(result.canonical_key, source.canonical_key);
     assert.equal(result.price, source.price);
     assert.equal(result.available, source.available);
-    assert.match(result.description, /Full warranty.*entire plan duration/);
+    assert.match(result.warranty, /Full warranty.*entire plan duration/);
     assert.equal(source.name, `Gemini 18 Months ${suffix}`);
   }
   for (const [name, expected] of [
@@ -56,6 +56,7 @@ test('supplier warranty limits are replaced without shortening access or activat
   assert.match(result.delivery_instruction, /Redeem within 2 days/);
   assert.doesNotMatch(result.delivery_instruction, /till login/);
   assert.match(result.description, /full plan warranty/);
+  assert.match(result.warranty, /Full warranty.*entire plan duration/);
 });
 
 test('ChatGPT retains its existing positive warranty terms', () => {

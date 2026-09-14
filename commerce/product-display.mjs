@@ -83,11 +83,7 @@ export function customerProduct(product) {
   return {
     ...product,
     name: customerProductName(product),
-    ...(product.description != null || warranty ? {
-      description: warranty && !description.includes(warranty)
-        ? [warranty, description].filter(Boolean).join('\n\n')
-        : description,
-    } : {}),
+    ...(product.description != null ? { description } : {}),
     ...(product.delivery_instruction != null ? {
       delivery_instruction: customerProductText(product.delivery_instruction, product),
     } : {}),
