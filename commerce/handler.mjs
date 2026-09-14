@@ -1493,6 +1493,28 @@ async function fulfill(
     order.id,
   ]);
 }
+async function findVerifiedPaymentForOrder(db, order) {
+  const rows = order.transaction_id
+    ? (
+        await db.query(
+          `SELECT id,transaction_id FROM commerce_payments
+           WHERE verified=true AND order_id IS NULL AND amount=$2
+             AND (transaction_id=$1 OR (length($1)>=8 AND right(transaction_id,length($1))=$1))
+           ORDER BY (transaction_id=$1) DESC,created_at DESC LIMIT 2`,
+          [order.transaction_id, order.amount],
+        )
+      ).rows
+    : (
+        await db.query(
+          `SELECT id,transaction_id FROM commerce_payments
+           WHERE verified=true AND order_id IS NULL AND amount=$1
+             AND received_at>=($2::timestamptz) AND received_at<=($3::timestamptz)
+           ORDER BY received_at ASC LIMIT 2`,
+          [order.amount, order.created_at, order.expires_at],
+        )
+      ).rows;
+  return rows.length === 1 ? rows[0] : null;
+}
 async function fulfillFreeOrder(db, orderId) {
   const order = (
     await db.query('SELECT * FROM commerce_orders WHERE id=$1 FOR UPDATE', [
@@ -2069,7 +2091,7 @@ export function createHandler(
       } else if (['status', 'claim', 'cancel'].includes(action)) {
         const id = req.query?.id || body.id;
         if (!idOk(id)) throw fail(404, 'Order not found.');
-        const order = (
+        let order = (
           await db.query(
             `SELECT o.*,c.code_display AS coupon_code FROM commerce_orders o
              LEFT JOIN commerce_coupons c ON c.id=o.coupon_id WHERE o.id=$1 FOR UPDATE OF o`,
@@ -2156,6 +2178,49 @@ export function createHandler(
           }
           output = { ok: true };
         } else {
+          // A receipt can be recorded just before the customer clicks the
+          // verification button, or an earlier delivery attempt can fail
+          // transiently. Retry only a single verified, unassigned payment that
+          // matches this order's unique amount and receipt reference/window.
+          if (
+            order.status === 'review' &&
+            order.payment_submitted_at &&
+            process.env.NAYAPAY_AUTO_VERIFY === 'true'
+          ) {
+            const payment = await findVerifiedPaymentForOrder(db, order);
+            if (payment) {
+              await db.query(
+                'UPDATE commerce_orders SET transaction_id=COALESCE(transaction_id,$1) WHERE id=$2',
+                [payment.transaction_id, id],
+              );
+              await db.query('SAVEPOINT status_delivery');
+              try {
+                await fulfill(
+                  db,
+                  id,
+                  payment.id,
+                  false,
+                  captureSupplierExchange,
+                  supplierApiKeys,
+                );
+              } catch (e) {
+                if (!e.status) throw e;
+                await db.query('ROLLBACK TO SAVEPOINT status_delivery');
+                await db.query(
+                  "UPDATE commerce_payments SET verification_reason='verified_delivery_pending' WHERE id=$1 AND order_id IS NULL",
+                  [payment.id],
+                );
+                await insertSupplierApiLogs(db, supplierLogs);
+              }
+              order = (
+                await db.query(
+                  `SELECT o.*,c.code_display AS coupon_code FROM commerce_orders o
+                   LEFT JOIN commerce_coupons c ON c.id=o.coupon_id WHERE o.id=$1`,
+                  [id],
+                )
+              ).rows[0];
+            }
+          }
           const orderProduct =
             catalog.find((p) => p.id === order.product_id)?.name ||
             (
