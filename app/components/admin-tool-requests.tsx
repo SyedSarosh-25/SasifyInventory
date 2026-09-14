@@ -1,5 +1,7 @@
 'use client';
 
+import { useState } from 'react';
+
 import {
   CheckCircle2,
   Clock3,
@@ -52,8 +54,12 @@ export function AdminToolRequests({
   busy: boolean;
   onStatus: (requestId: string, status: 'new' | 'contacted' | 'fulfilled' | 'closed') => void;
 }) {
+  const [requestTab, setRequestTab] = useState<'open' | 'closed'>('open');
+  const visibleRequests = requests.filter((request) =>
+    requestTab === 'closed' ? request.status === 'closed' : request.status !== 'closed',
+  );
   const view = useRecordView(
-    requests,
+    visibleRequests,
     (request) =>
       `${request.tool_name} ${request.requirement} ${request.priority} ${request.contact_number} ${request.status}`,
   );
@@ -67,7 +73,15 @@ export function AdminToolRequests({
             <h2>Tool requests</h2>
             <p>Review requested tools, call the requester when stock is available, and keep the queue status current.</p>
           </div>
-          <div className="tool-request-admin-count"><strong>{requests.length}</strong><span>loaded requests</span></div>
+          <div className="tool-request-admin-count"><strong>{visibleRequests.length}</strong><span>{requestTab === 'closed' ? 'closed requests' : 'open requests'}</span></div>
+        </div>
+        <div className="tool-request-tabs" role="tablist" aria-label="Tool request status">
+          <button type="button" role="tab" aria-selected={requestTab === 'open'} className={requestTab === 'open' ? 'active' : ''} onClick={() => setRequestTab('open')}>
+            Open <span>{requests.filter((request) => request.status !== 'closed').length}</span>
+          </button>
+          <button type="button" role="tab" aria-selected={requestTab === 'closed'} className={requestTab === 'closed' ? 'active' : ''} onClick={() => setRequestTab('closed')}>
+            Closed <span>{requests.filter((request) => request.status === 'closed').length}</span>
+          </button>
         </div>
         <AdminRecordControls view={view} label="tool requests" />
         <div className="tool-request-admin-list">
