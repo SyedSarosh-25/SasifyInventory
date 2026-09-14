@@ -37,6 +37,18 @@ test('product descriptions keep activation instructions, links, device rules and
   assert.equal(result.delivery_instruction, 'Use this URL: https://example.com/warranty/nw\n\nUse Indian VPN if region issue.');
 });
 
+test('removing warranty labels does not remove the original product description', () => {
+  const source = {
+    id: 'auto:cdk-supergrok-1m-nw',
+    name: 'CDK Supergrok 1M (NW)',
+    description: '📝 Product Description\n⭐️ After completing payment, you will receive the CDK and top-up website.\n⭐️ This is a CDK for the 1-month Super Grok package.\n⭐️ Your account must be on the free plan.\n⭐️ No warranty after successful redemption.\nTop-up website: https://recharge.example/grok',
+  };
+  const result = customerProduct(source);
+  assert.equal(result.name, 'CDK Supergrok 1M');
+  for (const text of ['Product Description', 'After completing payment', 'CDK and top-up website', '1-month Super Grok package', 'free plan', 'https://recharge.example/grok']) assert.ok(result.description.includes(text), text);
+  assert.doesNotMatch(result.description.replace(/https?:\/\/\S+/g, ''), /\bnw\b|non[- ]warranty|no warranty/i);
+});
+
 test('supplier warranty limits are replaced without shortening access or activation periods', () => {
   const result = customerProduct({ name: 'MS Office 365 Plus 12M', description: 'Access for 12 months.\n1-Month Full Warranty From My Side\nWarranty: 24 hours', delivery_instruction: 'Redeem within 2 days. Warranty till login.' });
   assert.match(result.description, /Access for 12 months/);

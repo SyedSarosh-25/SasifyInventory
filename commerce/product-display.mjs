@@ -61,19 +61,18 @@ export function customerProductText(value, product) {
   if (isChatGptPlan(product)) {
     cleaned = cleaned.replace(new RegExp(noWarrantyPattern, 'gi'), '');
   } else {
-    // Drop warranty-only parentheticals without removing adjacent usage rules.
-    cleaned = cleaned.replace(/\([^()\n]*(?:warranty|\bnw\b)[^()\n]*\)/gi, '');
-    cleaned = cleaned.replace(/\bnw\b/gi, '')
-      .replace(new RegExp(String.raw`(?:this\s+product\s+has\s+|but\s+|and\s+)?${noWarrantyPattern}[^\n.!?;|\uE000]*`, 'gi'), '')
-      .replace(/(?:,?\s*(?:it|the\s+shop|we|this\s+product)\s+(?:will\s+)?(?:not\s+(?:be\s+)?(?:eligible\s+for\s+|covered\s+under\s+|provide\s+)?warrant(?:y|ed|ied)|do\s+not\s+provide\s+warranty))[^\n.!?;|\uE000]*/gi, '')
+    // Remove only the warranty wording. Keep the supplier's instructions,
+    // device limits, links and product details around it.
+    cleaned = cleaned
+      .replace(new RegExp(String.raw`(?:no(?:\s+any)?|without|not)\s+warranty(?:\s+(?:after|upon|for)\s+[^.!?\n]*)?`, 'gi'), '')
+      .replace(new RegExp(noWarrantyPattern, 'gi'), '')
+      .replace(/\b(?:not warrantied|not covered under warranty)\b/gi, '')
       .replace(/warranty\s+(?:till|until)\s+(?:login|activation)\b/gi, 'full plan warranty')
       .replace(/warranty\s+ends\b/gi, 'full plan warranty applies');
     cleaned = stripPeriodClaims(cleaned, 'full plan warranty', true)
-      .replace(/[^\n.!?]*\bno\s+support\s+after\s+\d+\s*hours?[^\n.!?]*/gi, '')
       .replace(/\b(?:full(?:[- ]time)?\s+)?warranty\s*(?:period)?\s*:\s*full\s+duration\b/gi, 'Full plan warranty')
-      .split(/\r?\n/)
-      .filter(line => !line.trim() || !/^[^\p{L}\p{N}]*(?:warranty\s*(?:policy|period)?\s*:?)?[^\p{L}\p{N}]*$/iu.test(line))
-      .join('\n');
+      .replace(/\b(?:warranty\s+)?(?:period|policy)\s*:\s*\b/gi, '')
+      .replace(/\(\s*\)/g, '');
   }
   return tidy(cleaned).replace(/\uE000(\d+)\uE001/g, (_, index) => urls[Number(index)]);
 }
