@@ -161,7 +161,7 @@ export default async function ProductPage({ params }: Props) {
               </dl>
             </section>
 
-            {product.variants?.length ? (
+            {product.variants?.length && product.id !== 'p093' ? (
               <section id="account-options" className="description-section">
                 <h2>
                   {product.id === 'p093'
@@ -174,7 +174,7 @@ export default async function ProductPage({ params }: Props) {
                     : 'Select a KVM package below. All options include 12-month validity, dedicated resources, NVMe storage, high-speed bandwidth and full VPS access and control.'}
                 </p>
                 <div className="vps-variant-grid">
-                  {product.variants.map((variant, index) => {
+                  {product.variants.map((variant) => {
                     const card = (
                       <>
                         <div className="vps-variant-heading">
@@ -220,22 +220,9 @@ export default async function ProductPage({ params }: Props) {
                       </>
                     );
                     return product.id === 'p093' && variant.id ? (
-                      <label
-                        className="vps-variant-card chatgpt-option-card"
-                        key={variant.name}
-                      >
-                        <input
-                          id={`chatgpt-option-${variant.id === 'p093-momo' ? 'momo' : 'ultra'}`}
-                          className="chatgpt-option-radio"
-                          type="radio"
-                          name="chatgpt-option"
-                          defaultChecked={index === 0}
-                        />
+                      <article className="vps-variant-card" key={variant.name}>
                         {card}
-                        <span className="chatgpt-select-action">
-                          Select this option
-                        </span>
-                      </label>
+                      </article>
                     ) : (
                       <article className="vps-variant-card" key={variant.name}>
                         {card}
@@ -282,18 +269,7 @@ export default async function ProductPage({ params }: Props) {
                 <p>
                   The listed Sasify price is{' '}
                   <strong>
-                    {product.id === 'p093' ? (
-                      <>
-                        <span className="chatgpt-ultra-only">
-                          <Money amount={3499} />
-                        </span>
-                        <span className="chatgpt-momo-only">
-                          <Money amount={2999} />
-                        </span>
-                      </>
-                    ) : (
-                      <Money amount={product.sellingPricePkr} />
-                    )}
+                    <Money amount={product.sellingPricePkr} />
                   </strong>{' '}
                   for this package. Confirm the access period, activation
                   requirements and payment details with our team before
@@ -366,12 +342,7 @@ export default async function ProductPage({ params }: Props) {
             </div>
             {product.id === 'p093' && (
               <p className="selected-option-name">
-                <span className="chatgpt-ultra-only">
-                  Ultra Stable Account · Apple Pay
-                </span>
-                <span className="chatgpt-momo-only">
-                  Partially Stable Account · Momo Pay
-                </span>
+                Ultra Stable Account · Apple Pay
               </p>
             )}
             <dl className="detail-prices">
@@ -396,15 +367,6 @@ export default async function ProductPage({ params }: Props) {
                 <dd>
                   {product.contactOnly ? (
                     'Contact on WhatsApp'
-                  ) : product.id === 'p093' ? (
-                    <>
-                      <span className="chatgpt-ultra-only">
-                        <Money amount={3499} />
-                      </span>
-                      <span className="chatgpt-momo-only">
-                        <Money amount={2999} />
-                      </span>
-                    </>
                   ) : (
                     <Money amount={product.sellingPricePkr} />
                   )}
@@ -417,15 +379,6 @@ export default async function ProductPage({ params }: Props) {
                     `${product.variants?.length ?? 0} KVM options`
                   ) : savings === null ? (
                     'Price or duration unavailable'
-                  ) : product.id === 'p093' ? (
-                    <>
-                      <span className="chatgpt-ultra-only">
-                        <Money amount={2201} />
-                      </span>
-                      <span className="chatgpt-momo-only">
-                        <Money amount={2701} />
-                      </span>
-                    </>
                   ) : (
                     <Money amount={savings} />
                   )}
@@ -440,17 +393,9 @@ export default async function ProductPage({ params }: Props) {
             ) : product.id === 'p093' ? (
               <div className="price-explanation">
                 <p>
-                  Selected option:{' '}
-                  <strong>
-                    <span className="chatgpt-ultra-only">
-                      Apple Pay · Ultra Stable
-                    </span>
-                    <span className="chatgpt-momo-only">
-                      Momo Pay · Partially Stable
-                    </span>
-                  </strong>
+                  Selected option: <strong>Apple Pay · Ultra Stable</strong>
                 </p>
-                <p>Select an option below, then use Pay online here.</p>
+                <p>Use Pay online here to continue.</p>
               </div>
             ) : savings === null ? (
               <p className="price-explanation">
@@ -515,17 +460,10 @@ export default async function ProductPage({ params }: Props) {
                   : "Review this plan's warranty period before payment."}
               </span>
             </div>
-            {!product.contactOnly && product.id === 'p093' ? (
-              <>
-                <div className="chatgpt-ultra-only">
-                  <StockBuy productId="p093-ultra" />
-                </div>
-                <div className="chatgpt-momo-only">
-                  <StockBuy productId="p093-momo" />
-                </div>
-              </>
-            ) : (
-              !product.contactOnly && <StockBuy productId={product.id} />
+            {!product.contactOnly && (
+              <StockBuy
+                productId={product.id === 'p093' ? 'p093-ultra' : product.id}
+              />
             )}
             {product.contactOnly ? (
               <a
@@ -537,20 +475,12 @@ export default async function ProductPage({ params }: Props) {
                 <MessageCircle className="h-5 w-5" /> Contact on WhatsApp
               </a>
             ) : product.id === 'p093' ? (
-              <>
-                <a
-                  href="/checkout?product=p093-ultra"
-                  className="primary-button detail-buy chatgpt-ultra-only"
-                >
-                  <ShoppingCart className="h-5 w-5" /> Pay online · PKR 3,499
-                </a>
-                <a
-                  href="/checkout?product=p093-momo"
-                  className="primary-button detail-buy chatgpt-momo-only"
-                >
-                  <ShoppingCart className="h-5 w-5" /> Pay online · PKR 2,999
-                </a>
-              </>
+              <a
+                href="/checkout?product=p093-ultra"
+                className="primary-button detail-buy"
+              >
+                <ShoppingCart className="h-5 w-5" /> Pay online · PKR 3,499
+              </a>
             ) : (
               <a
                 href={`/checkout?product=${encodeURIComponent(product.id)}`}

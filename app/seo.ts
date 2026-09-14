@@ -46,20 +46,14 @@ export function productQuestions(product: Product) {
   if (product.id === 'p093' && product.variants?.length)
     return [
       {
-        question:
-          'What are the ChatGPT Plus account options and prices in Pakistan?',
+        question: 'What is the ChatGPT Plus account price in Pakistan?',
         answer:
-          'Choose the Ultra Stable Account paid through Apple Pay for PKR 3,499, or the Partially Stable Account paid through Momo Pay for PKR 2,999. Both listings provide one month of ChatGPT Plus access; select the account type before paying.',
-      },
-      {
-        question: 'How do I choose Apple Pay or Momo Pay?',
-        answer:
-          'Select your preferred account type on this page. The main payment panel will update its price, availability and checkout link for the selected Apple Pay or Momo Pay inventory.',
+          'Sasify Solutions offers a one-month Ultra Stable ChatGPT Plus account paid through Apple Pay for PKR 3,499. Confirm the current availability before ordering.',
       },
       {
         question: `What warranty comes with ${product.name}?`,
         answer:
-          'Both one-month ChatGPT Plus options include a full 25-day warranty from Sasify Solutions. WhatsApp support is available after payment for delivery or activation issues.',
+          'The one-month ChatGPT Plus offer includes a full 25-day warranty from Sasify Solutions. WhatsApp support is available after payment for delivery or activation issues.',
       },
     ];
   const price = formatPkr(product.sellingPricePkr);
@@ -163,7 +157,7 @@ export function productData(product: Product) {
           offers: product.variants?.length
             ? product.variants.map((variant) => ({
                 '@type': 'Offer',
-                url: `${url}#account-options`,
+                url: product.id === 'p093' ? url : `${url}#account-options`,
                 sku: variant.id,
                 name: variant.name,
                 price: variant.sellingPricePkr,

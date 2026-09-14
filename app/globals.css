@@ -1518,18 +1518,6 @@ svg { flex-shrink: 0; }
 .description-section > p { color: var(--copy); font-size: 0.93rem; line-height: 1.75; }
 .vps-variant-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 15px; margin-top: 22px; }
 .vps-variant-card { padding: 18px; border: 1px solid #d4def3; border-radius: 8px; background: #fff; box-shadow: 0 8px 24px rgba(39,54,104,.05); }
-.chatgpt-option-card { display: block; position: relative; cursor: pointer; transition: border-color .16s ease, box-shadow .16s ease, transform .16s ease; }
-.chatgpt-option-card:hover { transform: translateY(-2px); border-color: #8ca7ff; }
-.chatgpt-option-card:has(.chatgpt-option-radio:checked) { border: 2px solid #356cff; box-shadow: 0 12px 30px rgba(53,108,255,.16); }
-.chatgpt-option-radio { position: absolute; top: 18px; right: 18px; width: 20px; height: 20px; accent-color: #356cff; }
-.chatgpt-select-action { display: block; margin-top: 17px; padding: 11px 14px; border-radius: 7px; background: #eef3ff; color: #2458d9; text-align: center; font-weight: 800; }
-.chatgpt-option-card:has(.chatgpt-option-radio:checked) .chatgpt-select-action { color: #fff; background: linear-gradient(135deg,#2870ff,#7141ed); }
-.chatgpt-option-card:has(.chatgpt-option-radio:checked) .chatgpt-select-action::after { content: ' ✓'; }
-.chatgpt-momo-only { display: none; }
-.detail-layout:has(#chatgpt-option-momo:checked) .chatgpt-ultra-only { display: none; }
-.detail-layout:has(#chatgpt-option-momo:checked) .chatgpt-momo-only { display: inline; }
-.detail-layout:has(#chatgpt-option-momo:checked) div.chatgpt-momo-only { display: block; }
-.detail-layout:has(#chatgpt-option-momo:checked) a.chatgpt-momo-only { display: flex; }
 .selected-option-name { margin: -4px 0 18px; color: #285cff; font-weight: 800; }
 .vps-variant-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
 .vps-variant-heading h3 { margin: 5px 0 0; font-size: 1.1rem; }

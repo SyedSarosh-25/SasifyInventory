@@ -37,6 +37,58 @@ export function isChatGptPlusProduct(name: string) {
   return /\bchatgpt\s+plus\b/i.test(String(name || ''));
 }
 
+export type LiveCatalogProduct = {
+  id: string;
+  name: string;
+  description?: string;
+  price: number;
+  available: number;
+  logo_url?: string;
+  source?: 'local' | 'supplier';
+  canonical_key?: string;
+};
+
+function shuffleProducts<T>(items: T[], random: () => number) {
+  for (let index = items.length - 1; index > 0; index -= 1) {
+    const value = Number(random());
+    const normalized = Number.isFinite(value) ? Math.min(Math.max(value, 0), 0.999999999) : 0;
+    const swapIndex = Math.floor(normalized * (index + 1));
+    [items[index], items[swapIndex]] = [items[swapIndex], items[index]];
+  }
+  return items;
+}
+
+/**
+ * Selects a fresh homepage set from the live stock response. ChatGPT remains
+ * available as the local anchor product; the other nine slots are randomized
+ * from available, de-duplicated local and supplier products on every load.
+ */
+export function selectRandomTopProducts(
+  catalog: LiveCatalogProduct[],
+  random: () => number = Math.random,
+) {
+  const localChatGpt = catalog.find(
+    (product) => product.source === 'local' && product.id === 'p093' && product.available > 0,
+  );
+  const seen = new Set<string>();
+  if (localChatGpt) seen.add(localChatGpt.id);
+
+  const candidates = catalog.filter((product) => {
+    if (product.available <= 0 || product === localChatGpt || product.id === 'p093-ultra') return false;
+    if (product.source === 'supplier' && isChatGptPlusProduct(product.name)) return false;
+    const key = product.source === 'supplier' ? product.canonical_key || product.id : product.id;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+
+  const slots = localChatGpt ? 9 : 10;
+  return [
+    ...(localChatGpt ? [localChatGpt] : []),
+    ...shuffleProducts(candidates, random).slice(0, slots),
+  ];
+}
+
 export const orbitTools = [
   { name: 'GPT', id: 'p093', className: 'orbit-gpt', searchQuery: 'ChatGPT' },
   { name: 'CapCut', id: 'capcut', className: 'orbit-capcut', searchQuery: 'CapCut' },
@@ -48,21 +100,6 @@ export const orbitTools = [
   const product = products.find((item) => item.id === tool.id);
   return { ...tool, product };
 });
-
-// The homepage's Top 10 is a curated, stable list. Supplier prices, stock and
-// logos remain live, but the product slots and their order must not be random.
-export const topProductSlots = [
-  { label: 'Claude', match: /claude/i },
-  { label: 'ChatGPT', match: /chatgpt|openai/i },
-  { label: 'Hostinger', match: /hostinger/i },
-  { label: 'CapCut', match: /capcut/i, preferredPrice: 999 },
-  { label: 'Canva', match: /canva/i, preferredPrice: 999 },
-  { label: 'Grok', match: /grok/i },
-  { label: 'LinkedIn', match: /linkedin/i },
-  { label: 'Figma', match: /figma/i },
-  { label: 'Microsoft', match: /microsoft|ms\s*office|office\s*365/i },
-  { label: 'Codex API', match: /codex.*(?:api|credit|token)|(?:api|credit|token).*codex/i },
-] as const;
 
 export function normalizeSearchText(value: string) {
   return value.toLowerCase().replace(/[^a-z0-9]+/g, '');

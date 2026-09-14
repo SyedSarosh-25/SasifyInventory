@@ -26,7 +26,7 @@ import { ProductLogo } from './components/product-logo';
 import { TopSupplierProducts } from './components/top-supplier-products';
 import { SiteFooter, SiteHeader } from './components/site-chrome';
 import { Money } from './components/currency';
-import { reviews } from './reviews';
+import { reviews as fallbackReviews } from './reviews';
 import { ReviewAvatar } from './components/review-avatar';
 import { HeroProductSearch } from './components/hero-product-search';
 import { StructuredData } from './components/structured-data';
@@ -450,9 +450,14 @@ function DealProofGallery() {
 
 export default function Home() {
   const [liveProductCount, setLiveProductCount] = useState(products.length);
+  const [liveReviews, setLiveReviews] = useState(fallbackReviews);
+  const [reviewSummary, setReviewSummary] = useState({ averageRating: 5, totalReviewCount: 148 });
   const reviewsTrackRef = useRef<HTMLDivElement>(null);
   const reviewManualPauseUntilRef = useRef(0);
   const reviewInteractingRef = useRef(false);
+  const reviews = liveReviews;
+  const reviewCount = reviewSummary.totalReviewCount || 148;
+  const reviewAverage = reviewSummary.averageRating || 5;
 
   useEffect(() => {
     let active = true;
@@ -460,6 +465,25 @@ export default function Home() {
       .then((response) => response.ok ? response.json() : Promise.reject())
       .then((data: any) => {
         if (active && Number.isSafeInteger(data.productCount)) setLiveProductCount(data.productCount);
+      })
+      .catch(() => {});
+    return () => { active = false; };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    fetch('/api/commerce?action=google-reviews', { cache: 'no-store' })
+      .then((response) => response.ok ? response.json() : Promise.reject())
+      .then((data: any) => {
+        if (!active) return;
+        if (Array.isArray(data.reviews) && data.reviews.length) setLiveReviews(data.reviews);
+        if (Number.isFinite(Number(data.averageRating)) && Number(data.averageRating) > 0
+          && Number.isSafeInteger(Number(data.totalReviewCount)) && Number(data.totalReviewCount) > 0) {
+          setReviewSummary({
+            averageRating: Number(data.averageRating),
+            totalReviewCount: Number(data.totalReviewCount),
+          });
+        }
       })
       .catch(() => {});
     return () => { active = false; };
@@ -552,7 +576,7 @@ export default function Home() {
       removeInteractionListeners();
       clones.forEach((clone) => clone.remove());
     };
-  }, []);
+  }, [reviews.length]);
 
   const moveReviews = (direction: -1 | 1) => {
     const track = reviewsTrackRef.current;
@@ -632,7 +656,7 @@ export default function Home() {
           <span><BadgeCheck className="h-4 w-4" /> {liveProductCount} products in catalog</span>
           <span><BadgeCheck className="h-4 w-4" /> Starting at <Money amount={lowestPrice} /></span>
           <a href={googleReviewsUrl} target="_blank" rel="noreferrer">
-            <Stars /> 5.0 from 148 Google reviews
+            <Stars rating={reviewAverage} /> {reviewAverage.toFixed(1)} from {reviewCount} Google reviews
           </a>
         </div>
       </section>
@@ -725,14 +749,14 @@ export default function Home() {
             </div>
             <a href={googleReviewsUrl} target="_blank" rel="noreferrer" className="google-score">
               <span className="google-g">G</span>
-              <strong>5.0</strong>
-              <span><Stars /> 148 Google reviews</span>
+              <strong>{reviewAverage.toFixed(1)}</strong>
+              <span><Stars rating={reviewAverage} /> {reviewCount} Google reviews</span>
               <ExternalLink className="h-4 w-4" />
             </a>
           </div>
 
           <div className="reviews-carousel-toolbar">
-            <span>All {reviews.length} verified reviews</span>
+            <span>Latest {reviews.length} synced review excerpts</span>
             <div className="reviews-carousel-actions" aria-label="Review carousel controls">
               <button type="button" onClick={() => moveReviews(-1)} aria-label="Previous review" title="Previous review">
                 <ChevronLeft className="h-5 w-5" />
@@ -769,7 +793,7 @@ export default function Home() {
           </div>
 
           <a href={googleReviewsUrl} target="_blank" rel="noreferrer" className="all-reviews-link">
-            Read all 148 reviews on Google Maps <ChevronRight className="h-4 w-4" />
+            Read all {reviewCount} reviews on Google Maps <ChevronRight className="h-4 w-4" />
           </a>
         </div>
       </section>

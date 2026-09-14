@@ -7,18 +7,38 @@ ALTER TABLE commerce_inventory ADD COLUMN IF NOT EXISTS purchase_cost integer NO
 ALTER TABLE commerce_inventory DROP CONSTRAINT IF EXISTS commerce_inventory_state_check;
 ALTER TABLE commerce_inventory ADD CONSTRAINT commerce_inventory_state_check CHECK (state IN ('available','reserved','delivered','quarantined','withdrawn'));
 CREATE TABLE IF NOT EXISTS commerce_orders (
- id uuid PRIMARY KEY, product_id text NOT NULL, amount integer NOT NULL CHECK(amount>=0),
+ id uuid PRIMARY KEY, product_id text NOT NULL, amount integer NOT NULL CHECK(amount>=0), listed_amount integer NOT NULL DEFAULT 0 CHECK(listed_amount>=0),
  recovery_hash text NOT NULL, session_hash text NOT NULL, inventory_id uuid REFERENCES commerce_inventory(id),
  status text NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','review','delivered','expired','cancelled')),
- transaction_id text, payer_name text, source_last4 text, created_at timestamptz NOT NULL DEFAULT now(),
- expires_at timestamptz NOT NULL DEFAULT now()+interval '5 minutes', delivered_at timestamptz
+ transaction_id text, payer_name text, source_last4 text, payment_submitted_at timestamptz,
+ commission_code text, commission_rate numeric(5,2) NOT NULL DEFAULT 0 CHECK(commission_rate>=0 AND commission_rate<=100),
+ commission_amount integer NOT NULL DEFAULT 0 CHECK(commission_amount>=0),
+ created_at timestamptz NOT NULL DEFAULT now(), expires_at timestamptz NOT NULL DEFAULT now()+interval '5 minutes', delivered_at timestamptz
 );
+ALTER TABLE commerce_orders ADD COLUMN IF NOT EXISTS payment_submitted_at timestamptz;
+ALTER TABLE commerce_orders ADD COLUMN IF NOT EXISTS listed_amount integer;
+UPDATE commerce_orders SET listed_amount=amount WHERE listed_amount IS NULL OR (listed_amount=0 AND amount>0);
+ALTER TABLE commerce_orders ALTER COLUMN listed_amount SET DEFAULT 0;
+ALTER TABLE commerce_orders ALTER COLUMN listed_amount SET NOT NULL;
+ALTER TABLE commerce_orders DROP CONSTRAINT IF EXISTS commerce_orders_listed_amount_check;
+ALTER TABLE commerce_orders ADD CONSTRAINT commerce_orders_listed_amount_check CHECK(listed_amount>=0);
 CREATE TABLE IF NOT EXISTS commerce_coupons (
  id uuid PRIMARY KEY, code_hash text NOT NULL UNIQUE, code_display text NOT NULL, product_id text NOT NULL DEFAULT 'p093', discount numeric(5,2) NOT NULL DEFAULT 5,
- discount_percent numeric(5,2) NOT NULL DEFAULT 5 CHECK(discount_percent>0 AND discount_percent<=100),
+ discount_percent numeric(5,2) NOT NULL DEFAULT 5 CHECK(discount_percent>=0 AND discount_percent<=100),
+ commission_percent numeric(5,2) NOT NULL DEFAULT 0 CHECK(commission_percent>=0 AND commission_percent<=100),
  max_uses integer NOT NULL DEFAULT 10 CHECK(max_uses>0), used_count integer NOT NULL DEFAULT 0 CHECK(used_count>=0),
- enabled boolean NOT NULL DEFAULT true, created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now()
+ enabled boolean NOT NULL DEFAULT true, unlimited boolean NOT NULL DEFAULT false,
+ created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now()
 );
+ALTER TABLE commerce_coupons ADD COLUMN IF NOT EXISTS unlimited boolean NOT NULL DEFAULT false;
+ALTER TABLE commerce_coupons ADD COLUMN IF NOT EXISTS commission_percent numeric(5,2) NOT NULL DEFAULT 0;
+ALTER TABLE commerce_coupons DROP CONSTRAINT IF EXISTS commerce_coupons_discount_percent_check;
+ALTER TABLE commerce_coupons ADD CONSTRAINT commerce_coupons_discount_percent_check CHECK(discount_percent>=0 AND discount_percent<=100);
+ALTER TABLE commerce_coupons DROP CONSTRAINT IF EXISTS commerce_coupons_discount_check;
+ALTER TABLE commerce_coupons ADD CONSTRAINT commerce_coupons_discount_check CHECK(discount>=0 AND discount<=100);
+ALTER TABLE commerce_coupons DROP CONSTRAINT IF EXISTS commerce_coupons_commission_percent_check;
+ALTER TABLE commerce_coupons ADD CONSTRAINT commerce_coupons_commission_percent_check CHECK(commission_percent>=0 AND commission_percent<=100);
+UPDATE commerce_coupons SET enabled=false,unlimited=true WHERE code_display='HOR';
 ALTER TABLE commerce_orders ADD COLUMN IF NOT EXISTS supplier_product_id text;
 ALTER TABLE commerce_orders ADD COLUMN IF NOT EXISTS supplier_order_id text;
 ALTER TABLE commerce_orders ADD COLUMN IF NOT EXISTS supplier_delivery text;
@@ -27,6 +47,16 @@ ALTER TABLE commerce_orders ADD COLUMN IF NOT EXISTS supplier_cost_pkr integer C
 ALTER TABLE commerce_orders ADD COLUMN IF NOT EXISTS coupon_id uuid;
 ALTER TABLE commerce_orders ADD COLUMN IF NOT EXISTS coupon_discount integer NOT NULL DEFAULT 0 CHECK(coupon_discount>=0);
 ALTER TABLE commerce_orders ADD COLUMN IF NOT EXISTS coupon_usage_released boolean NOT NULL DEFAULT false;
+ALTER TABLE commerce_orders ADD COLUMN IF NOT EXISTS commission_code text;
+ALTER TABLE commerce_orders ADD COLUMN IF NOT EXISTS commission_rate numeric(5,2) NOT NULL DEFAULT 0;
+ALTER TABLE commerce_orders ADD COLUMN IF NOT EXISTS commission_amount integer NOT NULL DEFAULT 0;
+ALTER TABLE commerce_orders DROP CONSTRAINT IF EXISTS commerce_orders_commission_rate_check;
+ALTER TABLE commerce_orders ADD CONSTRAINT commerce_orders_commission_rate_check CHECK(commission_rate>=0 AND commission_rate<=100);
+ALTER TABLE commerce_orders DROP CONSTRAINT IF EXISTS commerce_orders_commission_amount_check;
+ALTER TABLE commerce_orders ADD CONSTRAINT commerce_orders_commission_amount_check CHECK(commission_amount>=0);
+UPDATE commerce_orders SET commission_code='HOR',commission_rate=0,commission_amount=50
+ WHERE status='delivered' AND COALESCE(commission_amount,0)=0
+   AND coupon_id IN (SELECT id FROM commerce_coupons WHERE code_display='HOR');
 CREATE UNIQUE INDEX IF NOT EXISTS commerce_supplier_order_id ON commerce_orders(supplier_order_id) WHERE supplier_order_id IS NOT NULL;
 
 CREATE TABLE IF NOT EXISTS commerce_supplier_products (
@@ -121,3 +151,15 @@ CREATE TABLE IF NOT EXISTS commerce_scam_reports (
 );
 ALTER TABLE commerce_scam_reports ADD COLUMN IF NOT EXISTS amount_pkr integer CHECK(amount_pkr>=0);
 CREATE INDEX IF NOT EXISTS commerce_scam_reports_status_created ON commerce_scam_reports(status, created_at DESC);
+CREATE TABLE IF NOT EXISTS commerce_google_reviews (
+ id text PRIMARY KEY, name text NOT NULL, quote text NOT NULL, language text NOT NULL DEFAULT 'en',
+ rating integer NOT NULL CHECK(rating BETWEEN 1 AND 5), excerpt boolean NOT NULL DEFAULT true,
+ source_url text NOT NULL, profile_url text NOT NULL, photo_url text NOT NULL DEFAULT '', photo_path text NOT NULL DEFAULT '',
+ review_created_at timestamptz, review_updated_at timestamptz, synced_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS commerce_google_reviews_updated ON commerce_google_reviews(review_updated_at DESC NULLS LAST, synced_at DESC);
+CREATE TABLE IF NOT EXISTS commerce_google_review_sync (
+ id boolean PRIMARY KEY DEFAULT true CHECK(id), total_review_count integer NOT NULL DEFAULT 0 CHECK(total_review_count>=0),
+ average_rating numeric(3,2) NOT NULL DEFAULT 0 CHECK(average_rating>=0 AND average_rating<=5),
+ synced_at timestamptz, last_error text
+);

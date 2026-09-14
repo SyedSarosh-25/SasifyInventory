@@ -9,7 +9,7 @@ Status date: 11 September 2026.
 - `robots.txt` allows public crawling and points to the sitemap.
 - Checkout and admin application surfaces are excluded from indexing through hosting headers.
 - Public pages render titles, descriptions, canonical links and Open Graph URLs in their HTML.
-- The site renders Organization and WebSite structured data. Product pages render Product, Offer and BreadcrumbList data. ChatGPT Plus publishes two truthful Offer records: Apple Pay at PKR 3,499 and Momo Pay at PKR 2,999.
+- The site renders Organization and WebSite structured data. Product pages render Product, Offer and BreadcrumbList data. ChatGPT Plus publishes one truthful Offer record: Apple Pay at PKR 3,499.
 - The buying guide renders visible questions with matching FAQPage structured data.
 - Google and Bing ownership-verification meta tags remain in the shared layout.
 - `llms.txt` gives nonstandard, optional discovery guidance to compatible AI systems. Google does not require this file for search or AI features.

@@ -4,10 +4,9 @@ import { ArrowRight, Tag } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import {
   inferSupplierCategory,
-  isChatGptPlusProduct,
-  topProductSlots,
+  selectRandomTopProducts,
 } from '../catalog-selection';
-import { products, type Product } from '../products';
+import { products as localProducts, type Product } from '../products';
 import { productHref } from '../product-utils';
 import { ProductLogo } from './product-logo';
 import { supplierLogo, supplierMonogram } from '../supplier-product-utils';
@@ -21,6 +20,7 @@ type SupplierProduct = {
   available: number;
   logo_url?: string;
   source?: 'local' | 'supplier';
+  canonical_key?: string;
 };
 
 type FeaturedProduct = SupplierProduct & {
@@ -28,95 +28,6 @@ type FeaturedProduct = SupplierProduct & {
   localProduct?: Product;
   displayAvailable?: number;
 };
-
-function stableProductOrder(left: SupplierProduct, right: SupplierProduct) {
-  const inStock = Number(right.available > 0) - Number(left.available > 0);
-  if (inStock) return inStock;
-  const name = left.name.localeCompare(right.name, undefined, {
-    sensitivity: 'base',
-  });
-  if (name) return name;
-  const price = Number(left.price) - Number(right.price);
-  if (price) return price;
-  return left.id.localeCompare(right.id);
-}
-
-function firstMatchingSupplier(
-  products: SupplierProduct[],
-  match: RegExp,
-  preferredPrice?: number,
-) {
-  const matches = products
-    .filter(
-      (product) =>
-        product.source === 'supplier' &&
-        product.available > 0 &&
-        !isChatGptPlusProduct(product.name) &&
-        match.test(product.name),
-    )
-    .sort(stableProductOrder);
-  return (
-    (preferredPrice == null
-      ? matches
-      : matches.filter(
-          (product) => Number(product.price) === preferredPrice,
-        ))[0] || matches[0]
-  );
-}
-
-function localProduct(
-  product: Product,
-  available: number,
-  displayAvailable = available,
-): FeaturedProduct {
-  return {
-    id: product.id,
-    name: product.name,
-    description: product.description,
-    price: product.sellingPricePkr,
-    available,
-    displayAvailable,
-    source: 'local',
-    localProduct: product,
-  };
-}
-
-function selectCuratedProducts(catalog: SupplierProduct[]) {
-  const localStock = new Map(
-    catalog
-      .filter((product) => product.source === 'local')
-      .map((product) => [product.id, Number(product.available) || 0]),
-  );
-  const localChatGpt = products.find((product) => product.id === 'p093');
-  const localHostinger = products.find((product) => product.id === 'p100');
-  const selected: FeaturedProduct[] = [];
-
-  for (const slot of topProductSlots) {
-    if (slot.label === 'ChatGPT') {
-      if (localChatGpt)
-        selected.push(
-          localProduct(localChatGpt, localStock.get(localChatGpt.id) || 0),
-        );
-      continue;
-    }
-    const preferredPrice =
-      'preferredPrice' in slot ? slot.preferredPrice : undefined;
-    const supplier = firstMatchingSupplier(catalog, slot.match, preferredPrice);
-    if (supplier) {
-      selected.push({
-        ...supplier,
-        source: 'supplier',
-        displayAvailable: slot.label === 'Hostinger' ? 5 : supplier.available,
-      });
-      continue;
-    }
-    if (slot.label === 'Hostinger' && localHostinger)
-      selected.push(
-        localProduct(localHostinger, localStock.get(localHostinger.id) || 0, 5),
-      );
-  }
-  return selected;
-}
 
 function SupplierFeaturedCard({ product }: { product: FeaturedProduct }) {
   const logo =
@@ -183,7 +94,19 @@ export function TopSupplierProducts() {
       })
       .then((data) => {
         cacheSupplierCatalog(data.products || []);
-        if (active) setProducts(selectCuratedProducts(data.products || []));
+        if (active) {
+          const selected = selectRandomTopProducts(data.products || []);
+          setProducts(
+            selected.map((product) => ({
+              ...product,
+              source: product.source === 'local' ? 'local' : 'supplier',
+              localProduct:
+                product.source === 'local'
+                  ? localProducts.find((item) => item.id === product.id)
+                  : undefined,
+            })),
+          );
+        }
       })
       .catch(() => {})
       .finally(() => {

@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ClipboardList,
   Copy,
@@ -40,11 +40,15 @@ type Order = {
   id: string;
   product: string;
   amount: number;
+  listedAmount?: number;
   originalAmount?: number;
   couponDiscount?: number;
+  paymentAdjustment?: number;
   teamCoupon?: boolean;
   status: string;
   expiresAt: string;
+  paymentSubmittedAt?: string | null;
+  createdAt?: string;
   transactionId?: string;
   payment: { number: string; title: string; provider: string };
   credentials?: AccountCredentials;
@@ -113,8 +117,7 @@ export function Checkout() {
   const [order, setOrder] = useState<Order | null>(null),
     [id, setId] = useState(''),
     [key, setKey] = useState('');
-  const [transactionId, setTransaction] = useState(''),
-    [couponCode, setCouponCode] = useState('');
+  const [couponCode, setCouponCode] = useState('');
   const [now, setNow] = useState(Date.now());
   const [error, setError] = useState(''),
     [notice, setNotice] = useState(''),
@@ -173,7 +176,6 @@ export function Checkout() {
             setOrder(null);
             setId('');
             setKey('');
-            setTransaction('');
             setNotice(
               'Your previous payment window ended. Please start a new order.',
             );
@@ -194,12 +196,20 @@ export function Checkout() {
       clearInterval(timer);
     };
   }, [id, key]);
+  const orderStatus = order?.status;
+  const orderExpiresAt = order?.expiresAt;
+  const orderPaymentSubmittedAt = order?.paymentSubmittedAt;
   useEffect(() => {
-    if (order?.status !== 'pending') return;
+    if (
+      !orderStatus ||
+      !['pending', 'review', 'expired'].includes(orderStatus) ||
+      (!orderExpiresAt && !orderPaymentSubmittedAt)
+    )
+      return;
     setNow(Date.now());
     const timer = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(timer);
-  }, [order?.status, order?.expiresAt]);
+  }, [orderStatus, orderExpiresAt, orderPaymentSubmittedAt]);
   async function run(action: () => Promise<void>) {
     setBusy(true);
     setError('');
@@ -225,7 +235,6 @@ export function Checkout() {
     setOrder(null);
     setId('');
     setKey('');
-    setTransaction('');
   }
   const product = products.find((p) => p.id === selected);
   const checkoutProducts = products.filter((p) => p.id !== 'p093');
@@ -237,6 +246,22 @@ export function Checkout() {
         )
       : 0;
   const countdown = `${String(Math.floor(secondsLeft / 60)).padStart(2, '0')}:${String(secondsLeft % 60).padStart(2, '0')}`;
+  const supportSecondsLeft =
+    order && ['review', 'expired'].includes(order.status) && order.paymentSubmittedAt
+      ? Math.max(
+          0,
+          30 -
+            Math.floor(
+              (now - new Date(order.paymentSubmittedAt).getTime()) / 1000,
+            ),
+        )
+      : 0;
+  const supportEnabled =
+    order?.status === 'delivered' ||
+    (order &&
+      ['review', 'expired'].includes(order.status) &&
+      !!order.paymentSubmittedAt &&
+      supportSecondsLeft === 0);
   async function copy(value: string) {
     try {
       await navigator.clipboard.writeText(value);
@@ -339,22 +364,19 @@ export function Checkout() {
                 autoCapitalize="characters"
                 maxLength={32}
               />
-              <small>Authorized team codes provide direct access; other valid coupons apply before payment.</small>
             </label>
             <button
               className="primary-button"
               disabled={
                 busy ||
-                (!ready && couponCode.trim().toUpperCase() !== 'HOR') ||
+                !ready ||
                 !product?.available
               }
             >
               <ShoppingCart size={18} />{' '}
               {busy
                 ? 'Preparing checkout...'
-                : couponCode.trim().toUpperCase() === 'HOR'
-                  ? 'Claim free order'
-                  : 'Pay online'}
+                : 'Pay online'}
             </button>
             {ready && !product?.available && (
               <p>
@@ -380,15 +402,23 @@ export function Checkout() {
               <span>{order.product}</span>
               {order.teamCoupon ? (
                 <small className="coupon-savings">Team access · No payment required</small>
-              ) : order.couponDiscount ? (
+              ) : order.couponDiscount || order.paymentAdjustment ? (
                 <>
                   <small>
                     Original price: PKR {order.originalAmount?.toLocaleString()}
                   </small>
-                  <small className="coupon-savings">
-                    Reseller discount: −PKR{' '}
-                    {order.couponDiscount.toLocaleString()}
-                  </small>
+                  {order.couponDiscount ? (
+                    <small className="coupon-savings">
+                      Reseller discount: −PKR{' '}
+                      {order.couponDiscount.toLocaleString()}
+                    </small>
+                  ) : null}
+                  {order.paymentAdjustment ? (
+                    <small className="coupon-savings">
+                      Unique payment amount: −PKR{' '}
+                      {order.paymentAdjustment.toLocaleString()}
+                    </small>
+                  ) : null}
                 </>
               ) : null}
               <strong>PKR {order.amount.toLocaleString()}</strong>
@@ -410,9 +440,15 @@ export function Checkout() {
                 transfer to it from any bank account, Easypaisa, JazzCash or
                 NayaPay.
               </p>
+              {order.paymentAdjustment ? (
+                <p className="payment-source-note">
+                  This lower whole-rupee amount is unique to your active order.
+                  Send the exact amount shown above.
+                </p>
+              ) : null}
               <p className="support-note">
-                WhatsApp support will be enabled after you have successfully
-                paid.
+                WhatsApp support will be enabled 30 seconds after you submit
+                payment if delivery has not completed.
               </p>
               <dl className="commerce-details">
                 <dt>Account title</dt>
@@ -465,7 +501,7 @@ export function Checkout() {
                 onSubmit={(e) => {
                   e.preventDefault();
                   void run(async () => {
-                    await api('claim', key, { id, transactionId });
+                    await api('claim', key, { id });
                     setOrder(await api('status', key, undefined, id));
                   });
                 }}
@@ -473,29 +509,16 @@ export function Checkout() {
                 {order.status === 'expired' && (
                   <p>
                     This reservation expired. If you already paid, enter the
-                    transaction ID for review.
+                    payment confirmation below so support can review it.
                   </p>
                 )}
-                <h2>Enter transaction ID</h2>
+                <h2>Confirm your payment</h2>
                 <p>
-                  <strong>Only your transaction ID is required.</strong> Copy it
-                  from your payment receipt or confirmation message and submit
-                  it below. No payment screenshot is needed.
+                  After sending the exact amount, click below. We will match the
+                  verified payment automatically using your unique order amount.
                 </p>
-                <label>
-                  Transaction ID
-                  <input
-                    value={transactionId}
-                    onChange={(e) => setTransaction(e.target.value)}
-                    required
-                    minLength={6}
-                    maxLength={80}
-                    placeholder="e.g. 247854"
-                    autoCapitalize="characters"
-                  />
-                </label>
                 <button className="primary-button" disabled={busy}>
-                  {busy ? 'Submitting...' : 'Submit and verify payment'}
+                  {busy ? 'Checking payment...' : 'I paid — verify automatically'}
                 </button>
               </form>
             )}
@@ -510,6 +533,13 @@ export function Checkout() {
                 </p>
               </div>
             </section>
+          )}
+          {['review', 'expired'].includes(order.status) && !supportEnabled && (
+            <p className="support-note" role="status">
+              WhatsApp support unlocks in {supportSecondsLeft} second
+              {supportSecondsLeft === 1 ? '' : 's'} if delivery is still
+              pending.
+            </p>
           )}
           {order.credentials && (
             <section className="description-section">
@@ -560,7 +590,7 @@ export function Checkout() {
               )}
             </section>
           )}
-          {['review', 'delivered'].includes(order.status) && (
+          {supportEnabled && (
             <section className="description-section support-callout">
               <h2>
                 <MessageCircle size={20} /> Need help with this order?
@@ -717,16 +747,27 @@ function CouponRow({
     <article className="coupon-admin-row">
       <div className="coupon-admin-summary">
         <div>
-                  <span className="admin-eyebrow">
-                    {coupon.code_display === 'HOR' ? 'Team coupon' : 'Reseller coupon'}
-                  </span>
+          <span className="admin-eyebrow">
+            {coupon.code_display === 'HOR'
+              ? 'Team coupon'
+              : coupon.code_display === 'CUST'
+                ? 'Customer commission coupon'
+                : 'Reseller coupon'}
+          </span>
           <strong>{coupon.code_display}</strong>
         </div>
         <span className={enabled ? 'status-good' : 'status-warn'}>
           {enabled ? 'Enabled' : 'Disabled'}
         </span>
         <small>
-          {coupon.used_count} / {coupon.max_uses} uses
+          {coupon.unlimited ? `${coupon.used_count} / Unlimited uses` : `${coupon.used_count} / ${coupon.max_uses} uses`}
+        </small>
+        <small>
+          {coupon.code_display === 'HOR'
+            ? 'Commission: PKR 50 per delivered account'
+            : Number(coupon.commission_percent || 0) > 0
+              ? `Commission: ${coupon.commission_percent}% per delivered sale`
+              : 'No commission'}
         </small>
       </div>
       <div className="admin-form-grid">
@@ -743,7 +784,7 @@ function CouponRow({
           Discount %
           <input
             type="number"
-            min="0.01"
+            min={coupon.code_display === 'CUST' ? '0' : '0.01'}
             max="100"
             step="0.01"
             value={discount}
@@ -810,6 +851,7 @@ export function CommerceAdmin() {
   const [tab, setTab] = useState<
       | 'overview'
       | 'profit'
+      | 'commissions'
       | 'inventory'
       | 'supplier'
       | 'orders'
@@ -838,6 +880,8 @@ export function CommerceAdmin() {
   const [newCouponCode, setNewCouponCode] = useState(''),
     [newCouponDiscount, setNewCouponDiscount] = useState('10'),
     [newCouponMaxUses, setNewCouponMaxUses] = useState('10');
+  const seenOrderIds = useRef<Set<string>>(new Set());
+  const seenSupplierAlertIds = useRef<Set<string>>(new Set());
   useEffect(() => {
     let active = true;
     void api('admin-list')
@@ -852,6 +896,52 @@ export function CommerceAdmin() {
       active = false;
     };
   }, []);
+  const adminReady = Boolean(data);
+  useEffect(() => {
+    if (!data) {
+      seenOrderIds.current.clear();
+      seenSupplierAlertIds.current.clear();
+      return;
+    }
+    const orders = Array.isArray(data.orders) ? data.orders : [];
+    const supplierAlerts = Array.isArray(data.supplierAlerts)
+      ? data.supplierAlerts
+      : [];
+    if (seenOrderIds.current.size) {
+      const newOrder = orders.find(
+        (row: any) => !seenOrderIds.current.has(String(row.id)),
+      );
+      if (newOrder)
+        setNotice(
+          `New order received: ${String(newOrder.id).slice(0, 8)} · ${newOrder.product_id}.`,
+        );
+    }
+    if (seenSupplierAlertIds.current.size) {
+      const newAlert = supplierAlerts.find(
+        (row: any) => !seenSupplierAlertIds.current.has(String(row.id)),
+      );
+      if (newAlert)
+        setNotice(
+          `Supplier issue detected for ${String(newAlert.provider_id).toUpperCase()}. Open supplier logs for details.`,
+        );
+    }
+    seenOrderIds.current = new Set(
+      orders.map((row: any) => String(row.id)),
+    );
+    seenSupplierAlertIds.current = new Set(
+      supplierAlerts.map((row: any) => String(row.id)),
+    );
+  }, [data]);
+  useEffect(() => {
+    if (!adminReady) return;
+    const timer = setInterval(() => {
+      if (document.visibilityState !== 'visible') return;
+      void api('admin-list', key)
+        .then((dashboard) => setData(dashboard))
+        .catch(() => {});
+    }, 10000);
+    return () => clearInterval(timer);
+  }, [adminReady, key]);
   async function run(fn: () => Promise<void>) {
     setBusy(true);
     setError('');
@@ -964,6 +1054,19 @@ export function CommerceAdmin() {
                 ? 'dodi'
                 : item.provider_id) === provider,
         ).length;
+  const lowBalanceProviders = (data?.providerStates || []).filter(
+    (provider: any) => provider.lowBalance,
+  );
+  const horCommission =
+    (data?.commissionSummary || []).find(
+      (item: any) => item.code === 'HOR',
+    ) || { sales: 0, total: 0, rate: 0, perSale: 50 };
+  const custCommission =
+    (data?.commissionSummary || []).find(
+      (item: any) => item.code === 'CUST',
+    ) || { sales: 0, total: 0, rate: 10, perSale: 0 };
+  const totalCommission =
+    Number(horCommission.total || 0) + Number(custCommission.total || 0);
   const beginEdit = (item: any) => {
     setEditing(item);
     setEditCost(String(item.purchaseCost));
@@ -1084,10 +1187,40 @@ export function CommerceAdmin() {
           {notice}
         </p>
       )}
+      {(lowBalanceProviders.length > 0 || data.supplierAlerts?.length > 0) && (
+        <section className="admin-panel compact-panel supplier-alert-panel">
+          <div className="panel-heading">
+            <div>
+              <span className="admin-eyebrow">Attention required</span>
+              <h2>Supplier alerts</h2>
+            </div>
+            <button
+              className="secondary-button compact"
+              onClick={() => setTab('supplier')}
+            >
+              Open supplier logs
+            </button>
+          </div>
+          {lowBalanceProviders.map((provider: any) => (
+            <p key={`balance-${provider.provider_id}`} className="admin-warning">
+              {provider.provider_name} balance is low: {provider.balance}{' '}
+              {provider.currency || ''} (alert threshold {provider.lowBalanceThreshold}{' '}
+              {provider.currency || ''}).
+            </p>
+          ))}
+          {data.supplierAlerts?.length > 0 && (
+            <p className="admin-warning">
+              {data.supplierAlerts.length} recent supplier API issue(s) need
+              review. Check the detailed request and response logs.
+            </p>
+          )}
+        </section>
+      )}
       <nav className="admin-tabs" aria-label="Admin sections">
         {[
           ['overview', 'Overview', LayoutDashboard],
           ['profit', 'Profit', WalletCards],
+          ['commissions', 'Commissions', WalletCards],
           ['inventory', 'Inventory', Package],
           ['supplier', 'Supplier Store', ShoppingCart],
           ['orders', 'Orders', ClipboardList],
@@ -1135,9 +1268,11 @@ export function CommerceAdmin() {
                 <span className="admin-eyebrow">Reseller pricing</span>
                 <h2>Coupon settings</h2>
                 <p>
-                  Coupons apply only to ChatGPT Plus. Usage is counted when
-                  checkout is created and released if the unpaid reservation
-                  expires or is cancelled.
+                  Coupons apply only to ChatGPT Plus. HOR is currently disabled;
+                  historical HOR commission records remain available. CUST
+                  keeps the normal price and records 10% per delivered sale.
+                  Usage is counted when checkout is created and released if
+                  the unpaid reservation expires or is cancelled.
                 </p>
               </div>
             </div>
@@ -1420,9 +1555,12 @@ export function CommerceAdmin() {
         <div className="admin-workspace">
           <section className="metric-grid">
             <article>
-              <span>Total income</span>
+              <span>Recognized value</span>
               <strong>{money(data.metrics.income)}</strong>
-              <small>{data.metrics.delivered_orders} delivered orders</small>
+              <small>
+                {data.metrics.delivered_orders} delivered ·{' '}
+                {data.metrics.admin_withdrawals || 0} admin withdrawals
+              </small>
             </article>
             <button
               type="button"
@@ -1448,7 +1586,7 @@ export function CommerceAdmin() {
           </section>
           {Number(data.metrics.missing_costs) > 0 && (
             <p className="admin-warning">
-              {data.metrics.missing_costs} delivered account(s) have no purchase
+              {data.metrics.missing_costs} fulfilled account(s) have no purchase
               cost. Add their costs in Inventory for accurate profit.
             </p>
           )}
@@ -1487,9 +1625,10 @@ export function CommerceAdmin() {
               <div>
                 <span className="admin-eyebrow">Financial breakdown</span>
                 <h2>Profit details</h2>
-                <p>
-                  Delivered sales grouped by fulfilment source. Profit is sales
-                  minus the recorded cost.
+              <p>
+                  Delivered sales, HOR team deliveries, and admin withdrawals are
+                  grouped by fulfilment source. Profit is recognized value minus
+                  the recorded cost.
                 </p>
               </div>
               <button
@@ -1520,7 +1659,7 @@ export function CommerceAdmin() {
                         : 'Automatic supplier fulfilment'}
                     </h3>
                     <div>
-                      <span>Sales</span>
+                      <span>Recognized value</span>
                       <strong>{money(row.income)}</strong>
                     </div>
                     <div>
@@ -1534,12 +1673,141 @@ export function CommerceAdmin() {
                       </strong>
                     </div>
                     <small>
-                      {row.orders} delivered order{row.orders === 1 ? '' : 's'}
+                      {row.orders} fulfilled record{row.orders === 1 ? '' : 's'}
                     </small>
                   </article>
                 );
               })}
             </div>
+          </section>
+        </div>
+      )}
+
+      {tab === 'commissions' && (
+        <div className="admin-workspace">
+          <section className="admin-panel">
+            <div className="panel-heading">
+              <div>
+                <span className="admin-eyebrow">Partner payouts</span>
+                <h2>Commission tracking</h2>
+                <p>
+                  Delivered orders are recorded here. HOR pays PKR 50 per team
+                  account, while CUST keeps the normal price and pays 10% per
+                  sale.
+                </p>
+              </div>
+              <button
+                className="secondary-button compact"
+                onClick={() => setTab('overview')}
+              >
+                Back to overview
+              </button>
+            </div>
+            <div className="snapshot-grid">
+              <div>
+                <span>HOR accounts</span>
+                <strong>{horCommission.sales}</strong>
+                <small>{money(horCommission.total)} payable</small>
+              </div>
+              <div>
+                <span>CUST sales</span>
+                <strong>{custCommission.sales}</strong>
+                <small>{money(custCommission.total)} payable</small>
+              </div>
+              <div>
+                <span>Total commission</span>
+                <strong>{money(totalCommission)}</strong>
+                <small>Delivered orders only</small>
+              </div>
+            </div>
+          </section>
+          <section className="admin-panel">
+            <div className="panel-heading">
+              <div>
+                <span className="admin-eyebrow">Separate totals</span>
+                <h2>HOR and CUST commission columns</h2>
+              </div>
+            </div>
+            <div className="commerce-table">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Metric</th>
+                    <th>HOR</th>
+                    <th>CUST</th>
+                    <th>Total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>Delivered sales</td>
+                    <td>{horCommission.sales}</td>
+                    <td>{custCommission.sales}</td>
+                    <td>
+                      {Number(horCommission.sales || 0) +
+                        Number(custCommission.sales || 0)}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td>Commission rule</td>
+                    <td>PKR 50 per account</td>
+                    <td>{custCommission.rate || 10}% of sale</td>
+                    <td>—</td>
+                  </tr>
+                  <tr>
+                    <td>Payable commission</td>
+                    <td>{money(horCommission.total)}</td>
+                    <td>{money(custCommission.total)}</td>
+                    <td>{money(totalCommission)}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+          <section className="admin-panel">
+            <div className="panel-heading">
+              <div>
+                <span className="admin-eyebrow">Order-level detail</span>
+                <h2>Commission ledger</h2>
+              </div>
+            </div>
+            {!data.commissions?.length ? (
+              <p>No commission-bearing deliveries yet.</p>
+            ) : (
+              <div className="commerce-table">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Order</th>
+                      <th>Code</th>
+                      <th>Sale amount</th>
+                      <th>Commission</th>
+                      <th>Customer</th>
+                      <th>Delivered</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.commissions.map((row: any) => (
+                      <tr key={row.order_id}>
+                        <td>{String(row.order_id).slice(0, 8)}</td>
+                        <td>
+                          <strong>{row.commission_code}</strong>
+                          {row.commission_code === 'HOR' ? (
+                            <small>PKR 50 per account</small>
+                          ) : (
+                            <small>{row.commission_rate}% of sale</small>
+                          )}
+                        </td>
+                        <td>{money(row.amount)}</td>
+                        <td>{money(row.commission_amount)}</td>
+                        <td>{row.payer_name || '—'}</td>
+                        <td>{new Date(row.delivered_at).toLocaleString()}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </section>
         </div>
       )}
@@ -1581,9 +1849,6 @@ export function CommerceAdmin() {
                 >
                   <option value="p093-ultra">
                     Ultra Stable Account · Apple Pay · PKR 3,499
-                  </option>
-                  <option value="p093-momo">
-                    Partially Stable Account · Momo Pay · PKR 2,999
                   </option>
                 </select>
               </label>
@@ -1648,9 +1913,7 @@ export function CommerceAdmin() {
                       <td>
                         <strong>{item.email}</strong>
                         <small>
-                          {item.productId === 'p093-momo'
-                            ? 'Momo Pay · Partially Stable'
-                            : 'Apple Pay · Ultra Stable'}{' '}
+                          Apple Pay · Ultra Stable{' '}
                           · {item.id.slice(0, 8)}
                         </small>
                       </td>
@@ -1661,11 +1924,8 @@ export function CommerceAdmin() {
                       </td>
                       <td>{money(item.purchaseCost)}</td>
                       <td>
-                        {item.state === 'delivered'
-                          ? money(
-                              (item.productId === 'p093-momo' ? 2999 : 3499) -
-                                item.purchaseCost,
-                            )
+                        {['delivered', 'withdrawn'].includes(item.state)
+                          ? money(3499 - item.purchaseCost)
                           : '-'}
                       </td>
                       <td>{new Date(item.createdAt).toLocaleDateString()}</td>
@@ -1995,9 +2255,13 @@ export function CommerceAdmin() {
                         : provider.provider_id) === supplierProvider,
                   )
                   .map((provider: any) => (
-                    <small key={provider.provider_id}>
+                    <small
+                      key={provider.provider_id}
+                      className={provider.lowBalance ? 'status-warn' : undefined}
+                    >
                       {provider.provider_name}: {provider.balance ?? '—'}{' '}
                       {provider.currency || ''}
+                      {provider.lowBalance ? ' · LOW BALANCE' : ''}
                     </small>
                   ))}
               </div>
@@ -2222,7 +2486,7 @@ export function CommerceAdmin() {
                     <th>Supplier</th>
                     <th>Amount</th>
                     <th>Status</th>
-                    <th>Transaction</th>
+                    <th>Payment match</th>
                     <th>Sender</th>
                     <th>Date</th>
                     <th>Actions</th>
@@ -2248,13 +2512,36 @@ export function CommerceAdmin() {
                           <small>{row.supplier_status}</small>
                         )}
                       </td>
-                      <td>{money(row.amount)}</td>
+                      <td>
+                        {money(row.amount)}
+                        {Number(row.listed_amount) > Number(row.amount) && (
+                          <small>Listed {money(row.listed_amount)}</small>
+                        )}
+                      </td>
                       <td>
                         <span className={`admin-state ${row.status}`}>
                           {row.status}
                         </span>
                       </td>
-                      <td>{row.transaction_id || '-'}</td>
+                      <td>
+                        <strong>
+                          {row.status === 'delivered'
+                            ? 'Delivered'
+                            : row.payment_submitted_at
+                              ? 'Submitted · checking'
+                              : 'Awaiting “I paid”'}
+                        </strong>
+                        {row.payment_submitted_at && (
+                          <small>
+                            {new Date(row.payment_submitted_at).toLocaleString()}
+                          </small>
+                        )}
+                        {row.coupon_code && (
+                          <small>
+                            {row.coupon_code === 'HOR' ? 'HOR team access' : `Coupon ${row.coupon_code}`}
+                          </small>
+                        )}
+                      </td>
                       <td>{row.payer_name || '-'}</td>
                       <td>{new Date(row.created_at).toLocaleString()}</td>
                       <td>
@@ -2324,9 +2611,9 @@ export function CommerceAdmin() {
           <section className="admin-panel compact-panel">
             <h2>Manual credential delivery</h2>
             <p>
-              Use only after you have independently approved the delivery. This
-              is an explicit admin action and does not verify or attach a payment.
-              Supplier orders must be delivered through their supplier flow.
+              Use only after independently approving delivery. This explicit
+              action does not verify or attach a payment. Supplier orders must
+              be delivered through their supplier flow.
             </p>
             <form
               className="admin-form-grid"
@@ -2383,6 +2670,10 @@ export function CommerceAdmin() {
               <div>
                 <span className="admin-eyebrow">NayaPay inbox</span>
                 <h2>Received payments</h2>
+                <p>
+                  Customers no longer submit transaction IDs. Match payments
+                  using the exact amount, receipt time and receipt details.
+                </p>
               </div>
             </div>
             <div className="commerce-table">
@@ -2391,8 +2682,9 @@ export function CommerceAdmin() {
                   <tr>
                     <th>Payment</th>
                     <th>Amount</th>
-                    <th>Transaction</th>
+                    <th>Verification</th>
                     <th>Order</th>
+                    <th>Received</th>
                     <th>Receipt</th>
                   </tr>
                 </thead>
@@ -2402,15 +2694,32 @@ export function CommerceAdmin() {
                       <td>
                         <button
                           className="table-select"
-                          onClick={() => setPaymentId(row.id)}
+                          onClick={() => {
+                            setPaymentId(row.id);
+                            if (row.order_id) setOrderId(row.order_id);
+                          }}
                         >
                           {row.subject}
                         </button>
                         <small>{row.id.slice(0, 8)}</small>
                       </td>
                       <td>{money(row.amount)}</td>
-                      <td>{row.transaction_id || 'Unparsed'}</td>
+                      <td>
+                        <strong>
+                          {row.verified ? 'Verified receipt' : 'Needs review'}
+                        </strong>
+                        <small>
+                          {row.transaction_id
+                            ? 'Reference captured in receipt'
+                            : 'No reference captured'}
+                        </small>
+                      </td>
                       <td>{row.order_id?.slice(0, 8) || 'Unassigned'}</td>
+                      <td>
+                        {row.received_at
+                          ? new Date(row.received_at).toLocaleString()
+                          : 'Unknown'}
+                      </td>
                       <td>
                         <button
                           className="secondary-button compact"
@@ -2450,7 +2759,12 @@ export function CommerceAdmin() {
             )}
           </section>
           <section className="admin-panel compact-panel">
-            <h2>Manual payment delivery</h2>
+            <h2>Manual payment match and delivery</h2>
+            <p>
+              Select an order and its payment receipt. No customer transaction
+              ID is required; the system attaches the receipt reference during
+              your approval.
+            </p>
             <form
               className="admin-form-grid"
               onSubmit={(e) => {
@@ -2489,13 +2803,13 @@ export function CommerceAdmin() {
                   checked={confirmed}
                   onChange={(e) => setConfirmed(e.target.checked)}
                 />{' '}
-                I verified the payment, customer and amount in NayaPay.
+                I verified the payment recipient, customer and exact amount in the receipt.
               </label>
               <button
                 className="primary-button admin-span"
                 disabled={busy || !confirmed}
               >
-                Confirm and deliver account
+                Match payment and deliver account
               </button>
             </form>
           </section>

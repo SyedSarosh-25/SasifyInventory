@@ -94,7 +94,7 @@ test('every variant has unique search metadata and a truthful PKR offer', () => 
         assert.equal(offer.priceCurrency, 'PKR');
         assert.equal(
           offer.url,
-          product.variants
+          product.variants && product.id !== 'p093'
             ? `${siteOrigin}/products/${product.id}#account-options`
             : `${siteOrigin}/products/${product.id}`,
         );
@@ -123,7 +123,7 @@ test('plan answers preserve annual payments, limited warranty and unknown durati
     products.find(({ id }) => id === 'p093'),
   );
   assert.match(chatGptAnswers[0].answer, /PKR 3,499/);
-  assert.match(chatGptAnswers[0].answer, /PKR 2,999/);
+  assert.match(chatGptAnswers[1].answer, /25-day warranty/);
   assert.doesNotMatch(productQuestions(hostinger)[2].answer, /25-day/);
   const unknown = { ...hostinger, duration: '-' };
   assert.match(productQuestions(unknown)[0].answer, /Review the access period/);

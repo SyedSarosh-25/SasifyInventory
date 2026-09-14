@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { products } from '../app/products.ts';
 import { accessTypeLabel, has25DayWarranty, isAnnualPlan, originalPriceComparison, originalPricePkr, planMonths, productHref, productLogo, savingsPkr, whatsappLink } from '../app/product-utils.ts';
-import { featuredProducts, filterProducts, heroProducts, orbitTools, supplierEquivalentProductName, topProductSlots } from '../app/catalog-selection.ts';
+import { featuredProducts, filterProducts, heroProducts, orbitTools, selectRandomTopProducts, supplierEquivalentProductName } from '../app/catalog-selection.ts';
 
 test('every inventory variant has a unique detail URL', () => {
   assert.equal(new Set(products.map(productHref)).size, products.length);
@@ -126,8 +126,28 @@ test('landing selection has exactly ten distinct products with the requested fir
   assert.deepEqual(featuredProducts.map((product) => product.id), ['p013', 'p012', 'p100', 'p101']);
 });
 
-test('homepage top ten uses a fixed brand order instead of random supplier products', () => {
-  assert.deepEqual(topProductSlots.map((slot) => slot.label), ['Claude', 'ChatGPT', 'Hostinger', 'CapCut', 'Canva', 'Grok', 'LinkedIn', 'Figma', 'Microsoft', 'Codex API']);
+test('homepage top ten keeps ChatGPT available and randomizes the remaining live stock', () => {
+  const catalog = [
+    { id: 'p093', name: 'ChatGPT Plus', price: 3499, available: 2, source: 'local' },
+    ...Array.from({ length: 12 }, (_, index) => ({
+      id: `supplier-${index}`,
+      name: `Supplier Product ${index}`,
+      price: 100 + index,
+      available: 1,
+      source: 'supplier',
+      canonical_key: `supplier-${index}`,
+    })),
+    { id: 'sold-out', name: 'Sold Out', price: 100, available: 0, source: 'supplier' },
+    { id: 'chatgpt-supplier', name: 'ChatGPT Plus 1 Month', price: 100, available: 1, source: 'supplier' },
+  ];
+  const first = selectRandomTopProducts(catalog, () => 0);
+  const second = selectRandomTopProducts(catalog, () => 0.999);
+  assert.equal(first.length, 10);
+  assert.equal(first[0].id, 'p093');
+  assert.equal(new Set(first.map((product) => product.id)).size, 10);
+  assert.ok(first.every((product) => product.available > 0));
+  assert.ok(!first.some((product) => product.id === 'chatgpt-supplier'));
+  assert.notDeepEqual(first.map((product) => product.id), second.map((product) => product.id));
 });
 
 test('static catalog contains only the approved local products', () => {

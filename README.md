@@ -5,7 +5,7 @@ Production storefront and commerce administration system for [sasifysolutions.co
 ## What is implemented
 
 - Static, crawlable storefront with home, inventory, buying guide, policy, scam-report and product pages.
-- ChatGPT Plus account selection with separate Apple Pay (PKR 3,499) and Momo Pay (PKR 2,999) inventory.
+- ChatGPT Plus Ultra Stable Account inventory with Apple Pay checkout at PKR 3,499.
 - NayaPay checkout, payment-reference submission, payment review and controlled account delivery.
 - Admin authentication, stock import/withdrawal, order management, supplier catalog controls and financial summaries.
 - DODI and Qamify supplier adapters, explicit offer mapping and guarded supplier fulfilment.
@@ -55,6 +55,9 @@ Keep values in local or Vercel environment configuration, never in source contro
 - `NAYAPAY_RECEIVER_MARKER`
 - `NAYAPAY_RECEIVER_EMAIL`
 - `NAYAPAY_AUTO_VERIFY`
+- `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` (optional order/supplier alerts)
+- `GOOGLE_REVIEWS_CLIENT_ID`, `GOOGLE_REVIEWS_CLIENT_SECRET`, `GOOGLE_REVIEWS_REFRESH_TOKEN`, `GOOGLE_REVIEWS_ACCOUNT_ID`, `GOOGLE_REVIEWS_LOCATION_ID` and `CRON_SECRET` (automatic Google Business Profile review sync; see `docs/GOOGLE-REVIEWS-SYNC.md`)
+- `SUPPLIER_LOW_BALANCE_PKR`, `SUPPLIER_LOW_BALANCE_USD` and `SUPPLIER_LOW_BALANCE_USDT` (optional alert thresholds)
 - `DODI_RESELLER_API_KEY`
 - `QAMIFY_API_KEY`
 - `QAMIFY_USD_PKR_RATE`

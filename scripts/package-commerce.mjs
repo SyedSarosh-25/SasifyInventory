@@ -44,6 +44,7 @@ for (const name of [
   'piggyai.mjs',
   'zoomstore.mjs',
   'scam-reports.mjs',
+  'google-reviews.mjs',
 ])
   await cp(path.join(root, 'commerce', name), path.join(func, name));
 const catalog = products.flatMap((p) => [
@@ -107,6 +108,10 @@ await writeFile(
       overrides,
       routes: [
         {
+          src: '/api/google-reviews-sync',
+          dest: '/api/commerce?action=google-reviews-sync',
+        },
+        {
           src: '/api/nayapay/inbound-email',
           dest: '/api/commerce?action=inbound-email',
         },
@@ -134,6 +139,12 @@ await writeFile(
         },
         { handle: 'filesystem' },
         { src: '/(.*)', status: 404, dest: '/404.html' },
+      ],
+      crons: [
+        {
+          path: '/api/google-reviews-sync',
+          schedule: '0 0 * * *',
+        },
       ],
     },
     null,

@@ -56,10 +56,17 @@ import {
   publicScamReport,
   publicScamReportSummary,
 } from './scam-reports.mjs';
+import {
+  DEFAULT_REVIEWS_URL,
+  fetchGoogleReviews,
+} from './google-reviews.mjs';
 import catalog from './catalog.json' with { type: 'json' };
 
 const fail = (status, message) => Object.assign(new Error(message), { status });
 const TEAM_COUPON_CODE = 'HOR';
+const TEAM_COUPON_ENABLED = false;
+const CUSTOMER_COUPON_CODE = 'CUST';
+const TEAM_COMMISSION_PKR = 50;
 const SUPPLIER_API_ENV = Object.freeze({
   dodi: 'DODI_RESELLER_API_KEY',
   qamify: 'QAMIFY_API_KEY',
@@ -125,6 +132,143 @@ const supplierUsdRate = () => {
   );
   return Number.isFinite(rate) && rate > 0 ? rate : null;
 };
+function supplierBalanceThreshold(currency) {
+  const normalized = String(currency || '').toUpperCase();
+  const envName = normalized === 'PKR'
+    ? 'SUPPLIER_LOW_BALANCE_PKR'
+    : normalized === 'USD'
+      ? 'SUPPLIER_LOW_BALANCE_USD'
+      : 'SUPPLIER_LOW_BALANCE_USDT';
+  const fallback = normalized === 'PKR' ? 5000 : 5;
+  const configured = Number(process.env[envName]);
+  return Number.isFinite(configured) && configured >= 0 ? configured : fallback;
+}
+function supplierBalanceIsLow(balance, currency) {
+  const amount = Number(balance);
+  return Number.isFinite(amount) && amount <= supplierBalanceThreshold(currency);
+}
+function localProductSellingPrice(productId) {
+  const price = Number(catalog.find((product) => product.id === productId)?.price);
+  return Number.isSafeInteger(price) && price > 0 ? price : 0;
+}
+function summarizeProfit(deliveredRows, withdrawnRows) {
+  const monthStart = new Date();
+  monthStart.setDate(1);
+  monthStart.setHours(0, 0, 0, 0);
+  const summary = {
+    income: 0,
+    cost: 0,
+    profit: 0,
+    monthly_income: 0,
+    monthly_profit: 0,
+    delivered_orders: deliveredRows.length,
+    admin_withdrawals: withdrawnRows.length,
+    active_orders: 0,
+    missing_costs: 0,
+  };
+  const breakdown = {
+    local: { income: 0, cost: 0, profit: 0, orders: 0 },
+    supplier: { income: 0, cost: 0, profit: 0, orders: 0 },
+  };
+  const add = (row, income, cost, source, date) => {
+    const safeIncome = Number.isFinite(Number(income)) ? Number(income) : 0;
+    const safeCost = Number.isFinite(Number(cost)) ? Number(cost) : 0;
+    const profit = safeIncome - safeCost;
+    summary.income += safeIncome;
+    summary.cost += safeCost;
+    summary.profit += profit;
+    if (safeCost === 0) summary.missing_costs++;
+    const bucket = breakdown[source] || breakdown.local;
+    bucket.income += safeIncome;
+    bucket.cost += safeCost;
+    bucket.profit += profit;
+    bucket.orders++;
+    if (date && new Date(date) >= monthStart) {
+      summary.monthly_income += safeIncome;
+      summary.monthly_profit += profit;
+    }
+  };
+  for (const row of deliveredRows) {
+    const isTeamCoupon = String(row.code_display || '').toUpperCase() === TEAM_COUPON_CODE;
+    const income = Number(row.amount || 0) + (isTeamCoupon ? Number(row.coupon_discount || 0) : 0);
+    const cost = row.purchase_cost ?? row.supplier_cost_pkr ?? 0;
+    add(row, income, cost, row.supplier_product_id ? 'supplier' : 'local', row.delivered_at);
+  }
+  for (const row of withdrawnRows)
+    add(row, localProductSellingPrice(row.product_id), row.purchase_cost, 'local', row.created_at);
+  for (const key of Object.keys(summary)) {
+    if (key === 'active_orders' || key === 'delivered_orders' || key === 'admin_withdrawals' || key === 'missing_costs') continue;
+    summary[key] = Math.round(summary[key]);
+  }
+  for (const bucket of Object.values(breakdown)) {
+    bucket.income = Math.round(bucket.income);
+    bucket.cost = Math.round(bucket.cost);
+    bucket.profit = Math.round(bucket.profit);
+  }
+  return { metrics: summary, breakdown };
+}
+function summarizeCommissions(rows) {
+  const summary = {
+    [TEAM_COUPON_CODE]: {
+      code: TEAM_COUPON_CODE,
+      sales: 0,
+      total: 0,
+      rate: 0,
+      perSale: TEAM_COMMISSION_PKR,
+    },
+    [CUSTOMER_COUPON_CODE]: {
+      code: CUSTOMER_COUPON_CODE,
+      sales: 0,
+      total: 0,
+      rate: 10,
+      perSale: 0,
+    },
+  };
+  for (const row of rows) {
+    const code = String(row.commission_code || '').toUpperCase();
+    if (!summary[code]) continue;
+    summary[code].sales += 1;
+    summary[code].total += Number(row.commission_amount || 0);
+    if (code === CUSTOMER_COUPON_CODE)
+      summary[code].rate = Number(row.commission_rate || 10);
+  }
+  for (const item of Object.values(summary)) {
+    item.sales = Math.round(item.sales);
+    item.total = Math.round(item.total);
+    item.rate = Number(item.rate || 0);
+    item.perSale = Math.round(item.perSale || 0);
+  }
+  return Object.values(summary);
+}
+async function notifyTelegram(message) {
+  const token = String(process.env.TELEGRAM_BOT_TOKEN || '').trim();
+  const chatId = String(process.env.TELEGRAM_CHAT_ID || '').trim();
+  if (!token || !chatId || !message) return false;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 2500);
+  try {
+    const response = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ chat_id: chatId, text: message, disable_web_page_preview: true }),
+      signal: controller.signal,
+    });
+    if (!response.ok)
+      console.error('telegram-notification-error', response.status);
+    return response.ok;
+  } catch (error) {
+    console.error('telegram-notification-error', error.name || 'request_failed');
+    return false;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+function supplierIssueMessage(log) {
+  if (!log) return '';
+  const status = log.responseStatus ? `HTTP ${log.responseStatus}` : 'No HTTP response';
+  const detail = String(log.errorMessage || '').trim().slice(0, 500);
+  return `Supplier issue\nProvider: ${String(log.providerId || 'unknown').toUpperCase()}\nOperation: ${log.operation || 'purchase'}\nOrder: ${String(log.orderId || '').slice(0, 8) || 'unknown'}\nStatus: ${status}${detail ? `\nDetails: ${detail}` : ''}`;
+}
 function normalizeCouponCode(value) {
   const code = String(value || '')
     .trim()
@@ -143,6 +287,43 @@ function couponDiscount(price, percent) {
     original,
   );
 }
+const UNIQUE_PAYMENT_OFFSET_LIMIT = 9;
+async function allocatePaymentAmount(db, listedAmount) {
+  if (!Number.isSafeInteger(listedAmount) || listedAmount <= 0)
+    return listedAmount;
+  // Serialize allocation so two concurrent checkouts cannot receive the same
+  // whole-rupee amount, even when they are for different products.
+  await db.query('SELECT pg_advisory_xact_lock(hashtext($1))', [
+    'commerce-payment-amount-allocation',
+  ]);
+  const used = new Set(
+    (
+      await db.query(`
+        SELECT amount FROM commerce_orders
+        WHERE status IN ('pending','review') AND amount>0 AND expires_at>now()
+        UNION ALL
+        SELECT amount FROM commerce_payments
+        WHERE order_id IS NULL AND amount>0
+          AND COALESCE(received_at,created_at)>now()-interval '10 minutes'`)
+    ).rows.map((row) => Number(row.amount)),
+  );
+  if (!used.has(listedAmount)) return listedAmount;
+  const available = [];
+  for (
+    let offset = 1;
+    offset <= UNIQUE_PAYMENT_OFFSET_LIMIT && listedAmount - offset > 0;
+    offset++
+  ) {
+    const candidate = listedAmount - offset;
+    if (!used.has(candidate)) available.push(candidate);
+  }
+  if (!available.length)
+    throw fail(
+      409,
+      'This payment amount is temporarily busy. Please retry checkout in a few seconds.',
+    );
+  return available[randomBytes(4).readUInt32BE(0) % available.length];
+}
 async function releaseCoupon(db, order) {
   if (!order?.coupon_id || order.coupon_usage_released) return;
   await db.query(
@@ -157,7 +338,7 @@ async function releaseCoupon(db, order) {
 async function reserveReleasedCoupon(db, order) {
   if (!order?.coupon_id || !order.coupon_usage_released) return;
   const reserved = await db.query(
-    'UPDATE commerce_coupons SET used_count=used_count+1,updated_at=now() WHERE id=$1 AND used_count<max_uses RETURNING id',
+    'UPDATE commerce_coupons SET used_count=used_count+1,updated_at=now() WHERE id=$1 AND (unlimited=true OR used_count<max_uses) RETURNING id',
     [order.coupon_id],
   );
   if (!reserved.rowCount)
@@ -176,7 +357,8 @@ async function ensureCouponSchema(db) {
     couponSchemaReady = (async () => {
       await db.query(`CREATE TABLE IF NOT EXISTS commerce_coupons (
         id uuid PRIMARY KEY, code_hash text NOT NULL UNIQUE, code_display text NOT NULL,
-        discount_percent numeric(5,2) NOT NULL DEFAULT 5 CHECK(discount_percent>0 AND discount_percent<=100),
+        discount_percent numeric(5,2) NOT NULL DEFAULT 5 CHECK(discount_percent>=0 AND discount_percent<=100),
+        commission_percent numeric(5,2) NOT NULL DEFAULT 0 CHECK(commission_percent>=0 AND commission_percent<=100),
         max_uses integer NOT NULL DEFAULT 10 CHECK(max_uses>0), used_count integer NOT NULL DEFAULT 0 CHECK(used_count>=0),
         enabled boolean NOT NULL DEFAULT true, created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now()
       )`);
@@ -199,6 +381,9 @@ async function ensureCouponSchema(db) {
         'ALTER TABLE commerce_coupons ADD COLUMN IF NOT EXISTS discount_percent numeric(5,2)',
       );
       await db.query(
+        'ALTER TABLE commerce_coupons ADD COLUMN IF NOT EXISTS commission_percent numeric(5,2) NOT NULL DEFAULT 0',
+      );
+      await db.query(
         'ALTER TABLE commerce_coupons ADD COLUMN IF NOT EXISTS max_uses integer',
       );
       await db.query(
@@ -206,6 +391,9 @@ async function ensureCouponSchema(db) {
       );
       await db.query(
         'ALTER TABLE commerce_coupons ADD COLUMN IF NOT EXISTS enabled boolean',
+      );
+      await db.query(
+        'ALTER TABLE commerce_coupons ADD COLUMN IF NOT EXISTS unlimited boolean NOT NULL DEFAULT false',
       );
       await db.query(
         'ALTER TABLE commerce_coupons ADD COLUMN IF NOT EXISTS created_at timestamptz',
@@ -241,6 +429,24 @@ async function ensureCouponSchema(db) {
         'UPDATE commerce_coupons SET updated_at=now() WHERE updated_at IS NULL',
       );
       await db.query(
+        'ALTER TABLE commerce_coupons DROP CONSTRAINT IF EXISTS commerce_coupons_discount_percent_check',
+      );
+      await db.query(
+        'ALTER TABLE commerce_coupons ADD CONSTRAINT commerce_coupons_discount_percent_check CHECK(discount_percent>=0 AND discount_percent<=100)',
+      );
+      await db.query(
+        'ALTER TABLE commerce_coupons DROP CONSTRAINT IF EXISTS commerce_coupons_discount_check',
+      );
+      await db.query(
+        'ALTER TABLE commerce_coupons ADD CONSTRAINT commerce_coupons_discount_check CHECK(discount>=0 AND discount<=100)',
+      );
+      await db.query(
+        'ALTER TABLE commerce_coupons DROP CONSTRAINT IF EXISTS commerce_coupons_commission_percent_check',
+      );
+      await db.query(
+        'ALTER TABLE commerce_coupons ADD CONSTRAINT commerce_coupons_commission_percent_check CHECK(commission_percent>=0 AND commission_percent<=100)',
+      );
+      await db.query(
         'ALTER TABLE commerce_orders ADD COLUMN IF NOT EXISTS coupon_id uuid',
       );
       await db.query(
@@ -250,10 +456,58 @@ async function ensureCouponSchema(db) {
         'ALTER TABLE commerce_orders ADD COLUMN IF NOT EXISTS coupon_usage_released boolean NOT NULL DEFAULT false',
       );
       await db.query(
+        'ALTER TABLE commerce_orders ADD COLUMN IF NOT EXISTS payment_submitted_at timestamptz',
+      );
+      await db.query(
+        'ALTER TABLE commerce_orders ADD COLUMN IF NOT EXISTS listed_amount integer',
+      );
+      await db.query(
+        'ALTER TABLE commerce_orders ADD COLUMN IF NOT EXISTS commission_code text',
+      );
+      await db.query(
+        'ALTER TABLE commerce_orders ADD COLUMN IF NOT EXISTS commission_rate numeric(5,2) NOT NULL DEFAULT 0',
+      );
+      await db.query(
+        'ALTER TABLE commerce_orders ADD COLUMN IF NOT EXISTS commission_amount integer NOT NULL DEFAULT 0',
+      );
+      await db.query(
+        'UPDATE commerce_orders SET listed_amount=amount WHERE listed_amount IS NULL OR (listed_amount=0 AND amount>0)',
+      );
+      await db.query(
+        'ALTER TABLE commerce_orders ALTER COLUMN listed_amount SET DEFAULT 0',
+      );
+      await db.query(
+        'ALTER TABLE commerce_orders ALTER COLUMN listed_amount SET NOT NULL',
+      );
+      await db.query(
+        'ALTER TABLE commerce_orders DROP CONSTRAINT IF EXISTS commerce_orders_listed_amount_check',
+      );
+      await db.query(
+        'ALTER TABLE commerce_orders ADD CONSTRAINT commerce_orders_listed_amount_check CHECK(listed_amount>=0)',
+      );
+      await db.query(
         'ALTER TABLE commerce_orders DROP CONSTRAINT IF EXISTS commerce_orders_amount_check',
       );
       await db.query(
         'ALTER TABLE commerce_orders ADD CONSTRAINT commerce_orders_amount_check CHECK(amount>=0)',
+      );
+      await db.query(
+        'ALTER TABLE commerce_orders DROP CONSTRAINT IF EXISTS commerce_orders_commission_rate_check',
+      );
+      await db.query(
+        'ALTER TABLE commerce_orders ADD CONSTRAINT commerce_orders_commission_rate_check CHECK(commission_rate>=0 AND commission_rate<=100)',
+      );
+      await db.query(
+        'ALTER TABLE commerce_orders DROP CONSTRAINT IF EXISTS commerce_orders_commission_amount_check',
+      );
+      await db.query(
+        'ALTER TABLE commerce_orders ADD CONSTRAINT commerce_orders_commission_amount_check CHECK(commission_amount>=0)',
+      );
+      await db.query(
+        `UPDATE commerce_orders SET commission_code='HOR',commission_rate=0,commission_amount=${TEAM_COMMISSION_PKR}
+         WHERE status='delivered' AND COALESCE(commission_amount,0)=0
+           AND coupon_id IN (SELECT id FROM commerce_coupons WHERE code_display=$1)`,
+        [TEAM_COUPON_CODE],
       );
     })().catch((error) => {
       couponSchemaReady = null;
@@ -263,16 +517,27 @@ async function ensureCouponSchema(db) {
   await couponSchemaReady;
 }
 async function ensureDefaultCoupon(db) {
-  const codeHash = hash(TEAM_COUPON_CODE);
+  const teamCodeHash = hash(TEAM_COUPON_CODE);
   await db.query(
-    `UPDATE commerce_coupons SET discount=100,discount_percent=100,enabled=true,updated_at=now()
+    `UPDATE commerce_coupons SET discount=100,discount_percent=100,commission_percent=0,enabled=${TEAM_COUPON_ENABLED},unlimited=true,updated_at=now()
         WHERE code_hash=$1 AND product_id='p093'`,
-    [codeHash],
+    [teamCodeHash],
   );
   await db.query(
-    `INSERT INTO commerce_coupons(id,code_hash,code_display,product_id,discount,discount_percent,max_uses,used_count,enabled,created_at,updated_at)
-      VALUES($1,$2,'HOR','p093',100,100,10,0,true,now(),now()) ON CONFLICT DO NOTHING`,
-    [randomUUID(), codeHash],
+    `INSERT INTO commerce_coupons(id,code_hash,code_display,product_id,discount,discount_percent,commission_percent,max_uses,used_count,enabled,unlimited,created_at,updated_at)
+      VALUES($1,$2,'HOR','p093',100,100,0,10,0,${TEAM_COUPON_ENABLED},true,now(),now()) ON CONFLICT DO NOTHING`,
+    [randomUUID(), teamCodeHash],
+  );
+  const customerCodeHash = hash(CUSTOMER_COUPON_CODE);
+  await db.query(
+    `UPDATE commerce_coupons SET discount=0,discount_percent=0,commission_percent=10,enabled=true,unlimited=true,updated_at=now()
+        WHERE code_hash=$1 AND product_id='p093'`,
+    [customerCodeHash],
+  );
+  await db.query(
+    `INSERT INTO commerce_coupons(id,code_hash,code_display,product_id,discount,discount_percent,commission_percent,max_uses,used_count,enabled,unlimited,created_at,updated_at)
+      VALUES($1,$2,'CUST','p093',0,0,10,10,0,true,true,now(),now()) ON CONFLICT DO NOTHING`,
+    [randomUUID(), customerCodeHash],
   );
 }
 let supplierApiLogSchemaReady;
@@ -313,6 +578,94 @@ async function ensureSupplierSecretSchema(db) {
       });
   }
   await supplierSecretSchemaReady;
+}
+let googleReviewSchemaReady;
+async function ensureGoogleReviewSchema(db) {
+  if (!googleReviewSchemaReady) {
+    googleReviewSchemaReady = (async () => {
+      await db.query(`CREATE TABLE IF NOT EXISTS commerce_google_reviews (
+        id text PRIMARY KEY, name text NOT NULL, quote text NOT NULL,
+        language text NOT NULL DEFAULT 'en', rating integer NOT NULL CHECK(rating BETWEEN 1 AND 5),
+        excerpt boolean NOT NULL DEFAULT true, source_url text NOT NULL, profile_url text NOT NULL,
+        photo_url text NOT NULL DEFAULT '', photo_path text NOT NULL DEFAULT '',
+        review_created_at timestamptz, review_updated_at timestamptz,
+        synced_at timestamptz NOT NULL DEFAULT now()
+      )`);
+      await db.query(
+        'CREATE INDEX IF NOT EXISTS commerce_google_reviews_updated ON commerce_google_reviews(review_updated_at DESC NULLS LAST, synced_at DESC)',
+      );
+      await db.query(`CREATE TABLE IF NOT EXISTS commerce_google_review_sync (
+        id boolean PRIMARY KEY DEFAULT true CHECK(id), total_review_count integer NOT NULL DEFAULT 0 CHECK(total_review_count>=0),
+        average_rating numeric(3,2) NOT NULL DEFAULT 0 CHECK(average_rating>=0 AND average_rating<=5),
+        synced_at timestamptz, last_error text
+      )`);
+    })().catch((error) => {
+      googleReviewSchemaReady = null;
+      throw error;
+    });
+  }
+  await googleReviewSchemaReady;
+}
+function publicGoogleReview(row) {
+  return {
+    name: row.name,
+    quote: row.quote,
+    language: row.language === 'ur-Latn' ? 'ur-Latn' : 'en',
+    rating: Number(row.rating),
+    excerpt: Boolean(row.excerpt),
+    sourceUrl: row.source_url || DEFAULT_REVIEWS_URL,
+    profileUrl: row.profile_url || DEFAULT_REVIEWS_URL,
+    photoUrl: row.photo_url || '',
+    photoPath: row.photo_path || '',
+  };
+}
+async function syncGoogleReviews(db) {
+  const reviews = await fetchGoogleReviews({
+    reviewsUrl: String(process.env.GOOGLE_REVIEWS_URL || DEFAULT_REVIEWS_URL).trim() || DEFAULT_REVIEWS_URL,
+  });
+  await db.query('DELETE FROM commerce_google_reviews');
+  for (const review of reviews.reviews)
+    await db.query(
+      `INSERT INTO commerce_google_reviews(
+        id,name,quote,language,rating,excerpt,source_url,profile_url,photo_url,photo_path,review_created_at,review_updated_at,synced_at
+      ) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,now())
+      ON CONFLICT(id) DO UPDATE SET name=EXCLUDED.name,quote=EXCLUDED.quote,language=EXCLUDED.language,
+        rating=EXCLUDED.rating,excerpt=EXCLUDED.excerpt,source_url=EXCLUDED.source_url,profile_url=EXCLUDED.profile_url,
+        photo_url=EXCLUDED.photo_url,photo_path=EXCLUDED.photo_path,review_created_at=EXCLUDED.review_created_at,
+        review_updated_at=EXCLUDED.review_updated_at,synced_at=now()`,
+      [
+        review.id,
+        review.name,
+        review.quote,
+        review.language,
+        review.rating,
+        review.excerpt,
+        review.sourceUrl,
+        review.profileUrl,
+        review.photoUrl,
+        review.photoPath,
+        review.reviewCreatedAt,
+        review.reviewUpdatedAt,
+      ],
+    );
+  await db.query(
+    `INSERT INTO commerce_google_review_sync(id,total_review_count,average_rating,synced_at,last_error)
+     VALUES(true,$1,$2,now(),NULL)
+     ON CONFLICT(id) DO UPDATE SET total_review_count=EXCLUDED.total_review_count,
+       average_rating=EXCLUDED.average_rating,synced_at=now(),last_error=NULL`,
+    [reviews.totalReviewCount, reviews.averageRating],
+  );
+  return {
+    ok: true,
+    totalReviewCount: reviews.totalReviewCount,
+    averageRating: reviews.averageRating,
+    syncedAt: new Date().toISOString(),
+  };
+}
+function cronAuthorized(req, admin) {
+  if (admin) return true;
+  const secret = String(process.env.CRON_SECRET || '').trim();
+  return !!secret && same(bearer(req), secret);
 }
 async function readSupplierApiKeys(db, key) {
   const keys = {};
@@ -398,7 +751,10 @@ function automaticProductKey(name) {
   return normalized ? `auto:${normalized}` : null;
 }
 const localInventoryProductIds = (productId) =>
-  productId === 'p093' ? ['p093', 'p093-ultra', 'p093-momo'] : [productId];
+  productId === 'p093' ? ['p093', 'p093-ultra'] : [productId];
+const RETIRED_LOCAL_PRODUCT_IDS = ['p093-momo'];
+const isRetiredLocalProduct = (productId) =>
+  RETIRED_LOCAL_PRODUCT_IDS.includes(String(productId || ''));
 const supplierNameNoise = new Set([
   'a',
   'an',
@@ -628,6 +984,11 @@ async function ensureInventoryVariants(db) {
     inventoryVariantMigrationReady = db
       .query(
         "UPDATE commerce_inventory SET product_id='p093-ultra' WHERE product_id='p093' AND state='available'",
+      )
+      .then(() =>
+        db.query(`UPDATE commerce_inventory i SET state=CASE WHEN o.status='delivered' THEN 'delivered' ELSE 'reserved' END
+          FROM commerce_orders o
+          WHERE o.inventory_id=i.id AND o.status IN ('pending','review','delivered') AND i.state='available'`),
       )
       .catch((error) => {
         inventoryVariantMigrationReady = null;
@@ -941,7 +1302,7 @@ async function fulfill(
       await db.query(
         `SELECT * FROM commerce_supplier_products WHERE canonical_key=$1 AND enabled=true AND selling_price IS NOT NULL
       AND selling_price<=$2 AND supplier_stock>0 ORDER BY cost_pkr ASC NULLS LAST,wholesale_price ASC,id FOR UPDATE`,
-        [selected.canonical_key, order.amount],
+        [selected.canonical_key, Number(order.listed_amount ?? order.amount)],
       )
     ).rows;
     if (
@@ -999,7 +1360,13 @@ async function fulfill(
     await reserveReleasedCoupon(db, order);
     const replacement = (
       await db.query(
-        "SELECT id FROM commerce_inventory WHERE product_id=ANY($1::text[]) AND state='available' ORDER BY created_at FOR UPDATE SKIP LOCKED LIMIT 1",
+        `SELECT i.id FROM commerce_inventory i
+         WHERE i.product_id=ANY($1::text[]) AND i.state='available'
+           AND NOT EXISTS (
+             SELECT 1 FROM commerce_orders active
+             WHERE active.inventory_id=i.id AND active.status IN ('pending','review','delivered')
+           )
+         ORDER BY i.created_at FOR UPDATE OF i SKIP LOCKED LIMIT 1`,
         [localInventoryProductIds(order.product_id)],
       )
     ).rows[0];
@@ -1100,7 +1467,13 @@ async function manualDeliverLocalOrder(db, orderId, inventoryId, key) {
   if (!item)
     item = (
       await db.query(
-        "SELECT * FROM commerce_inventory WHERE product_id=ANY($1::text[]) AND state='available' ORDER BY created_at FOR UPDATE SKIP LOCKED LIMIT 1",
+        `SELECT i.* FROM commerce_inventory i
+         WHERE i.product_id=ANY($1::text[]) AND i.state='available'
+           AND NOT EXISTS (
+             SELECT 1 FROM commerce_orders active
+             WHERE active.inventory_id=i.id AND active.status IN ('pending','review','delivered')
+           )
+         ORDER BY i.created_at FOR UPDATE OF i SKIP LOCKED LIMIT 1`,
         [allowedProducts],
       )
     ).rows[0];
@@ -1124,6 +1497,35 @@ async function manualDeliverLocalOrder(db, orderId, inventoryId, key) {
     [order.id],
   );
   return { orderId: order.id, inventoryId: item.id, credentials: decrypt(item.credentials, key) };
+}
+async function attachPaymentForManualApproval(db, orderId, paymentId) {
+  const order = (
+    await db.query('SELECT * FROM commerce_orders WHERE id=$1 FOR UPDATE', [
+      orderId,
+    ])
+  ).rows[0];
+  const payment = (
+    await db.query('SELECT * FROM commerce_payments WHERE id=$1 FOR UPDATE', [
+      paymentId,
+    ])
+  ).rows[0];
+  if (!order || !payment) throw fail(404, 'Order or payment not found.');
+  if (payment.order_id && payment.order_id !== order.id)
+    throw fail(409, 'This payment is already attached to another order.');
+  if (Number(payment.amount) !== Number(order.amount))
+    throw fail(409, 'The selected payment amount does not match this order.');
+  if (!payment.transaction_id)
+    throw fail(
+      409,
+      'This receipt has no parsed payment reference. Review the receipt or use manual credential delivery after independent verification.',
+    );
+  if (order.transaction_id && order.transaction_id !== payment.transaction_id)
+    throw fail(409, 'The selected receipt does not match the order payment evidence.');
+  await db.query(
+    `UPDATE commerce_orders SET transaction_id=$1,payment_submitted_at=COALESCE(payment_submitted_at,now()),
+      status=CASE WHEN status='expired' THEN 'expired' ELSE 'review' END WHERE id=$2`,
+    [payment.transaction_id, order.id],
+  );
 }
 export function createHandler(
   poolFactory = () =>
@@ -1221,6 +1623,8 @@ export function createHandler(
         [
           'stock',
           'status',
+          'google-reviews',
+          'google-reviews-sync',
           'scam-reports',
           'scam-report',
           'admin-list',
@@ -1236,12 +1640,14 @@ export function createHandler(
       await ensureSupplierSecretSchema(db);
       await ensureSupplierMediaSchema(db);
       await ensureScamSchema(db);
+      await ensureGoogleReviewSchema(db);
       await ensureInventoryVariants(db);
       await db.query('BEGIN');
       await ensureDefaultCoupon(db);
       const supplierApiKeys = await readSupplierApiKeys(db, key);
       await expire(db, !['email-webhook', 'inbound-email'].includes(action));
       let output;
+      const telegramMessages = [];
       if (action === 'admin-login') {
         const email = String(body.email || '')
           .trim()
@@ -1300,7 +1706,7 @@ export function createHandler(
           ).rows[0]?.synced_at || null;
         const visibleCatalog = catalog.filter(
           (product) =>
-            !['p093-ultra', 'p093-momo'].includes(product.id) &&
+            product.id !== 'p093-ultra' &&
             !supplierProducts.some((supplier) =>
               supplierEquivalentProductName(product.name, supplier.name),
             ),
@@ -1320,9 +1726,7 @@ export function createHandler(
                 p.id === 'p093'
                   ? counts
                       .filter((r) =>
-                        ['p093', 'p093-ultra', 'p093-momo'].includes(
-                          r.product_id,
-                        ),
+                        ['p093', 'p093-ultra'].includes(r.product_id),
                       )
                       .reduce((total, row) => total + row.available, 0)
                   : counts.find((r) => r.product_id === p.id)?.available || 0,
@@ -1337,6 +1741,32 @@ export function createHandler(
           catalogSyncedAt,
           ready: !!process.env.PAYMENT_ACCOUNT_TITLE,
         };
+      } else if (action === 'google-reviews') {
+        const sync = (
+          await db.query(
+            'SELECT total_review_count,average_rating,synced_at FROM commerce_google_review_sync WHERE id=true',
+          )
+        ).rows[0];
+        output = {
+          reviews: (
+            await db.query(
+              'SELECT name,quote,language,rating,excerpt,source_url,profile_url,photo_url,photo_path FROM commerce_google_reviews ORDER BY review_updated_at DESC NULLS LAST,synced_at DESC LIMIT 6',
+            )
+          ).rows.map(publicGoogleReview),
+          totalReviewCount: Number(sync?.total_review_count || 0),
+          averageRating: Number(sync?.average_rating || 0),
+          syncedAt: sync?.synced_at || null,
+        };
+      } else if (action === 'google-reviews-sync') {
+        if (!cronAuthorized(req, admin))
+          throw fail(401, 'Google review sync authorization is invalid.');
+        try {
+          output = await syncGoogleReviews(db);
+        } catch (error) {
+          if (String(error?.message || '').startsWith('Google reviews configuration is missing'))
+            throw fail(503, error.message);
+          throw error;
+        }
       } else if (action === 'scam-reports') {
         output = {
           reports: (
@@ -1412,6 +1842,8 @@ export function createHandler(
         }
         const requestedCouponCode = normalizeCouponCode(body.couponCode);
         const isRequestedTeamCoupon = requestedCouponCode === TEAM_COUPON_CODE;
+        if (isRequestedTeamCoupon && !TEAM_COUPON_ENABLED)
+          throw fail(409, 'The HOR coupon is currently disabled.');
         if (!product || (!process.env.PAYMENT_ACCOUNT_TITLE && !isRequestedTeamCoupon))
           throw fail(
             409,
@@ -1437,7 +1869,7 @@ export function createHandler(
         if (couponCode) {
           if (
             supplierProduct ||
-            !['p093', 'p093-ultra', 'p093-momo'].includes(product.id)
+            !['p093', 'p093-ultra'].includes(product.id)
           )
             throw fail(
               409,
@@ -1445,7 +1877,7 @@ export function createHandler(
             );
           coupon = (
             await db.query(
-              "SELECT * FROM commerce_coupons WHERE code_hash=$1 AND product_id='p093' AND enabled=true AND used_count<max_uses FOR UPDATE",
+              "SELECT * FROM commerce_coupons WHERE code_hash=$1 AND product_id='p093' AND enabled=true AND (unlimited=true OR used_count<max_uses) FOR UPDATE",
               [hash(couponCode)],
             )
           ).rows[0];
@@ -1461,13 +1893,30 @@ export function createHandler(
         } else {
           item = (
             await db.query(
-              "SELECT id FROM commerce_inventory WHERE product_id=ANY($1::text[]) AND state='available' ORDER BY created_at FOR UPDATE SKIP LOCKED LIMIT 1",
+              `SELECT i.id FROM commerce_inventory i
+               WHERE i.product_id=ANY($1::text[]) AND i.state='available'
+                 AND NOT EXISTS (
+                   SELECT 1 FROM commerce_orders active
+                   WHERE active.inventory_id=i.id AND active.status IN ('pending','review','delivered')
+                 )
+               ORDER BY i.created_at FOR UPDATE OF i SKIP LOCKED LIMIT 1`,
               [localInventoryProductIds(product.id)],
             )
           ).rows[0];
           if (!item)
             throw fail(409, 'Sold out. Please contact us on WhatsApp.');
         }
+        const listedAmount = product.price - discount;
+        const paymentAmount = isTeamCoupon
+          ? listedAmount
+          : await allocatePaymentAmount(db, listedAmount);
+        const commissionCode = coupon?.code_display || null;
+        const commissionRate = isTeamCoupon
+          ? 0
+          : Number(coupon?.commission_percent || 0);
+        const commissionAmount = isTeamCoupon
+          ? TEAM_COMMISSION_PKR
+          : Math.round((paymentAmount * commissionRate) / 100);
         const id = randomUUID(),
           recovery = randomBytes(32).toString('hex');
         if (item)
@@ -1477,16 +1926,17 @@ export function createHandler(
           );
         if (coupon)
           await db.query(
-            'UPDATE commerce_coupons SET used_count=used_count+1,updated_at=now() WHERE id=$1 AND used_count<max_uses',
+            'UPDATE commerce_coupons SET used_count=used_count+1,updated_at=now() WHERE id=$1 AND (unlimited=true OR used_count<max_uses)',
             [coupon.id],
           );
         await db.query(
-          `INSERT INTO commerce_orders(id,product_id,amount,recovery_hash,session_hash,inventory_id,supplier_product_id,supplier_cost_pkr,coupon_id,coupon_discount,expires_at)
-        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,now()+interval '5 minutes')`,
+          `INSERT INTO commerce_orders(id,product_id,amount,listed_amount,recovery_hash,session_hash,inventory_id,supplier_product_id,supplier_cost_pkr,coupon_id,coupon_discount,commission_code,commission_rate,commission_amount,expires_at)
+        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,now()+interval '5 minutes')`,
           [
             id,
             product.id,
-            product.price - discount,
+            paymentAmount,
+            listedAmount,
             hash(recovery),
             hash(session),
             item?.id || null,
@@ -1494,9 +1944,12 @@ export function createHandler(
             supplierProduct?.cost_pkr || 0,
             coupon?.id || null,
             discount,
+            commissionCode,
+            commissionRate,
+            commissionAmount,
           ],
         );
-        if (isTeamCoupon && product.price - discount === 0)
+        if (isTeamCoupon && paymentAmount === 0)
           await fulfillFreeOrder(db, id);
         res.setHeader(
           'Set-Cookie',
@@ -1505,11 +1958,16 @@ export function createHandler(
         output = {
           id,
           recovery,
-          amount: product.price - discount,
+          amount: paymentAmount,
+          listedAmount,
           originalAmount: product.price,
           couponDiscount: discount,
+          paymentAdjustment: listedAmount - paymentAmount,
           teamCoupon: isTeamCoupon,
+          commissionCode,
+          commissionAmount,
         };
+        telegramMessages.push(`New order placed\nOrder: ${id.slice(0, 8)}\nProduct: ${String(product.name || product.id).slice(0, 120)}\nAmount: PKR ${paymentAmount.toLocaleString()}${isTeamCoupon ? '\nTeam coupon: HOR' : commissionCode ? `\nCoupon: ${commissionCode}` : ''}`);
       } else if (['status', 'claim', 'cancel'].includes(action)) {
         const id = req.query?.id || body.id;
         if (!idOk(id)) throw fail(404, 'Order not found.');
@@ -1538,49 +1996,64 @@ export function createHandler(
         } else if (action === 'claim') {
           if (!['pending', 'review', 'expired'].includes(order.status))
             throw fail(409, 'Order is already closed.');
-          const transaction = normalizeTransaction(body.transactionId);
-          if (order.transaction_id && order.transaction_id !== transaction)
+          const submittedTransaction = String(body.transactionId || '').trim();
+          const transaction = submittedTransaction
+            ? normalizeTransaction(submittedTransaction)
+            : null;
+          if (order.transaction_id && transaction && order.transaction_id !== transaction)
             throw fail(
               409,
               'A transaction is already submitted. Contact support for a correction.',
             );
           await db.query(
-            "UPDATE commerce_orders SET transaction_id=$1,status=CASE WHEN status='expired' THEN 'expired' ELSE 'review' END WHERE id=$2",
+            "UPDATE commerce_orders SET transaction_id=COALESCE(transaction_id,$1),payment_submitted_at=COALESCE(payment_submitted_at,now()),status=CASE WHEN status='expired' THEN 'expired' ELSE 'review' END WHERE id=$2",
             [transaction, id],
           );
           // Late claims stay in review and cannot automatically consume released inventory.
-          const matchingPayments = (
-            await db.query(
-              `SELECT id,transaction_id FROM commerce_payments
-          WHERE verified=true AND order_id IS NULL AND amount=$2
-          AND (transaction_id=$1 OR (length($1)>=8 AND right(transaction_id,length($1))=$1))
-          ORDER BY (transaction_id=$1) DESC,created_at DESC LIMIT 2`,
-              [transaction, order.amount],
-            )
-          ).rows;
+          const matchingPayments = transaction
+            ? (
+                await db.query(
+                  `SELECT id,transaction_id FROM commerce_payments
+            WHERE verified=true AND order_id IS NULL AND amount=$2
+            AND (transaction_id=$1 OR (length($1)>=8 AND right(transaction_id,length($1))=$1))
+            ORDER BY (transaction_id=$1) DESC,created_at DESC LIMIT 2`,
+                  [transaction, order.amount],
+                )
+              ).rows
+            : (
+                await db.query(
+                  `SELECT id,transaction_id FROM commerce_payments
+            WHERE verified=true AND order_id IS NULL AND amount=$1
+              AND received_at>=($2::timestamptz) AND received_at<=($3::timestamptz)
+            ORDER BY received_at ASC LIMIT 2`,
+                  [order.amount, order.created_at, order.expires_at],
+                )
+              ).rows;
           const payment =
             matchingPayments.length === 1 ? matchingPayments[0] : null;
-          if (payment && order.status !== 'expired') {
+          if (payment) {
             // NayaPay's app can expose only the trailing reference digits while its
             // receipt email contains the complete prefixed transaction ID.
             await db.query(
-              'UPDATE commerce_orders SET transaction_id=$1 WHERE id=$2',
+              'UPDATE commerce_orders SET transaction_id=COALESCE(transaction_id,$1) WHERE id=$2',
               [payment.transaction_id, id],
             );
-            await db.query('SAVEPOINT delivery');
-            try {
-              await fulfill(
-                db,
-                id,
-                payment.id,
-                false,
-                captureSupplierExchange,
-                supplierApiKeys,
-              );
-            } catch (e) {
-              if (!e.status) throw e;
-              await db.query('ROLLBACK TO SAVEPOINT delivery');
-              await insertSupplierApiLogs(db, supplierLogs);
+            if (order.status !== 'expired') {
+              await db.query('SAVEPOINT delivery');
+              try {
+                await fulfill(
+                  db,
+                  id,
+                  payment.id,
+                  false,
+                  captureSupplierExchange,
+                  supplierApiKeys,
+                );
+              } catch (e) {
+                if (!e.status) throw e;
+                await db.query('ROLLBACK TO SAVEPOINT delivery');
+                await insertSupplierApiLogs(db, supplierLogs);
+              }
             }
           }
           output = { ok: true };
@@ -1597,11 +2070,20 @@ export function createHandler(
             id,
             product: orderProduct,
             amount: order.amount,
-            originalAmount: order.amount + Number(order.coupon_discount || 0),
+            listedAmount: Number(order.listed_amount ?? order.amount),
+            originalAmount:
+              Number(order.listed_amount ?? order.amount) +
+              Number(order.coupon_discount || 0),
             couponDiscount: Number(order.coupon_discount || 0),
+            paymentAdjustment:
+              Number(order.listed_amount ?? order.amount) - order.amount,
             teamCoupon: order.coupon_code === TEAM_COUPON_CODE,
             status: order.status,
             expiresAt: order.expires_at,
+            paymentSubmittedAt:
+              order.payment_submitted_at ||
+              (order.transaction_id ? order.created_at : null),
+            createdAt: order.created_at,
             transactionId: order.transaction_id,
             payment: {
               number: '03450485711',
@@ -1698,9 +2180,10 @@ export function createHandler(
           const orders = (
             await db.query(
               `SELECT id FROM commerce_orders
-          WHERE status IN ('pending','review') AND amount=$2
-          AND (transaction_id=$1 OR (length(transaction_id)>=8 AND right($1,length(transaction_id))=transaction_id))`,
-              [parsed.transaction, parsed.amount],
+          WHERE status IN ('pending','review') AND payment_submitted_at IS NOT NULL
+            AND amount=$2 AND $3::timestamptz>=created_at AND $3::timestamptz<=expires_at
+          AND (transaction_id IS NULL OR transaction_id=$1 OR (length(transaction_id)>=8 AND right($1,length(transaction_id))=transaction_id))`,
+              [parsed.transaction, parsed.amount, parsed.received],
             )
           ).rows;
           if (orders.length === 1) {
@@ -1734,7 +2217,7 @@ export function createHandler(
             : {}),
         };
       } else if (action === 'admin-import') {
-        if (!['p093', 'p093-ultra', 'p093-momo'].includes(body.productId))
+        if (!['p093', 'p093-ultra'].includes(body.productId))
           throw fail(
             400,
             'Local inventory is available for ChatGPT Plus only.',
@@ -1774,6 +2257,8 @@ export function createHandler(
           )
         ).rows[0];
         if (!item) throw fail(404, 'Inventory account not found.');
+        if (isRetiredLocalProduct(item.product_id))
+          throw fail(410, 'This inventory product has been retired.');
         if (item.state !== 'available')
           throw fail(409, 'Only available inventory can be picked.');
         const credentials = decrypt(item.credentials, key);
@@ -1797,6 +2282,8 @@ export function createHandler(
           )
         ).rows[0];
         if (!item) throw fail(404, 'Inventory account not found.');
+        if (isRetiredLocalProduct(item.product_id))
+          throw fail(410, 'This inventory product has been retired.');
         const purchaseCost = Number(body.purchaseCost);
         if (!Number.isSafeInteger(purchaseCost) || purchaseCost < 0)
           throw fail(400, 'Enter a valid purchase cost.');
@@ -1859,6 +2346,8 @@ export function createHandler(
           )
         ).rows[0];
         if (!item) throw fail(404, 'Inventory account not found.');
+        if (isRetiredLocalProduct(item.product_id))
+          throw fail(410, 'This inventory product has been retired.');
         if (!['available', 'quarantined'].includes(item.state))
           throw fail(
             409,
@@ -2000,7 +2489,8 @@ export function createHandler(
       } else if (action === 'admin-list') {
         const inventoryRows = (
           await db.query(
-            'SELECT id,product_id,state,purchase_cost,credentials,created_at FROM commerce_inventory ORDER BY created_at DESC LIMIT 500',
+            'SELECT id,product_id,state,purchase_cost,credentials,created_at FROM commerce_inventory WHERE product_id <> ALL($1::text[]) ORDER BY created_at DESC LIMIT 500',
+            [RETIRED_LOCAL_PRODUCT_IDS],
           )
         ).rows;
         const inventory = inventoryRows.map((row) => {
@@ -2017,34 +2507,50 @@ export function createHandler(
             createdAt: row.created_at,
           };
         });
-        const metrics = (
-          await db.query(`SELECT
-        COALESCE(SUM(o.amount) FILTER (WHERE o.status='delivered'),0)::int AS income,
-        COALESCE(SUM(COALESCE(i.purchase_cost,o.supplier_cost_pkr,0)) FILTER (WHERE o.status='delivered'),0)::int AS cost,
-        COALESCE(SUM(o.amount-COALESCE(i.purchase_cost,o.supplier_cost_pkr,0)) FILTER (WHERE o.status='delivered'),0)::int AS profit,
-        COALESCE(SUM(o.amount) FILTER (WHERE o.status='delivered' AND o.delivered_at>=date_trunc('month',now())),0)::int AS monthly_income,
-        COALESCE(SUM(o.amount-COALESCE(i.purchase_cost,o.supplier_cost_pkr,0)) FILTER (WHERE o.status='delivered' AND o.delivered_at>=date_trunc('month',now())),0)::int AS monthly_profit,
-        COUNT(*) FILTER (WHERE o.status='delivered')::int AS delivered_orders,
-        COUNT(*) FILTER (WHERE o.status IN ('pending','review'))::int AS active_orders,
-        COUNT(*) FILTER (WHERE o.status='delivered' AND COALESCE(i.purchase_cost,o.supplier_cost_pkr,0)=0)::int AS missing_costs
-        FROM commerce_orders o LEFT JOIN commerce_inventory i ON i.id=o.inventory_id`)
-        ).rows[0];
-        const profitBreakdown = (
-          await db.query(`SELECT CASE WHEN o.supplier_product_id IS NULL THEN 'local' ELSE 'supplier' END AS source,
-        COALESCE(SUM(o.amount),0)::int AS income,
-        COALESCE(SUM(COALESCE(i.purchase_cost,o.supplier_cost_pkr,0)),0)::int AS cost,
-        COALESCE(SUM(o.amount-COALESCE(i.purchase_cost,o.supplier_cost_pkr,0)),0)::int AS profit,
-        COUNT(*)::int AS orders
-        FROM commerce_orders o LEFT JOIN commerce_inventory i ON i.id=o.inventory_id
-        WHERE o.status='delivered' GROUP BY 1 ORDER BY 1`)
+        const deliveredProfitRows = (
+          await db.query(`SELECT o.amount,o.coupon_discount,o.supplier_product_id,o.supplier_cost_pkr,
+            i.purchase_cost,o.delivered_at,c.code_display
+            FROM commerce_orders o
+            LEFT JOIN commerce_inventory i ON i.id=o.inventory_id
+            LEFT JOIN commerce_coupons c ON c.id=o.coupon_id
+            WHERE o.status='delivered'`)
         ).rows;
+        const withdrawnProfitRows = (
+          await db.query(`SELECT product_id,purchase_cost,created_at
+            FROM commerce_inventory
+            WHERE state='withdrawn' AND product_id <> ALL($1::text[])`, [
+            RETIRED_LOCAL_PRODUCT_IDS,
+          ])
+        ).rows;
+        const profitSummary = summarizeProfit(
+          deliveredProfitRows,
+          withdrawnProfitRows,
+        );
+        const commissions = (
+          await db.query(`SELECT o.id AS order_id,o.product_id,o.amount,o.listed_amount,
+            o.commission_code,o.commission_rate,o.commission_amount,o.payer_name,
+            o.created_at,o.delivered_at
+            FROM commerce_orders o
+            WHERE o.status='delivered' AND o.commission_amount>0
+            ORDER BY o.delivered_at DESC LIMIT 500`)
+        ).rows;
+        const commissionSummary = summarizeCommissions(commissions);
+        const activeOrders = (
+          await db.query(
+            "SELECT count(*)::int AS count FROM commerce_orders WHERE status IN ('pending','review')",
+          )
+        ).rows[0]?.count || 0;
+        profitSummary.metrics.active_orders = Number(activeOrders);
+        const profitBreakdown = Object.entries(profitSummary.breakdown).map(
+          ([source, values]) => ({ source, ...values }),
+        );
         const coupons = (
           await db.query(
-            'SELECT id,code_display,discount_percent,max_uses,used_count,enabled,created_at,updated_at FROM commerce_coupons ORDER BY created_at DESC',
+            'SELECT id,code_display,discount_percent,commission_percent,max_uses,used_count,enabled,unlimited,created_at,updated_at FROM commerce_coupons ORDER BY created_at DESC',
           )
         ).rows;
         output = {
-          metrics,
+          metrics: profitSummary.metrics,
           coupons,
           inventory,
           scamReports: (
@@ -2061,15 +2567,34 @@ export function createHandler(
             await db.query(
               'SELECT * FROM commerce_provider_state ORDER BY provider_name',
             )
+          ).rows.map((provider) => ({
+            ...provider,
+            lowBalance: supplierBalanceIsLow(provider.balance, provider.currency),
+            lowBalanceThreshold: supplierBalanceThreshold(provider.currency),
+          })),
+          supplierAlerts: (
+            await db.query(`SELECT l.id,l.order_id,l.provider_id,l.operation,l.response_status,
+              l.error_message,l.response_body,l.created_at,sp.name AS supplier_product_name
+              FROM commerce_supplier_api_logs l
+              LEFT JOIN commerce_orders o ON o.id=l.order_id
+              LEFT JOIN commerce_supplier_products sp ON sp.id=o.supplier_product_id
+              WHERE l.response_status IS NULL OR l.response_status>=400 OR l.error_message IS NOT NULL
+              ORDER BY l.created_at DESC LIMIT 25`)
           ).rows,
           orders: (
             await db.query(
-              'SELECT o.id,o.product_id,o.amount,o.status,o.transaction_id,o.payer_name,o.supplier_order_id,o.supplier_status,sp.provider_name AS supplier_name,sp.name AS supplier_product_name,o.created_at,o.delivered_at FROM commerce_orders o LEFT JOIN commerce_supplier_products sp ON sp.id=o.supplier_product_id ORDER BY o.created_at DESC LIMIT 100',
+              `SELECT o.id,o.product_id,o.amount,o.listed_amount,o.coupon_discount,o.status,o.transaction_id,o.payer_name,
+                o.payment_submitted_at,o.supplier_order_id,o.supplier_status,c.code_display AS coupon_code,
+                sp.provider_name AS supplier_name,sp.name AS supplier_product_name,o.created_at,o.delivered_at
+               FROM commerce_orders o
+               LEFT JOIN commerce_coupons c ON c.id=o.coupon_id
+               LEFT JOIN commerce_supplier_products sp ON sp.id=o.supplier_product_id
+               ORDER BY o.created_at DESC LIMIT 100`,
             )
           ).rows,
           payments: (
             await db.query(
-              'SELECT id,amount,subject,transaction_id,verified,order_id,created_at FROM commerce_payments ORDER BY created_at DESC LIMIT 100',
+              'SELECT id,amount,subject,transaction_id,payer_name,source_last4,verified,order_id,received_at,created_at FROM commerce_payments ORDER BY created_at DESC LIMIT 100',
             )
           ).rows,
           stock: (
@@ -2081,6 +2606,8 @@ export function createHandler(
           supplierUsdtPkrRate: supplierUsdtRate(),
           supplierUsdPkrRate: supplierUsdRate(),
           profitBreakdown,
+          commissionSummary,
+          commissions,
           supplierKeys: supplierKeyStatus(supplierApiKeys),
         };
       } else if (action === 'admin-supplier-logs') {
@@ -2101,21 +2628,25 @@ export function createHandler(
       } else if (action === 'admin-coupon-create') {
         const code = normalizeCouponCode(body.code);
         if (!code) throw fail(400, 'Coupon code is required.');
+        if (code === TEAM_COUPON_CODE)
+          throw fail(400, 'HOR is disabled and cannot be created.');
         const discountPercent = Number(body.discountPercent ?? 5),
           maxUses = Number(body.maxUses ?? 10);
         if (
           !Number.isFinite(discountPercent) ||
-          discountPercent <= 0 ||
+          discountPercent < 0 ||
           discountPercent > 100
         )
-          throw fail(400, 'Discount must be between 0.01% and 100%.');
+          throw fail(400, 'Discount must be between 0% and 100%.');
+        if (discountPercent === 0 && code !== CUSTOMER_COUPON_CODE)
+          throw fail(400, 'Only CUST can keep the normal price with 0% discount.');
         if (discountPercent === 100 && code !== TEAM_COUPON_CODE)
           throw fail(400, 'Only HOR is reserved for free team access.');
         if (!Number.isSafeInteger(maxUses) || maxUses < 1)
           throw fail(400, 'Maximum usage must be a positive whole number.');
         const inserted = await db.query(
           `INSERT INTO commerce_coupons(id,code_hash,code_display,product_id,discount,discount_percent,max_uses,enabled) VALUES($1,$2,$3,'p093',$4,$4,$5,$6)
-        RETURNING id,code_display,discount_percent,max_uses,used_count,enabled`,
+        RETURNING id,code_display,discount_percent,commission_percent,max_uses,used_count,enabled`,
           [
             randomUUID(),
             hash(code),
@@ -2147,15 +2678,19 @@ export function createHandler(
         if (!code) throw fail(400, 'Coupon code is required.');
         if (
           !Number.isFinite(discountPercent) ||
-          discountPercent <= 0 ||
+          discountPercent < 0 ||
           discountPercent > 100
         )
-          throw fail(400, 'Discount must be between 0.01% and 100%.');
+          throw fail(400, 'Discount must be between 0% and 100%.');
+        if (current.code_display === TEAM_COUPON_CODE || code === TEAM_COUPON_CODE)
+          throw fail(400, 'HOR is disabled and cannot be changed.');
         if (
-          (current.code_display === TEAM_COUPON_CODE || code === TEAM_COUPON_CODE) &&
-          (current.code_display !== TEAM_COUPON_CODE || code !== TEAM_COUPON_CODE || discountPercent !== 100 || body.enabled === false)
+          (current.code_display === CUSTOMER_COUPON_CODE || code === CUSTOMER_COUPON_CODE) &&
+          (current.code_display !== CUSTOMER_COUPON_CODE || code !== CUSTOMER_COUPON_CODE || discountPercent !== 0 || body.enabled === false)
         )
-          throw fail(400, 'HOR is a reserved team coupon and cannot be changed.');
+          throw fail(400, 'CUST is a reserved commission coupon and cannot be changed.');
+        if (discountPercent === 0 && code !== CUSTOMER_COUPON_CODE)
+          throw fail(400, 'Only CUST can keep the normal price with 0% discount.');
         if (discountPercent === 100 && code !== TEAM_COUPON_CODE)
           throw fail(400, 'Only HOR is reserved for free team access.');
         if (
@@ -2169,7 +2704,7 @@ export function createHandler(
           );
         const updated = await db.query(
           `UPDATE commerce_coupons SET code_hash=$1,code_display=$2,discount=$3,discount_percent=$3,max_uses=$4,enabled=$5,updated_at=now() WHERE id=$6
-        RETURNING id,code_display,discount_percent,max_uses,used_count,enabled`,
+        RETURNING id,code_display,discount_percent,commission_percent,max_uses,used_count,enabled`,
           [
             hash(code),
             code,
@@ -2238,7 +2773,8 @@ export function createHandler(
           !idOk(body.paymentId) ||
           body.confirmed !== true
         )
-          throw fail(400, 'Confirm payment in NayaPay before approval.');
+          throw fail(400, 'Select an order and payment, then confirm the receipt and exact amount.');
+        await attachPaymentForManualApproval(db, body.orderId, body.paymentId);
         await fulfill(
           db,
           body.orderId,
@@ -2283,7 +2819,12 @@ export function createHandler(
         );
         output = { ok: true };
       } else throw fail(404, 'Unknown request.');
+      const supplierIssue = supplierLogs.find(
+        (log) => log.errorMessage || !log.responseStatus || Number(log.responseStatus) >= 400,
+      );
+      if (supplierIssue) telegramMessages.push(supplierIssueMessage(supplierIssue));
       await db.query('COMMIT');
+      for (const message of telegramMessages) await notifyTelegram(message);
       json(res, 200, output);
     } catch (e) {
       if (db) {
@@ -2295,13 +2836,21 @@ export function createHandler(
         await persistSupplierApiLogs(pool, supplierLogs).catch((logError) =>
           console.error('supplier-api-log-error', logError.code || logError.name, logError.message || ''),
         );
+      const supplierIssue = supplierLogs.find(
+        (log) => log.errorMessage || !log.responseStatus || Number(log.responseStatus) >= 400,
+      );
+      if (supplierIssue) await notifyTelegram(supplierIssueMessage(supplierIssue));
       const code = e.status || (e.code === '23505' ? 409 : 503);
-      json(res, code, {
-        error: e.status
+      const errorMessage =
+        e.status
           ? e.message
-          : e.code === '23505'
-            ? 'Duplicate account or payment. Nothing was imported.'
-            : 'Service temporarily unavailable. Please retry or contact support.',
+          : e.code === '23505' && e.constraint === 'commerce_inventory_assignment'
+            ? 'That account was just reserved by another checkout. Please retry.'
+            : e.code === '23505'
+              ? 'Duplicate account or payment. Nothing was imported.'
+              : 'Service temporarily unavailable. Please retry or contact support.';
+      json(res, code, {
+        error: errorMessage,
       });
       if (!e.status)
         console.error('commerce-error', e.code || e.name, e.message || '');

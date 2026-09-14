@@ -14,13 +14,13 @@ Authoritative status date: 11 September 2026.
 
 The public catalog currently contains five canonical products:
 
-- `p093`: ChatGPT Plus, with selectable `p093-ultra` Apple Pay inventory at PKR 3,499 and `p093-momo` Momo Pay inventory at PKR 2,999.
+- `p093`: ChatGPT Plus, with `p093-ultra` Apple Pay inventory at PKR 3,499.
 - `p012`: Claude Team Plan Premium.
 - `p013`: Claude Team Plan Standard.
 - `p100`: Hostinger Unlimited Web Hosting.
 - `p101`: Hostinger VPS Hosting, with contact-based package selection.
 
-The ChatGPT product page uses two account-type selector cards. Selection updates the single main purchase panel's price, stock and checkout destination. It does not create two competing checkout panels. Existing legacy `p093` inventory is treated as the Ultra/Apple Pay tier.
+The ChatGPT product page keeps one Ultra/Apple Pay offer and one main purchase panel. Existing legacy `p093` inventory is treated as the Ultra/Apple Pay tier.
 
 Public routes include the homepage, inventory, product details, About, buying guide, warranty, refunds, privacy, terms and scam reports. Shared navigation exposes the scam-report page. The scam-report API and admin tab use the database table created by the schema bootstrap.
 
@@ -28,7 +28,7 @@ Public routes include the homepage, inventory, product details, About, buying gu
 
 - Customers create orders, receive NayaPay instructions, submit a transaction reference and receive inventory only after payment verification/approval.
 - Local credentials are reserved transactionally and encrypted at rest with AES-256-GCM.
-- The admin panel supports secure login, session restoration, separate Apple Pay/Momo Pay inventory imports, stock withdrawal, orders, payments, supplier products, financial summaries and scam reports.
+- The admin panel supports secure login, session restoration, Apple Pay inventory imports, stock withdrawal, orders, payments, supplier products, financial summaries, supplier alerts and scam reports. Its live dashboard polls for new orders and supplier issues.
 - Admin authentication uses a normalized email, password hash, signed eight-hour token and host-only Secure/HttpOnly/SameSite=Strict cookie.
 - The commerce handler bootstraps required schema changes before serving actions, including the scam-report table.
 - DODI and Qamify supplier adapters are implemented. Qamify remains inactive unless a valid rotated `QAMIFY_API_KEY` is configured in production.
