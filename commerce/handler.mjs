@@ -1475,9 +1475,50 @@ async function fulfill(
     );
     order.inventory_id = replacement.id;
   }
+  let inventoryId = order.inventory_id;
+  if (inventoryId) {
+    const assigned = (
+      await db.query('SELECT id,state FROM commerce_inventory WHERE id=$1 FOR UPDATE', [
+        inventoryId,
+      ])
+    ).rows[0];
+    if (assigned?.state === 'available') {
+      await db.query(
+        "UPDATE commerce_inventory SET state='reserved' WHERE id=$1 AND state='available'",
+        [inventoryId],
+      );
+    } else if (assigned?.state !== 'reserved') {
+      inventoryId = null;
+    }
+  }
+  if (!inventoryId) {
+    const replacement = (
+      await db.query(
+        `SELECT i.id FROM commerce_inventory i
+         WHERE i.product_id=ANY($1::text[]) AND i.state='available'
+           AND NOT EXISTS (
+             SELECT 1 FROM commerce_orders active
+             WHERE active.inventory_id=i.id AND active.status IN ('pending','review','delivered')
+           )
+         ORDER BY i.created_at FOR UPDATE OF i SKIP LOCKED LIMIT 1`,
+        [localInventoryProductIds(order.product_id)],
+      )
+    ).rows[0];
+    if (replacement) {
+      inventoryId = replacement.id;
+      await db.query(
+        "UPDATE commerce_inventory SET state='reserved' WHERE id=$1 AND state='available'",
+        [inventoryId],
+      );
+      await db.query('UPDATE commerce_orders SET inventory_id=$1 WHERE id=$2', [
+        inventoryId,
+        order.id,
+      ]);
+    }
+  }
   const changed = await db.query(
     "UPDATE commerce_inventory SET state='delivered' WHERE id=$1 AND state='reserved' RETURNING id",
-    [order.inventory_id],
+    [inventoryId],
   );
   if (!changed.rowCount) throw fail(409, 'Reserved stock is unavailable.');
   await db.query(
@@ -1486,7 +1527,7 @@ async function fulfill(
   );
   await db.query(
     "UPDATE commerce_orders SET status='delivered',delivered_at=now(),fulfillment_cost_pkr=(SELECT purchase_cost FROM commerce_inventory WHERE id=$1) WHERE id=$2",
-    [order.inventory_id, order.id],
+    [inventoryId, order.id],
   );
   await db.query('INSERT INTO commerce_audit(action,object_id) VALUES($1,$2)', [
     manual ? 'manual_delivery' : 'auto_delivery',
@@ -2155,7 +2196,7 @@ export function createHandler(
             // NayaPay's app can expose only the trailing reference digits while its
             // receipt email contains the complete prefixed transaction ID.
             await db.query(
-              'UPDATE commerce_orders SET transaction_id=COALESCE(transaction_id,$1) WHERE id=$2',
+              'UPDATE commerce_orders SET transaction_id=$1 WHERE id=$2',
               [payment.transaction_id, id],
             );
             if (order.status !== 'expired') {
@@ -2184,13 +2225,12 @@ export function createHandler(
           // matches this order's unique amount and receipt reference/window.
           if (
             order.status === 'review' &&
-            order.payment_submitted_at &&
-            process.env.NAYAPAY_AUTO_VERIFY === 'true'
+            order.payment_submitted_at
           ) {
             const payment = await findVerifiedPaymentForOrder(db, order);
             if (payment) {
               await db.query(
-                'UPDATE commerce_orders SET transaction_id=COALESCE(transaction_id,$1) WHERE id=$2',
+                'UPDATE commerce_orders SET transaction_id=$1 WHERE id=$2',
                 [payment.transaction_id, id],
               );
               await db.query('SAVEPOINT status_delivery');
@@ -2206,9 +2246,16 @@ export function createHandler(
               } catch (e) {
                 if (!e.status) throw e;
                 await db.query('ROLLBACK TO SAVEPOINT status_delivery');
+                console.error(
+                  'auto-delivery-retry-failed',
+                  id,
+                  payment.id,
+                  e.status,
+                  e.message,
+                );
                 await db.query(
-                  "UPDATE commerce_payments SET verification_reason='verified_delivery_pending' WHERE id=$1 AND order_id IS NULL",
-                  [payment.id],
+                  'UPDATE commerce_payments SET verification_reason=$1 WHERE id=$2 AND order_id IS NULL',
+                  [`verified_delivery_pending: ${String(e.message || 'delivery failed').slice(0, 180)}`, payment.id],
                 );
                 await insertSupplierApiLogs(db, supplierLogs);
               }
