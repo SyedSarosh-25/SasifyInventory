@@ -51,7 +51,9 @@ export function accessTypeLabel(product: Product) {
 }
 
 export function has25DayWarranty(product: Product) {
-  return isChatGptPlan(product) && /^(1 month|30 days)$/i.test(product.duration.trim());
+  return product.id !== 'p093-shared'
+    && isChatGptPlan(product)
+    && /^(1 month|30 days)$/i.test(product.duration.trim());
 }
 
 export function warrantyDays(product: Product, variantId?: string) {

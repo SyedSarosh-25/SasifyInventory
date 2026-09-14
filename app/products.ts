@@ -28,6 +28,26 @@ export type ProductVariant = {
 
 const catalogProducts: Product[] = [
   {
+    id: 'p093-shared',
+    slug: 'chatgpt-plus-shared-account',
+    category: 'AI Assistants & Research',
+    name: 'ChatGPT Plus · Shared Account',
+    duration: '1 Month',
+    vendor: 'Sasify Solutions',
+    sellingPricePkr: 999,
+    originalPrice: 'PKR 5,700/month',
+    originalPricePkr: 5700,
+    sourceUrl: 'https://openai.com/chatgpt/pricing/',
+    description:
+      'One-month ChatGPT Plus access through a shared account. Each account is shared by up to four members, with the same email, password and 2FA access delivered after payment verification.',
+    details: [
+      'Shared ChatGPT account: your data and activity are not private and may be visible to the other members using the same account.',
+      'Usage is shared between all four members. Sasify Solutions cannot guarantee individual usage limits or availability after the shared allowance is reached.',
+      'Because this is shared access, it is sold without replacement, warranty or refund once the credentials have been delivered or the shared usage limit has been reached.',
+      'The shared pool is filled slot-by-slot: 1/4, 2/4, 3/4 and 4/4. A new admin-approved account is used automatically when the current account is full.',
+    ],
+  },
+  {
     id: 'p093',
     slug: 'chatgpt-plus-1-month',
     category: 'AI Assistants & Research',

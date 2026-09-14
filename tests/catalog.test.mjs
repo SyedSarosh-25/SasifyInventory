@@ -7,7 +7,7 @@ import { featuredProducts, filterProducts, heroProducts, orbitTools, selectRando
 test('every inventory variant has a unique detail URL', () => {
   assert.equal(new Set(products.map(productHref)).size, products.length);
   for (const product of products) {
-    assert.match(productHref(product), /^\/products\/p\d+$/);
+    assert.match(productHref(product), /^\/products\/p\d+(?:-[a-z]+)?$/);
     assert.ok(product.description.length > 30);
     assert.ok(product.contactOnly || product.sellingPricePkr > 0);
   }
@@ -58,10 +58,11 @@ test('one-year variants receive one-time payment wording only at the annual dura
 });
 
 test('25-day warranty is scoped to one-month ChatGPT, other plans cover their full duration', () => {
-  const base = products[0];
+  const base = products.find((product) => product.id === 'p093');
   for (const duration of ['30 Days', '1 Month']) assert.equal(has25DayWarranty({ ...base, duration }), true);
   for (const duration of ['3 Months', '1 Year', 'Lifetime Credits']) assert.equal(has25DayWarranty({ ...base, duration }), false);
-  for (const product of products.filter(product => product.id !== 'p093')) {
+  assert.equal(has25DayWarranty(products.find((product) => product.id === 'p093-shared')), false);
+  for (const product of products.filter(product => !['p093', 'p093-shared'].includes(product.id))) {
     assert.equal(has25DayWarranty(product), false);
     assert.match(fullPlanWarranty(product), /Full warranty from Sasify Solutions for the entire/);
   }
@@ -162,7 +163,7 @@ test('homepage top ten keeps ChatGPT available and randomizes the remaining live
 });
 
 test('static catalog contains only the approved local products', () => {
-  assert.deepEqual(products.map((product) => product.id), ['p093', 'p012', 'p013', 'p100', 'p101']);
+  assert.deepEqual(products.map((product) => product.id), ['p093-shared', 'p093', 'p012', 'p013', 'p100', 'p101']);
   assert.ok(products.every((product) => /ChatGPT|Claude|Hostinger/.test(product.name)));
 });
 

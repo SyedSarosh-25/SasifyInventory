@@ -59,15 +59,17 @@ function shuffleProducts<T>(items: T[], random: () => number) {
 }
 
 /**
- * Selects a fresh homepage set from the live stock response. ChatGPT remains
- * available as the local anchor product; the other nine slots are randomized
- * from available, de-duplicated local and supplier products on every load.
+ * Selects a fresh homepage set from the live stock response. The shared
+ * ChatGPT offer is the first local anchor when present; the other nine slots
+ * are randomized from available, de-duplicated local and supplier products.
  */
 export function selectRandomTopProducts(
   catalog: LiveCatalogProduct[],
   random: () => number = Math.random,
 ) {
   const localChatGpt = catalog.find(
+    (product) => product.source === 'local' && product.id === 'p093-shared',
+  ) || catalog.find(
     (product) => product.source === 'local' && product.id === 'p093' && product.available > 0,
   );
   const seen = new Set<string>();

@@ -74,6 +74,7 @@ export default async function ProductPage({ params }: Props) {
   const product = products.find((item) => item.id === id);
   if (!product) notFound();
   const annual = isAnnualPlan(product);
+  const sharedChatGpt = product.id === 'p093-shared';
   const warranty = fullPlanWarranty(product);
   const appleWarrantyDays = warrantyDays(product, 'p093-ultra') ?? 25;
   const savings = savingsPkr(product);
@@ -278,7 +279,17 @@ export default async function ProductPage({ params }: Props) {
                   ordering.
                 </p>
               )}
-              {product.id === 'p093' ? (
+              {sharedChatGpt ? (
+                <p className="shared-account-disclaimer">
+                  <strong>Shared-account terms.</strong> This ChatGPT Plus
+                  account is shared by up to four customers. Your data and
+                  activity are not private and may be visible to other members.
+                  Usage is shared, so no individual usage-limit guarantee is
+                  provided. After delivery, this shared access is not eligible
+                  for replacement, warranty or refund if the shared allowance
+                  is reached.
+                </p>
+              ) : product.id === 'p093' ? (
                 <>
                   <p className="chatgpt-ultra-only">
                     <strong>Full {appleWarrantyDays}-day warranty included.</strong> This
@@ -457,11 +468,13 @@ export default async function ProductPage({ params }: Props) {
               <ShieldCheck className="h-5 w-5" />
               <span>
                 <strong>
-                  {product.id === 'p093' ? (
+                  {sharedChatGpt ? 'Shared access · no warranty' : product.id === 'p093' ? (
                     `Full ${appleWarrantyDays}-day warranty`
                   ) : 'Full plan warranty'}
                 </strong>
-                {product.id === 'p093' ? (
+                {sharedChatGpt ? (
+                  ' No replacement or refund after delivery or when shared usage is exhausted.'
+                ) : product.id === 'p093' ? (
                   'Included with this Apple Pay plan.'
                 ) : (
                   warranty

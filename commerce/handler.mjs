@@ -181,6 +181,18 @@ function localProductSellingPrice(productId) {
   const price = Number(catalog.find((product) => product.id === productId)?.price);
   return Number.isSafeInteger(price) && price > 0 ? price : 0;
 }
+const SHARED_CHATGPT_PRODUCT_ID = 'p093-shared';
+const SHARED_CHATGPT_MAX_SLOTS = 4;
+function isSharedChatGptProduct(productId) {
+  return String(productId || '') === SHARED_CHATGPT_PRODUCT_ID;
+}
+function sharedSlotCost(purchaseCost, slot) {
+  const cost = Math.max(0, Number(purchaseCost) || 0);
+  const base = Math.floor(cost / SHARED_CHATGPT_MAX_SLOTS);
+  return Number(slot) >= SHARED_CHATGPT_MAX_SLOTS
+    ? cost - base * (SHARED_CHATGPT_MAX_SLOTS - 1)
+    : base;
+}
 function summarizeProfit(deliveredRows, withdrawnRows) {
   const monthStart = new Date();
   monthStart.setDate(1);
@@ -244,7 +256,9 @@ function summarizeProfit(deliveredRows, withdrawnRows) {
     const netIncome = Number(row.amount || 0);
     const couponDiscount = Number(row.coupon_discount || 0);
     const income = netIncome + (isTeamCoupon ? couponDiscount : 0);
-    const cost = row.purchase_cost ?? row.supplier_cost_pkr ?? 0;
+    const cost = row.shared_account_id
+      ? row.fulfillment_cost_pkr ?? sharedSlotCost(row.purchase_cost, row.shared_slot)
+      : row.purchase_cost ?? row.supplier_cost_pkr ?? 0;
     add(row, income, cost, row.supplier_product_id ? 'supplier' : 'local', row.delivered_at, {
       netIncome,
       grossIncome: netIncome + couponDiscount,
@@ -1243,6 +1257,85 @@ async function ensureTeamSchema(db) {
   }
   await teamSchemaReady;
 }
+let sharedAccountSchemaReady;
+async function ensureSharedAccountSchema(db) {
+  if (!sharedAccountSchemaReady) {
+    sharedAccountSchemaReady = (async () => {
+      await db.query(`CREATE TABLE IF NOT EXISTS commerce_shared_accounts (
+        id uuid PRIMARY KEY,
+        inventory_id uuid NOT NULL UNIQUE REFERENCES commerce_inventory(id),
+        slots_filled integer NOT NULL DEFAULT 0 CHECK(slots_filled>=0),
+        max_slots integer NOT NULL DEFAULT ${SHARED_CHATGPT_MAX_SLOTS} CHECK(max_slots=${SHARED_CHATGPT_MAX_SLOTS}),
+        status text NOT NULL DEFAULT 'active' CHECK(status IN ('active','sold','withdrawn')),
+        created_at timestamptz NOT NULL DEFAULT now(),
+        sold_at timestamptz
+      )`);
+      await db.query(
+        'ALTER TABLE commerce_orders ADD COLUMN IF NOT EXISTS shared_account_id uuid',
+      );
+      await db.query(
+        'ALTER TABLE commerce_orders ADD COLUMN IF NOT EXISTS shared_slot integer',
+      );
+      await db.query(
+        'ALTER TABLE commerce_orders ADD COLUMN IF NOT EXISTS shared_slot_released boolean NOT NULL DEFAULT false',
+      );
+      await db.query(
+        'CREATE INDEX IF NOT EXISTS commerce_shared_accounts_queue ON commerce_shared_accounts(status,created_at,id)',
+      );
+      // A shared credential may be attached to four active orders. Regular
+      // local credentials retain their original one-order uniqueness rule.
+      await db.query('DROP INDEX IF EXISTS commerce_inventory_assignment');
+      await db.query(
+        "CREATE UNIQUE INDEX IF NOT EXISTS commerce_inventory_assignment ON commerce_orders(inventory_id) WHERE shared_account_id IS NULL AND status IN ('pending','review','delivered')",
+      );
+    })().catch((error) => {
+      sharedAccountSchemaReady = null;
+      throw error;
+    });
+  }
+  await sharedAccountSchemaReady;
+}
+async function releaseSharedSlot(db, order) {
+  if (!order?.shared_account_id || order.shared_slot_released) return;
+  const changed = await db.query(
+    `UPDATE commerce_shared_accounts
+     SET slots_filled=GREATEST(0,slots_filled-1),
+         status=CASE WHEN status='sold' THEN 'active' ELSE status END,
+         sold_at=CASE WHEN status='sold' THEN NULL ELSE sold_at END
+     WHERE id=$1 AND slots_filled>0
+     RETURNING id`,
+    [order.shared_account_id],
+  );
+  if (changed.rowCount)
+    await db.query(
+      'UPDATE commerce_orders SET shared_slot_released=true WHERE id=$1',
+      [order.id],
+    );
+}
+async function reserveSharedAccount(db) {
+  const shared = (
+    await db.query(
+      `SELECT sa.id,sa.slots_filled,sa.max_slots,i.id AS inventory_id
+       FROM commerce_shared_accounts sa
+       INNER JOIN commerce_inventory i ON i.id=sa.inventory_id
+       WHERE sa.status='active' AND sa.slots_filled<sa.max_slots
+         AND i.state IN ('available','reserved')
+       ORDER BY sa.created_at,sa.id
+       FOR UPDATE OF sa,i SKIP LOCKED LIMIT 1`,
+    )
+  ).rows[0];
+  if (!shared)
+    throw fail(409, 'Shared ChatGPT accounts are currently sold out. Please contact us on WhatsApp.');
+  const slot = Number(shared.slots_filled) + 1;
+  await db.query(
+    `UPDATE commerce_shared_accounts SET slots_filled=$1,
+       status=CASE WHEN $1>=max_slots THEN 'sold' ELSE 'active' END,
+       sold_at=CASE WHEN $1>=max_slots THEN now() ELSE sold_at END
+     WHERE id=$2`,
+    [slot, shared.id],
+  );
+  return { id: shared.id, inventoryId: shared.inventory_id, slot };
+}
 async function rate(db, key, max) {
   const result = await db.query(
     `INSERT INTO commerce_limits(key) VALUES($1) ON CONFLICT(key) DO UPDATE SET
@@ -1373,7 +1466,25 @@ async function expire(db, includeReview = true) {
       SELECT coupon_id,count(*)::int AS uses FROM expired WHERE coupon_id IS NOT NULL GROUP BY coupon_id
     )
     UPDATE commerce_coupons c SET used_count=GREATEST(0,c.used_count-released.uses),updated_at=now()
-    FROM released WHERE c.id=released.coupon_id`);
+     FROM released WHERE c.id=released.coupon_id`);
+  await db.query(`WITH released AS (
+      UPDATE commerce_shared_accounts sa SET
+        slots_filled=GREATEST(0,sa.slots_filled-r.uses),
+        status=CASE WHEN sa.status='sold' THEN 'active' ELSE sa.status END,
+        sold_at=CASE WHEN sa.status='sold' THEN NULL ELSE sa.sold_at END
+      FROM (
+        SELECT shared_account_id,count(*)::int AS uses
+        FROM commerce_orders
+        WHERE status='expired' AND shared_account_id IS NOT NULL
+          AND shared_slot_released=false
+        GROUP BY shared_account_id
+      ) r
+      WHERE sa.id=r.shared_account_id
+      RETURNING sa.id
+    )
+    UPDATE commerce_orders o SET shared_slot_released=true
+    FROM released WHERE o.shared_account_id=released.id
+      AND o.status='expired' AND o.shared_slot_released=false`);
   await db.query(`UPDATE commerce_inventory SET state='available' WHERE state='reserved' AND id IN (
     SELECT inventory_id FROM commerce_orders WHERE status='expired' AND expires_at<now() AND inventory_id IS NOT NULL
   )`);
@@ -1602,6 +1713,7 @@ async function fulfill(
             "UPDATE commerce_inventory SET state='available' WHERE id=$1 AND state='reserved'",
             [order.inventory_id],
           );
+          await releaseSharedSlot(db, order);
           await releaseCoupon(db, order);
           await db.query(
             "INSERT INTO commerce_audit(action,object_id) VALUES('supplier_auto_cancel_after_3_failures',$1)",
@@ -1643,12 +1755,58 @@ async function fulfill(
     );
     return;
   }
+  if (order.shared_account_id) {
+    if (order.status === 'expired') {
+      const replacement = await reserveSharedAccount(db);
+      await db.query(
+        `UPDATE commerce_orders SET inventory_id=$1,shared_account_id=$2,
+           shared_slot=$3,shared_slot_released=false,status='review'
+         WHERE id=$4`,
+        [replacement.inventoryId, replacement.id, replacement.slot, order.id],
+      );
+      order.inventory_id = replacement.inventoryId;
+      order.shared_account_id = replacement.id;
+      order.shared_slot = replacement.slot;
+      order.shared_slot_released = false;
+      order.status = 'review';
+    }
+    const assigned = (
+      await db.query(
+        `SELECT i.credentials,i.purchase_cost,sa.status AS shared_status
+         FROM commerce_inventory i
+         INNER JOIN commerce_shared_accounts sa ON sa.inventory_id=i.id
+         WHERE i.id=$1 AND sa.id=$2 FOR UPDATE OF i,sa`,
+        [order.inventory_id, order.shared_account_id],
+      )
+    ).rows[0];
+    if (!assigned || assigned.shared_status === 'withdrawn')
+      throw fail(409, 'The shared account is unavailable. Contact support for a replacement or refund.');
+    await db.query(
+      'UPDATE commerce_payments SET order_id=$1,verification_reason=$3 WHERE id=$2',
+      [order.id, payment.id, manual ? 'manually_approved' : 'verified_and_delivered'],
+    );
+    await db.query(
+      `UPDATE commerce_orders SET status='delivered',delivered_at=now(),
+        fulfillment_cost_pkr=$1,supplier_status='shared_account_delivered'
+       WHERE id=$2`,
+      [sharedSlotCost(assigned.purchase_cost, order.shared_slot), order.id],
+    );
+    await db.query(
+      "INSERT INTO commerce_audit(action,object_id) VALUES('shared_account_delivery',$1)",
+      [order.id],
+    );
+    return;
+  }
   if (manual && order.status === 'expired') {
     await reserveReleasedCoupon(db, order);
     const replacement = (
       await db.query(
         `SELECT i.id FROM commerce_inventory i
          WHERE i.product_id=ANY($1::text[]) AND i.state='available'
+           AND NOT EXISTS (
+             SELECT 1 FROM commerce_shared_accounts shared
+             WHERE shared.inventory_id=i.id
+           )
            AND NOT EXISTS (
              SELECT 1 FROM commerce_orders active
              WHERE active.inventory_id=i.id AND active.status IN ('pending','review','delivered')
@@ -1693,6 +1851,10 @@ async function fulfill(
       await db.query(
         `SELECT i.id FROM commerce_inventory i
          WHERE i.product_id=ANY($1::text[]) AND i.state='available'
+           AND NOT EXISTS (
+             SELECT 1 FROM commerce_shared_accounts shared
+             WHERE shared.inventory_id=i.id
+           )
            AND NOT EXISTS (
              SELECT 1 FROM commerce_orders active
              WHERE active.inventory_id=i.id AND active.status IN ('pending','review','delivered')
@@ -1819,6 +1981,10 @@ async function manualDeliverLocalOrder(db, orderId, inventoryId, key) {
       await db.query(
         `SELECT i.* FROM commerce_inventory i
          WHERE i.product_id=ANY($1::text[]) AND i.state='available'
+           AND NOT EXISTS (
+             SELECT 1 FROM commerce_shared_accounts shared
+             WHERE shared.inventory_id=i.id
+           )
            AND NOT EXISTS (
              SELECT 1 FROM commerce_orders active
              WHERE active.inventory_id=i.id AND active.status IN ('pending','review','delivered')
@@ -2017,6 +2183,7 @@ export function createHandler(
       await ensureGoogleReviewSchema(db);
       await ensureInventoryVariants(db);
       await ensureTeamSchema(db);
+      await ensureSharedAccountSchema(db);
       await db.query('BEGIN');
       await ensureDefaultCoupon(db);
       const supplierApiKeys = await readSupplierApiKeys(db, key);
@@ -2120,7 +2287,8 @@ export function createHandler(
           await db.query(
             `SELECT product_id,count(*)::int AS available
              FROM commerce_inventory
-             WHERE state='available' AND product_id <> ALL($1::text[])
+              WHERE state='available' AND product_id <> ALL($1::text[])
+                AND NOT EXISTS (SELECT 1 FROM commerce_shared_accounts sa WHERE sa.inventory_id=commerce_inventory.id)
              GROUP BY product_id ORDER BY product_id`,
             [RETIRED_LOCAL_PRODUCT_IDS],
           )
@@ -2140,8 +2308,9 @@ export function createHandler(
           throw fail(400, 'Select a valid available stock product.');
         const item = (
           await db.query(
-            `SELECT * FROM commerce_inventory
+             `SELECT * FROM commerce_inventory
              WHERE product_id=$1 AND state='available'
+               AND NOT EXISTS (SELECT 1 FROM commerce_shared_accounts sa WHERE sa.inventory_id=commerce_inventory.id)
              ORDER BY created_at ASC FOR UPDATE SKIP LOCKED LIMIT 1`,
             [productId],
           )
@@ -2175,9 +2344,18 @@ export function createHandler(
       } else if (action === 'stock') {
         const counts = (
           await db.query(
-            "SELECT product_id,count(*)::int AS available FROM commerce_inventory WHERE state='available' GROUP BY product_id",
+            "SELECT i.product_id,count(*)::int AS available FROM commerce_inventory i WHERE i.state='available' AND NOT EXISTS (SELECT 1 FROM commerce_shared_accounts sa WHERE sa.inventory_id=i.id) GROUP BY i.product_id",
           )
         ).rows;
+        const sharedAvailability = (
+          await db.query(
+            `SELECT COALESCE(SUM(sa.max_slots-sa.slots_filled),0)::int AS available,
+                    COALESCE(SUM(sa.slots_filled),0)::int AS slots_filled,
+                    COALESCE(SUM(sa.max_slots),0)::int AS slots_total
+             FROM commerce_shared_accounts sa
+             WHERE sa.status='active' AND sa.slots_filled<sa.max_slots`,
+          )
+        ).rows[0] || { available: 0, slots_filled: 0, slots_total: 0 };
         const supplierProducts = (
           await db.query(`WITH ranked AS (
         SELECT id,name,description,delivery_instruction,logo_url,requires_customer_email,selling_price AS price,supplier_stock AS available,provider_id,provider_name,canonical_key,
@@ -2215,15 +2393,23 @@ export function createHandler(
           products: [
             ...localCatalog.map((p) => ({
               ...customerProduct(p),
-              source: 'local',
-              available:
-                p.id === 'p093'
-                  ? counts
+                source: 'local',
+                available:
+                p.id === SHARED_CHATGPT_PRODUCT_ID
+                  ? Number(sharedAvailability.available || 0)
+                  : p.id === 'p093'
+                   ? counts
                       .filter((r) =>
                         ['p093', 'p093-ultra'].includes(r.product_id),
                       )
                       .reduce((total, row) => total + row.available, 0)
-                  : counts.find((r) => r.product_id === p.id)?.available || 0,
+                   : counts.find((r) => r.product_id === p.id)?.available || 0,
+               ...(p.id === SHARED_CHATGPT_PRODUCT_ID
+                 ? {
+                     shared_slots_filled: Number(sharedAvailability.slots_filled || 0),
+                     shared_slots_total: Number(sharedAvailability.slots_total || 0),
+                   }
+                 : {}),
             })),
             ...supplierProducts.map((p) => ({
               ...customerProduct(p),
@@ -2356,13 +2542,14 @@ export function createHandler(
                 [requested.canonical_key],
               )
             ).rows[0];
-          if (supplierProduct)
+        if (supplierProduct)
             product = {
               id: supplierProduct.id,
               name: supplierProduct.name,
               price: supplierProduct.selling_price,
             };
         }
+        const sharedProduct = isSharedChatGptProduct(product?.id);
         const requestedCouponCode = normalizeCouponCode(body.couponCode);
         const isRequestedTeamCoupon = requestedCouponCode === TEAM_COUPON_CODE;
         if (isRequestedTeamCoupon && !TEAM_COUPON_ENABLED)
@@ -2404,14 +2591,16 @@ export function createHandler(
         if (existing.rowCount >= 2)
           throw fail(409, 'Complete or cancel your existing orders first.');
         let item;
+        let sharedAccount = null;
         let coupon = null;
         let discount = 0;
         const couponCode = requestedCouponCode;
         const isTeamCoupon = couponCode === TEAM_COUPON_CODE;
         if (couponCode) {
-          if (
-            supplierProduct ||
-            !['p093', 'p093-ultra'].includes(product.id)
+            if (
+              supplierProduct ||
+              sharedProduct ||
+              !['p093', 'p093-ultra'].includes(product.id)
           )
             throw fail(
               409,
@@ -2432,11 +2621,19 @@ export function createHandler(
         if (supplierProduct) {
           if (supplierProduct.supplier_stock < 1)
             throw fail(409, 'Sold out. Please contact us on WhatsApp.');
+        } else if (sharedProduct) {
+          const shared = await reserveSharedAccount(db);
+          item = { id: shared.inventoryId };
+          sharedAccount = { id: shared.id, slot: shared.slot };
         } else {
           item = (
             await db.query(
               `SELECT i.id FROM commerce_inventory i
                WHERE i.product_id=ANY($1::text[]) AND i.state='available'
+                 AND NOT EXISTS (
+                   SELECT 1 FROM commerce_shared_accounts shared
+                   WHERE shared.inventory_id=i.id
+                 )
                  AND NOT EXISTS (
                    SELECT 1 FROM commerce_orders active
                    WHERE active.inventory_id=i.id AND active.status IN ('pending','review','delivered')
@@ -2461,7 +2658,7 @@ export function createHandler(
           : Math.round((paymentAmount * commissionRate) / 100);
         const id = randomUUID(),
           recovery = randomBytes(32).toString('hex');
-        if (item)
+        if (item && !sharedAccount)
           await db.query(
             "UPDATE commerce_inventory SET state='reserved' WHERE id=$1",
             [item.id],
@@ -2472,8 +2669,8 @@ export function createHandler(
             [coupon.id],
           );
         await db.query(
-          `INSERT INTO commerce_orders(id,product_id,amount,listed_amount,customer_email,recovery_hash,session_hash,inventory_id,supplier_product_id,supplier_cost_pkr,coupon_id,coupon_discount,commission_code,commission_rate,commission_amount,payment_method,expires_at)
-        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,now()+($17 * interval '1 minute'))`,
+          `INSERT INTO commerce_orders(id,product_id,amount,listed_amount,customer_email,recovery_hash,session_hash,inventory_id,supplier_product_id,supplier_cost_pkr,coupon_id,coupon_discount,commission_code,commission_rate,commission_amount,payment_method,shared_account_id,shared_slot,expires_at)
+        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$18,$19,now()+($17 * interval '1 minute'))`,
           [
             id,
             product.id,
@@ -2492,6 +2689,8 @@ export function createHandler(
             commissionAmount,
             selectedPaymentMethod,
             paymentWindowMinutes,
+            sharedAccount?.id || null,
+            sharedAccount?.slot || null,
           ],
         );
         if (isTeamCoupon && paymentAmount === 0)
@@ -2538,6 +2737,7 @@ export function createHandler(
             "UPDATE commerce_inventory SET state='available' WHERE id=$1 AND state='reserved'",
             [order.inventory_id],
           );
+          await releaseSharedSlot(db, order);
           await releaseCoupon(db, order);
           output = { ok: true };
         } else if (action === 'claim') {
@@ -2665,6 +2865,14 @@ export function createHandler(
                 [order.supplier_product_id || order.product_id],
               )
             ).rows[0]?.name;
+          const sharedState = order.shared_account_id
+            ? (
+                await db.query(
+                  'SELECT slots_filled,max_slots,status FROM commerce_shared_accounts WHERE id=$1',
+                  [order.shared_account_id],
+                )
+              ).rows[0]
+            : null;
           output = {
             id,
             product: orderProduct ? customerProductName({ id: order.product_id, name: orderProduct }) : orderProduct,
@@ -2689,6 +2897,14 @@ export function createHandler(
             paymentWindowMinutes:
               PAYMENT_WINDOWS_MINUTES[order.payment_method] ||
               PAYMENT_WINDOWS_MINUTES.wallet,
+            ...(order.shared_account_id
+              ? {
+                  sharedSlot: Number(order.shared_slot || 0),
+                  sharedSlotsFilled: Number(sharedState?.slots_filled || 0),
+                  sharedSlotsTotal: Number(sharedState?.max_slots || SHARED_CHATGPT_MAX_SLOTS),
+                  sharedAccountStatus: sharedState?.status || null,
+                }
+              : {}),
             payment: {
               number: process.env.PAYMENT_ACCOUNT_NUMBER || '03450485711',
               provider: 'NayaPay',
@@ -2884,6 +3100,37 @@ export function createHandler(
           [String(rows.length)],
         );
         output = { ok: true, imported: rows.length };
+      } else if (action === 'admin-shared-add') {
+        if (!idOk(body.inventoryId) || body.confirmed !== true)
+          throw fail(400, 'Confirm adding this account to the shared pool.');
+        const item = (
+          await db.query(
+            'SELECT * FROM commerce_inventory WHERE id=$1 FOR UPDATE',
+            [body.inventoryId],
+          )
+        ).rows[0];
+        if (!item) throw fail(404, 'Inventory account not found.');
+        if (!['p093', 'p093-ultra'].includes(item.product_id))
+          throw fail(400, 'Only ChatGPT Plus inventory can be shared.');
+        if (item.state !== 'available')
+          throw fail(409, 'Only available ChatGPT Plus inventory can be shared.');
+        const existing = (
+          await db.query(
+            'SELECT id FROM commerce_shared_accounts WHERE inventory_id=$1',
+            [item.id],
+          )
+        ).rows[0];
+        if (existing)
+          throw fail(409, 'This account is already assigned to the shared pool.');
+        await db.query(
+          'INSERT INTO commerce_shared_accounts(id,inventory_id) VALUES($1,$2)',
+          [randomUUID(), item.id],
+        );
+        await db.query(
+          "INSERT INTO commerce_audit(action,object_id) VALUES('shared_account_add',$1)",
+          [item.id],
+        );
+        output = { ok: true, inventoryId: item.id, slotsFilled: 0, slotsTotal: SHARED_CHATGPT_MAX_SLOTS };
       } else if (action === 'admin-inventory-pick') {
         if (!idOk(body.inventoryId) || body.confirmed !== true)
           throw fail(400, 'Confirm the inventory withdrawal.');
@@ -2896,6 +3143,8 @@ export function createHandler(
         if (!item) throw fail(404, 'Inventory account not found.');
         if (isRetiredLocalProduct(item.product_id))
           throw fail(410, 'This inventory product has been retired.');
+        if ((await db.query('SELECT 1 FROM commerce_shared_accounts WHERE inventory_id=$1', [item.id])).rowCount)
+          throw fail(409, 'Shared-pool accounts must be managed from the shared-account controls.');
         if (item.state !== 'available')
           throw fail(409, 'Only available inventory can be picked.');
         const credentials = decrypt(item.credentials, key);
@@ -2921,6 +3170,8 @@ export function createHandler(
         if (!item) throw fail(404, 'Inventory account not found.');
         if (isRetiredLocalProduct(item.product_id))
           throw fail(410, 'This inventory product has been retired.');
+        if ((await db.query('SELECT 1 FROM commerce_shared_accounts WHERE inventory_id=$1', [item.id])).rowCount)
+          throw fail(409, 'Shared-pool accounts cannot be edited here.');
         const purchaseCost = Number(body.purchaseCost);
         if (!Number.isSafeInteger(purchaseCost) || purchaseCost < 0)
           throw fail(400, 'Enter a valid purchase cost.');
@@ -2985,6 +3236,8 @@ export function createHandler(
         if (!item) throw fail(404, 'Inventory account not found.');
         if (isRetiredLocalProduct(item.product_id))
           throw fail(410, 'This inventory product has been retired.');
+        if ((await db.query('SELECT 1 FROM commerce_shared_accounts WHERE inventory_id=$1', [item.id])).rowCount)
+          throw fail(409, 'Remove this account from the shared pool before deleting it.');
         if (!['available', 'quarantined'].includes(item.state))
           throw fail(
             409,
@@ -3124,6 +3377,18 @@ export function createHandler(
           reviewedAt: report.reviewed_at,
         };
       } else if (action === 'admin-list') {
+        const sharedAccountRows = (
+          await db.query(
+            `SELECT sa.id,sa.inventory_id,sa.slots_filled,sa.max_slots,sa.status,sa.created_at,sa.sold_at,
+                    i.product_id,i.email_hash
+             FROM commerce_shared_accounts sa
+             INNER JOIN commerce_inventory i ON i.id=sa.inventory_id
+             ORDER BY sa.status='active' DESC,sa.created_at DESC`,
+          )
+        ).rows;
+        const sharedByInventory = new Map(
+          sharedAccountRows.map((row) => [String(row.inventory_id), row]),
+        );
         const inventoryRows = (
           await db.query(
             'SELECT id,product_id,state,purchase_cost,credentials,created_at FROM commerce_inventory WHERE product_id <> ALL($1::text[]) ORDER BY created_at DESC LIMIT 500',
@@ -3142,10 +3407,22 @@ export function createHandler(
             purchaseCost: row.purchase_cost,
             email,
             createdAt: row.created_at,
+            sharedAccount: sharedByInventory.has(String(row.id))
+              ? (() => {
+                  const shared = sharedByInventory.get(String(row.id));
+                  return {
+                    id: shared.id,
+                    slotsFilled: Number(shared.slots_filled),
+                    slotsTotal: Number(shared.max_slots),
+                    status: shared.status,
+                  };
+                })()
+              : null,
           };
         });
         const deliveredProfitRows = (
           await db.query(`SELECT o.amount,o.coupon_discount,o.supplier_product_id,o.supplier_cost_pkr,
+            o.shared_account_id,o.shared_slot,o.fulfillment_cost_pkr,
             i.purchase_cost,o.delivered_at,c.code_display
             FROM commerce_orders o
             LEFT JOIN commerce_inventory i ON i.id=o.inventory_id
@@ -3242,6 +3519,16 @@ export function createHandler(
           metrics: dashboardMetrics,
           coupons,
           inventory,
+          sharedAccounts: sharedAccountRows.map((row) => ({
+            id: row.id,
+            inventoryId: row.inventory_id,
+            productId: row.product_id,
+            slotsFilled: Number(row.slots_filled),
+            slotsTotal: Number(row.max_slots),
+            status: row.status,
+            createdAt: row.created_at,
+            soldAt: row.sold_at,
+          })),
           scamReports: (
             await db.query(
               'SELECT id,name,description,amount_pkr,identifiers,payment_methods,status,created_at,reviewed_at,jsonb_array_length(evidence) AS evidence_count FROM commerce_scam_reports ORDER BY created_at DESC LIMIT 200',
@@ -3281,7 +3568,8 @@ export function createHandler(
           orders: (
             await db.query(
               `SELECT o.id,o.product_id,o.amount,o.listed_amount,o.coupon_discount,o.status,o.transaction_id,o.payer_name,o.payment_method,
-                o.payment_submitted_at,o.supplier_order_id,o.supplier_status,c.code_display AS coupon_code,
+                 o.payment_submitted_at,o.supplier_order_id,o.supplier_status,c.code_display AS coupon_code,
+                 o.shared_account_id,o.shared_slot,
                 sp.provider_name AS supplier_name,sp.name AS supplier_product_name,o.created_at,o.delivered_at,
                 o.fulfillment_cost_pkr AS cost_pkr,
                 CASE WHEN o.status='delivered' THEN
@@ -3561,6 +3849,7 @@ export function createHandler(
           "UPDATE commerce_inventory SET state='available' WHERE id=$1 AND state='reserved'",
           [order.inventory_id],
         );
+        await releaseSharedSlot(db, order);
         await releaseCoupon(db, order);
         await db.query(
           "INSERT INTO commerce_audit(action,object_id) VALUES('admin_cancel',$1)",

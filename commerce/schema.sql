@@ -51,6 +51,9 @@ ALTER TABLE commerce_orders ADD COLUMN IF NOT EXISTS supplier_delivery text;
 ALTER TABLE commerce_orders ADD COLUMN IF NOT EXISTS supplier_status text;
 ALTER TABLE commerce_orders ADD COLUMN IF NOT EXISTS supplier_cost_pkr integer CHECK(supplier_cost_pkr>=0);
 ALTER TABLE commerce_orders ADD COLUMN IF NOT EXISTS fulfillment_cost_pkr integer CHECK(fulfillment_cost_pkr>=0);
+ALTER TABLE commerce_orders ADD COLUMN IF NOT EXISTS shared_account_id uuid;
+ALTER TABLE commerce_orders ADD COLUMN IF NOT EXISTS shared_slot integer;
+ALTER TABLE commerce_orders ADD COLUMN IF NOT EXISTS shared_slot_released boolean NOT NULL DEFAULT false;
 ALTER TABLE commerce_orders ADD COLUMN IF NOT EXISTS coupon_id uuid;
 ALTER TABLE commerce_orders ADD COLUMN IF NOT EXISTS coupon_discount integer NOT NULL DEFAULT 0 CHECK(coupon_discount>=0);
 ALTER TABLE commerce_orders ADD COLUMN IF NOT EXISTS coupon_usage_released boolean NOT NULL DEFAULT false;
@@ -118,7 +121,22 @@ CREATE TABLE IF NOT EXISTS commerce_freebie_claims (
 );
 CREATE INDEX IF NOT EXISTS commerce_freebie_device_time ON commerce_freebie_claims(device_hash,created_at DESC);
 CREATE INDEX IF NOT EXISTS commerce_freebie_ip_time ON commerce_freebie_claims(ip_hash,created_at DESC);
-CREATE UNIQUE INDEX IF NOT EXISTS commerce_inventory_assignment ON commerce_orders(inventory_id) WHERE status IN ('pending','review','delivered');
+CREATE TABLE IF NOT EXISTS commerce_shared_accounts (
+ id uuid PRIMARY KEY,
+ inventory_id uuid NOT NULL UNIQUE REFERENCES commerce_inventory(id),
+ slots_filled integer NOT NULL DEFAULT 0 CHECK(slots_filled>=0),
+ max_slots integer NOT NULL DEFAULT 4 CHECK(max_slots=4),
+ status text NOT NULL DEFAULT 'active' CHECK(status IN ('active','sold','withdrawn')),
+ created_at timestamptz NOT NULL DEFAULT now(), sold_at timestamptz
+);
+ALTER TABLE commerce_shared_accounts ADD COLUMN IF NOT EXISTS slots_filled integer NOT NULL DEFAULT 0;
+ALTER TABLE commerce_shared_accounts ADD COLUMN IF NOT EXISTS max_slots integer NOT NULL DEFAULT 4;
+ALTER TABLE commerce_shared_accounts ADD COLUMN IF NOT EXISTS status text NOT NULL DEFAULT 'active';
+ALTER TABLE commerce_shared_accounts ADD COLUMN IF NOT EXISTS created_at timestamptz NOT NULL DEFAULT now();
+ALTER TABLE commerce_shared_accounts ADD COLUMN IF NOT EXISTS sold_at timestamptz;
+CREATE INDEX IF NOT EXISTS commerce_shared_accounts_queue ON commerce_shared_accounts(status,created_at,id);
+DROP INDEX IF EXISTS commerce_inventory_assignment;
+CREATE UNIQUE INDEX IF NOT EXISTS commerce_inventory_assignment ON commerce_orders(inventory_id) WHERE shared_account_id IS NULL AND status IN ('pending','review','delivered');
 CREATE TABLE IF NOT EXISTS commerce_payments (
  id uuid PRIMARY KEY, event_hash text NOT NULL UNIQUE, transaction_id text UNIQUE,
  amount integer, payer_name text, source_last4 text, received_at timestamptz, verified boolean NOT NULL DEFAULT false,

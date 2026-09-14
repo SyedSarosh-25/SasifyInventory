@@ -17,6 +17,7 @@ import {
   ShieldCheck,
   ShoppingCart,
   Trash2,
+  Users,
   WalletCards,
   X,
   Zap,
@@ -33,6 +34,8 @@ type Stock = {
   provider_id?: string;
   provider_name?: string;
   requires_customer_email?: boolean;
+  shared_slots_filled?: number;
+  shared_slots_total?: number;
 };
 type AccountCredentials = {
   email: string;
@@ -56,6 +59,10 @@ type Order = {
   transactionId?: string;
   paymentMethod?: 'wallet' | 'bank';
   paymentWindowMinutes?: number;
+  sharedSlot?: number;
+  sharedSlotsFilled?: number;
+  sharedSlotsTotal?: number;
+  sharedAccountStatus?: string | null;
   payment: { number: string; title: string; provider: string };
   credentials?: AccountCredentials;
   delivery?: { content: string; instructions?: string };
@@ -118,7 +125,9 @@ export function StockBuy({ productId }: { productId: string }) {
     <div className="online-stock">
       <p>
         {stock.available > 0
-          ? `${stock.available} accounts available`
+          ? stock.id === 'p093-shared'
+            ? `${stock.available} shared slots available · ${stock.shared_slots_filled || 0}/${stock.shared_slots_total || 4} filled`
+            : `${stock.available} accounts available`
           : 'Online stock sold out'}
       </p>
     </div>
@@ -344,7 +353,7 @@ export function Checkout() {
               void run(async () => {
                 const data = await api('create', '', {
                   productId: selected,
-                  couponCode,
+                  couponCode: product?.id === 'p093-shared' ? '' : couponCode,
                   ...(product?.requires_customer_email
                     ? { customerEmail: customerEmail.trim() }
                     : {}),
@@ -382,6 +391,21 @@ export function Checkout() {
                   </strong>
                 </div>
               </div>
+            )}
+            {product?.id === 'p093-shared' && (
+              <section className="description-section shared-account-checkout-notice">
+                <h2>Shared account · 4 members</h2>
+                <p>
+                  This is shared ChatGPT Plus access. Your data and activity are
+                  not private and may be visible to other members. Usage is
+                  shared between members, so no individual usage-limit guarantee
+                  is provided.
+                </p>
+                <p>
+                  After delivery, shared access is not eligible for replacement,
+                  warranty or refund if the shared usage allowance is reached.
+                </p>
+              </section>
             )}
             {product?.requires_customer_email && (
               <label>
@@ -440,7 +464,11 @@ export function Checkout() {
                 placeholder="Enter coupon code"
                 autoCapitalize="characters"
                 maxLength={32}
+                disabled={product?.id === 'p093-shared'}
               />
+              {product?.id === 'p093-shared' && (
+                <small>Coupons are not available for shared-account access.</small>
+              )}
             </label>
             <button
               className="primary-button"
@@ -478,6 +506,11 @@ export function Checkout() {
           <div className="checkout-heading">
             <div>
               <span>{order.product}</span>
+              {order.sharedSlot ? (
+                <small className="coupon-savings">
+                  Shared account slot {order.sharedSlot}/4 · {order.sharedSlotsFilled || order.sharedSlot}/{order.sharedSlotsTotal || 4} filled
+                </small>
+              ) : null}
               {order.teamCoupon ? (
                 <small className="coupon-savings">Team access · No payment required</small>
               ) : order.couponDiscount || order.paymentAdjustment ? (
@@ -1130,6 +1163,12 @@ export function CommerceAdmin() {
         ? `${provider.providerName} key removed.`
         : `${provider.providerName} key saved and ${result.synced || 0} products synced.`,
     );
+    await refresh();
+  };
+  const addSharedAccount = async (item: any) => {
+    if (!window.confirm('Add this ChatGPT Plus account to the four-slot shared pool?')) return;
+    await api('admin-shared-add', key, { inventoryId: item.id, confirmed: true });
+    setNotice('ChatGPT account added to the shared pool.');
     await refresh();
   };
   const login = async () => {
@@ -2146,6 +2185,51 @@ export function CommerceAdmin() {
               </button>
             </form>
           </section>
+          <section className="admin-panel shared-account-admin-panel">
+            <div className="panel-heading">
+              <div>
+                <span className="admin-eyebrow">ChatGPT Plus · PKR 999</span>
+                <h2>Shared account pool</h2>
+                <p>
+                  Add an available ChatGPT Plus account below. Customers consume
+                  four slots per account; when one reaches 4/4, checkout moves
+                  automatically to the next active account in this pool.
+                </p>
+              </div>
+            </div>
+            {!data.sharedAccounts?.length ? (
+              <p>No shared accounts configured yet. Use the group button beside an available ChatGPT account.</p>
+            ) : (
+              <div className="commerce-table">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Inventory account</th>
+                      <th>Slots</th>
+                      <th>Status</th>
+                      <th>Added</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.sharedAccounts.map((shared: any) => {
+                      const inventory = data.inventory?.find((item: any) => item.id === shared.inventoryId);
+                      return (
+                        <tr key={shared.id}>
+                          <td>
+                            <strong>{inventory?.email || 'Account hidden'}</strong>
+                            <small>{String(shared.inventoryId).slice(0, 8)}</small>
+                          </td>
+                          <td>{shared.slotsFilled}/{shared.slotsTotal} filled</td>
+                          <td><span className={`admin-state ${shared.status}`}>{shared.status}</span></td>
+                          <td>{new Date(shared.createdAt).toLocaleDateString()}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
           <section className="admin-panel">
             <div className="panel-heading">
               <div>
@@ -2189,20 +2273,39 @@ export function CommerceAdmin() {
                         <span className={`admin-state ${item.state}`}>
                           {item.state}
                         </span>
+                        {item.sharedAccount && (
+                          <small>
+                            Shared {item.sharedAccount.slotsFilled}/{item.sharedAccount.slotsTotal}
+                          </small>
+                        )}
                       </td>
                       <td>{money(item.purchaseCost)}</td>
                       <td>
-                        {['delivered', 'withdrawn'].includes(item.state)
+                        {item.sharedAccount
+                          ? money(999 - Math.ceil(Number(item.purchaseCost || 0) / 4))
+                          : ['delivered', 'withdrawn'].includes(item.state)
                           ? money(3499 - item.purchaseCost)
                           : '-'}
                       </td>
                       <td>{new Date(item.createdAt).toLocaleDateString()}</td>
                       <td>
                         <div className="row-actions">
+                          {['p093', 'p093-ultra'].includes(item.productId) &&
+                            item.state === 'available' &&
+                            !item.sharedAccount && (
+                              <button
+                                title="Add to four-slot shared pool"
+                                aria-label={`Add ${item.email} to shared pool`}
+                                disabled={busy}
+                                onClick={() => void run(() => addSharedAccount(item))}
+                              >
+                                <Users size={16} />
+                              </button>
+                            )}
                           <button
                             title="Pick account credentials"
                             aria-label={`Pick credentials for ${item.email}`}
-                            disabled={busy || item.state !== 'available'}
+                            disabled={busy || item.state !== 'available' || Boolean(item.sharedAccount)}
                             onClick={() => {
                               if (
                                 window.confirm(
@@ -2229,7 +2332,7 @@ export function CommerceAdmin() {
                           <button
                             title="Edit inventory account"
                             aria-label={`Edit ${item.email}`}
-                            disabled={[
+                            disabled={Boolean(item.sharedAccount) || [
                               'reserved',
                               'delivered',
                               'withdrawn',
@@ -2242,7 +2345,7 @@ export function CommerceAdmin() {
                             title="Delete inventory account"
                             aria-label={`Delete ${item.email}`}
                             disabled={
-                              !['available', 'quarantined'].includes(item.state)
+                              Boolean(item.sharedAccount) || !['available', 'quarantined'].includes(item.state)
                             }
                             onClick={() => {
                               if (
