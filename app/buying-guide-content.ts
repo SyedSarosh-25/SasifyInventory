@@ -27,7 +27,7 @@ export const guideQuestions = [
   },
   {
     question: 'What is the warranty on Sasify Solutions products?',
-    answer: 'All products come with a warranty period. One-month and 30-day packages include a full 25-day warranty from Sasify Solutions. For yearly plans and other packages, review the warranty duration and coverage shown with the listing. A one-year access period does not by itself mean a one-year warranty.',
+    answer: 'All products come with a warranty period. One-month and 30-day packages generally include a full 25-day warranty from Sasify Solutions, except the ChatGPT Plus Momo Pay / Partially Stable option, which includes a full 20-day warranty. For yearly plans and other packages, review the warranty duration and coverage shown with the listing. A one-year access period does not by itself mean a one-year warranty.',
   },
   {
     question: 'How are original prices and savings compared?',

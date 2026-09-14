@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import {
   ClipboardList,
   Copy,
+  BadgeDollarSign,
   KeyRound,
   LayoutDashboard,
   MessageCircle,
@@ -862,8 +863,12 @@ export function CommerceAdmin() {
     [inventorySearch, setInventorySearch] = useState(''),
     [supplierSearch, setSupplierSearch] = useState(''),
     [supplierKeyValues, setSupplierKeyValues] = useState<Record<string, string>>({}),
+    [supplierKeysOpen, setSupplierKeysOpen] = useState(false),
     [supplierProvider, setSupplierProvider] = useState<
       'all' | 'dodi' | 'qamify' | 'mke' | 'piggyai' | 'zoomstore' | 'fatbunny'
+    >('all'),
+    [orderFilter, setOrderFilter] = useState<
+      'all' | 'delivered' | 'unfulfilled' | 'cancelled'
     >('all'),
     [editing, setEditing] = useState<any>(null),
     [picked, setPicked] = useState<{
@@ -1067,6 +1072,27 @@ export function CommerceAdmin() {
     ) || { sales: 0, total: 0, rate: 10, perSale: 0 };
   const totalCommission =
     Number(horCommission.total || 0) + Number(custCommission.total || 0);
+  const orderFilterOptions = [
+    ['all', 'All orders'],
+    ['delivered', 'Delivered'],
+    ['unfulfilled', 'Unfulfilled'],
+    ['cancelled', 'Cancelled'],
+  ] as const;
+  const orderMatchesFilter = (row: any) => {
+    if (orderFilter === 'all') return true;
+    if (orderFilter === 'delivered') return row.status === 'delivered';
+    if (orderFilter === 'cancelled')
+      return ['cancelled', 'expired'].includes(row.status);
+    return ['pending', 'review'].includes(row.status);
+  };
+  const orderRows = (data?.orders || []).filter(orderMatchesFilter);
+  const orderFilterCount = (filter: (typeof orderFilterOptions)[number][0]) =>
+    (data?.orders || []).filter((row: any) => {
+      if (filter === 'all') return true;
+      if (filter === 'delivered') return row.status === 'delivered';
+      if (filter === 'cancelled') return ['cancelled', 'expired'].includes(row.status);
+      return ['pending', 'review'].includes(row.status);
+    }).length;
   const beginEdit = (item: any) => {
     setEditing(item);
     setEditCost(String(item.purchaseCost));
@@ -1220,12 +1246,12 @@ export function CommerceAdmin() {
         {[
           ['overview', 'Overview', LayoutDashboard],
           ['profit', 'Profit', WalletCards],
-          ['commissions', 'Commissions', WalletCards],
           ['inventory', 'Inventory', Package],
           ['supplier', 'Supplier Store', ShoppingCart],
           ['orders', 'Orders', ClipboardList],
           ['payments', 'Payments', WalletCards],
           ['coupons', 'Coupons', TicketPercent],
+          ['commissions', 'Commissions', BadgeDollarSign],
           ['scammers', 'Scam reports', ShieldAlert],
         ].map(([value, label, Icon]: any) => (
           <button
@@ -1555,9 +1581,11 @@ export function CommerceAdmin() {
         <div className="admin-workspace">
           <section className="metric-grid">
             <article>
-              <span>Recognized value</span>
+              <span>Net sales after coupons</span>
               <strong>{money(data.metrics.income)}</strong>
               <small>
+                Gross {money(data.metrics.gross_income)} · Discounts{' '}
+                {money(data.metrics.coupon_discounts)} ·{' '}
                 {data.metrics.delivered_orders} delivered ·{' '}
                 {data.metrics.admin_withdrawals || 0} admin withdrawals
               </small>
@@ -1567,11 +1595,14 @@ export function CommerceAdmin() {
               className="metric-card metric-profit-card"
               onClick={() => setTab('profit')}
             >
-              <span>Total profit</span>
+              <span>Profit after coupon rules</span>
               <strong className="metric-profit">
                 {money(data.metrics.profit)}
               </strong>
-              <small>Click for local vs supplier details</small>
+              <small>
+                HOR value credited {money(data.metrics.hor_profit_credit)} ·
+                other coupons use discounted sale price
+              </small>
             </button>
             <article>
               <span>This month</span>
@@ -1625,10 +1656,10 @@ export function CommerceAdmin() {
               <div>
                 <span className="admin-eyebrow">Financial breakdown</span>
                 <h2>Profit details</h2>
-              <p>
-                  Delivered sales, HOR team deliveries, and admin withdrawals are
-                  grouped by fulfilment source. Profit is recognized value minus
-                  the recorded cost.
+                <p>
+                  Profit is calculated per delivered order. HOR uses the original
+                  sale value; reseller and other coupons use sale value after
+                  discount. Each result is reduced by purchase cost and added.
                 </p>
               </div>
               <button
@@ -1642,7 +1673,15 @@ export function CommerceAdmin() {
               {['local', 'supplier'].map((source) => {
                 const row = data.profitBreakdown?.find(
                   (item: any) => item.source === source,
-                ) || { income: 0, cost: 0, profit: 0, orders: 0 };
+                ) || {
+                  income: 0,
+                  gross_income: 0,
+                  coupon_discounts: 0,
+                  hor_profit_credit: 0,
+                  cost: 0,
+                  profit: 0,
+                  orders: 0,
+                };
                 return (
                   <article
                     key={source}
@@ -1665,6 +1704,14 @@ export function CommerceAdmin() {
                     <div>
                       <span>Recorded cost</span>
                       <strong>{money(row.cost)}</strong>
+                    </div>
+                    <div>
+                      <span>Coupon discounts</span>
+                      <strong>{money(row.coupon_discounts)}</strong>
+                    </div>
+                    <div>
+                      <span>HOR value credited</span>
+                      <strong>{money(row.hor_profit_credit)}</strong>
                     </div>
                     <div>
                       <span>Profit</span>
@@ -1691,9 +1738,9 @@ export function CommerceAdmin() {
                 <span className="admin-eyebrow">Partner payouts</span>
                 <h2>Commission tracking</h2>
                 <p>
-                  Delivered orders are recorded here. HOR pays PKR 50 per team
-                  account, while CUST keeps the normal price and pays 10% per
-                  sale.
+                  Delivered orders are recorded here. HOR is disabled for new
+                  orders; historical HOR records remain visible. CUST keeps the
+                  normal price and pays 10% per delivered sale.
                 </p>
               </div>
               <button
@@ -2148,72 +2195,93 @@ export function CommerceAdmin() {
       {tab === 'supplier' && (
         <div className="admin-workspace">
           <section className="admin-panel supplier-key-panel">
-            <div className="panel-heading">
+            <div className="panel-heading supplier-key-heading">
               <div>
                 <span className="admin-eyebrow">Secure configuration</span>
-                <h2>Supplier API keys</h2>
+                <h2>Supplier integrations</h2>
                 <p>
-                  Enter a key once. It is encrypted on the server, never shown
-                  again, and immediately used for supplier sync and purchases.
+                  Supplier connections are ready for catalog sync and fulfilment.
+                  Open the key editor only when you need to replace a key.
                 </p>
               </div>
-              <KeyRound size={24} />
+              <button
+                type="button"
+                className="secondary-button compact supplier-key-toggle"
+                aria-expanded={supplierKeysOpen}
+                onClick={() => setSupplierKeysOpen((open) => !open)}
+              >
+                <KeyRound size={16} />
+                {supplierKeysOpen ? 'Close key editor' : 'Update keys'}
+              </button>
             </div>
-            <div className="supplier-key-list">
+            <div className="supplier-key-summary" aria-label="Supplier key status">
               {(data.supplierKeys || []).map((provider: any) => (
-                <div className="supplier-key-row" key={provider.providerId}>
-                  <div>
-                    <strong>{provider.providerName}</strong>
-                    <small>
-                      {provider.configured
-                        ? provider.source === 'admin'
-                          ? 'Admin key configured'
-                          : 'Environment key configured'
-                        : 'Not configured'}
-                    </small>
-                  </div>
-                  <label>
-                    API key
-                    <input
-                      type="password"
-                      value={supplierKeyValues[provider.providerId] || ''}
-                      onChange={(e) =>
-                        setSupplierKeyValues((current) => ({
-                          ...current,
-                          [provider.providerId]: e.target.value,
-                        }))
-                      }
-                      placeholder={
-                        provider.configured
-                          ? 'Enter a new key to replace it'
-                          : 'Paste supplier API key'
-                      }
-                      autoComplete="new-password"
-                    />
-                  </label>
-                  <div className="supplier-key-actions">
-                    <button
-                      className="secondary-button compact"
-                      disabled={busy || !supplierKeyValues[provider.providerId]?.trim()}
-                      onClick={() => void run(() => saveSupplierKey(provider))}
-                    >
-                      Save &amp; sync
-                    </button>
-                    {provider.source === 'admin' && (
-                      <button
-                        className="secondary-button compact danger-action"
-                        disabled={busy}
-                        onClick={() =>
-                          void run(() => saveSupplierKey(provider, true))
-                        }
-                      >
-                        Remove
-                      </button>
-                    )}
-                  </div>
-                </div>
+                <span
+                  className={`supplier-key-pill ${provider.configured ? 'configured' : 'missing'}`}
+                  key={provider.providerId}
+                >
+                  <strong>{provider.providerName}</strong>
+                  <small>{provider.configured ? 'Connected' : 'Needs key'}</small>
+                </span>
               ))}
             </div>
+            {supplierKeysOpen && (
+              <div className="supplier-key-list">
+                {(data.supplierKeys || []).map((provider: any) => (
+                  <div className="supplier-key-row" key={provider.providerId}>
+                    <div>
+                      <strong>{provider.providerName}</strong>
+                      <small>
+                        {provider.configured
+                          ? provider.source === 'admin'
+                            ? 'Admin key configured'
+                            : 'Environment key configured'
+                          : 'Not configured'}
+                      </small>
+                    </div>
+                    <label>
+                      API key
+                      <input
+                        type="password"
+                        value={supplierKeyValues[provider.providerId] || ''}
+                        onChange={(e) =>
+                          setSupplierKeyValues((current) => ({
+                            ...current,
+                            [provider.providerId]: e.target.value,
+                          }))
+                        }
+                        placeholder={
+                          provider.configured
+                            ? 'Enter a new key to replace it'
+                            : 'Paste supplier API key'
+                        }
+                        autoComplete="new-password"
+                      />
+                    </label>
+                    <div className="supplier-key-actions">
+                      <button
+                        className="secondary-button compact"
+                        disabled={busy || !supplierKeyValues[provider.providerId]?.trim()}
+                        onClick={() => void run(() => saveSupplierKey(provider))}
+                      >
+                        Save &amp; sync
+                      </button>
+                      {provider.source === 'admin' && (
+                        <button
+                          className="secondary-button compact danger-action"
+                          disabled={busy}
+                          onClick={() =>
+                            void run(() => saveSupplierKey(provider, true))
+                          }
+                        >
+                          Remove
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </section>
           <section className="admin-panel">
             <div className="panel-heading">
@@ -2475,8 +2543,31 @@ export function CommerceAdmin() {
               <div>
                 <span className="admin-eyebrow">Order management</span>
                 <h2>Orders</h2>
+                <p>
+                  Financial figures use the cost captured when each order was
+                  delivered, so inventory edits do not change historical profit.
+                </p>
               </div>
             </div>
+            <div className="order-filter-bar" role="tablist" aria-label="Filter orders by status">
+              {orderFilterOptions.map(([value, label]) => (
+                <button
+                  key={value}
+                  type="button"
+                  role="tab"
+                  aria-selected={orderFilter === value}
+                  className={orderFilter === value ? 'active' : ''}
+                  onClick={() => setOrderFilter(value)}
+                >
+                  {label}
+                  <span>{orderFilterCount(value)}</span>
+                </button>
+              ))}
+            </div>
+            <p className="order-filter-summary">
+              Showing {orderRows.length} of {(data.orders || []).length} recent
+              orders. Expired reservations are grouped with cancelled orders.
+            </p>
             <div className="commerce-table">
               <table>
                 <thead>
@@ -2484,7 +2575,9 @@ export function CommerceAdmin() {
                     <th>Order</th>
                     <th>Product</th>
                     <th>Supplier</th>
-                    <th>Amount</th>
+                    <th>Sale</th>
+                    <th>Cost</th>
+                    <th>Profit</th>
                     <th>Status</th>
                     <th>Payment match</th>
                     <th>Sender</th>
@@ -2493,7 +2586,7 @@ export function CommerceAdmin() {
                   </tr>
                 </thead>
                 <tbody>
-                  {data.orders.map((row: any) => (
+                  {orderRows.map((row: any) => (
                     <tr key={row.id}>
                       <td>
                         <button
@@ -2514,9 +2607,14 @@ export function CommerceAdmin() {
                       </td>
                       <td>
                         {money(row.amount)}
+                        {row.coupon_code && <small>{row.coupon_code}</small>}
                         {Number(row.listed_amount) > Number(row.amount) && (
                           <small>Listed {money(row.listed_amount)}</small>
                         )}
+                      </td>
+                      <td>{row.cost_pkr == null ? '—' : money(row.cost_pkr)}</td>
+                      <td>
+                        {row.profit_pkr == null ? '—' : money(row.profit_pkr)}
                       </td>
                       <td>
                         <span className={`admin-state ${row.status}`}>

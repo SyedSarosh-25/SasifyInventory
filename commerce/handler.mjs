@@ -157,6 +157,9 @@ function summarizeProfit(deliveredRows, withdrawnRows) {
   monthStart.setHours(0, 0, 0, 0);
   const summary = {
     income: 0,
+    gross_income: 0,
+    coupon_discounts: 0,
+    hor_profit_credit: 0,
     cost: 0,
     profit: 0,
     monthly_income: 0,
@@ -167,32 +170,57 @@ function summarizeProfit(deliveredRows, withdrawnRows) {
     missing_costs: 0,
   };
   const breakdown = {
-    local: { income: 0, cost: 0, profit: 0, orders: 0 },
-    supplier: { income: 0, cost: 0, profit: 0, orders: 0 },
+    local: { income: 0, gross_income: 0, coupon_discounts: 0, hor_profit_credit: 0, cost: 0, profit: 0, orders: 0 },
+    supplier: { income: 0, gross_income: 0, coupon_discounts: 0, hor_profit_credit: 0, cost: 0, profit: 0, orders: 0 },
   };
-  const add = (row, income, cost, source, date) => {
+  const add = (row, income, cost, source, date, financials = {}) => {
     const safeIncome = Number.isFinite(Number(income)) ? Number(income) : 0;
+    const netIncome = Number.isFinite(Number(financials.netIncome))
+      ? Number(financials.netIncome)
+      : safeIncome;
+    const grossIncome = Number.isFinite(Number(financials.grossIncome))
+      ? Number(financials.grossIncome)
+      : netIncome;
+    const couponDiscount = Number.isFinite(Number(financials.couponDiscount))
+      ? Number(financials.couponDiscount)
+      : 0;
+    const horProfitCredit = Number.isFinite(Number(financials.horProfitCredit))
+      ? Number(financials.horProfitCredit)
+      : 0;
     const safeCost = Number.isFinite(Number(cost)) ? Number(cost) : 0;
     const profit = safeIncome - safeCost;
-    summary.income += safeIncome;
+    summary.income += netIncome;
+    summary.gross_income += grossIncome;
+    summary.coupon_discounts += couponDiscount;
+    summary.hor_profit_credit += horProfitCredit;
     summary.cost += safeCost;
     summary.profit += profit;
     if (safeCost === 0) summary.missing_costs++;
     const bucket = breakdown[source] || breakdown.local;
-    bucket.income += safeIncome;
+    bucket.income += netIncome;
+    bucket.gross_income += grossIncome;
+    bucket.coupon_discounts += couponDiscount;
+    bucket.hor_profit_credit += horProfitCredit;
     bucket.cost += safeCost;
     bucket.profit += profit;
     bucket.orders++;
     if (date && new Date(date) >= monthStart) {
-      summary.monthly_income += safeIncome;
+      summary.monthly_income += netIncome;
       summary.monthly_profit += profit;
     }
   };
   for (const row of deliveredRows) {
     const isTeamCoupon = String(row.code_display || '').toUpperCase() === TEAM_COUPON_CODE;
-    const income = Number(row.amount || 0) + (isTeamCoupon ? Number(row.coupon_discount || 0) : 0);
+    const netIncome = Number(row.amount || 0);
+    const couponDiscount = Number(row.coupon_discount || 0);
+    const income = netIncome + (isTeamCoupon ? couponDiscount : 0);
     const cost = row.purchase_cost ?? row.supplier_cost_pkr ?? 0;
-    add(row, income, cost, row.supplier_product_id ? 'supplier' : 'local', row.delivered_at);
+    add(row, income, cost, row.supplier_product_id ? 'supplier' : 'local', row.delivered_at, {
+      netIncome,
+      grossIncome: netIncome + couponDiscount,
+      couponDiscount,
+      horProfitCredit: isTeamCoupon ? couponDiscount : 0,
+    });
   }
   for (const row of withdrawnRows)
     add(row, localProductSellingPrice(row.product_id), row.purchase_cost, 'local', row.created_at);
@@ -539,6 +567,38 @@ async function ensureDefaultCoupon(db) {
       VALUES($1,$2,'CUST','p093',0,0,10,10,0,true,true,now(),now()) ON CONFLICT DO NOTHING`,
     [randomUUID(), customerCodeHash],
   );
+}
+let orderFinanceSchemaReady;
+async function ensureOrderFinanceSchema(db) {
+  if (!orderFinanceSchemaReady) {
+    orderFinanceSchemaReady = (async () => {
+      await db.query(
+        'ALTER TABLE commerce_orders ADD COLUMN IF NOT EXISTS fulfillment_cost_pkr integer CHECK(fulfillment_cost_pkr>=0)',
+      );
+      await db.query(
+        `UPDATE commerce_orders o
+         SET fulfillment_cost_pkr = CASE
+           WHEN o.supplier_product_id IS NOT NULL THEN o.supplier_cost_pkr
+           ELSE i.purchase_cost
+         END
+         FROM commerce_inventory i
+         WHERE o.inventory_id=i.id
+           AND o.status='delivered'
+           AND o.fulfillment_cost_pkr IS NULL`,
+      );
+      await db.query(
+        `UPDATE commerce_orders
+         SET fulfillment_cost_pkr = COALESCE(supplier_cost_pkr, 0)
+         WHERE status='delivered'
+           AND fulfillment_cost_pkr IS NULL
+           AND supplier_product_id IS NOT NULL`,
+      );
+    })().catch((error) => {
+      orderFinanceSchemaReady = null;
+      throw error;
+    });
+  }
+  await orderFinanceSchemaReady;
 }
 let supplierApiLogSchemaReady;
 async function ensureSupplierApiLogSchema(db) {
@@ -1341,7 +1401,7 @@ async function fulfill(
       payment.id,
     ]);
     await db.query(
-      "UPDATE commerce_orders SET status='delivered',delivered_at=now(),supplier_product_id=$1,supplier_cost_pkr=$2,supplier_order_id=$3,supplier_status='delivered',supplier_delivery=$4 WHERE id=$5",
+      "UPDATE commerce_orders SET status='delivered',delivered_at=now(),supplier_product_id=$1,supplier_cost_pkr=$2,fulfillment_cost_pkr=$2,supplier_order_id=$3,supplier_status='delivered',supplier_delivery=$4 WHERE id=$5",
       [
         product.id,
         product.cost_pkr || 0,
@@ -1395,8 +1455,8 @@ async function fulfill(
     payment.id,
   ]);
   await db.query(
-    "UPDATE commerce_orders SET status='delivered',delivered_at=now() WHERE id=$1",
-    [order.id],
+    "UPDATE commerce_orders SET status='delivered',delivered_at=now(),fulfillment_cost_pkr=(SELECT purchase_cost FROM commerce_inventory WHERE id=$1) WHERE id=$2",
+    [order.inventory_id, order.id],
   );
   await db.query('INSERT INTO commerce_audit(action,object_id) VALUES($1,$2)', [
     manual ? 'manual_delivery' : 'auto_delivery',
@@ -1419,8 +1479,8 @@ async function fulfillFreeOrder(db, orderId) {
   );
   if (!changed.rowCount) throw fail(409, 'Reserved stock is unavailable.');
   await db.query(
-    "UPDATE commerce_orders SET status='delivered',delivered_at=now() WHERE id=$1",
-    [order.id],
+    "UPDATE commerce_orders SET status='delivered',delivered_at=now(),fulfillment_cost_pkr=(SELECT purchase_cost FROM commerce_inventory WHERE id=$1) WHERE id=$2",
+    [order.inventory_id, order.id],
   );
   await db.query(
     "INSERT INTO commerce_audit(action,object_id) VALUES('coupon_free_delivery',$1)",
@@ -1489,8 +1549,8 @@ async function manualDeliverLocalOrder(db, orderId, inventoryId, key) {
   );
   if (!changed.rowCount) throw fail(409, 'Selected credential is no longer available.');
   await db.query(
-    "UPDATE commerce_orders SET inventory_id=$1,status='delivered',delivered_at=now() WHERE id=$2",
-    [item.id, order.id],
+    "UPDATE commerce_orders SET inventory_id=$1,status='delivered',delivered_at=now(),fulfillment_cost_pkr=$2 WHERE id=$3",
+    [item.id, item.purchase_cost, order.id],
   );
   await db.query(
     "INSERT INTO commerce_audit(action,object_id) VALUES('manual_admin_delivery',$1)",
@@ -1636,6 +1696,7 @@ export function createHandler(
       )
         throw fail(405, 'Method not allowed.');
       await ensureCouponSchema(db);
+      await ensureOrderFinanceSchema(db);
       await ensureSupplierApiLogSchema(db);
       await ensureSupplierSecretSchema(db);
       await ensureSupplierMediaSchema(db);
@@ -2549,6 +2610,18 @@ export function createHandler(
             'SELECT id,code_display,discount_percent,commission_percent,max_uses,used_count,enabled,unlimited,created_at,updated_at FROM commerce_coupons ORDER BY created_at DESC',
           )
         ).rows;
+        const commissionOrders = (
+          await db.query(
+            `SELECT o.id,o.product_id,o.amount,o.coupon_discount,o.delivered_at,
+                sp.provider_name AS supplier_name,sp.name AS supplier_product_name
+             FROM commerce_orders o
+             LEFT JOIN commerce_supplier_products sp ON sp.id=o.supplier_product_id
+             INNER JOIN commerce_coupons c ON c.id=o.coupon_id
+             WHERE o.status='delivered' AND c.code_display=$1
+             ORDER BY o.delivered_at DESC`,
+            [TEAM_COUPON_CODE],
+          )
+        ).rows;
         output = {
           metrics: profitSummary.metrics,
           coupons,
@@ -2585,7 +2658,11 @@ export function createHandler(
             await db.query(
               `SELECT o.id,o.product_id,o.amount,o.listed_amount,o.coupon_discount,o.status,o.transaction_id,o.payer_name,
                 o.payment_submitted_at,o.supplier_order_id,o.supplier_status,c.code_display AS coupon_code,
-                sp.provider_name AS supplier_name,sp.name AS supplier_product_name,o.created_at,o.delivered_at
+                sp.provider_name AS supplier_name,sp.name AS supplier_product_name,o.created_at,o.delivered_at,
+                o.fulfillment_cost_pkr AS cost_pkr,
+                CASE WHEN o.status='delivered' THEN
+                  (CASE WHEN c.code_display='HOR' THEN o.amount+COALESCE(o.coupon_discount,0) ELSE o.amount END)-COALESCE(o.fulfillment_cost_pkr,0)
+                  ELSE NULL END AS profit_pkr
                FROM commerce_orders o
                LEFT JOIN commerce_coupons c ON c.id=o.coupon_id
                LEFT JOIN commerce_supplier_products sp ON sp.id=o.supplier_product_id
@@ -2609,6 +2686,16 @@ export function createHandler(
           commissionSummary,
           commissions,
           supplierKeys: supplierKeyStatus(supplierApiKeys),
+          teamCommissions: {
+            ratePkr: TEAM_COMMISSION_PKR,
+            totalPkr: commissionOrders.length * TEAM_COMMISSION_PKR,
+            orders: commissionOrders.map((row) => ({
+              ...row,
+              original_sale_pkr:
+                Number(row.amount || 0) + Number(row.coupon_discount || 0),
+              commission_pkr: TEAM_COMMISSION_PKR,
+            })),
+          },
         };
       } else if (action === 'admin-supplier-logs') {
         const logOrderId = req.query?.id || null;

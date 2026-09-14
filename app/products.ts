@@ -21,6 +21,7 @@ export type ProductVariant = {
   duration: string;
   sellingPricePkr: number;
   originalPricePkr: number;
+  warrantyDays?: number;
 };
 
 export const products: Product[] = [
@@ -44,6 +45,15 @@ export const products: Product[] = [
         duration: '1 Month',
         sellingPricePkr: 3499,
         originalPricePkr: 5700,
+        warrantyDays: 25,
+      },
+      {
+        id: 'p093-momo',
+        name: 'Partially Stable Account · Momo Pay',
+        duration: '1 Month',
+        sellingPricePkr: 2999,
+        originalPricePkr: 5700,
+        warrantyDays: 20,
       },
     ],
   },
