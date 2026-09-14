@@ -65,6 +65,7 @@ import {
   publicScamReportSummary,
 } from './scam-reports.mjs';
 import { normalizeToolRequest } from './tool-requests.mjs';
+import { customerProduct, customerProductName, customerProductText } from './product-display.mjs';
 import {
   DEFAULT_REVIEWS_URL,
   fetchGoogleReviews,
@@ -2152,7 +2153,7 @@ export function createHandler(
         output = {
           products: [
             ...localCatalog.map((p) => ({
-              ...p,
+              ...customerProduct(p),
               source: 'local',
               available:
                 p.id === 'p093'
@@ -2164,7 +2165,7 @@ export function createHandler(
                   : counts.find((r) => r.product_id === p.id)?.available || 0,
             })),
             ...supplierProducts.map((p) => ({
-              ...p,
+              ...customerProduct(p),
               id: p.canonical_key,
               source: 'supplier',
             })),
@@ -2576,13 +2577,13 @@ export function createHandler(
             catalog.find((p) => p.id === order.product_id)?.name ||
             (
               await db.query(
-                'SELECT name FROM commerce_supplier_products WHERE id=$1',
-                [order.product_id],
+                'SELECT name FROM commerce_supplier_products WHERE id=$1 OR canonical_key=$1 ORDER BY id LIMIT 1',
+                [order.supplier_product_id || order.product_id],
               )
             ).rows[0]?.name;
           output = {
             id,
-            product: orderProduct,
+            product: orderProduct ? customerProductName({ id: order.product_id, name: orderProduct }) : orderProduct,
             amount: order.amount,
             listedAmount: Number(order.listed_amount ?? order.amount),
             originalAmount:
@@ -2610,8 +2611,11 @@ export function createHandler(
             },
           };
           if (order.status === 'delivered') {
-            if (order.supplier_delivery)
+            if (order.supplier_delivery) {
               output.delivery = decrypt(order.supplier_delivery, key);
+              if (output.delivery.instructions)
+                output.delivery.instructions = customerProductText(output.delivery.instructions, { id: order.product_id, name: orderProduct });
+            }
             else {
               const item = (
                 await db.query(
@@ -3170,7 +3174,7 @@ export function createHandler(
             await db.query(
               'SELECT * FROM commerce_supplier_products ORDER BY provider_name,name',
             )
-          ).rows,
+          ).rows.map(customerProduct),
           providerStates: (
             await db.query(
               'SELECT * FROM commerce_provider_state ORDER BY provider_name',

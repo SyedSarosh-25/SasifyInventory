@@ -19,7 +19,8 @@ test('Claude Team prices and seat types match the requested offers', () => {
   for (const id of ['p012', 'p013']) {
     const product = products.find((p) => p.id === id);
     assert.equal(product.duration, '1 Month');
-    assert.equal(has25DayWarranty(product), true);
+    assert.equal(has25DayWarranty(product), false);
+    assert.match(product.description, /Full warranty.*entire 1 Month plan duration/);
     assert.match(product.originalPrice, /per seat\/month/);
   }
 });
@@ -56,10 +57,14 @@ test('one-year variants receive one-time payment wording only at the annual dura
   for (const duration of ['1 Month', '18 Months', '3 Years', '499 Invites', '-']) assert.equal(isAnnualPlan({ ...base, duration }), false);
 });
 
-test('25-day warranty is scoped to 30-day and one-month products', () => {
+test('25-day warranty is scoped to one-month ChatGPT, other plans cover their full duration', () => {
   const base = products[0];
   for (const duration of ['30 Days', '1 Month']) assert.equal(has25DayWarranty({ ...base, duration }), true);
   for (const duration of ['3 Months', '1 Year', 'Lifetime Credits']) assert.equal(has25DayWarranty({ ...base, duration }), false);
+  for (const product of products.filter(product => product.id !== 'p093')) {
+    assert.equal(has25DayWarranty(product), false);
+    assert.match(product.description, /Full warranty from Sasify Solutions for the entire/);
+  }
 });
 
 test('savings subtract our price from the listed original with the fixed USD rate', () => {

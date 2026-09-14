@@ -12,6 +12,14 @@ Authoritative status date: 11 September 2026.
 
 ## Storefront
 
+Warranty policy updated 14 September 2026: every non-ChatGPT plan is covered by
+Sasify Solutions for its entire purchased duration. ChatGPT retains its existing
+account-specific terms (Ultra Stable Apple Pay: 25 days). Customer-facing product
+copy removes supplier NW / non-warranty labels and replaces shorter warranty
+claims through `commerce/product-display.mjs`. Raw supplier records, canonical
+IDs, costs and fulfilment mappings are preserved; the projection also applies
+to existing catalog rows on reads, so syncs cannot reintroduce obsolete copy.
+
 The public catalog currently contains five canonical products:
 
 - `p093`: ChatGPT Plus, with `p093-ultra` Apple Pay inventory at PKR 3,499.

@@ -1,5 +1,7 @@
 import type { Product } from './products';
 import { USD_TO_PKR } from './currency-utils.ts';
+import { isChatGptPlan } from '../commerce/product-display.mjs';
+export { fullPlanWarranty } from '../commerce/product-display.mjs';
 
 export { siteOrigin } from './site-config.ts';
 export const claudeLogoUrl = 'https://www.google.com/s2/favicons?domain_url=https%3A%2F%2Fclaude.ai&sz=128';
@@ -49,7 +51,7 @@ export function accessTypeLabel(product: Product) {
 }
 
 export function has25DayWarranty(product: Product) {
-  return /^(1 month|30 days)$/i.test(product.duration.trim());
+  return isChatGptPlan(product) && /^(1 month|30 days)$/i.test(product.duration.trim());
 }
 
 export function warrantyDays(product: Product, variantId?: string) {

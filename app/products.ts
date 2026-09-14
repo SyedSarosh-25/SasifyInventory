@@ -1,3 +1,5 @@
+import { customerProduct } from '../commerce/product-display.mjs';
+
 export type Product = {
   id: string;
   slug: string;
@@ -24,7 +26,7 @@ export type ProductVariant = {
   warrantyDays?: number;
 };
 
-export const products: Product[] = [
+const catalogProducts: Product[] = [
   {
     id: 'p093',
     slug: 'chatgpt-plus-1-month',
@@ -154,3 +156,5 @@ export const products: Product[] = [
     ],
   },
 ];
+
+export const products: Product[] = catalogProducts.map(customerProduct);

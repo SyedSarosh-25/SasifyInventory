@@ -2,11 +2,12 @@ import type { Product } from './products.ts';
 import { products } from './products.ts';
 import {
   formatPkr,
-  has25DayWarranty,
+  fullPlanWarranty,
   isAnnualPlan,
   productHref,
   productLogo,
 } from './product-utils.ts';
+import { isChatGptPlan } from '../commerce/product-display.mjs';
 import {
   founderProfile,
   siteDescription,
@@ -21,9 +22,9 @@ export function productTitle(product: Product) {
 
 export function productDescription(product: Product) {
   if (product.contactOnly)
-    return `${product.name}: Choose from KVM1, KVM2, KVM4 and KVM8 packages, then contact Sasify Solutions on WhatsApp for pricing, availability and purchase.`;
+    return `${product.name}: KVM1, KVM2, KVM4 and KVM8 packages with full plan warranty. Contact Sasify Solutions on WhatsApp for pricing and purchase.`;
   const duration = product.duration === '-' ? 'this package' : product.duration;
-  return `${product.name}: ${formatPkr(product.sellingPricePkr)} for ${duration} in Pakistan. Check access, warranty and plan details, then buy online with automatic delivery after payment verification.`;
+  return `${product.name}: ${formatPkr(product.sellingPricePkr)} for ${duration} in Pakistan. ${isChatGptPlan(product) ? 'Check access, warranty and plan details' : 'Full warranty for the entire plan duration'}, then buy online with automatic delivery after payment verification.`;
 }
 
 export function productQuestions(product: Product) {
@@ -40,7 +41,7 @@ export function productQuestions(product: Product) {
       {
         question: `What support comes with ${product.name}?`,
         answer:
-          'Sasify Solutions support is available on WhatsApp for availability, activation and plan questions.',
+          `${fullPlanWarranty(product)} Sasify Solutions support is available on WhatsApp for availability, activation and plan questions.`,
       },
     ];
   if (product.id === 'p093' && product.variants?.length)
@@ -75,9 +76,7 @@ export function productQuestions(product: Product) {
     },
     {
       question: `What warranty comes with ${product.name}?`,
-      answer: has25DayWarranty(product)
-        ? 'This one-month / 30-day package includes a full 25-day warranty from Sasify Solutions. WhatsApp support is available after payment for delivery or activation issues.'
-        : 'A warranty period is included. Review the duration and coverage shown for this package; WhatsApp support is available after payment for delivery or activation issues.',
+      answer: `${isChatGptPlan(product) ? 'ChatGPT warranty terms are shown with the selected account option.' : fullPlanWarranty(product)} WhatsApp support is available after payment for delivery or activation issues.`,
     },
   ];
 }

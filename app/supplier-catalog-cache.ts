@@ -1,4 +1,4 @@
-const cacheKey = 'sasify-supplier-catalog-v1';
+const cacheKey = 'sasify-supplier-catalog-v2';
 
 export function readSupplierCatalogProduct<T extends { id: string }>(id: string) {
   if (typeof window === 'undefined') return null;

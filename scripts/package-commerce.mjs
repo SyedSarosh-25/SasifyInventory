@@ -38,6 +38,7 @@ for (const name of [
   'supplier.mjs',
   'supplier-api-log.mjs',
   'description.mjs',
+  'product-display.mjs',
   'provider-media.mjs',
   'qamify.mjs',
   'mke.mjs',
@@ -50,12 +51,13 @@ for (const name of [
 ])
   await cp(path.join(root, 'commerce', name), path.join(func, name));
 const catalog = products.flatMap((p) => [
-  { id: p.id, name: p.name, price: p.sellingPricePkr },
+  { id: p.id, name: p.name, description: p.description, duration: p.duration, price: p.sellingPricePkr },
   ...(p.variants || [])
     .filter((v) => v.id)
     .map((v) => ({
       id: v.id,
       name: `${p.name} · ${v.name}`,
+      duration: v.duration,
       price: v.sellingPricePkr,
     })),
 ]);

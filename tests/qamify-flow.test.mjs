@@ -37,14 +37,14 @@ test('Qamify catalog sync and paid order fulfilment use provider IDs and idempot
     const requestUrl = typeof url === 'string' ? url : url instanceof URL ? url.href : url.url;
     calls.push({ url: requestUrl, init });
     if (requestUrl.endsWith('/v1/products')) return new Response(JSON.stringify({ products: [
-      { id: 42, name: 'Qamify Test Backup', unit_price: '2.50', currency: 'USD', stock: 3, description: 'Instant test item' },
-      { id: 43, name: 'Qamify Test Cheapest', unit_price: '1.50', currency: 'USD', stock: 2, description: 'Instant test item' },
+      { id: 42, name: 'Qamify Test Backup 1 Month NW', unit_price: '2.50', currency: 'USD', stock: 3, description: 'Instant test item. Non warranty' },
+      { id: 43, name: 'Qamify Test Cheapest 1 Month NW', unit_price: '1.50', currency: 'USD', stock: 2, description: 'Instant test item. Non warranty' },
     ] }), { status: 200 });
     if (requestUrl.endsWith('/v1/balance')) return new Response(JSON.stringify({ balance: 25, currency: 'USD' }), { status: 200 });
     if (requestUrl.endsWith('/v1/orders')) {
       const body = JSON.parse(init.body);
       if (body.product_id === 43) return new Response(JSON.stringify({ ok:false,error:{ code:'out_of_stock',message:'No stock' } }), { status: 409 });
-      return new Response(JSON.stringify({ order: { code: 'RA-TEST-ORDER', items: ['test-license'], instructions: 'Redeem once.' } }), { status: 200 });
+      return new Response(JSON.stringify({ order: { code: 'RA-TEST-ORDER', items: ['test-license'], instructions: 'Redeem once.\nNo warranty after activation.' } }), { status: 200 });
     }
     return new Response(JSON.stringify({ error: 'Unexpected test URL' }), { status: 404 });
   };
@@ -78,6 +78,12 @@ test('Qamify catalog sync and paid order fulfilment use provider IDs and idempot
     assert.equal(product.provider_name, 'Qamify');
     assert.equal(product.available, 2);
     assert.equal(product.price, 999);
+    assert.equal(product.name, 'Qamify Test Cheapest 1 Month');
+    assert.match(product.description, /Full warranty.*entire plan duration/);
+    assert.doesNotMatch(product.description, /non warranty/i);
+    const sourceProduct = (await database.query("SELECT name,description FROM commerce_supplier_products WHERE id='qamify:43'")).rows[0];
+    assert.match(sourceProduct.name, /NW$/);
+    assert.match(sourceProduct.description, /Non warranty/);
 
     const created = await request('create', { productId: product.id });
     assert.equal(created.code, 200, JSON.stringify(created));
@@ -88,6 +94,7 @@ test('Qamify catalog sync and paid order fulfilment use provider IDs and idempot
     assert.equal(claim.code, 200, JSON.stringify(claim));
     const status = await request('status', undefined, created.data.recovery, created.data.id);
     assert.equal(status.data.status, 'delivered', JSON.stringify(status));
+    assert.equal(status.data.product, 'Qamify Test Backup 1 Month');
     assert.deepEqual(status.data.delivery, { content: '[\n  "test-license"\n]', instructions: 'Redeem once.' });
 
     const orderCalls = calls.filter((call) => call.url.endsWith('/v1/orders'));
