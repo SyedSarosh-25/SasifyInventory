@@ -243,11 +243,17 @@ export function Checkout() {
   }
   const product = products.find((p) => p.id === selected);
   const checkoutProducts = products.filter((p) => p.id !== 'p093');
+  const CUSTOMER_PAYMENT_DISPLAY_SECONDS = 5 * 60;
+  const orderExpiryMs = order ? new Date(order.expiresAt).getTime() : 0;
+  const createdAtMs = order?.createdAt ? new Date(order.createdAt).getTime() : NaN;
+  const customerDisplayExpiryMs = Number.isFinite(createdAtMs)
+    ? createdAtMs + CUSTOMER_PAYMENT_DISPLAY_SECONDS * 1000
+    : orderExpiryMs;
   const secondsLeft =
     order?.status === 'pending'
       ? Math.max(
           0,
-          Math.ceil((new Date(order.expiresAt).getTime() - now) / 1000),
+          Math.ceil((Math.min(customerDisplayExpiryMs, orderExpiryMs) - now) / 1000),
         )
       : 0;
   const countdown = `${String(Math.floor(secondsLeft / 60)).padStart(2, '0')}:${String(secondsLeft % 60).padStart(2, '0')}`;
@@ -481,7 +487,7 @@ export function Checkout() {
               <p className="payment-source-note">
                 <strong>This number belongs to NayaPay.</strong>{' '}
                 {order.paymentMethod === 'bank'
-                  ? 'Use your bank app and send the exact amount shown. Your reservation remains active for 30 minutes to allow interbank processing.'
+                  ? 'Use your bank app and send the exact amount shown. Your reservation remains active for 5 minutes.'
                   : 'Send from Easypaisa, JazzCash, NayaPay, SadaPay or another supported wallet. If you intend to use a bank, cancel this order and select Bank transfer first.'}
               </p>
               {order.paymentAdjustment ? (
