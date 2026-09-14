@@ -5,6 +5,7 @@ import {
   Copy,
   BadgeDollarSign,
   KeyRound,
+  Landmark,
   LayoutDashboard,
   MessageCircle,
   Package,
@@ -51,6 +52,8 @@ type Order = {
   paymentSubmittedAt?: string | null;
   createdAt?: string;
   transactionId?: string;
+  paymentMethod?: 'wallet' | 'bank';
+  paymentWindowMinutes?: number;
   payment: { number: string; title: string; provider: string };
   credentials?: AccountCredentials;
   delivery?: { content: string; instructions?: string };
@@ -119,6 +122,7 @@ export function Checkout() {
     [id, setId] = useState(''),
     [key, setKey] = useState('');
   const [couponCode, setCouponCode] = useState('');
+  const [paymentMethod, setPaymentMethod] = useState<'wallet' | 'bank'>('wallet');
   const [now, setNow] = useState(Date.now());
   const [error, setError] = useState(''),
     [notice, setNotice] = useState(''),
@@ -301,7 +305,9 @@ export function Checkout() {
           <p>
             {order?.amount === 0
               ? 'HOR covered the full price. Your account credentials are ready below.'
-              : 'Pay here and your account credentials will appear on this screen automatically after verification, usually within one minute. No manual delivery delays.'}
+              : order?.paymentMethod === 'bank'
+                ? 'Bank transfers receive a longer verification window. Your delivery appears here automatically after the signed NayaPay receipt is matched.'
+                : 'Pay here and your account credentials will appear on this screen automatically after verification, usually within one minute. No manual delivery delays.'}
           </p>
         </div>
         <span className="instant-badge">Instant</span>
@@ -322,6 +328,7 @@ export function Checkout() {
                 const data = await api('create', '', {
                   productId: selected,
                   couponCode,
+                  paymentMethod,
                 });
                 remember(data.id, data.recovery);
               });
@@ -355,6 +362,43 @@ export function Checkout() {
                   </strong>
                 </div>
               </div>
+            )}
+            <fieldset className="payment-method-picker">
+              <legend>How will you send the payment?</legend>
+              <label className={paymentMethod === 'wallet' ? 'selected' : ''}>
+                <input
+                  type="radio"
+                  name="payment-method"
+                  value="wallet"
+                  checked={paymentMethod === 'wallet'}
+                  onChange={() => setPaymentMethod('wallet')}
+                />
+                <WalletCards size={21} />
+                <span>
+                  <strong>Wallet transfer</strong>
+                  <small>Easypaisa, JazzCash or NayaPay · 5-minute window</small>
+                </span>
+              </label>
+              <label className={paymentMethod === 'bank' ? 'selected' : ''}>
+                <input
+                  type="radio"
+                  name="payment-method"
+                  value="bank"
+                  checked={paymentMethod === 'bank'}
+                  onChange={() => setPaymentMethod('bank')}
+                />
+                <Landmark size={21} />
+                <span>
+                  <strong>Bank transfer</strong>
+                  <small>All Pakistani banks · 30-minute verification window</small>
+                </span>
+              </label>
+            </fieldset>
+            {paymentMethod === 'bank' && (
+              <p className="bank-payment-advice">
+                Select this before placing the order. Send the exact amount and
+                keep this page open while your bank transfer reaches NayaPay.
+              </p>
             )}
             <label>
               Reseller coupon (optional)
@@ -430,16 +474,21 @@ export function Checkout() {
           </div>
           {order.status === 'pending' && (
             <section className="description-section">
-              <h2>Pay with NayaPay for automatic instant delivery</h2>
+              <h2>
+                {order.paymentMethod === 'bank'
+                  ? 'Pay from your bank account'
+                  : 'Pay with a wallet for automatic instant delivery'}
+              </h2>
               <p className="payment-callout">
                 Send exactly{' '}
                 <strong>PKR {order.amount.toLocaleString()}</strong> to the
                 NayaPay account below.
               </p>
               <p className="payment-source-note">
-                <strong>This number is for NayaPay payments.</strong> You can
-                transfer to it from any bank account, Easypaisa, JazzCash or
-                NayaPay.
+                <strong>This number belongs to NayaPay.</strong>{' '}
+                {order.paymentMethod === 'bank'
+                  ? 'Use your bank app and send the exact amount shown. Your reservation remains active for 30 minutes to allow interbank processing.'
+                  : 'Send from Easypaisa, JazzCash or NayaPay. If you intend to use a bank, cancel this order and select Bank transfer first.'}
               </p>
               {order.paymentAdjustment ? (
                 <p className="payment-source-note">
@@ -529,8 +578,10 @@ export function Checkout() {
               <div>
                 <strong>Checking your payment</strong>
                 <p>
-                  Keep this page open. It refreshes automatically and normally
-                  delivers within one minute.
+                  Keep this page open. It refreshes automatically and{' '}
+                  {order.paymentMethod === 'bank'
+                    ? 'will deliver after the bank receipt reaches and matches NayaPay.'
+                    : 'normally delivers within one minute.'}
                 </p>
               </div>
             </section>
@@ -1013,6 +1064,10 @@ export function CommerceAdmin() {
     setNotice('');
   };
   const money = (value: any) => `PKR ${Number(value || 0).toLocaleString()}`;
+  const verificationReason = (value: unknown) => {
+    const text = typeof value === 'string' && value ? value : 'not_evaluated';
+    return text.replaceAll('_', ' ').replace(/^./, (letter) => letter.toUpperCase());
+  };
   const available = Number(
     data?.stock?.find((row: any) => row.state === 'available')?.count || 0,
   );
@@ -2579,6 +2634,7 @@ export function CommerceAdmin() {
                     <th>Cost</th>
                     <th>Profit</th>
                     <th>Status</th>
+                    <th>Payment route</th>
                     <th>Payment match</th>
                     <th>Sender</th>
                     <th>Date</th>
@@ -2620,6 +2676,13 @@ export function CommerceAdmin() {
                         <span className={`admin-state ${row.status}`}>
                           {row.status}
                         </span>
+                      </td>
+                      <td>
+                        <strong>
+                          {row.payment_method === 'bank'
+                            ? 'Bank transfer'
+                            : 'Wallet transfer'}
+                        </strong>
                       </td>
                       <td>
                         <strong>
@@ -2811,6 +2874,7 @@ export function CommerceAdmin() {
                             ? 'Reference captured in receipt'
                             : 'No reference captured'}
                         </small>
+                        <small>{verificationReason(row.verification_reason)}</small>
                       </td>
                       <td>{row.order_id?.slice(0, 8) || 'Unassigned'}</td>
                       <td>

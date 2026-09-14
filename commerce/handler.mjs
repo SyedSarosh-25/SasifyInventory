@@ -67,6 +67,13 @@ const TEAM_COUPON_CODE = 'HOR';
 const TEAM_COUPON_ENABLED = false;
 const CUSTOMER_COUPON_CODE = 'CUST';
 const TEAM_COMMISSION_PKR = 50;
+const PAYMENT_WINDOWS_MINUTES = Object.freeze({ wallet: 5, bank: 30 });
+function paymentMethod(value) {
+  const method = String(value || 'wallet').trim().toLowerCase();
+  if (!Object.hasOwn(PAYMENT_WINDOWS_MINUTES, method))
+    throw fail(400, 'Select wallet payment or bank transfer.');
+  return method;
+}
 const SUPPLIER_API_ENV = Object.freeze({
   dodi: 'DODI_RESELLER_API_KEY',
   qamify: 'QAMIFY_API_KEY',
@@ -599,6 +606,29 @@ async function ensureOrderFinanceSchema(db) {
     });
   }
   await orderFinanceSchemaReady;
+}
+let paymentWorkflowSchemaReady;
+async function ensurePaymentWorkflowSchema(db) {
+  if (!paymentWorkflowSchemaReady) {
+    paymentWorkflowSchemaReady = (async () => {
+      await db.query(
+        "ALTER TABLE commerce_orders ADD COLUMN IF NOT EXISTS payment_method text NOT NULL DEFAULT 'wallet'",
+      );
+      await db.query(
+        'ALTER TABLE commerce_orders DROP CONSTRAINT IF EXISTS commerce_orders_payment_method_check',
+      );
+      await db.query(
+        "ALTER TABLE commerce_orders ADD CONSTRAINT commerce_orders_payment_method_check CHECK(payment_method IN ('wallet','bank'))",
+      );
+      await db.query(
+        "ALTER TABLE commerce_payments ADD COLUMN IF NOT EXISTS verification_reason text NOT NULL DEFAULT 'not_evaluated'",
+      );
+    })().catch((error) => {
+      paymentWorkflowSchemaReady = null;
+      throw error;
+    });
+  }
+  await paymentWorkflowSchemaReady;
 }
 let supplierApiLogSchemaReady;
 async function ensureSupplierApiLogSchema(db) {
@@ -1396,10 +1426,10 @@ async function fulfill(
       );
     const { delivery, supplierId } = placed;
     await insertSupplierApiLogs(db, supplierLogs);
-    await db.query('UPDATE commerce_payments SET order_id=$1 WHERE id=$2', [
-      order.id,
-      payment.id,
-    ]);
+    await db.query(
+      'UPDATE commerce_payments SET order_id=$1,verification_reason=$3 WHERE id=$2',
+      [order.id, payment.id, manual ? 'manually_approved' : 'verified_and_delivered'],
+    );
     await db.query(
       "UPDATE commerce_orders SET status='delivered',delivered_at=now(),supplier_product_id=$1,supplier_cost_pkr=$2,fulfillment_cost_pkr=$2,supplier_order_id=$3,supplier_status='delivered',supplier_delivery=$4 WHERE id=$5",
       [
@@ -1450,10 +1480,10 @@ async function fulfill(
     [order.inventory_id],
   );
   if (!changed.rowCount) throw fail(409, 'Reserved stock is unavailable.');
-  await db.query('UPDATE commerce_payments SET order_id=$1 WHERE id=$2', [
-    order.id,
-    payment.id,
-  ]);
+  await db.query(
+    'UPDATE commerce_payments SET order_id=$1,verification_reason=$3 WHERE id=$2',
+    [order.id, payment.id, manual ? 'manually_approved' : 'verified_and_delivered'],
+  );
   await db.query(
     "UPDATE commerce_orders SET status='delivered',delivered_at=now(),fulfillment_cost_pkr=(SELECT purchase_cost FROM commerce_inventory WHERE id=$1) WHERE id=$2",
     [order.inventory_id, order.id],
@@ -1697,6 +1727,7 @@ export function createHandler(
         throw fail(405, 'Method not allowed.');
       await ensureCouponSchema(db);
       await ensureOrderFinanceSchema(db);
+      await ensurePaymentWorkflowSchema(db);
       await ensureSupplierApiLogSchema(db);
       await ensureSupplierSecretSchema(db);
       await ensureSupplierMediaSchema(db);
@@ -1877,6 +1908,8 @@ export function createHandler(
           createdAt: inserted.rows[0].created_at,
         };
       } else if (action === 'create') {
+        const selectedPaymentMethod = paymentMethod(body.paymentMethod);
+        const paymentWindowMinutes = PAYMENT_WINDOWS_MINUTES[selectedPaymentMethod];
         let product = catalog.find((p) => p.id === body.productId);
         let supplierProduct;
         if (!product) {
@@ -1991,8 +2024,8 @@ export function createHandler(
             [coupon.id],
           );
         await db.query(
-          `INSERT INTO commerce_orders(id,product_id,amount,listed_amount,recovery_hash,session_hash,inventory_id,supplier_product_id,supplier_cost_pkr,coupon_id,coupon_discount,commission_code,commission_rate,commission_amount,expires_at)
-        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,now()+interval '5 minutes')`,
+          `INSERT INTO commerce_orders(id,product_id,amount,listed_amount,recovery_hash,session_hash,inventory_id,supplier_product_id,supplier_cost_pkr,coupon_id,coupon_discount,commission_code,commission_rate,commission_amount,payment_method,expires_at)
+        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,now()+($16 * interval '1 minute'))`,
           [
             id,
             product.id,
@@ -2008,6 +2041,8 @@ export function createHandler(
             commissionCode,
             commissionRate,
             commissionAmount,
+            selectedPaymentMethod,
+            paymentWindowMinutes,
           ],
         );
         if (isTeamCoupon && paymentAmount === 0)
@@ -2027,6 +2062,8 @@ export function createHandler(
           teamCoupon: isTeamCoupon,
           commissionCode,
           commissionAmount,
+          paymentMethod: selectedPaymentMethod,
+          paymentWindowMinutes,
         };
         telegramMessages.push(`New order placed\nOrder: ${id.slice(0, 8)}\nProduct: ${String(product.name || product.id).slice(0, 120)}\nAmount: PKR ${paymentAmount.toLocaleString()}${isTeamCoupon ? '\nTeam coupon: HOR' : commissionCode ? `\nCoupon: ${commissionCode}` : ''}`);
       } else if (['status', 'claim', 'cancel'].includes(action)) {
@@ -2146,8 +2183,12 @@ export function createHandler(
               (order.transaction_id ? order.created_at : null),
             createdAt: order.created_at,
             transactionId: order.transaction_id,
+            paymentMethod: order.payment_method || 'wallet',
+            paymentWindowMinutes:
+              PAYMENT_WINDOWS_MINUTES[order.payment_method] ||
+              PAYMENT_WINDOWS_MINUTES.wallet,
             payment: {
-              number: '03450485711',
+              number: process.env.PAYMENT_ACCOUNT_NUMBER || '03450485711',
               provider: 'NayaPay',
               title: process.env.PAYMENT_ACCOUNT_TITLE,
             },
@@ -2172,8 +2213,8 @@ export function createHandler(
             ? await authenticateInboundEmail(body, process.env.NAYAPAY_SENDER)
             : null;
         const email = inbound ? inbound.email : body;
-        if (!email.subject || typeof email.text !== 'string')
-          throw fail(400, 'Subject and plain email body required.');
+        if (!email.subject || (typeof email.text !== 'string' && typeof email.html !== 'string'))
+          throw fail(400, 'Subject and email body required.');
         const signatureValid =
           action === 'inbound-email'
             ? inboundEmailAuthorized(req) && inbound.authenticated
@@ -2189,6 +2230,13 @@ export function createHandler(
           receiver: process.env.NAYAPAY_RECEIVER_MARKER,
           receiverMailbox: process.env.NAYAPAY_RECEIVER_EMAIL,
         });
+        const verificationReason = parsed.verified
+          ? 'verified'
+          : !signatureValid
+            ? inbound?.reason || 'webhook_signature_invalid'
+            : process.env.NAYAPAY_AUTO_VERIFY !== 'true'
+              ? 'automatic_verification_disabled'
+              : parsed.reason || 'receipt_format_not_recognized';
         const eventHash = hash(
           `${signatureValid ? (action === 'inbound-email' ? 'forwarded' : 'signed') : 'untrusted'}|${email.messageId || ''}|${email.subject}|${email.text}|${email.html || ''}`,
         );
@@ -2207,8 +2255,8 @@ export function createHandler(
           key,
         );
         let inserted = await db.query(
-          `INSERT INTO commerce_payments(id,event_hash,source_message_id,transaction_id,amount,payer_name,source_last4,received_at,verified,subject,encrypted_body)
-        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) ON CONFLICT DO NOTHING RETURNING id`,
+          `INSERT INTO commerce_payments(id,event_hash,source_message_id,transaction_id,amount,payer_name,source_last4,received_at,verified,verification_reason,subject,encrypted_body)
+        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) ON CONFLICT DO NOTHING RETURNING id`,
           [
             randomUUID(),
             eventHash,
@@ -2219,6 +2267,7 @@ export function createHandler(
             parsed.sourceLast4,
             parsed.received || null,
             parsed.verified,
+            verificationReason,
             email.subject.slice(0, 500),
             encryptedBody,
           ],
@@ -2226,7 +2275,7 @@ export function createHandler(
         // A trusted retry can validate a previously recorded, unused receipt. Message IDs also deduplicate forwarded and Apps Script deliveries.
         if (!inserted.rowCount && parsed.verified)
           inserted = await db.query(
-            `UPDATE commerce_payments SET transaction_id=$1,source_last4=$2,verified=true,encrypted_body=$3
+            `UPDATE commerce_payments SET transaction_id=$1,source_last4=$2,verified=true,verification_reason='verified',encrypted_body=$3
         WHERE (event_hash=$4 OR ($5::text IS NOT NULL AND source_message_id=$5::text)) AND order_id IS NULL AND verified=false AND amount=$6 AND (transaction_id IS NULL OR transaction_id=$1) RETURNING id`,
             [
               parsed.transaction,
@@ -2247,6 +2296,28 @@ export function createHandler(
               [parsed.transaction, parsed.amount, parsed.received],
             )
           ).rows;
+          let matchReason =
+            orders.length === 1
+              ? 'verified_order_match'
+              : orders.length > 1
+                ? 'verified_multiple_eligible_orders'
+                : 'verified_no_eligible_order';
+          if (!orders.length) {
+            const lateOrder = (
+              await db.query(
+                `SELECT id FROM commerce_orders
+                 WHERE status IN ('pending','review','expired') AND payment_submitted_at IS NOT NULL
+                   AND amount=$1 AND $2::timestamptz>=created_at AND $2::timestamptz>expires_at
+                 ORDER BY created_at DESC LIMIT 1`,
+                [parsed.amount, parsed.received],
+              )
+            ).rows[0];
+            if (lateOrder) matchReason = 'verified_after_order_window';
+          }
+          await db.query(
+            'UPDATE commerce_payments SET verification_reason=$1 WHERE id=$2',
+            [matchReason, inserted.rows[0].id],
+          );
           if (orders.length === 1) {
             await db.query(
               'UPDATE commerce_orders SET transaction_id=$1 WHERE id=$2',
@@ -2656,7 +2727,7 @@ export function createHandler(
           ).rows,
           orders: (
             await db.query(
-              `SELECT o.id,o.product_id,o.amount,o.listed_amount,o.coupon_discount,o.status,o.transaction_id,o.payer_name,
+              `SELECT o.id,o.product_id,o.amount,o.listed_amount,o.coupon_discount,o.status,o.transaction_id,o.payer_name,o.payment_method,
                 o.payment_submitted_at,o.supplier_order_id,o.supplier_status,c.code_display AS coupon_code,
                 sp.provider_name AS supplier_name,sp.name AS supplier_product_name,o.created_at,o.delivered_at,
                 o.fulfillment_cost_pkr AS cost_pkr,
@@ -2671,7 +2742,7 @@ export function createHandler(
           ).rows,
           payments: (
             await db.query(
-              'SELECT id,amount,subject,transaction_id,payer_name,source_last4,verified,order_id,received_at,created_at FROM commerce_payments ORDER BY created_at DESC LIMIT 100',
+              'SELECT id,amount,subject,transaction_id,payer_name,source_last4,verified,verification_reason,order_id,received_at,created_at FROM commerce_payments ORDER BY created_at DESC LIMIT 100',
             )
           ).rows,
           stock: (

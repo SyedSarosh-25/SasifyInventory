@@ -11,11 +11,15 @@ CREATE TABLE IF NOT EXISTS commerce_orders (
  recovery_hash text NOT NULL, session_hash text NOT NULL, inventory_id uuid REFERENCES commerce_inventory(id),
  status text NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','review','delivered','expired','cancelled')),
  transaction_id text, payer_name text, source_last4 text, payment_submitted_at timestamptz,
+ payment_method text NOT NULL DEFAULT 'wallet' CHECK(payment_method IN ('wallet','bank')),
  commission_code text, commission_rate numeric(5,2) NOT NULL DEFAULT 0 CHECK(commission_rate>=0 AND commission_rate<=100),
  commission_amount integer NOT NULL DEFAULT 0 CHECK(commission_amount>=0),
  created_at timestamptz NOT NULL DEFAULT now(), expires_at timestamptz NOT NULL DEFAULT now()+interval '5 minutes', delivered_at timestamptz
 );
 ALTER TABLE commerce_orders ADD COLUMN IF NOT EXISTS payment_submitted_at timestamptz;
+ALTER TABLE commerce_orders ADD COLUMN IF NOT EXISTS payment_method text NOT NULL DEFAULT 'wallet';
+ALTER TABLE commerce_orders DROP CONSTRAINT IF EXISTS commerce_orders_payment_method_check;
+ALTER TABLE commerce_orders ADD CONSTRAINT commerce_orders_payment_method_check CHECK(payment_method IN ('wallet','bank'));
 ALTER TABLE commerce_orders ADD COLUMN IF NOT EXISTS listed_amount integer;
 UPDATE commerce_orders SET listed_amount=amount WHERE listed_amount IS NULL OR (listed_amount=0 AND amount>0);
 ALTER TABLE commerce_orders ALTER COLUMN listed_amount SET DEFAULT 0;
@@ -114,10 +118,12 @@ CREATE UNIQUE INDEX IF NOT EXISTS commerce_inventory_assignment ON commerce_orde
 CREATE TABLE IF NOT EXISTS commerce_payments (
  id uuid PRIMARY KEY, event_hash text NOT NULL UNIQUE, transaction_id text UNIQUE,
  amount integer, payer_name text, source_last4 text, received_at timestamptz, verified boolean NOT NULL DEFAULT false,
+ verification_reason text NOT NULL DEFAULT 'not_evaluated',
  subject text NOT NULL, encrypted_body text NOT NULL, source_message_id text,
  order_id uuid UNIQUE REFERENCES commerce_orders(id), created_at timestamptz NOT NULL DEFAULT now()
 );
 ALTER TABLE commerce_payments ADD COLUMN IF NOT EXISTS source_message_id text;
+ALTER TABLE commerce_payments ADD COLUMN IF NOT EXISTS verification_reason text NOT NULL DEFAULT 'not_evaluated';
 CREATE UNIQUE INDEX IF NOT EXISTS commerce_payments_source_message_id ON commerce_payments(source_message_id) WHERE source_message_id IS NOT NULL;
 CREATE TABLE IF NOT EXISTS commerce_limits (key text PRIMARY KEY, window_start timestamptz NOT NULL DEFAULT now(), hits integer NOT NULL DEFAULT 1);
 CREATE TABLE IF NOT EXISTS commerce_audit (id bigserial PRIMARY KEY, action text NOT NULL, object_id text, created_at timestamptz NOT NULL DEFAULT now());

@@ -25,13 +25,18 @@ export function normalizeTransaction(value) {
 export function receiptText(payload) {
   return payload.html ? convert(String(payload.html), { wordwrap:false, selectors:[{selector:'a',options:{ignoreHref:true}},{selector:'img',format:'skip'},{selector:'td',format:'block',options:{leadingLineBreaks:1,trailingLineBreaks:1}}] }) : String(payload.text || '').trim();
 }
+function normalizedReceiptName(value) {
+  return String(value || '').trim().replace(/\s+/g, ' ').toLowerCase();
+}
 export function parseEmail(payload, config = {}) {
   const subject = String(payload.subject || '').trim();
   const text = receiptText(payload);
   const walletId = text.match(/^\s*([a-z0-9._-]{2,64}@nayapay)\s*$/im)?.[1]?.toLowerCase();
-  const sourceLast4 = text.match(/(?:Source\s+Acc\.?\s*(?:Number|No\.?)|Raast\s+ID\s*\/\s*IBAN)\s*[:\s]*[*\u2022\u25cfxX\d -]*?(\d{4})\s*(?:\n|$)/i)?.[1] || walletId || null;
-  const match = /^You got Rs\.\s*([\d,]+(?:\.\d{1,2})?)\s+from\s+(.+?)\s*(?:🎉)?$/u.exec(subject);
-  if (!match) return { amount: null, payer: null, transaction: null, verified: false };
+  const sourceValue = text.match(/(?:Source\s+Acc\.?\s*(?:Number|No\.?)|Raast\s+ID\s*\/\s*IBAN)\s*(?::|-)?\s*([^\r\n]+)/i)?.[1]?.trim() || '';
+  const sourceDigits = sourceValue.replace(/\D/g, '');
+  const sourceLast4 = sourceDigits.length >= 4 ? sourceDigits.slice(-4) : walletId || null;
+  const match = /^You got\s+(?:Rs\.?|PKR)\s*([\d,]+(?:\.\d{1,2})?)\s+from\s+(.+?)\s*(?:🎉)?$/u.exec(subject);
+  if (!match) return { amount: null, payer: null, transaction: null, verified: false, reason: 'subject_format_not_recognized' };
   const amount = Number(match[1].replaceAll(',', ''));
   const bodyAmount = Number(text.match(/Amount\s+Received\s*[:\s]*(?:Rs\.?|PKR)\s*([\d,]+(?:\.\d{1,2})?)/i)?.[1]?.replaceAll(',',''));
   const destination = text.match(/Destination\s+Acc\.?\s*Title\s*[:\s]*([^\r\n]+)/i)?.[1]?.trim();
@@ -43,10 +48,18 @@ export function parseEmail(payload, config = {}) {
   const recent = Number.isFinite(received.getTime()) && received <= new Date(Date.now() + 60000) && received > new Date(Date.now() - 7 * 86400000);
   const recipient = String(payload.to || '').trim().toLowerCase();
   const walletReceiver = !!walletId && !!config.receiverMailbox && (recipient === config.receiverMailbox.toLowerCase() || recipient.match(/<([^>]+)>/)?.[1] === config.receiverMailbox.toLowerCase());
+  const destinationMatches = !!config.receiver && normalizedReceiptName(destination) === normalizedReceiptName(config.receiver);
   // Email parsing alone is not authority to release stock. Enable only after validating the real receipt format.
-  const verified = config.enabled === true && !!config.sender && sender.toLowerCase() === config.sender.toLowerCase()
-    && ((!!config.receiver && destination === config.receiver) || (!destination && walletReceiver)) && bodyAmount === amount && !!transaction && recent && Number.isSafeInteger(amount) && amount > 0;
-  return { amount: Number.isSafeInteger(amount) && amount > 0 ? amount : null, payer: match[2].trim(), transaction, sourceLast4, verified: verified && !!sourceLast4, received: recent ? received.toISOString() : null };
+  const reason = config.enabled !== true ? 'automatic_verification_disabled'
+    : !config.sender || sender.toLowerCase() !== config.sender.toLowerCase() ? 'sender_mismatch'
+      : !(destinationMatches || (!destination && walletReceiver)) ? 'destination_or_recipient_mismatch'
+        : bodyAmount !== amount ? 'body_and_subject_amount_mismatch'
+          : !transaction ? 'transaction_missing_or_ambiguous'
+            : !recent ? 'receipt_date_outside_window'
+              : !Number.isSafeInteger(amount) || amount <= 0 ? 'invalid_amount'
+                : !sourceLast4 ? 'source_identifier_missing'
+                  : 'verified';
+  return { amount: Number.isSafeInteger(amount) && amount > 0 ? amount : null, payer: match[2].trim(), transaction, sourceLast4, verified: reason === 'verified', reason, received: recent ? received.toISOString() : null };
 }
 export function parseInventory(input) {
   if (typeof input !== 'string' || input.length > 150000) throw new Error('Import is too large.');
