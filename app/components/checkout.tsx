@@ -306,7 +306,7 @@ export function Checkout() {
             {order?.amount === 0
               ? 'HOR covered the full price. Your account credentials are ready below.'
               : order?.paymentMethod === 'bank'
-                ? 'Bank transfers receive a longer verification window. Your delivery appears here automatically after the signed NayaPay receipt is matched.'
+                ? 'Your delivery appears here automatically after the signed NayaPay receipt is matched.'
                 : 'Pay here and your account credentials will appear on this screen automatically after verification, usually within one minute. No manual delivery delays.'}
           </p>
         </div>
@@ -376,7 +376,7 @@ export function Checkout() {
                 <WalletCards size={21} />
                 <span>
                   <strong>Wallet transfer</strong>
-                  <small>Easypaisa, JazzCash or NayaPay · 5-minute window</small>
+                  <small>Easypaisa, JazzCash, NayaPay, SadaPay and more</small>
                 </span>
               </label>
               <label className={paymentMethod === 'bank' ? 'selected' : ''}>
@@ -390,7 +390,7 @@ export function Checkout() {
                 <Landmark size={21} />
                 <span>
                   <strong>Bank transfer</strong>
-                  <small>All Pakistani banks · 30-minute verification window</small>
+                  <small>All banks</small>
                 </span>
               </label>
             </fieldset>
@@ -482,7 +482,7 @@ export function Checkout() {
                 <strong>This number belongs to NayaPay.</strong>{' '}
                 {order.paymentMethod === 'bank'
                   ? 'Use your bank app and send the exact amount shown. Your reservation remains active for 30 minutes to allow interbank processing.'
-                  : 'Send from Easypaisa, JazzCash or NayaPay. If you intend to use a bank, cancel this order and select Bank transfer first.'}
+                  : 'Send from Easypaisa, JazzCash, NayaPay, SadaPay or another supported wallet. If you intend to use a bank, cancel this order and select Bank transfer first.'}
               </p>
               {order.paymentAdjustment ? (
                 <p className="payment-source-note">
