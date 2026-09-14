@@ -34,10 +34,10 @@ test('ChatGPT Plus local inventory supports checkout, verification, delivery and
       return { async query(sql, args) { const result = await database.query(sql, args); return { ...result, rowCount: result.affectedRows ?? result.rows.length }; }, release };
     },
   }));
-  async function request(action, body, token = '', id = '', cookie = '') {
+  async function request(action, body, token = '', id = '', cookie = '', extraHeaders = {}) {
     let result;
     const headers = {};
-    const req = { method: body ? 'POST' : 'GET', query: { action, id }, url: '/api/commerce', headers: { authorization: token ? `Bearer ${token}` : '', cookie }, body, socket: { remoteAddress: randomBytes(4).toString('hex') } };
+    const req = { method: body ? 'POST' : 'GET', query: { action, id }, url: '/api/commerce', headers: { ...extraHeaders, authorization: token ? `Bearer ${token}` : '', cookie }, body, socket: { remoteAddress: randomBytes(4).toString('hex') } };
     const res = { statusCode: 200, setHeader(name, value) { headers[String(name).toLowerCase()] = value; }, end(text) { result = { code: this.statusCode, data: JSON.parse(text), headers }; } };
     await handler(req, res);
     return result;
@@ -95,7 +95,9 @@ test('ChatGPT Plus local inventory supports checkout, verification, delivery and
     assert.equal(status.data.status, 'delivered', JSON.stringify(status));
     assert.equal(status.data.credentials.password, 'test-pass');
     assert.ok(status.data.paymentSubmittedAt);
-    const adminSnapshot = (await request('admin-list', undefined, env.COMMERCE_ADMIN_KEY)).data;
+    const profitUnlock = await request('admin-profit-unlock', { password: 'HOR' }, env.COMMERCE_ADMIN_KEY);
+    assert.equal(profitUnlock.code, 200);
+    const adminSnapshot = (await request('admin-list', undefined, env.COMMERCE_ADMIN_KEY, '', '', { 'x-profit-token': profitUnlock.data.token })).data;
     const metrics = adminSnapshot.metrics;
     assert.equal(metrics.income, 3499);
     assert.equal(metrics.cost, 1000);
@@ -147,7 +149,7 @@ test('ChatGPT Plus local inventory supports checkout, verification, delivery and
     const withdrawalInventory = (await request('admin-list', undefined, env.COMMERCE_ADMIN_KEY)).data.inventory.find((item) => item.email === 'withdraw@test.invalid');
     const withdrawal = await request('admin-inventory-pick', { inventoryId: withdrawalInventory.id, confirmed: true }, env.COMMERCE_ADMIN_KEY);
     assert.equal(withdrawal.code, 200, JSON.stringify(withdrawal));
-    const withdrawalMetrics = (await request('admin-list', undefined, env.COMMERCE_ADMIN_KEY)).data.metrics;
+    const withdrawalMetrics = (await request('admin-list', undefined, env.COMMERCE_ADMIN_KEY, '', '', { 'x-profit-token': profitUnlock.data.token })).data.metrics;
     assert.equal(withdrawalMetrics.admin_withdrawals, 1);
     assert.equal(withdrawalMetrics.income, 13996);
     assert.equal(withdrawalMetrics.cost, 4000);

@@ -18,6 +18,7 @@ import {
   TicketPercent,
   Trash2,
   WalletCards,
+  Users,
   X,
   Zap,
 } from 'lucide-react';
@@ -58,7 +59,13 @@ type Order = {
   credentials?: AccountCredentials;
   delivery?: { content: string; instructions?: string };
 };
-async function api(action: string, token = '', body?: object, id = '') {
+async function api(
+  action: string,
+  token = '',
+  body?: object,
+  id = '',
+  extraHeaders: Record<string, string> = {},
+) {
   const response = await fetch(
     `/api/commerce?action=${action}${id ? `&id=${encodeURIComponent(id)}` : ''}`,
     {
@@ -66,6 +73,7 @@ async function api(action: string, token = '', body?: object, id = '') {
       headers: {
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
         ...(body ? { 'Content-Type': 'application/json' } : {}),
+        ...extraHeaders,
       },
       body: body ? JSON.stringify(body) : undefined,
       cache: 'no-store',
@@ -899,7 +907,11 @@ export function CommerceAdmin() {
     [busy, setBusy] = useState(false),
     [receipt, setReceipt] = useState<any>(null),
     [orderDelivery, setOrderDelivery] = useState<any>(null),
-    [supplierLogs, setSupplierLogs] = useState<any>(null);
+    [supplierLogs, setSupplierLogs] = useState<any>(null),
+    [profitToken, setProfitToken] = useState(''),
+    [profitPassword, setProfitPassword] = useState(''),
+    [teamEmail, setTeamEmail] = useState(''),
+    [teamPassword, setTeamPassword] = useState('');
   const [tab, setTab] = useState<
       | 'overview'
       | 'profit'
@@ -910,6 +922,7 @@ export function CommerceAdmin() {
       | 'payments'
       | 'coupons'
       | 'scammers'
+      | 'team'
     >('overview'),
     [inventorySearch, setInventorySearch] = useState(''),
     [supplierSearch, setSupplierSearch] = useState(''),
@@ -992,12 +1005,18 @@ export function CommerceAdmin() {
     if (!adminReady) return;
     const timer = setInterval(() => {
       if (document.visibilityState !== 'visible') return;
-      void api('admin-list', key)
+      void api(
+        'admin-list',
+        key,
+        undefined,
+        '',
+        profitToken ? { 'X-Profit-Token': profitToken } : {},
+      )
         .then((dashboard) => setData(dashboard))
         .catch(() => {});
     }, 10000);
     return () => clearInterval(timer);
-  }, [adminReady, key]);
+  }, [adminReady, key, profitToken]);
   async function run(fn: () => Promise<void>) {
     setBusy(true);
     setError('');
@@ -1008,6 +1027,7 @@ export function CommerceAdmin() {
       if (problem.status === 401) {
         setData(null);
         setKey('');
+        setProfitToken('');
         setPicked(null);
         setReceipt(null);
         setOrderDelivery(null);
@@ -1019,9 +1039,40 @@ export function CommerceAdmin() {
       setBusy(false);
     }
   }
-  const refresh = async () => setData(await api('admin-list', key));
+  const refresh = async () =>
+    setData(
+      await api(
+        'admin-list',
+        key,
+        undefined,
+        '',
+        profitToken ? { 'X-Profit-Token': profitToken } : {},
+      ),
+    );
   const showSupplierLogs = async (order = '') =>
     setSupplierLogs(await api('admin-supplier-logs', key, undefined, order));
+  const unlockProfit = async () => {
+    const result = await api('admin-profit-unlock', key, {
+      password: profitPassword,
+    });
+    setProfitToken(result.token);
+    setProfitPassword('');
+    setNotice('Profit details unlocked for this session.');
+    setData(
+      await api('admin-list', key, undefined, '', {
+        'X-Profit-Token': result.token,
+      }),
+    );
+  };
+  const saveTeamCredentials = async () => {
+    await api('admin-team-credentials', key, {
+      email: teamEmail,
+      password: teamPassword,
+    });
+    setTeamPassword('');
+    setNotice('Teammate login credentials saved.');
+    await refresh();
+  };
   const saveSupplierKey = async (provider: any, remove = false) => {
     const apiKey = supplierKeyValues[provider.providerId] || '';
     if (!remove && !apiKey.trim()) {
@@ -1053,6 +1104,7 @@ export function CommerceAdmin() {
     await api('admin-logout', '', {});
     setData(null);
     setKey('');
+    setProfitToken('');
     setEmail('');
     setPassword('');
     setAccounts('');
@@ -1071,6 +1123,7 @@ export function CommerceAdmin() {
   const available = Number(
     data?.stock?.find((row: any) => row.state === 'available')?.count || 0,
   );
+  const profitVisible = data?.profitUnlocked === true;
   const filteredInventory = (data?.inventory || []).filter((item: any) =>
     `${item.email} ${item.state}`
       .toLowerCase()
@@ -1308,6 +1361,7 @@ export function CommerceAdmin() {
           ['payments', 'Payments', WalletCards],
           ['coupons', 'Coupons', TicketPercent],
           ['commissions', 'Commissions', BadgeDollarSign],
+          ['team', 'Team access', Users],
           ['scammers', 'Scam reports', ShieldAlert],
         ].map(([value, label, Icon]: any) => (
           <button
@@ -1653,17 +1707,22 @@ export function CommerceAdmin() {
             >
               <span>Profit after coupon rules</span>
               <strong className="metric-profit">
-                {money(data.metrics.profit)}
+                {profitVisible ? money(data.metrics.profit) : 'Locked'}
               </strong>
               <small>
-                HOR value credited {money(data.metrics.hor_profit_credit)} ·
-                other coupons use discounted sale price
+                {profitVisible
+                  ? `HOR value credited ${money(data.metrics.hor_profit_credit)} · other coupons use discounted sale price`
+                  : 'Click to enter the HOR password and reveal financials.'}
               </small>
             </button>
             <article>
               <span>This month</span>
               <strong>{money(data.metrics.monthly_income)}</strong>
-              <small>Profit {money(data.metrics.monthly_profit)}</small>
+              <small>
+                {profitVisible
+                  ? `Profit ${money(data.metrics.monthly_profit)}`
+                  : 'Profit locked'}
+              </small>
             </article>
             <article>
               <span>Available stock</span>
@@ -1687,7 +1746,7 @@ export function CommerceAdmin() {
             <div className="snapshot-grid">
               <div>
                 <span>Recorded stock cost</span>
-                <strong>{money(data.metrics.cost)}</strong>
+                <strong>{profitVisible ? money(data.metrics.cost) : 'Locked'}</strong>
               </div>
               <div>
                 <span>Active orders</span>
@@ -1707,6 +1766,7 @@ export function CommerceAdmin() {
       )}
       {tab === 'profit' && (
         <div className="admin-workspace">
+          {profitVisible ? (
           <section className="admin-panel">
             <div className="panel-heading">
               <div>
@@ -1783,6 +1843,101 @@ export function CommerceAdmin() {
               })}
             </div>
           </section>
+          ) : (
+            <section className="admin-panel profit-lock-panel">
+              <span className="admin-eyebrow">Protected financial data</span>
+              <h2>Profit is locked</h2>
+              <p>
+                Enter the HOR password to view profit, costs, and the financial
+                breakdown. The password is checked server-side and is never
+                stored in the browser.
+              </p>
+              <form
+                className="profit-unlock-form"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  void run(unlockProfit);
+                }}
+              >
+                <label>
+                  Profit password
+                  <input
+                    type="password"
+                    value={profitPassword}
+                    onChange={(e) => setProfitPassword(e.target.value)}
+                    autoComplete="current-password"
+                    required
+                  />
+                </label>
+                <button className="primary-button" disabled={busy || !profitPassword}>
+                  Unlock profit
+                </button>
+              </form>
+            </section>
+          )}
+        </div>
+      )}
+
+      {tab === 'team' && (
+        <div className="admin-workspace">
+          <section className="admin-panel team-access-panel">
+            <div className="panel-heading">
+              <div>
+                <span className="admin-eyebrow">Restricted stock access</span>
+                <h2>Teammate login</h2>
+                <p>
+                  The teammate portal shows available local stock only. Each
+                  stock pickup is removed from this admin inventory and records
+                  a PKR 50 HOR commission automatically.
+                </p>
+              </div>
+              <span className={`team-access-status ${data.teamAccess?.configured ? 'configured' : 'missing'}`}>
+                {data.teamAccess?.configured ? 'Configured' : 'Not configured'}
+              </span>
+            </div>
+            {data.teamAccess?.configured && (
+              <p className="team-access-current">
+                Current teammate email: <strong>{data.teamAccess.email}</strong>
+              </p>
+            )}
+            <form
+              className="admin-form-grid"
+              onSubmit={(e) => {
+                e.preventDefault();
+                void run(saveTeamCredentials);
+              }}
+            >
+              <label>
+                Teammate email
+                <input
+                  type="email"
+                  value={teamEmail}
+                  onChange={(e) => setTeamEmail(e.target.value)}
+                  placeholder="teammate@example.com"
+                  autoComplete="off"
+                  required
+                />
+              </label>
+              <label>
+                Teammate password
+                <input
+                  type="password"
+                  value={teamPassword}
+                  onChange={(e) => setTeamPassword(e.target.value)}
+                  placeholder="At least 8 characters"
+                  autoComplete="new-password"
+                  minLength={8}
+                  required
+                />
+              </label>
+              <button className="primary-button admin-span" disabled={busy}>
+                {data.teamAccess?.configured ? 'Update teammate login' : 'Create teammate login'}
+              </button>
+            </form>
+            <div className="team-access-link">
+              Teammate sign-in URL: <a href="/team" target="_blank" rel="noreferrer">/team</a>
+            </div>
+          </section>
         </div>
       )}
 
@@ -1794,9 +1949,9 @@ export function CommerceAdmin() {
                 <span className="admin-eyebrow">Partner payouts</span>
                 <h2>Commission tracking</h2>
                 <p>
-                  Delivered orders are recorded here. HOR is disabled for new
-                  orders; historical HOR records remain visible. CUST keeps the
-                  normal price and pays 10% per delivered sale.
+                  Delivered orders and teammate stock pickups are recorded here.
+                  Teammate pickups are always counted under HOR at PKR 50 each.
+                  CUST keeps the normal price and pays 10% per delivered sale.
                 </p>
               </div>
               <button
@@ -1820,7 +1975,7 @@ export function CommerceAdmin() {
               <div>
                 <span>Total commission</span>
                 <strong>{money(totalCommission)}</strong>
-                <small>Delivered orders only</small>
+                <small>Delivered sales and team pickups</small>
               </div>
             </div>
           </section>

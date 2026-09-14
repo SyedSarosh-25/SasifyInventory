@@ -75,6 +75,8 @@ const TEAM_COUPON_CODE = 'HOR';
 const TEAM_COUPON_ENABLED = false;
 const CUSTOMER_COUPON_CODE = 'CUST';
 const TEAM_COMMISSION_PKR = 50;
+const PROFIT_PASSWORD_HASH =
+  process.env.COMMERCE_PROFIT_PASSWORD_HASH || hash(TEAM_COUPON_CODE);
 const PAYMENT_WINDOWS_MINUTES = Object.freeze({ wallet: 5, bank: 30 });
 function paymentMethod(value) {
   const method = String(value || 'wallet').trim().toLowerCase();
@@ -105,6 +107,10 @@ const bearer = (req) =>
 const adminCookie = (req) =>
   String(req.headers.cookie || '').match(
     /(?:^|;\s*)sasify_admin=([^;]+)/,
+  )?.[1] || '';
+const teamCookie = (req) =>
+  String(req.headers.cookie || '').match(
+    /(?:^|;\s*)sasify_team=([^;]+)/,
   )?.[1] || '';
 const idOk = (value) => /^[a-f0-9-]{36}$/i.test(String(value || ''));
 const json = (res, status, body) => {
@@ -1136,6 +1142,69 @@ function validAdminToken(token, secret) {
     return false;
   }
 }
+function scopedToken(secret, scope, claims, ttlMs) {
+  const payload = Buffer.from(
+    JSON.stringify({ ...claims, expiresAt: Date.now() + ttlMs }),
+  ).toString('base64url');
+  const mac = createHmac('sha256', secret)
+    .update(`${scope}:${payload}`)
+    .digest('base64url');
+  return `${payload}.${mac}`;
+}
+function scopedClaims(token, secret, scope) {
+  try {
+    const [payload, mac] = String(token || '').split('.');
+    const expected = createHmac('sha256', secret)
+      .update(`${scope}:${payload}`)
+      .digest('base64url');
+    const data = JSON.parse(Buffer.from(payload, 'base64url').toString());
+    if (!same(mac, expected) || Number(data.expiresAt) <= Date.now()) return null;
+    return data;
+  } catch {
+    return null;
+  }
+}
+function teamToken(secret, email) {
+  return scopedToken(secret, 'team', { role: 'team', email }, 8 * 60 * 60 * 1000);
+}
+function profitViewToken(secret) {
+  return scopedToken(secret, 'profit', { role: 'profit' }, 30 * 60 * 1000);
+}
+let teamSchemaReady;
+async function ensureTeamSchema(db) {
+  if (!teamSchemaReady) {
+    teamSchemaReady = db
+      .query(`CREATE TABLE IF NOT EXISTS commerce_team_users (
+        id boolean PRIMARY KEY DEFAULT true CHECK(id),
+        email text NOT NULL,
+        password_hash text NOT NULL,
+        enabled boolean NOT NULL DEFAULT true,
+        created_at timestamptz NOT NULL DEFAULT now(),
+        updated_at timestamptz NOT NULL DEFAULT now()
+      )`)
+      .then(() =>
+        db.query(`CREATE TABLE IF NOT EXISTS commerce_team_withdrawals (
+          id uuid PRIMARY KEY,
+          inventory_id uuid NOT NULL UNIQUE REFERENCES commerce_inventory(id),
+          team_email text NOT NULL,
+          commission_code text NOT NULL DEFAULT 'HOR',
+          commission_amount integer NOT NULL DEFAULT ${TEAM_COMMISSION_PKR} CHECK(commission_amount>=0),
+          commission_paid boolean NOT NULL DEFAULT false,
+          created_at timestamptz NOT NULL DEFAULT now()
+        )`),
+      )
+      .then(() =>
+        db.query(
+          'CREATE INDEX IF NOT EXISTS commerce_team_withdrawals_created ON commerce_team_withdrawals(created_at DESC)',
+        ),
+      )
+      .catch((error) => {
+        teamSchemaReady = null;
+        throw error;
+      });
+  }
+  await teamSchemaReady;
+}
 async function rate(db, key, max) {
   const result = await db.query(
     `INSERT INTO commerce_limits(key) VALUES($1) ON CONFLICT(key) DO UPDATE SET
@@ -1782,11 +1851,23 @@ export function createHandler(
       )
         throw fail(413, 'Request too large.');
       const adminBearer = bearer(req),
-        adminSession = adminCookie(req);
+        adminSession = adminCookie(req),
+        teamBearer = bearer(req),
+        teamSession = teamCookie(req);
       const admin =
         same(adminBearer, process.env.COMMERCE_ADMIN_KEY) ||
         validAdminToken(adminBearer, process.env.COMMERCE_ADMIN_KEY) ||
         validAdminToken(adminSession, process.env.COMMERCE_ADMIN_KEY);
+      const teamClaims =
+        scopedClaims(teamBearer, process.env.COMMERCE_ADMIN_KEY, 'team') ||
+        scopedClaims(teamSession, process.env.COMMERCE_ADMIN_KEY, 'team');
+      const team = teamClaims?.role === 'team';
+      const profitUnlocked =
+        scopedClaims(
+          String(req.headers['x-profit-token'] || ''),
+          process.env.COMMERCE_ADMIN_KEY,
+          'profit',
+        )?.role === 'profit';
       await rate(
         db,
         hash(
@@ -1806,6 +1887,12 @@ export function createHandler(
         !admin
       )
         throw fail(401, 'Your admin session is invalid or has expired.');
+      if (
+        action?.startsWith('team-') &&
+        !['team-login', 'team-logout'].includes(action) &&
+        !team
+      )
+        throw fail(401, 'Your team session is invalid or has expired.');
       if (
         action === 'email-webhook' &&
         !same(body.secret, process.env.NAYAPAY_WEBHOOK_SECRET)
@@ -1828,6 +1915,7 @@ export function createHandler(
           'admin-list',
           'admin-supplier-logs',
           'admin-scam-report',
+          'team-stock',
         ].includes(action)
           ? req.method !== 'GET'
           : req.method !== 'POST'
@@ -1842,6 +1930,7 @@ export function createHandler(
       await ensureScamSchema(db);
       await ensureGoogleReviewSchema(db);
       await ensureInventoryVariants(db);
+      await ensureTeamSchema(db);
       await db.query('BEGIN');
       await ensureDefaultCoupon(db);
       const supplierApiKeys = await readSupplierApiKeys(db, key);
@@ -1878,6 +1967,125 @@ export function createHandler(
           'sasify_admin=; HttpOnly; Secure; SameSite=Strict; Path=/api/commerce; Max-Age=0',
         );
         output = { ok: true };
+      } else if (action === 'admin-team-credentials') {
+        const teamEmail = String(body.email || '')
+          .trim()
+          .toLowerCase();
+        const teamPassword = String(body.password || '');
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(teamEmail))
+          throw fail(400, 'Enter a valid teammate email address.');
+        if (teamPassword.length < 8)
+          throw fail(400, 'Teammate password must be at least 8 characters.');
+        await db.query(
+          `INSERT INTO commerce_team_users(id,email,password_hash,enabled)
+           VALUES(true,$1,$2,true)
+           ON CONFLICT(id) DO UPDATE SET email=excluded.email,password_hash=excluded.password_hash,enabled=true,updated_at=now()`,
+          [teamEmail, hash(teamPassword)],
+        );
+        await db.query(
+          "INSERT INTO commerce_audit(action,object_id) VALUES('team_credentials_update',$1)",
+          [hash(teamEmail).slice(0, 16)],
+        );
+        output = { ok: true, configured: true };
+      } else if (action === 'admin-profit-unlock') {
+        if (!same(hash(String(body.password || '')), PROFIT_PASSWORD_HASH))
+          throw fail(401, 'Incorrect profit password.');
+        output = { ok: true, token: profitViewToken(process.env.COMMERCE_ADMIN_KEY) };
+        await db.query(
+          "INSERT INTO commerce_audit(action,object_id) VALUES('profit_unlock',$1)",
+          ['admin'],
+        );
+      } else if (action === 'team-login') {
+        const teamEmail = String(body.email || '')
+          .trim()
+          .toLowerCase();
+        const teamPasswordHash = hash(String(body.password || ''));
+        const teamUser = (
+          await db.query(
+            'SELECT email,password_hash,enabled FROM commerce_team_users WHERE id=true',
+          )
+        ).rows[0];
+        if (!teamUser)
+          throw fail(503, 'Team access has not been configured by the admin.');
+        if (
+          !teamUser.enabled ||
+          !same(teamEmail, teamUser.email) ||
+          !same(teamPasswordHash, teamUser.password_hash)
+        )
+          throw fail(401, 'Invalid team email or password.');
+        const token = teamToken(process.env.COMMERCE_ADMIN_KEY, teamUser.email);
+        res.setHeader(
+          'Set-Cookie',
+          `sasify_team=${token}; HttpOnly; Secure; SameSite=Strict; Path=/api/commerce; Max-Age=28800`,
+        );
+        await db.query(
+          "INSERT INTO commerce_audit(action,object_id) VALUES('team_login',$1)",
+          [hash(teamUser.email).slice(0, 16)],
+        );
+        output = { ok: true, token, email: teamUser.email };
+      } else if (action === 'team-logout') {
+        res.setHeader(
+          'Set-Cookie',
+          'sasify_team=; HttpOnly; Secure; SameSite=Strict; Path=/api/commerce; Max-Age=0',
+        );
+        output = { ok: true };
+      } else if (action === 'team-stock') {
+        const rows = (
+          await db.query(
+            `SELECT product_id,count(*)::int AS available
+             FROM commerce_inventory
+             WHERE state='available' AND product_id <> ALL($1::text[])
+             GROUP BY product_id ORDER BY product_id`,
+            [RETIRED_LOCAL_PRODUCT_IDS],
+          )
+        ).rows;
+        output = {
+          products: rows.map((row) => ({
+            productId: row.product_id,
+            productName:
+              catalog.find((product) => product.id === row.product_id)?.name ||
+              row.product_id,
+            available: Number(row.available),
+          })),
+        };
+      } else if (action === 'team-inventory-pick') {
+        const productId = String(body.productId || '').trim();
+        if (!productId || RETIRED_LOCAL_PRODUCT_IDS.includes(productId))
+          throw fail(400, 'Select a valid available stock product.');
+        const item = (
+          await db.query(
+            `SELECT * FROM commerce_inventory
+             WHERE product_id=$1 AND state='available'
+             ORDER BY created_at ASC FOR UPDATE SKIP LOCKED LIMIT 1`,
+            [productId],
+          )
+        ).rows[0];
+        if (!item) throw fail(409, 'That stock is no longer available.');
+        const credentials = decrypt(item.credentials, key);
+        const changed = await db.query(
+          "UPDATE commerce_inventory SET state='withdrawn' WHERE id=$1 AND state='available' RETURNING id",
+          [item.id],
+        );
+        if (!changed.rowCount)
+          throw fail(409, 'That stock is no longer available.');
+        await db.query(
+          `INSERT INTO commerce_team_withdrawals(id,inventory_id,team_email,commission_code,commission_amount)
+           VALUES($1,$2,$3,$4,$5)`,
+          [randomUUID(), item.id, teamClaims.email, TEAM_COUPON_CODE, TEAM_COMMISSION_PKR],
+        );
+        await db.query(
+          "INSERT INTO commerce_audit(action,object_id) VALUES('team_inventory_pick',$1)",
+          [item.id],
+        );
+        output = {
+          ok: true,
+          productId: item.product_id,
+          productName:
+            catalog.find((product) => product.id === item.product_id)?.name ||
+            item.product_id,
+          credentials,
+          commission: { code: TEAM_COUPON_CODE, amountPkr: TEAM_COMMISSION_PKR },
+        };
       } else if (action === 'stock') {
         const counts = (
           await db.query(
@@ -2815,7 +3023,7 @@ export function createHandler(
           deliveredProfitRows,
           withdrawnProfitRows,
         );
-        const commissions = (
+        const orderCommissions = (
           await db.query(`SELECT o.id AS order_id,o.product_id,o.amount,o.listed_amount,
             o.commission_code,o.commission_rate,o.commission_amount,o.payer_name,
             o.created_at,o.delivered_at
@@ -2823,6 +3031,29 @@ export function createHandler(
             WHERE o.status='delivered' AND o.commission_amount>0
             ORDER BY o.delivered_at DESC LIMIT 500`)
         ).rows;
+        const teamWithdrawals = (
+          await db.query(`SELECT tw.id,tw.inventory_id,tw.team_email,tw.commission_code,
+            tw.commission_amount,tw.commission_paid,tw.created_at,i.product_id,i.purchase_cost
+            FROM commerce_team_withdrawals tw
+            INNER JOIN commerce_inventory i ON i.id=tw.inventory_id
+            ORDER BY tw.created_at DESC LIMIT 500`)
+        ).rows;
+        const commissions = [
+          ...orderCommissions,
+          ...teamWithdrawals.map((row) => ({
+            order_id: row.id,
+            product_id: row.product_id,
+            amount: localProductSellingPrice(row.product_id),
+            listed_amount: localProductSellingPrice(row.product_id),
+            commission_code: row.commission_code,
+            commission_rate: 0,
+            commission_amount: row.commission_amount,
+            payer_name: row.team_email,
+            created_at: row.created_at,
+            delivered_at: row.created_at,
+            source: 'team stock withdrawal',
+          })),
+        ];
         const commissionSummary = summarizeCommissions(commissions);
         const activeOrders = (
           await db.query(
@@ -2830,9 +3061,21 @@ export function createHandler(
           )
         ).rows[0]?.count || 0;
         profitSummary.metrics.active_orders = Number(activeOrders);
-        const profitBreakdown = Object.entries(profitSummary.breakdown).map(
+        const dashboardMetrics = { ...profitSummary.metrics };
+        if (!profitUnlocked)
+          for (const field of [
+            'profit',
+            'monthly_profit',
+            'cost',
+            'hor_profit_credit',
+            'missing_costs',
+          ])
+            dashboardMetrics[field] = null;
+        const profitBreakdown = profitUnlocked
+          ? Object.entries(profitSummary.breakdown).map(
           ([source, values]) => ({ source, ...values }),
-        );
+            )
+          : [];
         const coupons = (
           await db.query(
             'SELECT id,code_display,discount_percent,commission_percent,max_uses,used_count,enabled,unlimited,created_at,updated_at FROM commerce_coupons ORDER BY created_at DESC',
@@ -2850,8 +3093,13 @@ export function createHandler(
             [TEAM_COUPON_CODE],
           )
         ).rows;
+        const teamAccessRow = (
+          await db.query(
+            'SELECT email,enabled FROM commerce_team_users WHERE id=true',
+          )
+        ).rows[0];
         output = {
-          metrics: profitSummary.metrics,
+          metrics: dashboardMetrics,
           coupons,
           inventory,
           scamReports: (
@@ -2896,7 +3144,11 @@ export function createHandler(
                LEFT JOIN commerce_supplier_products sp ON sp.id=o.supplier_product_id
                ORDER BY o.created_at DESC LIMIT 100`,
             )
-          ).rows,
+            ).rows.map((row) =>
+              profitUnlocked
+                ? row
+                : { ...row, cost_pkr: null, profit_pkr: null },
+            ),
           payments: (
             await db.query(
               'SELECT id,amount,subject,transaction_id,payer_name,source_last4,verified,verification_reason,order_id,received_at,created_at FROM commerce_payments ORDER BY created_at DESC LIMIT 100',
@@ -2911,18 +3163,35 @@ export function createHandler(
           supplierUsdtPkrRate: supplierUsdtRate(),
           supplierUsdPkrRate: supplierUsdRate(),
           profitBreakdown,
+          profitUnlocked,
           commissionSummary,
           commissions,
           supplierKeys: supplierKeyStatus(supplierApiKeys),
+          teamAccess: teamAccessRow
+            ? { configured: true, email: teamAccessRow.email }
+            : { configured: false, email: null },
           teamCommissions: {
             ratePkr: TEAM_COMMISSION_PKR,
-            totalPkr: commissionOrders.length * TEAM_COMMISSION_PKR,
-            orders: commissionOrders.map((row) => ({
-              ...row,
-              original_sale_pkr:
-                Number(row.amount || 0) + Number(row.coupon_discount || 0),
-              commission_pkr: TEAM_COMMISSION_PKR,
-            })),
+            totalPkr:
+              (commissionOrders.length + teamWithdrawals.length) *
+              TEAM_COMMISSION_PKR,
+            orders: [
+              ...commissionOrders.map((row) => ({
+                ...row,
+                original_sale_pkr:
+                  Number(row.amount || 0) + Number(row.coupon_discount || 0),
+                commission_pkr: TEAM_COMMISSION_PKR,
+                source: 'HOR coupon',
+              })),
+              ...teamWithdrawals.map((row) => ({
+                id: row.id,
+                product_id: row.product_id,
+                team_email: row.team_email,
+                created_at: row.created_at,
+                commission_pkr: row.commission_amount,
+                source: 'Team stock withdrawal',
+              })),
+            ],
           },
         };
       } else if (action === 'admin-supplier-logs') {

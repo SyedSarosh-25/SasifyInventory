@@ -122,7 +122,7 @@ await writeFile(
         },
         { src: '/api/commerce', dest: '/api/commerce' },
         {
-          src: '/(checkout|orders-admin)',
+          src: '/(checkout|orders-admin|team)',
           headers: {
             'Cache-Control': 'no-store',
             'X-Robots-Tag': 'noindex, nofollow',

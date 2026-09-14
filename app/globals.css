@@ -2128,6 +2128,68 @@ svg { flex-shrink: 0; }
 .commission-due { display: inline-flex; align-items: center; border: 1px solid #f1d59e; border-radius: 999px; padding: 6px 10px; background: #fff8e9; color: #a86408; font-size: 12px; font-weight: 800; }
 .commission-empty { padding: 26px; border: 1px dashed #c9d6e9; border-radius: 12px; background: #f9fbff; color: #63728a; text-align: center; }
 @media(max-width:700px){.commission-summary-grid{grid-template-columns:1fr}.commission-summary-card{padding:16px}}
+
+.team-page { min-height: 100vh; padding: 32px 20px 70px; background: linear-gradient(145deg,#eef4ff,#f7fbff 55%,#edf8f5); }
+.team-access-status { display: inline-flex; align-items: center; align-self: flex-start; padding: 7px 11px; border-radius: 999px; font-size: 12px; font-weight: 850; }
+.team-access-status.configured { background: #e5f8ef; color: #087951; }
+.team-access-status.missing { background: #fff2d8; color: #946313; }
+.team-access-current { margin: 0 0 18px; color: #61718a; }
+.team-access-link { margin-top: 17px; color: #61718a; font-size: 13px; }
+.team-access-link a { color: #275bd4; font-weight: 800; }
+.profit-lock-panel { max-width: 720px; }
+.profit-lock-panel h2 { margin: 7px 0; }
+.profit-lock-panel > p { max-width: 650px; color: #61718a; line-height: 1.55; }
+.profit-unlock-form { display: flex; align-items: flex-end; gap: 12px; max-width: 590px; margin-top: 19px; }
+.profit-unlock-form label { flex: 1 1 auto; }
+.profit-unlock-form button { flex: 0 0 auto; }
+.team-shell { width: min(980px,100%); margin: 0 auto; color: #172b55; }
+.team-login-shell { max-width: 520px; padding-top: 7vh; }
+.team-brand { display: flex; align-items: center; gap: 9px; color: #2358d6; font-size: 13px; font-weight: 850; letter-spacing: .08em; text-transform: uppercase; }
+.team-header { display: flex; align-items: flex-end; justify-content: space-between; gap: 22px; padding: 12px 0 26px; }
+.team-header h1 { margin: 10px 0 7px; color: #142f5e; font-size: clamp(2rem,4vw,3rem); letter-spacing: -.04em; }
+.team-header p,.team-panel p { color: #5c6d87; line-height: 1.55; }
+.team-header p { margin: 0; }
+.team-header-actions { display: flex; flex-wrap: wrap; gap: 9px; }
+.team-panel { margin-top: 18px; padding: 24px; border: 1px solid #d2dfef; border-radius: 18px; background: rgba(255,255,255,.92); box-shadow: 0 16px 38px rgba(39,76,131,.09); }
+.team-login-panel { margin-top: 22px; }
+.team-login-panel h1 { margin: 8px 0; color: #142f5e; font-size: 2rem; }
+.team-login-panel > p { margin: 0 0 20px; }
+.team-login-panel form { display: grid; gap: 14px; }
+.team-panel label { display: grid; gap: 7px; color: #263f68; font-size: 13px; font-weight: 800; }
+.team-panel input { width: 100%; min-height: 45px; padding: 10px 12px; border: 1px solid #b9cbe2; border-radius: 10px; background: #fff; color: #172b55; font: inherit; }
+.team-primary-button,.team-secondary-button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 42px; padding: 10px 16px; border-radius: 10px; font: inherit; font-weight: 800; cursor: pointer; }
+.team-primary-button { border: 0; background: linear-gradient(110deg,#2d68f5,#6750ea); color: #fff; box-shadow: 0 9px 18px rgba(57,86,224,.2); }
+.team-secondary-button { border: 1px solid #c4d4e8; background: #fff; color: #2d4a77; }
+.team-primary-button:disabled,.team-secondary-button:disabled { cursor: wait; opacity: .6; }
+.team-admin-link { display: inline-block; margin-top: 19px; color: #275bd4; font-size: 13px; font-weight: 800; }
+.team-kicker { color: #2470d8; font-size: 11px; font-weight: 900; letter-spacing: .1em; text-transform: uppercase; }
+.team-error,.team-notice { padding: 12px 14px; border-radius: 10px; font-weight: 700; }
+.team-error { border: 1px solid #f0aaaa; background: #fff0f0; color: #963434; }
+.team-notice { border: 1px solid #a9ddca; background: #ebfaf4; color: #08714f; }
+.team-info-panel { display: flex; align-items: flex-start; gap: 13px; border-left: 4px solid #19b894; }
+.team-info-panel > svg { flex: 0 0 auto; color: #0b9a79; }
+.team-info-panel strong { color: #173b73; }
+.team-info-panel p { margin: 4px 0 0; }
+.team-section-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.team-section-heading h2 { margin: 7px 0 0; color: #173b73; }
+.team-section-heading > svg { color: #3769d5; }
+.team-stock-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 13px; margin-top: 19px; }
+.team-stock-card { display: grid; gap: 15px; padding: 16px; border: 1px solid #d4e1ef; border-radius: 13px; background: #f8fbff; }
+.team-stock-card > div { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; }
+.team-stock-card span { color: #264678; font-weight: 800; line-height: 1.35; }
+.team-stock-card strong { flex: 0 0 auto; color: #0a8a68; font-size: 13px; }
+.team-delivery-heading { display: flex; align-items: center; gap: 12px; }
+.team-delivery-heading > svg { color: #0a9b70; }
+.team-delivery-heading h2 { margin: 6px 0 0; color: #173b73; }
+.team-credentials { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 13px; margin: 20px 0 15px; }
+.team-credentials > div { display: grid; gap: 5px; padding: 13px; border-radius: 10px; background: #f2f7ff; }
+.team-credentials span,.team-delivery-panel small { color: #6b7b93; font-size: 12px; }
+.team-credentials strong { overflow-wrap: anywhere; color: #17355f; }
+.team-delivery-panel small { display: block; }
+.team-loading,.team-empty { display: flex; align-items: center; gap: 8px; color: #64758d; }
+.team-loading { margin: 22px 0 0; }
+.team-empty { margin: 22px 0 0; }
+@media(max-width:700px){.team-page{padding:18px 12px 40px}.team-header{align-items:stretch;flex-direction:column}.team-header-actions>*{flex:1 1 0}.team-panel{padding:18px;border-radius:15px}.team-stock-grid,.team-credentials{grid-template-columns:1fr}.team-stock-card>div{flex-direction:column;gap:6px}}
 .order-state.review { color: #805500; background: #fff5d8; }
 .order-state.delivered { color: #087d53; background: #e8f8f1; }
 .payment-callout { padding: 14px; border-left: 4px solid #285cff; background: #eef4ff; }

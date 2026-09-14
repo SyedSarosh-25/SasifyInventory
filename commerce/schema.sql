@@ -127,6 +127,24 @@ ALTER TABLE commerce_payments ADD COLUMN IF NOT EXISTS verification_reason text 
 CREATE UNIQUE INDEX IF NOT EXISTS commerce_payments_source_message_id ON commerce_payments(source_message_id) WHERE source_message_id IS NOT NULL;
 CREATE TABLE IF NOT EXISTS commerce_limits (key text PRIMARY KEY, window_start timestamptz NOT NULL DEFAULT now(), hits integer NOT NULL DEFAULT 1);
 CREATE TABLE IF NOT EXISTS commerce_audit (id bigserial PRIMARY KEY, action text NOT NULL, object_id text, created_at timestamptz NOT NULL DEFAULT now());
+CREATE TABLE IF NOT EXISTS commerce_team_users (
+ id boolean PRIMARY KEY DEFAULT true CHECK(id),
+ email text NOT NULL,
+ password_hash text NOT NULL,
+ enabled boolean NOT NULL DEFAULT true,
+ created_at timestamptz NOT NULL DEFAULT now(),
+ updated_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS commerce_team_withdrawals (
+ id uuid PRIMARY KEY,
+ inventory_id uuid NOT NULL UNIQUE REFERENCES commerce_inventory(id),
+ team_email text NOT NULL,
+ commission_code text NOT NULL DEFAULT 'HOR',
+ commission_amount integer NOT NULL DEFAULT 50 CHECK(commission_amount>=0),
+ commission_paid boolean NOT NULL DEFAULT false,
+ created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS commerce_team_withdrawals_created ON commerce_team_withdrawals(created_at DESC);
 CREATE TABLE IF NOT EXISTS commerce_supplier_secrets (
  provider_id text PRIMARY KEY,
  encrypted_api_key text NOT NULL,
