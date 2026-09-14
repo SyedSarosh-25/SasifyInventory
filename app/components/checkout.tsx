@@ -394,12 +394,6 @@ export function Checkout() {
                 </span>
               </label>
             </fieldset>
-            {paymentMethod === 'bank' && (
-              <p className="bank-payment-advice">
-                Select this before placing the order. Send the exact amount and
-                keep this page open while your bank transfer reaches NayaPay.
-              </p>
-            )}
             <label>
               Reseller coupon (optional)
               <input

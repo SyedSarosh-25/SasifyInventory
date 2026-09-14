@@ -2103,7 +2103,6 @@ svg { flex-shrink: 0; }
 .payment-method-picker span { display: grid; gap: 4px; min-width: 0; }
 .payment-method-picker strong { color: #172237; }
 .payment-method-picker small { color: #5b6b82; line-height: 1.35; }
-.bank-payment-advice { margin: -2px 0 0; padding: 12px 14px; border-left: 4px solid #285cff; border-radius: 4px; background: #eef4ff; color: #435673; line-height: 1.5; }
 .checkout-offer { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid #d3def0; border-radius: 6px; background: #fff; }
 .checkout-offer > div { display: grid; gap: 5px; padding: 16px; }
 .checkout-offer > div + div { border-left: 1px solid #d3def0; }
