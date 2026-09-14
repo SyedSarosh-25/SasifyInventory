@@ -53,7 +53,6 @@ export const products: Product[] = [
         duration: '1 Month',
         sellingPricePkr: 2999,
         originalPricePkr: 5700,
-        warrantyDays: 20,
       },
     ],
   },

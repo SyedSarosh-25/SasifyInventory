@@ -68,10 +68,10 @@ test('savings subtract our price from the listed original with the fixed USD rat
   assert.equal(savingsPkr(products.find((p) => p.id === 'p100')), 33500);
 });
 
-test('ChatGPT Plus warranty differs by payment option', () => {
+test('ChatGPT Plus warranty uses the current listing terms', () => {
   const product = products.find((p) => p.id === 'p093');
   assert.equal(warrantyDays(product, 'p093-ultra'), 25);
-  assert.equal(warrantyDays(product, 'p093-momo'), 20);
+  assert.equal(warrantyDays(product, 'p093-momo'), 25);
 });
 
 test('monthly references are multiplied by the complete plan duration', () => {

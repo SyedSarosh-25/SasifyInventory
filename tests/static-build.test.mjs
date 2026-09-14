@@ -313,7 +313,7 @@ test('policy pages are indexable, linked and state only the confirmed commercial
   }
   assert.match(
     await read('warranty.html'),
-    /One-month and 30-day packages:[\s\S]*25 days[\s\S]*Partially Stable[\s\S]*20-day warranty/,
+    /One-month and 30-day packages:[\s\S]*25 days[\s\S]*exact warranty terms/,
   );
   assert.match(
     await read('warranty.html'),

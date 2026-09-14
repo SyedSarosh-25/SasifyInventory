@@ -7,7 +7,7 @@ export default function WarrantyPage() {
   return <PolicyPage title="Warranty Policy" summary="All products come with a warranty period. The exact duration depends on the package and is shown with the listing or order details." path="/warranty">
     <section className="policy-section"><h2>Warranty periods</h2>
       <ul className="policy-list">
-        <li><strong>One-month and 30-day packages:</strong> the standard warranty is 25 days from Sasify Solutions. The ChatGPT Plus Partially Stable option has a 20-day warranty.</li>
+        <li><strong>One-month and 30-day packages:</strong> the standard warranty is 25 days from Sasify Solutions. Review the selected listing for the exact warranty terms of each account option.</li>
         <li><strong>Yearly and other-duration packages:</strong> review the warranty duration and coverage shown with the listing or order.</li>
         <li><strong>Credits and allocation packages:</strong> review both the usable allocation and warranty terms shown with the listing.</li>
       </ul>
