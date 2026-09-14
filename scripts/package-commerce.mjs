@@ -43,6 +43,7 @@ for (const name of [
   'mke.mjs',
   'piggyai.mjs',
   'zoomstore.mjs',
+  'elite-tools.mjs',
   'scam-reports.mjs',
   'google-reviews.mjs',
 ])

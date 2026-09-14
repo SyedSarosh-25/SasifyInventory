@@ -916,7 +916,7 @@ export function CommerceAdmin() {
     [supplierKeyValues, setSupplierKeyValues] = useState<Record<string, string>>({}),
     [supplierKeysOpen, setSupplierKeysOpen] = useState(false),
     [supplierProvider, setSupplierProvider] = useState<
-      'all' | 'dodi' | 'qamify' | 'mke' | 'piggyai' | 'zoomstore' | 'fatbunny'
+      'all' | 'dodi' | 'qamify' | 'mke' | 'piggyai' | 'zoomstore' | 'fatbunny' | 'elitetools'
     >('all'),
     [orderFilter, setOrderFilter] = useState<
       'all' | 'delivered' | 'unfulfilled' | 'cancelled'
@@ -1102,7 +1102,8 @@ export function CommerceAdmin() {
       | 'mke'
       | 'piggyai'
       | 'zoomstore'
-      | 'fatbunny',
+      | 'fatbunny'
+      | 'elitetools',
   ) =>
     provider === 'all'
       ? (data?.supplierProducts || []).length
@@ -2355,7 +2356,9 @@ export function CommerceAdmin() {
                             ? 'Fat Bunny Hub products'
                             : supplierProvider === 'zoomstore'
                               ? 'Zoom Store products'
-                              : 'DODI Store products'}
+                              : supplierProvider === 'elitetools'
+                                ? 'Elite Tools Store products'
+                                : 'DODI Store products'}
                 </h2>
                 <p>
                   Choose a supplier to manage its catalog separately. Automatic
@@ -2433,6 +2436,7 @@ export function CommerceAdmin() {
                   ['piggyai', 'PiggyAi'],
                   ['fatbunny', 'Fat Bunny Hub'],
                   ['zoomstore', 'Zoom Store'],
+                  ['elitetools', 'Elite Tools Store'],
                 ] as const
               ).map(([value, label]) => (
                 <button
@@ -2482,7 +2486,9 @@ export function CommerceAdmin() {
                           ? 'Fat Bunny Hub'
                           : supplierProvider === 'zoomstore'
                             ? 'Zoom Store'
-                            : 'the selected supplier'}{' '}
+                            : supplierProvider === 'elitetools'
+                              ? 'Elite Tools Store'
+                              : 'the selected supplier'}{' '}
                 yet. Select Sync providers to refresh its catalog.
               </p>
             )}

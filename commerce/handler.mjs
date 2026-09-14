@@ -50,6 +50,14 @@ import {
   zoomStoreDelivery,
   zoomStoreOrderId,
 } from './zoomstore.mjs';
+import {
+  createEliteToolsOrder,
+  eliteToolsDelivery,
+  eliteToolsOrderId,
+  fetchEliteToolsBalance,
+  fetchEliteToolsProducts,
+  normalizeEliteToolsProduct,
+} from './elite-tools.mjs';
 import { authenticateInboundEmail } from './inbound-email.mjs';
 import {
   normalizeScamReport,
@@ -81,6 +89,7 @@ const SUPPLIER_API_ENV = Object.freeze({
   fatbunny: 'FATBUNNY_API_KEY',
   piggyai: 'PIGGYAI_API_KEY',
   zoomstore: 'ZOOMSTORE_API_KEY',
+  elitetools: 'ELITE_TOOLS_API_KEY',
 });
 const SUPPLIER_PROVIDER_NAMES = Object.freeze({
   dodi: 'DODI Store',
@@ -89,6 +98,7 @@ const SUPPLIER_PROVIDER_NAMES = Object.freeze({
   fatbunny: 'Fat Bunny Hub',
   piggyai: 'PiggyAi',
   zoomstore: 'Zoom Store',
+  elitetools: 'Elite Tools Store',
 });
 const bearer = (req) =>
   String(req.headers.authorization || '').replace(/^Bearer /, '');
@@ -1031,6 +1041,23 @@ function supplierProviders(keys = {}) {
         };
       },
     },
+    {
+      id: 'elitetools',
+      name: 'Elite Tools Store',
+      configured: !!(keys.elitetools || process.env.ELITE_TOOLS_API_KEY),
+      async catalog() {
+        const [products, state] = await Promise.all([
+          fetchEliteToolsProducts(keys.elitetools),
+          fetchEliteToolsBalance(keys.elitetools),
+        ]);
+        return {
+          ...state,
+          products: products
+            .map((product) => normalizeEliteToolsProduct(product, state.currency))
+            .filter(Boolean),
+        };
+      },
+    },
   ];
 }
 let supplierMediaSchemaReady;
@@ -1306,6 +1333,24 @@ async function placeSupplierOrder(product, order, onExchange, keys = {}) {
     return {
       delivery: zoomStoreDelivery(result),
       supplierId: zoomStoreOrderId(result, order.id),
+    };
+  }
+  if (product.provider_id === 'elitetools') {
+    const externalProductId = String(
+      product.external_product_id || product.id || '',
+    ).trim();
+    if (!externalProductId)
+      throw fail(503, 'Elite Tools Store product ID is invalid.');
+    const result = await createEliteToolsOrder({
+      productId: externalProductId,
+      quantity: 1,
+      idempotencyKey: `sasify-${order.id}-${externalProductId}`,
+      onExchange,
+      apiKey: keys.elitetools,
+    });
+    return {
+      delivery: eliteToolsDelivery(result),
+      supplierId: eliteToolsOrderId(result, order.id),
     };
   }
   if (['dodi', 'dody'].includes(product.provider_id)) {
