@@ -466,17 +466,11 @@ export default async function ProductPage({ params }: Props) {
               <span>
                 <strong>
                   {product.id === 'p093' ? (
-                    <>
-                      <span className="chatgpt-ultra-only">Full {appleWarrantyDays}-day warranty</span>
-                      <span className="chatgpt-partially-stable-only">Warranty details confirmed before payment.</span>
-                    </>
+                    `Full ${appleWarrantyDays}-day warranty`
                   ) : warranty ? 'Full 25-day warranty' : 'Warranty included'}
                 </strong>
                 {product.id === 'p093' ? (
-                  <>
-                    <span className="chatgpt-ultra-only">Included with this Apple Pay plan.</span>
-                    <span className="chatgpt-partially-stable-only">Included with this Partially Stable plan.</span>
-                  </>
+                  'Included with this Apple Pay plan.'
                 ) : warranty ? (
                   'Included with this one-month plan.'
                 ) : (
