@@ -45,6 +45,7 @@ for (const name of [
   'zoomstore.mjs',
   'elite-tools.mjs',
   'scam-reports.mjs',
+  'tool-requests.mjs',
   'google-reviews.mjs',
 ])
   await cp(path.join(root, 'commerce', name), path.join(func, name));
