@@ -598,13 +598,6 @@ export default function Home() {
     <main>
       <StructuredData data={websiteData} />
       <SiteHeader />
-      <div className="warranty-banner">
-        <div className="warranty-content">
-          <ShieldCheck aria-hidden="true" />
-          <p><strong>Full plan-duration warranty on all plans except ChatGPT.</strong> ChatGPT keeps its listed warranty.</p>
-        </div>
-      </div>
-
       <section id="top" className="hero">
         <div className="hero-grid">
           <div className="hero-copy">
