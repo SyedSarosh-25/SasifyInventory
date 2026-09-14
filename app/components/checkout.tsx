@@ -1,24 +1,22 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
+import { AdminShell } from './admin-shell';
+import { AdminOperations } from './admin-operations';
+import { AdminRecordControls, useRecordView } from './admin-record-controls';
 import {
   ClipboardList,
   Copy,
-  BadgeDollarSign,
   KeyRound,
   Landmark,
-  LayoutDashboard,
   MessageCircle,
-  Package,
   Pencil,
   RefreshCw,
   Search,
   ShieldAlert,
   ShieldCheck,
   ShoppingCart,
-  TicketPercent,
   Trash2,
   WalletCards,
-  Users,
   X,
   Zap,
 } from 'lucide-react';
@@ -949,6 +947,7 @@ export function CommerceAdmin() {
   const [newCouponCode, setNewCouponCode] = useState(''),
     [newCouponDiscount, setNewCouponDiscount] = useState('10'),
     [newCouponMaxUses, setNewCouponMaxUses] = useState('10');
+  const [paymentFilter, setPaymentFilter] = useState('all');
   const seenOrderIds = useRef<Set<string>>(new Set());
   const seenSupplierAlertIds = useRef<Set<string>>(new Set());
   useEffect(() => {
@@ -1171,6 +1170,8 @@ export function CommerceAdmin() {
   const lowBalanceProviders = (data?.providerStates || []).filter(
     (provider: any) => provider.lowBalance,
   );
+  const inventoryView = useRecordView(filteredInventory, () => '');
+  const supplierView = useRecordView(supplierProducts, () => '');
   const horCommission =
     (data?.commissionSummary || []).find(
       (item: any) => item.code === 'HOR',
@@ -1195,6 +1196,8 @@ export function CommerceAdmin() {
     return ['pending', 'review'].includes(row.status);
   };
   const orderRows = (data?.orders || []).filter(orderMatchesFilter);
+  const orderView = useRecordView(orderRows, (row: any) => `${row.id} ${row.product_id} ${row.supplier_product_name || ''} ${row.supplier_name || ''} ${row.payer_name || ''} ${row.status}`);
+  const paymentView = useRecordView((data?.payments || []).filter((row: any) => paymentFilter === 'all' || (paymentFilter === 'verified' ? row.verified : !row.verified)), (row: any) => `${row.id} ${row.subject} ${row.order_id || ''} ${row.amount} ${row.transaction_id || ''}`);
   const orderFilterCount = (filter: (typeof orderFilterOptions)[number][0]) =>
     (data?.orders || []).filter((row: any) => {
       if (filter === 'all') return true;
@@ -1282,36 +1285,8 @@ export function CommerceAdmin() {
       </div>
     );
   return (
-    <div className="commerce-shell commerce-admin">
-      <header className="admin-header">
-        <div>
-          <span className="admin-eyebrow">Sasify operations</span>
-          <h1>Commerce admin</h1>
-          <p>
-            Automatic verification:{' '}
-            <strong className={data.autoVerify ? 'status-good' : 'status-warn'}>
-              {data.autoVerify ? 'Enabled' : 'Manual'}
-            </strong>
-          </p>
-        </div>
-        <div className="commerce-actions">
-          <button
-            title="Refresh dashboard"
-            className="icon-command"
-            disabled={busy}
-            onClick={() => void run(refresh)}
-          >
-            <RefreshCw size={18} />
-          </button>
-          <button
-            className="secondary-button"
-            disabled={busy}
-            onClick={() => void run(logout)}
-          >
-            Sign out
-          </button>
-        </div>
-      </header>
+    <AdminShell tab={tab} onNavigate={setTab} busy={busy} autoVerify={data.autoVerify}
+      onRefresh={() => void run(refresh)} onLogout={() => void run(logout)}>
       {error && (
         <p role="alert" className="commerce-error">
           {error}
@@ -1323,7 +1298,8 @@ export function CommerceAdmin() {
         </p>
       )}
       {(lowBalanceProviders.length > 0 || data.supplierAlerts?.length > 0) && (
-        <section className="admin-panel compact-panel supplier-alert-panel">
+        <details className="admin-panel compact-panel supplier-alert-panel">
+          <summary><ShieldAlert size={17} /> Supplier attention needed · {lowBalanceProviders.length} low balances · {data.supplierAlerts?.length || 0} recent issues</summary>
           <div className="panel-heading">
             <div>
               <span className="admin-eyebrow">Attention required</span>
@@ -1349,31 +1325,8 @@ export function CommerceAdmin() {
               review. Check the detailed request and response logs.
             </p>
           )}
-        </section>
+        </details>
       )}
-      <nav className="admin-tabs" aria-label="Admin sections">
-        {[
-          ['overview', 'Overview', LayoutDashboard],
-          ['profit', 'Profit', WalletCards],
-          ['inventory', 'Inventory', Package],
-          ['supplier', 'Supplier Store', ShoppingCart],
-          ['orders', 'Orders', ClipboardList],
-          ['payments', 'Payments', WalletCards],
-          ['coupons', 'Coupons', TicketPercent],
-          ['commissions', 'Commissions', BadgeDollarSign],
-          ['team', 'Team access', Users],
-          ['scammers', 'Scam reports', ShieldAlert],
-        ].map(([value, label, Icon]: any) => (
-          <button
-            key={value}
-            className={tab === value ? 'active' : ''}
-            onClick={() => setTab(value)}
-          >
-            <Icon size={18} />
-            {label}
-          </button>
-        ))}
-      </nav>
       {tab === 'supplier' && (
         <label className="admin-search supplier-search">
           <Search size={17} />
@@ -1381,7 +1334,7 @@ export function CommerceAdmin() {
             aria-label="Search supplier products"
             placeholder="Search supplier products"
             value={supplierSearch}
-            onChange={(e) => setSupplierSearch(e.target.value)}
+            onChange={(e) => { setSupplierSearch(e.target.value); supplierView.setPage(1); }}
           />
           {supplierSearch && (
             <button
@@ -1707,21 +1660,19 @@ export function CommerceAdmin() {
             >
               <span>Profit after coupon rules</span>
               <strong className="metric-profit">
-                {profitVisible ? money(data.metrics.profit) : 'Locked'}
+                {profitVisible ? money(data.metrics.profit) : 'Protected'}
               </strong>
               <small>
                 {profitVisible
                   ? `HOR value credited ${money(data.metrics.hor_profit_credit)} · other coupons use discounted sale price`
-                  : 'Click to enter the HOR password and reveal financials.'}
+                  : 'Financial data protected. Unlock financial view →'}
               </small>
             </button>
             <article>
-              <span>This month</span>
-              <strong>{money(data.metrics.monthly_income)}</strong>
+              <span>Delivered orders</span>
+              <strong>{data.metrics.delivered_orders}</strong>
               <small>
-                {profitVisible
-                  ? `Profit ${money(data.metrics.monthly_profit)}`
-                  : 'Profit locked'}
+                {data.metrics.active_orders} active orders · {money(data.metrics.monthly_income)} sales this month
               </small>
             </article>
             <article>
@@ -1736,6 +1687,7 @@ export function CommerceAdmin() {
               cost. Add their costs in Inventory for accurate profit.
             </p>
           )}
+          <AdminOperations orders={data.orders || []} payments={data.payments || []} providers={data.providerStates || []} onNavigate={setTab} />
           <section className="admin-panel">
             <div className="panel-heading">
               <div>
@@ -1846,9 +1798,9 @@ export function CommerceAdmin() {
           ) : (
             <section className="admin-panel profit-lock-panel">
               <span className="admin-eyebrow">Protected financial data</span>
-              <h2>Profit is locked</h2>
+              <h2>Financial data protected</h2>
               <p>
-                Enter the HOR password to view profit, costs, and the financial
+                Enter your financial password to view profit, costs, and the financial
                 breakdown. The password is checked server-side and is never
                 stored in the browser.
               </p>
@@ -1870,7 +1822,7 @@ export function CommerceAdmin() {
                   />
                 </label>
                 <button className="primary-button" disabled={busy || !profitPassword}>
-                  Unlock profit
+                  Unlock financial view
                 </button>
               </form>
             </section>
@@ -1936,6 +1888,11 @@ export function CommerceAdmin() {
             </form>
             <div className="team-access-link">
               Teammate sign-in URL: <a href="/team" target="_blank" rel="noreferrer">/team</a>
+            </div>
+            <div className="ops-permissions">
+              <h3>Teammate access scope</h3>
+              <p>These permissions reflect the existing stock-only role; they are not editable here.</p>
+              <dl><div><dt>View available local stock</dt><dd>Allowed</dd></div><div><dt>Pick up stock · PKR 50 HOR commission</dt><dd>Allowed</dd></div><div><dt>Admin dashboard, financials and supplier keys</dt><dd>Not allowed</dd></div></dl>
             </div>
           </section>
         </div>
@@ -2149,10 +2106,11 @@ export function CommerceAdmin() {
                   aria-label="Search inventory"
                   placeholder="Search email or status"
                   value={inventorySearch}
-                  onChange={(e) => setInventorySearch(e.target.value)}
+                  onChange={(e) => { setInventorySearch(e.target.value); inventoryView.setPage(1); }}
                 />
               </label>
             </div>
+            <AdminRecordControls view={inventoryView} label="inventory" hideSearch />
             <div className="commerce-table">
               <table>
                 <thead>
@@ -2166,7 +2124,7 @@ export function CommerceAdmin() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredInventory.map((item: any) => (
+                  {inventoryView.rows.map((item: any) => (
                     <tr key={item.id}>
                       <td>
                         <strong>{item.email}</strong>
@@ -2600,15 +2558,16 @@ export function CommerceAdmin() {
                   role="tab"
                   aria-selected={supplierProvider === value}
                   className={supplierProvider === value ? 'active' : ''}
-                  onClick={() => setSupplierProvider(value)}
+                  onClick={() => { setSupplierProvider(value); supplierView.setPage(1); }}
                 >
                   {label}
                   <span>{supplierCount(value)}</span>
                 </button>
               ))}
             </div>
+            <AdminRecordControls view={supplierView} label="supplier products" hideSearch orderLabels={['Catalog order', 'Reverse catalog order']} />
             <div className="supplier-admin-list">
-              {supplierProducts.map((item: any) => (
+              {supplierView.rows.map((item: any) => (
                 <SupplierProductRow
                   key={item.id}
                   item={item}
@@ -2773,7 +2732,7 @@ export function CommerceAdmin() {
                   role="tab"
                   aria-selected={orderFilter === value}
                   className={orderFilter === value ? 'active' : ''}
-                  onClick={() => setOrderFilter(value)}
+                  onClick={() => { setOrderFilter(value); orderView.setPage(1); }}
                 >
                   {label}
                   <span>{orderFilterCount(value)}</span>
@@ -2784,6 +2743,8 @@ export function CommerceAdmin() {
               Showing {orderRows.length} of {(data.orders || []).length} recent
               orders. Expired reservations are grouped with cancelled orders.
             </p>
+            <AdminRecordControls view={orderView} label="orders" />
+            {!orderView.count && <p>No orders match these filters. Try another status or search.</p>}
             <div className="commerce-table">
               <table>
                 <thead>
@@ -2803,7 +2764,7 @@ export function CommerceAdmin() {
                   </tr>
                 </thead>
                 <tbody>
-                  {orderRows.map((row: any) => (
+                  {orderView.rows.map((row: any) => (
                     <tr key={row.id}>
                       <td>
                         <button
@@ -2998,6 +2959,11 @@ export function CommerceAdmin() {
                 </p>
               </div>
             </div>
+            <div className="order-filter-bar" aria-label="Payment verification filters">
+              {['all', 'verified', 'review'].map(value => <button key={value} type="button" aria-pressed={paymentFilter === value} className={paymentFilter === value ? 'active' : ''} onClick={() => { setPaymentFilter(value); paymentView.setPage(1); }}>{value === 'all' ? 'All payments' : value === 'verified' ? 'Verified receipts' : 'Needs review'}</button>)}
+            </div>
+            <AdminRecordControls view={paymentView} label="payments" />
+            {!paymentView.count && <p>No payments match these filters.</p>}
             <div className="commerce-table">
               <table>
                 <thead>
@@ -3011,7 +2977,7 @@ export function CommerceAdmin() {
                   </tr>
                 </thead>
                 <tbody>
-                  {data.payments.map((row: any) => (
+                  {paymentView.rows.map((row: any) => (
                     <tr key={row.id}>
                       <td>
                         <button
@@ -3138,6 +3104,6 @@ export function CommerceAdmin() {
           </section>
         </div>
       )}
-    </div>
+    </AdminShell>
   );
 }
