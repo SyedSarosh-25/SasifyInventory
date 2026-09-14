@@ -39,26 +39,39 @@ export function ToolRequest() {
 
   return (
     <main className="tool-request-page">
-      <section className="tool-request-intro">
-        <div>
-          <span className="section-kicker"><Sparkles size={16} /> Tool requests</span>
-          <h1>Can&apos;t find a tool?</h1>
-          <p>Send us the name and your requirements. We&apos;ll check availability and contact you when it&apos;s ready.</p>
-          <a className="tool-request-browse" href="/inventory">Browse available tools <ArrowRight size={16} /></a>
-        </div>
-      </section>
       <section className="tool-request-card" aria-labelledby="tool-request-title">
-        <div className="panel-heading"><div><span className="section-kicker"><Send size={16} /> Send a request</span><h2 id="tool-request-title">Tell us what you need</h2><p>Add the plan, duration or access type so we can find the right option.</p></div></div>
-        {error && <p className="commerce-error" role="alert">{error}</p>}
-        {notice && <p className="admin-notice tool-request-notice" role="status">{notice}</p>}
-        <form className="tool-request-form" onSubmit={submit}>
-          <label>Tool name<input value={toolName} onChange={event => setToolName(event.target.value)} required maxLength={160} placeholder="For example, Runway or a specific AI tool" /></label>
-          <label>What do you need?<small>Tell us the plan, duration, seats or access type you need.</small><textarea value={requirement} onChange={event => setRequirement(event.target.value)} required minLength={10} maxLength={4000} rows={6} placeholder="I need a one-month plan for..." /></label>
-          <div className="tool-request-form-grid">
-            <label>Priority<select value={priority} onChange={event => setPriority(event.target.value)}><option value="urgent">Urgent</option><option value="moderate">Moderate</option><option value="low">Low</option></select><small>Urgent requests are reviewed first when possible.</small></label>
-            <label>Contact number<input type="tel" value={contactNumber} onChange={event => setContactNumber(event.target.value)} required maxLength={40} autoComplete="tel" placeholder="+92 3XX XXXXXXX" /><small>We&apos;ll use this number to inform you manually.</small></label>
+        <header className="tool-request-header">
+          <span className="tool-request-header-icon" aria-hidden="true"><Sparkles size={22} /></span>
+          <div>
+            <span className="section-kicker">Tool request</span>
+            <h1 id="tool-request-title">What are you looking for?</h1>
+            <p>Tell us the tool and plan you need. We&apos;ll contact you when it becomes available.</p>
           </div>
-          <button className="primary-button" disabled={busy}>{busy ? 'Sending request…' : 'Send tool request'} <Send size={17} /></button>
+        </header>
+        {error && <p className="commerce-error" role="alert">{error}</p>}
+        {notice && <output className="admin-notice tool-request-notice">{notice}</output>}
+        <form className="tool-request-form" onSubmit={submit}>
+          <div className="tool-request-field-grid">
+            <label htmlFor="tool-request-name">Tool name<input id="tool-request-name" value={toolName} onChange={event => setToolName(event.target.value)} required maxLength={160} placeholder="e.g. Runway, ChatGPT or Canva" /></label>
+            <label htmlFor="tool-request-contact">Contact number<input id="tool-request-contact" type="tel" value={contactNumber} onChange={event => setContactNumber(event.target.value)} required maxLength={40} autoComplete="tel" inputMode="tel" placeholder="+92 3XX XXXXXXX" /></label>
+          </div>
+          <label htmlFor="tool-request-details">Requirements<small>Include the plan, duration, seats or access type.</small><textarea id="tool-request-details" value={requirement} onChange={event => setRequirement(event.target.value)} required minLength={10} maxLength={4000} rows={4} placeholder="I need a one-month Pro plan for..." /></label>
+          <fieldset className="tool-request-urgency">
+            <legend>How urgent is it?</legend>
+            <div className="tool-request-urgency-options">
+              {(['urgent', 'moderate', 'low'] as const).map(option => (
+                <label className={priority === option ? 'selected' : ''} key={option}>
+                  <input type="radio" name="priority" value={option} checked={priority === option} onChange={() => setPriority(option)} />
+                  <span>{option[0].toUpperCase() + option.slice(1)}</span>
+                </label>
+              ))}
+            </div>
+            <small>Urgent requests are reviewed first when possible.</small>
+          </fieldset>
+          <div className="tool-request-actions">
+            <a className="tool-request-browse" href="/inventory">Browse available tools <ArrowRight size={16} /></a>
+            <button className="primary-button" disabled={busy}>{busy ? 'Sending request…' : 'Send request'} <Send size={17} /></button>
+          </div>
         </form>
       </section>
     </main>
