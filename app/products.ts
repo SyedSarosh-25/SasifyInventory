@@ -49,7 +49,7 @@ export const products: Product[] = [
       },
       {
         id: 'p093-momo',
-        name: 'Partially Stable Account · Momo Pay',
+        name: 'Partially Stable Account',
         duration: '1 Month',
         sellingPricePkr: 2999,
         originalPricePkr: 5700,
