@@ -54,12 +54,22 @@ import {
   normalizeCustomerEmail,
   supplierRequiresCustomerEmail,
 } from './supplier-capabilities.mjs';
+import {
+  createEliteToolsOrder,
+  eliteToolsDelivery,
+  eliteToolsOrderId,
+  fetchEliteToolsBalance,
+  fetchEliteToolsProducts,
+  normalizeEliteToolsProduct,
+} from './elite-tools.mjs';
 import { authenticateInboundEmail } from './inbound-email.mjs';
 import {
   normalizeScamReport,
   publicScamReport,
   publicScamReportSummary,
 } from './scam-reports.mjs';
+import { normalizeToolRequest } from './tool-requests.mjs';
+import { customerProduct, customerProductName, customerProductText } from './product-display.mjs';
 import {
   DEFAULT_REVIEWS_URL,
   fetchGoogleReviews,
@@ -72,6 +82,15 @@ const TEAM_COUPON_ENABLED = false;
 const CUSTOMER_COUPON_CODE = 'CUST';
 const TEAM_COMMISSION_PKR = 50;
 const SUPPLIER_MAX_FAILURES = 3;
+const PROFIT_PASSWORD_HASH =
+  process.env.COMMERCE_PROFIT_PASSWORD_HASH || hash(TEAM_COUPON_CODE);
+const PAYMENT_WINDOWS_MINUTES = Object.freeze({ wallet: 5, bank: 30 });
+function paymentMethod(value) {
+  const method = String(value || 'wallet').trim().toLowerCase();
+  if (!Object.hasOwn(PAYMENT_WINDOWS_MINUTES, method))
+    throw fail(400, 'Select wallet payment or bank transfer.');
+  return method;
+}
 const SUPPLIER_API_ENV = Object.freeze({
   dodi: 'DODI_RESELLER_API_KEY',
   qamify: 'QAMIFY_API_KEY',
@@ -79,6 +98,7 @@ const SUPPLIER_API_ENV = Object.freeze({
   fatbunny: 'FATBUNNY_API_KEY',
   piggyai: 'PIGGYAI_API_KEY',
   zoomstore: 'ZOOMSTORE_API_KEY',
+  elitetools: 'ELITE_TOOLS_API_KEY',
 });
 const SUPPLIER_PROVIDER_NAMES = Object.freeze({
   dodi: 'DODI Store',
@@ -87,12 +107,17 @@ const SUPPLIER_PROVIDER_NAMES = Object.freeze({
   fatbunny: 'Fat Bunny Hub',
   piggyai: 'PiggyAi',
   zoomstore: 'Zoom Store',
+  elitetools: 'Elite Tools Store',
 });
 const bearer = (req) =>
   String(req.headers.authorization || '').replace(/^Bearer /, '');
 const adminCookie = (req) =>
   String(req.headers.cookie || '').match(
     /(?:^|;\s*)sasify_admin=([^;]+)/,
+  )?.[1] || '';
+const teamCookie = (req) =>
+  String(req.headers.cookie || '').match(
+    /(?:^|;\s*)sasify_team=([^;]+)/,
   )?.[1] || '';
 const idOk = (value) => /^[a-f0-9-]{36}$/i.test(String(value || ''));
 const json = (res, status, body) => {
@@ -608,6 +633,29 @@ async function ensureOrderFinanceSchema(db) {
   }
   await orderFinanceSchemaReady;
 }
+let paymentWorkflowSchemaReady;
+async function ensurePaymentWorkflowSchema(db) {
+  if (!paymentWorkflowSchemaReady) {
+    paymentWorkflowSchemaReady = (async () => {
+      await db.query(
+        "ALTER TABLE commerce_orders ADD COLUMN IF NOT EXISTS payment_method text NOT NULL DEFAULT 'wallet'",
+      );
+      await db.query(
+        'ALTER TABLE commerce_orders DROP CONSTRAINT IF EXISTS commerce_orders_payment_method_check',
+      );
+      await db.query(
+        "ALTER TABLE commerce_orders ADD CONSTRAINT commerce_orders_payment_method_check CHECK(payment_method IN ('wallet','bank'))",
+      );
+      await db.query(
+        "ALTER TABLE commerce_payments ADD COLUMN IF NOT EXISTS verification_reason text NOT NULL DEFAULT 'not_evaluated'",
+      );
+    })().catch((error) => {
+      paymentWorkflowSchemaReady = null;
+      throw error;
+    });
+  }
+  await paymentWorkflowSchemaReady;
+}
 let supplierApiLogSchemaReady;
 async function ensureSupplierApiLogSchema(db) {
   if (!supplierApiLogSchemaReady) {
@@ -1013,6 +1061,23 @@ function supplierProviders(keys = {}) {
         };
       },
     },
+    {
+      id: 'elitetools',
+      name: 'Elite Tools Store',
+      configured: !!(keys.elitetools || process.env.ELITE_TOOLS_API_KEY),
+      async catalog() {
+        const [products, state] = await Promise.all([
+          fetchEliteToolsProducts(keys.elitetools),
+          fetchEliteToolsBalance(keys.elitetools),
+        ]);
+        return {
+          ...state,
+          products: products
+            .map((product) => normalizeEliteToolsProduct(product, state.currency))
+            .filter(Boolean),
+        };
+      },
+    },
   ];
 }
 let supplierMediaSchemaReady;
@@ -1054,6 +1119,26 @@ async function ensureScamSchema(db) {
   }
   await scamSchemaReady;
 }
+let toolRequestSchemaReady;
+async function ensureToolRequestSchema(db) {
+  if (!toolRequestSchemaReady) {
+    toolRequestSchemaReady = (async () => {
+      await db.query(`CREATE TABLE IF NOT EXISTS commerce_tool_requests (
+        id uuid PRIMARY KEY, tool_name text NOT NULL, requirement text NOT NULL,
+        priority text NOT NULL DEFAULT 'moderate' CHECK(priority IN ('urgent','moderate','low')),
+        contact_number text NOT NULL, status text NOT NULL DEFAULT 'new'
+          CHECK(status IN ('new','contacted','fulfilled','closed')),
+        created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now()
+      )`);
+      await db.query('CREATE INDEX IF NOT EXISTS commerce_tool_requests_created ON commerce_tool_requests(created_at DESC)');
+      await db.query('CREATE INDEX IF NOT EXISTS commerce_tool_requests_queue ON commerce_tool_requests(status,priority,created_at DESC)');
+    })().catch((error) => {
+      toolRequestSchemaReady = null;
+      throw error;
+    });
+  }
+  await toolRequestSchemaReady;
+}
 let inventoryVariantMigrationReady;
 async function ensureInventoryVariants(db) {
   if (!inventoryVariantMigrationReady) {
@@ -1094,6 +1179,69 @@ function validAdminToken(token, secret) {
   } catch {
     return false;
   }
+}
+function scopedToken(secret, scope, claims, ttlMs) {
+  const payload = Buffer.from(
+    JSON.stringify({ ...claims, expiresAt: Date.now() + ttlMs }),
+  ).toString('base64url');
+  const mac = createHmac('sha256', secret)
+    .update(`${scope}:${payload}`)
+    .digest('base64url');
+  return `${payload}.${mac}`;
+}
+function scopedClaims(token, secret, scope) {
+  try {
+    const [payload, mac] = String(token || '').split('.');
+    const expected = createHmac('sha256', secret)
+      .update(`${scope}:${payload}`)
+      .digest('base64url');
+    const data = JSON.parse(Buffer.from(payload, 'base64url').toString());
+    if (!same(mac, expected) || Number(data.expiresAt) <= Date.now()) return null;
+    return data;
+  } catch {
+    return null;
+  }
+}
+function teamToken(secret, email) {
+  return scopedToken(secret, 'team', { role: 'team', email }, 8 * 60 * 60 * 1000);
+}
+function profitViewToken(secret) {
+  return scopedToken(secret, 'profit', { role: 'profit' }, 30 * 60 * 1000);
+}
+let teamSchemaReady;
+async function ensureTeamSchema(db) {
+  if (!teamSchemaReady) {
+    teamSchemaReady = db
+      .query(`CREATE TABLE IF NOT EXISTS commerce_team_users (
+        id boolean PRIMARY KEY DEFAULT true CHECK(id),
+        email text NOT NULL,
+        password_hash text NOT NULL,
+        enabled boolean NOT NULL DEFAULT true,
+        created_at timestamptz NOT NULL DEFAULT now(),
+        updated_at timestamptz NOT NULL DEFAULT now()
+      )`)
+      .then(() =>
+        db.query(`CREATE TABLE IF NOT EXISTS commerce_team_withdrawals (
+          id uuid PRIMARY KEY,
+          inventory_id uuid NOT NULL UNIQUE REFERENCES commerce_inventory(id),
+          team_email text NOT NULL,
+          commission_code text NOT NULL DEFAULT 'HOR',
+          commission_amount integer NOT NULL DEFAULT ${TEAM_COMMISSION_PKR} CHECK(commission_amount>=0),
+          commission_paid boolean NOT NULL DEFAULT false,
+          created_at timestamptz NOT NULL DEFAULT now()
+        )`),
+      )
+      .then(() =>
+        db.query(
+          'CREATE INDEX IF NOT EXISTS commerce_team_withdrawals_created ON commerce_team_withdrawals(created_at DESC)',
+        ),
+      )
+      .catch((error) => {
+        teamSchemaReady = null;
+        throw error;
+      });
+  }
+  await teamSchemaReady;
 }
 async function rate(db, key, max) {
   const result = await db.query(
@@ -1306,6 +1454,24 @@ async function placeSupplierOrder(product, order, onExchange, keys = {}) {
       supplierId: zoomStoreOrderId(result, order.id),
     };
   }
+  if (product.provider_id === 'elitetools') {
+    const externalProductId = String(
+      product.external_product_id || product.id || '',
+    ).trim();
+    if (!externalProductId)
+      throw fail(503, 'Elite Tools Store product ID is invalid.');
+    const result = await createEliteToolsOrder({
+      productId: externalProductId,
+      quantity: 1,
+      idempotencyKey: `sasify-${order.id}-${externalProductId}`,
+      onExchange,
+      apiKey: keys.elitetools,
+    });
+    return {
+      delivery: eliteToolsDelivery(result),
+      supplierId: eliteToolsOrderId(result, order.id),
+    };
+  }
   if (['dodi', 'dody'].includes(product.provider_id)) {
     const result = await createSupplierOrder({
       productId: product.external_product_id || product.id,
@@ -1457,10 +1623,10 @@ async function fulfill(
       );
     const { delivery, supplierId } = placed;
     await insertSupplierApiLogs(db, supplierLogs);
-    await db.query('UPDATE commerce_payments SET order_id=$1 WHERE id=$2', [
-      order.id,
-      payment.id,
-    ]);
+    await db.query(
+      'UPDATE commerce_payments SET order_id=$1,verification_reason=$3 WHERE id=$2',
+      [order.id, payment.id, manual ? 'manually_approved' : 'verified_and_delivered'],
+    );
     await db.query(
       "UPDATE commerce_orders SET status='delivered',delivered_at=now(),supplier_product_id=$1,supplier_cost_pkr=$2,fulfillment_cost_pkr=$2,supplier_order_id=$3,supplier_status='delivered',supplier_delivery=$4 WHERE id=$5",
       [
@@ -1506,23 +1672,86 @@ async function fulfill(
     );
     order.inventory_id = replacement.id;
   }
+  let inventoryId = order.inventory_id;
+  if (inventoryId) {
+    const assigned = (
+      await db.query('SELECT id,state FROM commerce_inventory WHERE id=$1 FOR UPDATE', [
+        inventoryId,
+      ])
+    ).rows[0];
+    if (assigned?.state === 'available') {
+      await db.query(
+        "UPDATE commerce_inventory SET state='reserved' WHERE id=$1 AND state='available'",
+        [inventoryId],
+      );
+    } else if (assigned?.state !== 'reserved') {
+      inventoryId = null;
+    }
+  }
+  if (!inventoryId) {
+    const replacement = (
+      await db.query(
+        `SELECT i.id FROM commerce_inventory i
+         WHERE i.product_id=ANY($1::text[]) AND i.state='available'
+           AND NOT EXISTS (
+             SELECT 1 FROM commerce_orders active
+             WHERE active.inventory_id=i.id AND active.status IN ('pending','review','delivered')
+           )
+         ORDER BY i.created_at FOR UPDATE OF i SKIP LOCKED LIMIT 1`,
+        [localInventoryProductIds(order.product_id)],
+      )
+    ).rows[0];
+    if (replacement) {
+      inventoryId = replacement.id;
+      await db.query(
+        "UPDATE commerce_inventory SET state='reserved' WHERE id=$1 AND state='available'",
+        [inventoryId],
+      );
+      await db.query('UPDATE commerce_orders SET inventory_id=$1 WHERE id=$2', [
+        inventoryId,
+        order.id,
+      ]);
+    }
+  }
   const changed = await db.query(
     "UPDATE commerce_inventory SET state='delivered' WHERE id=$1 AND state='reserved' RETURNING id",
-    [order.inventory_id],
+    [inventoryId],
   );
   if (!changed.rowCount) throw fail(409, 'Reserved stock is unavailable.');
-  await db.query('UPDATE commerce_payments SET order_id=$1 WHERE id=$2', [
-    order.id,
-    payment.id,
-  ]);
+  await db.query(
+    'UPDATE commerce_payments SET order_id=$1,verification_reason=$3 WHERE id=$2',
+    [order.id, payment.id, manual ? 'manually_approved' : 'verified_and_delivered'],
+  );
   await db.query(
     "UPDATE commerce_orders SET status='delivered',delivered_at=now(),fulfillment_cost_pkr=(SELECT purchase_cost FROM commerce_inventory WHERE id=$1) WHERE id=$2",
-    [order.inventory_id, order.id],
+    [inventoryId, order.id],
   );
   await db.query('INSERT INTO commerce_audit(action,object_id) VALUES($1,$2)', [
     manual ? 'manual_delivery' : 'auto_delivery',
     order.id,
   ]);
+}
+async function findVerifiedPaymentForOrder(db, order) {
+  const rows = order.transaction_id
+    ? (
+        await db.query(
+          `SELECT id,transaction_id FROM commerce_payments
+           WHERE verified=true AND order_id IS NULL AND amount=$2
+             AND (transaction_id=$1 OR (length($1)>=8 AND right(transaction_id,length($1))=$1))
+           ORDER BY (transaction_id=$1) DESC,created_at DESC LIMIT 2`,
+          [order.transaction_id, order.amount],
+        )
+      ).rows
+    : (
+        await db.query(
+          `SELECT id,transaction_id FROM commerce_payments
+           WHERE verified=true AND order_id IS NULL AND amount=$1
+             AND received_at>=($2::timestamptz) AND received_at<=($3::timestamptz)
+           ORDER BY received_at ASC LIMIT 2`,
+          [order.amount, order.created_at, order.expires_at],
+        )
+      ).rows;
+  return rows.length === 1 ? rows[0] : null;
 }
 async function fulfillFreeOrder(db, orderId) {
   const order = (
@@ -1705,11 +1934,23 @@ export function createHandler(
       )
         throw fail(413, 'Request too large.');
       const adminBearer = bearer(req),
-        adminSession = adminCookie(req);
+        adminSession = adminCookie(req),
+        teamBearer = bearer(req),
+        teamSession = teamCookie(req);
       const admin =
         same(adminBearer, process.env.COMMERCE_ADMIN_KEY) ||
         validAdminToken(adminBearer, process.env.COMMERCE_ADMIN_KEY) ||
         validAdminToken(adminSession, process.env.COMMERCE_ADMIN_KEY);
+      const teamClaims =
+        scopedClaims(teamBearer, process.env.COMMERCE_ADMIN_KEY, 'team') ||
+        scopedClaims(teamSession, process.env.COMMERCE_ADMIN_KEY, 'team');
+      const team = teamClaims?.role === 'team';
+      const profitUnlocked =
+        scopedClaims(
+          String(req.headers['x-profit-token'] || ''),
+          process.env.COMMERCE_ADMIN_KEY,
+          'profit',
+        )?.role === 'profit';
       await rate(
         db,
         hash(
@@ -1721,6 +1962,8 @@ export function createHandler(
             ? 5
             : action === 'scam-submit'
               ? 4
+              : action === 'tool-request'
+                ? 4
               : 20,
       );
       if (
@@ -1729,6 +1972,12 @@ export function createHandler(
         !admin
       )
         throw fail(401, 'Your admin session is invalid or has expired.');
+      if (
+        action?.startsWith('team-') &&
+        !['team-login', 'team-logout'].includes(action) &&
+        !team
+      )
+        throw fail(401, 'Your team session is invalid or has expired.');
       if (
         action === 'email-webhook' &&
         !same(body.secret, process.env.NAYAPAY_WEBHOOK_SECRET)
@@ -1751,6 +2000,7 @@ export function createHandler(
           'admin-list',
           'admin-supplier-logs',
           'admin-scam-report',
+          'team-stock',
         ].includes(action)
           ? req.method !== 'GET'
           : req.method !== 'POST'
@@ -1758,12 +2008,15 @@ export function createHandler(
         throw fail(405, 'Method not allowed.');
       await ensureCouponSchema(db);
       await ensureOrderFinanceSchema(db);
+      await ensurePaymentWorkflowSchema(db);
       await ensureSupplierApiLogSchema(db);
       await ensureSupplierSecretSchema(db);
       await ensureSupplierMediaSchema(db);
       await ensureScamSchema(db);
+      await ensureToolRequestSchema(db);
       await ensureGoogleReviewSchema(db);
       await ensureInventoryVariants(db);
+      await ensureTeamSchema(db);
       await db.query('BEGIN');
       await ensureDefaultCoupon(db);
       const supplierApiKeys = await readSupplierApiKeys(db, key);
@@ -1800,6 +2053,125 @@ export function createHandler(
           'sasify_admin=; HttpOnly; Secure; SameSite=Strict; Path=/api/commerce; Max-Age=0',
         );
         output = { ok: true };
+      } else if (action === 'admin-team-credentials') {
+        const teamEmail = String(body.email || '')
+          .trim()
+          .toLowerCase();
+        const teamPassword = String(body.password || '');
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(teamEmail))
+          throw fail(400, 'Enter a valid teammate email address.');
+        if (teamPassword.length < 8)
+          throw fail(400, 'Teammate password must be at least 8 characters.');
+        await db.query(
+          `INSERT INTO commerce_team_users(id,email,password_hash,enabled)
+           VALUES(true,$1,$2,true)
+           ON CONFLICT(id) DO UPDATE SET email=excluded.email,password_hash=excluded.password_hash,enabled=true,updated_at=now()`,
+          [teamEmail, hash(teamPassword)],
+        );
+        await db.query(
+          "INSERT INTO commerce_audit(action,object_id) VALUES('team_credentials_update',$1)",
+          [hash(teamEmail).slice(0, 16)],
+        );
+        output = { ok: true, configured: true };
+      } else if (action === 'admin-profit-unlock') {
+        if (!same(hash(String(body.password || '')), PROFIT_PASSWORD_HASH))
+          throw fail(401, 'Incorrect profit password.');
+        output = { ok: true, token: profitViewToken(process.env.COMMERCE_ADMIN_KEY) };
+        await db.query(
+          "INSERT INTO commerce_audit(action,object_id) VALUES('profit_unlock',$1)",
+          ['admin'],
+        );
+      } else if (action === 'team-login') {
+        const teamEmail = String(body.email || '')
+          .trim()
+          .toLowerCase();
+        const teamPasswordHash = hash(String(body.password || ''));
+        const teamUser = (
+          await db.query(
+            'SELECT email,password_hash,enabled FROM commerce_team_users WHERE id=true',
+          )
+        ).rows[0];
+        if (!teamUser)
+          throw fail(503, 'Team access has not been configured by the admin.');
+        if (
+          !teamUser.enabled ||
+          !same(teamEmail, teamUser.email) ||
+          !same(teamPasswordHash, teamUser.password_hash)
+        )
+          throw fail(401, 'Invalid team email or password.');
+        const token = teamToken(process.env.COMMERCE_ADMIN_KEY, teamUser.email);
+        res.setHeader(
+          'Set-Cookie',
+          `sasify_team=${token}; HttpOnly; Secure; SameSite=Strict; Path=/api/commerce; Max-Age=28800`,
+        );
+        await db.query(
+          "INSERT INTO commerce_audit(action,object_id) VALUES('team_login',$1)",
+          [hash(teamUser.email).slice(0, 16)],
+        );
+        output = { ok: true, token, email: teamUser.email };
+      } else if (action === 'team-logout') {
+        res.setHeader(
+          'Set-Cookie',
+          'sasify_team=; HttpOnly; Secure; SameSite=Strict; Path=/api/commerce; Max-Age=0',
+        );
+        output = { ok: true };
+      } else if (action === 'team-stock') {
+        const rows = (
+          await db.query(
+            `SELECT product_id,count(*)::int AS available
+             FROM commerce_inventory
+             WHERE state='available' AND product_id <> ALL($1::text[])
+             GROUP BY product_id ORDER BY product_id`,
+            [RETIRED_LOCAL_PRODUCT_IDS],
+          )
+        ).rows;
+        output = {
+          products: rows.map((row) => ({
+            productId: row.product_id,
+            productName:
+              catalog.find((product) => product.id === row.product_id)?.name ||
+              row.product_id,
+            available: Number(row.available),
+          })),
+        };
+      } else if (action === 'team-inventory-pick') {
+        const productId = String(body.productId || '').trim();
+        if (!productId || RETIRED_LOCAL_PRODUCT_IDS.includes(productId))
+          throw fail(400, 'Select a valid available stock product.');
+        const item = (
+          await db.query(
+            `SELECT * FROM commerce_inventory
+             WHERE product_id=$1 AND state='available'
+             ORDER BY created_at ASC FOR UPDATE SKIP LOCKED LIMIT 1`,
+            [productId],
+          )
+        ).rows[0];
+        if (!item) throw fail(409, 'That stock is no longer available.');
+        const credentials = decrypt(item.credentials, key);
+        const changed = await db.query(
+          "UPDATE commerce_inventory SET state='withdrawn' WHERE id=$1 AND state='available' RETURNING id",
+          [item.id],
+        );
+        if (!changed.rowCount)
+          throw fail(409, 'That stock is no longer available.');
+        await db.query(
+          `INSERT INTO commerce_team_withdrawals(id,inventory_id,team_email,commission_code,commission_amount)
+           VALUES($1,$2,$3,$4,$5)`,
+          [randomUUID(), item.id, teamClaims.email, TEAM_COUPON_CODE, TEAM_COMMISSION_PKR],
+        );
+        await db.query(
+          "INSERT INTO commerce_audit(action,object_id) VALUES('team_inventory_pick',$1)",
+          [item.id],
+        );
+        output = {
+          ok: true,
+          productId: item.product_id,
+          productName:
+            catalog.find((product) => product.id === item.product_id)?.name ||
+            item.product_id,
+          credentials,
+          commission: { code: TEAM_COUPON_CODE, amountPkr: TEAM_COMMISSION_PKR },
+        };
       } else if (action === 'stock') {
         const counts = (
           await db.query(
@@ -1842,7 +2214,7 @@ export function createHandler(
         output = {
           products: [
             ...localCatalog.map((p) => ({
-              ...p,
+              ...customerProduct(p),
               source: 'local',
               available:
                 p.id === 'p093'
@@ -1854,7 +2226,7 @@ export function createHandler(
                   : counts.find((r) => r.product_id === p.id)?.available || 0,
             })),
             ...supplierProducts.map((p) => ({
-              ...p,
+              ...customerProduct(p),
               id: p.canonical_key,
               source: 'supplier',
             })),
@@ -1937,7 +2309,36 @@ export function createHandler(
           id: inserted.rows[0].id,
           createdAt: inserted.rows[0].created_at,
         };
+      } else if (action === 'tool-request') {
+        let request;
+        try {
+          request = normalizeToolRequest(body);
+        } catch (error) {
+          throw fail(400, error.message);
+        }
+        const inserted = await db.query(
+          `INSERT INTO commerce_tool_requests(id,tool_name,requirement,priority,contact_number)
+           VALUES($1,$2,$3,$4,$5) RETURNING id,created_at`,
+          [
+            randomUUID(),
+            request.toolName,
+            request.requirement,
+            request.priority,
+            request.contactNumber,
+          ],
+        );
+        await db.query(
+          "INSERT INTO commerce_audit(action,object_id) VALUES('tool_request_submit',$1)",
+          [inserted.rows[0].id],
+        );
+        output = {
+          ok: true,
+          id: inserted.rows[0].id,
+          createdAt: inserted.rows[0].created_at,
+        };
       } else if (action === 'create') {
+        const selectedPaymentMethod = paymentMethod(body.paymentMethod);
+        const paymentWindowMinutes = PAYMENT_WINDOWS_MINUTES[selectedPaymentMethod];
         let product = catalog.find((p) => p.id === body.productId);
         let supplierProduct;
         if (!product) {
@@ -2071,8 +2472,8 @@ export function createHandler(
             [coupon.id],
           );
         await db.query(
-          `INSERT INTO commerce_orders(id,product_id,amount,listed_amount,customer_email,recovery_hash,session_hash,inventory_id,supplier_product_id,supplier_cost_pkr,coupon_id,coupon_discount,commission_code,commission_rate,commission_amount,expires_at)
-        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,now()+interval '5 minutes')`,
+          `INSERT INTO commerce_orders(id,product_id,amount,listed_amount,customer_email,recovery_hash,session_hash,inventory_id,supplier_product_id,supplier_cost_pkr,coupon_id,coupon_discount,commission_code,commission_rate,commission_amount,payment_method,expires_at)
+        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,now()+($17 * interval '1 minute'))`,
           [
             id,
             product.id,
@@ -2089,6 +2490,8 @@ export function createHandler(
             commissionCode,
             commissionRate,
             commissionAmount,
+            selectedPaymentMethod,
+            paymentWindowMinutes,
           ],
         );
         if (isTeamCoupon && paymentAmount === 0)
@@ -2108,12 +2511,14 @@ export function createHandler(
           teamCoupon: isTeamCoupon,
           commissionCode,
           commissionAmount,
+          paymentMethod: selectedPaymentMethod,
+          paymentWindowMinutes,
         };
         telegramMessages.push(`New order placed\nOrder: ${id.slice(0, 8)}\nProduct: ${String(product.name || product.id).slice(0, 120)}\nAmount: PKR ${paymentAmount.toLocaleString()}${isTeamCoupon ? '\nTeam coupon: HOR' : commissionCode ? `\nCoupon: ${commissionCode}` : ''}`);
       } else if (['status', 'claim', 'cancel'].includes(action)) {
         const id = req.query?.id || body.id;
         if (!idOk(id)) throw fail(404, 'Order not found.');
-        const order = (
+        let order = (
           await db.query(
             `SELECT o.*,c.code_display AS coupon_code FROM commerce_orders o
              LEFT JOIN commerce_coupons c ON c.id=o.coupon_id WHERE o.id=$1 FOR UPDATE OF o`,
@@ -2178,7 +2583,7 @@ export function createHandler(
             // NayaPay's app can expose only the trailing reference digits while its
             // receipt email contains the complete prefixed transaction ID.
             await db.query(
-              'UPDATE commerce_orders SET transaction_id=COALESCE(transaction_id,$1) WHERE id=$2',
+              'UPDATE commerce_orders SET transaction_id=$1 WHERE id=$2',
               [payment.transaction_id, id],
             );
             if (order.status !== 'expired') {
@@ -2203,17 +2608,66 @@ export function createHandler(
             ? { ok: true, status: 'cancelled', reason: fulfillment.reason }
             : { ok: true };
         } else {
+          // A receipt can be recorded just before the customer clicks the
+          // verification button, or an earlier delivery attempt can fail
+          // transiently. Retry only a single verified, unassigned payment that
+          // matches this order's unique amount and receipt reference/window.
+          if (
+            order.status === 'review' &&
+            order.payment_submitted_at
+          ) {
+            const payment = await findVerifiedPaymentForOrder(db, order);
+            if (payment) {
+              await db.query(
+                'UPDATE commerce_orders SET transaction_id=$1 WHERE id=$2',
+                [payment.transaction_id, id],
+              );
+              await db.query('SAVEPOINT status_delivery');
+              try {
+                await fulfill(
+                  db,
+                  id,
+                  payment.id,
+                  false,
+                  captureSupplierExchange,
+                  supplierApiKeys,
+                );
+              } catch (e) {
+                if (!e.status) throw e;
+                await db.query('ROLLBACK TO SAVEPOINT status_delivery');
+                console.error(
+                  'auto-delivery-retry-failed',
+                  id,
+                  payment.id,
+                  e.status,
+                  e.message,
+                );
+                await db.query(
+                  'UPDATE commerce_payments SET verification_reason=$1 WHERE id=$2 AND order_id IS NULL',
+                  [`verified_delivery_pending: ${String(e.message || 'delivery failed').slice(0, 180)}`, payment.id],
+                );
+                await insertSupplierApiLogs(db, supplierLogs);
+              }
+              order = (
+                await db.query(
+                  `SELECT o.*,c.code_display AS coupon_code FROM commerce_orders o
+                   LEFT JOIN commerce_coupons c ON c.id=o.coupon_id WHERE o.id=$1`,
+                  [id],
+                )
+              ).rows[0];
+            }
+          }
           const orderProduct =
             catalog.find((p) => p.id === order.product_id)?.name ||
             (
               await db.query(
-                'SELECT name FROM commerce_supplier_products WHERE id=$1',
-                [order.product_id],
+                'SELECT name FROM commerce_supplier_products WHERE id=$1 OR canonical_key=$1 ORDER BY id LIMIT 1',
+                [order.supplier_product_id || order.product_id],
               )
             ).rows[0]?.name;
           output = {
             id,
-            product: orderProduct,
+            product: orderProduct ? customerProductName({ id: order.product_id, name: orderProduct }) : orderProduct,
             amount: order.amount,
             listedAmount: Number(order.listed_amount ?? order.amount),
             originalAmount:
@@ -2231,15 +2685,22 @@ export function createHandler(
               (order.transaction_id ? order.created_at : null),
             createdAt: order.created_at,
             transactionId: order.transaction_id,
+            paymentMethod: order.payment_method || 'wallet',
+            paymentWindowMinutes:
+              PAYMENT_WINDOWS_MINUTES[order.payment_method] ||
+              PAYMENT_WINDOWS_MINUTES.wallet,
             payment: {
-              number: '03450485711',
+              number: process.env.PAYMENT_ACCOUNT_NUMBER || '03450485711',
               provider: 'NayaPay',
               title: process.env.PAYMENT_ACCOUNT_TITLE,
             },
           };
           if (order.status === 'delivered') {
-            if (order.supplier_delivery)
+            if (order.supplier_delivery) {
               output.delivery = decrypt(order.supplier_delivery, key);
+              if (output.delivery.instructions)
+                output.delivery.instructions = customerProductText(output.delivery.instructions, { id: order.product_id, name: orderProduct });
+            }
             else {
               const item = (
                 await db.query(
@@ -2257,8 +2718,8 @@ export function createHandler(
             ? await authenticateInboundEmail(body, process.env.NAYAPAY_SENDER)
             : null;
         const email = inbound ? inbound.email : body;
-        if (!email.subject || typeof email.text !== 'string')
-          throw fail(400, 'Subject and plain email body required.');
+        if (!email.subject || (typeof email.text !== 'string' && typeof email.html !== 'string'))
+          throw fail(400, 'Subject and email body required.');
         const signatureValid =
           action === 'inbound-email'
             ? inboundEmailAuthorized(req) && inbound.authenticated
@@ -2274,6 +2735,13 @@ export function createHandler(
           receiver: process.env.NAYAPAY_RECEIVER_MARKER,
           receiverMailbox: process.env.NAYAPAY_RECEIVER_EMAIL,
         });
+        const verificationReason = parsed.verified
+          ? 'verified'
+          : !signatureValid
+            ? inbound?.reason || 'webhook_signature_invalid'
+            : process.env.NAYAPAY_AUTO_VERIFY !== 'true'
+              ? 'automatic_verification_disabled'
+              : parsed.reason || 'receipt_format_not_recognized';
         const eventHash = hash(
           `${signatureValid ? (action === 'inbound-email' ? 'forwarded' : 'signed') : 'untrusted'}|${email.messageId || ''}|${email.subject}|${email.text}|${email.html || ''}`,
         );
@@ -2292,8 +2760,8 @@ export function createHandler(
           key,
         );
         let inserted = await db.query(
-          `INSERT INTO commerce_payments(id,event_hash,source_message_id,transaction_id,amount,payer_name,source_last4,received_at,verified,subject,encrypted_body)
-        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) ON CONFLICT DO NOTHING RETURNING id`,
+          `INSERT INTO commerce_payments(id,event_hash,source_message_id,transaction_id,amount,payer_name,source_last4,received_at,verified,verification_reason,subject,encrypted_body)
+        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) ON CONFLICT DO NOTHING RETURNING id`,
           [
             randomUUID(),
             eventHash,
@@ -2304,6 +2772,7 @@ export function createHandler(
             parsed.sourceLast4,
             parsed.received || null,
             parsed.verified,
+            verificationReason,
             email.subject.slice(0, 500),
             encryptedBody,
           ],
@@ -2311,7 +2780,7 @@ export function createHandler(
         // A trusted retry can validate a previously recorded, unused receipt. Message IDs also deduplicate forwarded and Apps Script deliveries.
         if (!inserted.rowCount && parsed.verified)
           inserted = await db.query(
-            `UPDATE commerce_payments SET transaction_id=$1,source_last4=$2,verified=true,encrypted_body=$3
+            `UPDATE commerce_payments SET transaction_id=$1,source_last4=$2,verified=true,verification_reason='verified',encrypted_body=$3
         WHERE (event_hash=$4 OR ($5::text IS NOT NULL AND source_message_id=$5::text)) AND order_id IS NULL AND verified=false AND amount=$6 AND (transaction_id IS NULL OR transaction_id=$1) RETURNING id`,
             [
               parsed.transaction,
@@ -2332,6 +2801,28 @@ export function createHandler(
               [parsed.transaction, parsed.amount, parsed.received],
             )
           ).rows;
+          let matchReason =
+            orders.length === 1
+              ? 'verified_order_match'
+              : orders.length > 1
+                ? 'verified_multiple_eligible_orders'
+                : 'verified_no_eligible_order';
+          if (!orders.length) {
+            const lateOrder = (
+              await db.query(
+                `SELECT id FROM commerce_orders
+                 WHERE status IN ('pending','review','expired') AND payment_submitted_at IS NOT NULL
+                   AND amount=$1 AND $2::timestamptz>=created_at AND $2::timestamptz>expires_at
+                 ORDER BY created_at DESC LIMIT 1`,
+                [parsed.amount, parsed.received],
+              )
+            ).rows[0];
+            if (lateOrder) matchReason = 'verified_after_order_window';
+          }
+          await db.query(
+            'UPDATE commerce_payments SET verification_reason=$1 WHERE id=$2',
+            [matchReason, inserted.rows[0].id],
+          );
           if (orders.length === 1) {
             await db.query(
               'UPDATE commerce_orders SET transaction_id=$1 WHERE id=$2',
@@ -2672,7 +3163,7 @@ export function createHandler(
           deliveredProfitRows,
           withdrawnProfitRows,
         );
-        const commissions = (
+        const orderCommissions = (
           await db.query(`SELECT o.id AS order_id,o.product_id,o.amount,o.listed_amount,
             o.commission_code,o.commission_rate,o.commission_amount,o.payer_name,
             o.created_at,o.delivered_at
@@ -2680,6 +3171,29 @@ export function createHandler(
             WHERE o.status='delivered' AND o.commission_amount>0
             ORDER BY o.delivered_at DESC LIMIT 500`)
         ).rows;
+        const teamWithdrawals = (
+          await db.query(`SELECT tw.id,tw.inventory_id,tw.team_email,tw.commission_code,
+            tw.commission_amount,tw.commission_paid,tw.created_at,i.product_id,i.purchase_cost
+            FROM commerce_team_withdrawals tw
+            INNER JOIN commerce_inventory i ON i.id=tw.inventory_id
+            ORDER BY tw.created_at DESC LIMIT 500`)
+        ).rows;
+        const commissions = [
+          ...orderCommissions,
+          ...teamWithdrawals.map((row) => ({
+            order_id: row.id,
+            product_id: row.product_id,
+            amount: localProductSellingPrice(row.product_id),
+            listed_amount: localProductSellingPrice(row.product_id),
+            commission_code: row.commission_code,
+            commission_rate: 0,
+            commission_amount: row.commission_amount,
+            payer_name: row.team_email,
+            created_at: row.created_at,
+            delivered_at: row.created_at,
+            source: 'team stock withdrawal',
+          })),
+        ];
         const commissionSummary = summarizeCommissions(commissions);
         const activeOrders = (
           await db.query(
@@ -2687,9 +3201,21 @@ export function createHandler(
           )
         ).rows[0]?.count || 0;
         profitSummary.metrics.active_orders = Number(activeOrders);
-        const profitBreakdown = Object.entries(profitSummary.breakdown).map(
+        const dashboardMetrics = { ...profitSummary.metrics };
+        if (!profitUnlocked)
+          for (const field of [
+            'profit',
+            'monthly_profit',
+            'cost',
+            'hor_profit_credit',
+            'missing_costs',
+          ])
+            dashboardMetrics[field] = null;
+        const profitBreakdown = profitUnlocked
+          ? Object.entries(profitSummary.breakdown).map(
           ([source, values]) => ({ source, ...values }),
-        );
+            )
+          : [];
         const coupons = (
           await db.query(
             'SELECT id,code_display,discount_percent,commission_percent,max_uses,used_count,enabled,unlimited,created_at,updated_at FROM commerce_coupons ORDER BY created_at DESC',
@@ -2707,8 +3233,13 @@ export function createHandler(
             [TEAM_COUPON_CODE],
           )
         ).rows;
+        const teamAccessRow = (
+          await db.query(
+            'SELECT email,enabled FROM commerce_team_users WHERE id=true',
+          )
+        ).rows[0];
         output = {
-          metrics: profitSummary.metrics,
+          metrics: dashboardMetrics,
           coupons,
           inventory,
           scamReports: (
@@ -2716,11 +3247,19 @@ export function createHandler(
               'SELECT id,name,description,amount_pkr,identifiers,payment_methods,status,created_at,reviewed_at,jsonb_array_length(evidence) AS evidence_count FROM commerce_scam_reports ORDER BY created_at DESC LIMIT 200',
             )
           ).rows,
+          toolRequests: (
+            await db.query(
+              `SELECT id,tool_name,requirement,priority,contact_number,status,created_at,updated_at
+               FROM commerce_tool_requests
+               ORDER BY CASE priority WHEN 'urgent' THEN 0 WHEN 'moderate' THEN 1 ELSE 2 END, created_at DESC
+               LIMIT 200`,
+            )
+          ).rows,
           supplierProducts: (
             await db.query(
               'SELECT * FROM commerce_supplier_products ORDER BY provider_name,name',
             )
-          ).rows,
+          ).rows.map(customerProduct),
           providerStates: (
             await db.query(
               'SELECT * FROM commerce_provider_state ORDER BY provider_name',
@@ -2741,7 +3280,7 @@ export function createHandler(
           ).rows,
           orders: (
             await db.query(
-              `SELECT o.id,o.product_id,o.amount,o.listed_amount,o.coupon_discount,o.status,o.transaction_id,o.payer_name,
+              `SELECT o.id,o.product_id,o.amount,o.listed_amount,o.coupon_discount,o.status,o.transaction_id,o.payer_name,o.payment_method,
                 o.payment_submitted_at,o.supplier_order_id,o.supplier_status,c.code_display AS coupon_code,
                 sp.provider_name AS supplier_name,sp.name AS supplier_product_name,o.created_at,o.delivered_at,
                 o.fulfillment_cost_pkr AS cost_pkr,
@@ -2753,10 +3292,14 @@ export function createHandler(
                LEFT JOIN commerce_supplier_products sp ON sp.id=o.supplier_product_id
                ORDER BY o.created_at DESC LIMIT 100`,
             )
-          ).rows,
+            ).rows.map((row) =>
+              profitUnlocked
+                ? row
+                : { ...row, cost_pkr: null, profit_pkr: null },
+            ),
           payments: (
             await db.query(
-              'SELECT id,amount,subject,transaction_id,payer_name,source_last4,verified,order_id,received_at,created_at FROM commerce_payments ORDER BY created_at DESC LIMIT 100',
+              'SELECT id,amount,subject,transaction_id,payer_name,source_last4,verified,verification_reason,order_id,received_at,created_at FROM commerce_payments ORDER BY created_at DESC LIMIT 100',
             )
           ).rows,
           stock: (
@@ -2768,18 +3311,35 @@ export function createHandler(
           supplierUsdtPkrRate: supplierUsdtRate(),
           supplierUsdPkrRate: supplierUsdRate(),
           profitBreakdown,
+          profitUnlocked,
           commissionSummary,
           commissions,
           supplierKeys: supplierKeyStatus(supplierApiKeys),
+          teamAccess: teamAccessRow
+            ? { configured: true, email: teamAccessRow.email }
+            : { configured: false, email: null },
           teamCommissions: {
             ratePkr: TEAM_COMMISSION_PKR,
-            totalPkr: commissionOrders.length * TEAM_COMMISSION_PKR,
-            orders: commissionOrders.map((row) => ({
-              ...row,
-              original_sale_pkr:
-                Number(row.amount || 0) + Number(row.coupon_discount || 0),
-              commission_pkr: TEAM_COMMISSION_PKR,
-            })),
+            totalPkr:
+              (commissionOrders.length + teamWithdrawals.length) *
+              TEAM_COMMISSION_PKR,
+            orders: [
+              ...commissionOrders.map((row) => ({
+                ...row,
+                original_sale_pkr:
+                  Number(row.amount || 0) + Number(row.coupon_discount || 0),
+                commission_pkr: TEAM_COMMISSION_PKR,
+                source: 'HOR coupon',
+              })),
+              ...teamWithdrawals.map((row) => ({
+                id: row.id,
+                product_id: row.product_id,
+                team_email: row.team_email,
+                created_at: row.created_at,
+                commission_pkr: row.commission_amount,
+                source: 'Team stock withdrawal',
+              })),
+            ],
           },
         };
       } else if (action === 'admin-supplier-logs') {
@@ -2939,6 +3499,21 @@ export function createHandler(
           [`${status}_scam_report`, body.reportId],
         );
         output = { ok: true, reportId: body.reportId, status };
+      } else if (action === 'admin-tool-request-update') {
+        if (!idOk(body.requestId)) throw fail(400, 'Invalid tool request ID.');
+        const status = String(body.status || '').trim();
+        if (!['new', 'contacted', 'fulfilled', 'closed'].includes(status))
+          throw fail(400, 'Invalid tool request status.');
+        const changed = await db.query(
+          'UPDATE commerce_tool_requests SET status=$1,updated_at=now() WHERE id=$2 RETURNING id,status',
+          [status, body.requestId],
+        );
+        if (!changed.rowCount) throw fail(404, 'Tool request not found.');
+        await db.query(
+          "INSERT INTO commerce_audit(action,object_id) VALUES('tool_request_update',$1)",
+          [body.requestId],
+        );
+        output = { ok: true, requestId: body.requestId, status };
       } else if (action === 'admin-approve') {
         if (
           !idOk(body.orderId) ||

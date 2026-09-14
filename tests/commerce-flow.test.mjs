@@ -34,10 +34,10 @@ test('ChatGPT Plus local inventory supports checkout, verification, delivery and
       return { async query(sql, args) { const result = await database.query(sql, args); return { ...result, rowCount: result.affectedRows ?? result.rows.length }; }, release };
     },
   }));
-  async function request(action, body, token = '', id = '', cookie = '') {
+  async function request(action, body, token = '', id = '', cookie = '', extraHeaders = {}) {
     let result;
     const headers = {};
-    const req = { method: body ? 'POST' : 'GET', query: { action, id }, url: '/api/commerce', headers: { authorization: token ? `Bearer ${token}` : '', cookie }, body, socket: { remoteAddress: randomBytes(4).toString('hex') } };
+    const req = { method: body ? 'POST' : 'GET', query: { action, id }, url: '/api/commerce', headers: { ...extraHeaders, authorization: token ? `Bearer ${token}` : '', cookie }, body, socket: { remoteAddress: randomBytes(4).toString('hex') } };
     const res = { statusCode: 200, setHeader(name, value) { headers[String(name).toLowerCase()] = value; }, end(text) { result = { code: this.statusCode, data: JSON.parse(text), headers }; } };
     await handler(req, res);
     return result;
@@ -49,6 +49,34 @@ test('ChatGPT Plus local inventory supports checkout, verification, delivery and
     const stock = await request('stock');
     assert.equal(stock.code, 200);
     assert.equal(stock.data.products.find((product) => product.id === 'p093').available, 2);
+    const toolRequest = await request('tool-request', {
+      toolName: 'Runway',
+      requirement: 'I need a one-month Pro plan for video generation.',
+      priority: 'urgent',
+      contactNumber: '+92 311 6185711',
+    });
+    assert.equal(toolRequest.code, 200, JSON.stringify(toolRequest));
+    const requestSnapshot = await request('admin-list', undefined, env.COMMERCE_ADMIN_KEY);
+    const savedToolRequest = requestSnapshot.data.toolRequests.find((row) => row.id === toolRequest.data.id);
+    assert.equal(savedToolRequest.tool_name, 'Runway');
+    assert.equal(savedToolRequest.priority, 'urgent');
+    assert.equal(savedToolRequest.contact_number, '+92 311 6185711');
+    assert.equal((await request('admin-tool-request-update', {
+      requestId: toolRequest.data.id,
+      status: 'contacted',
+    }, env.COMMERCE_ADMIN_KEY)).code, 200);
+    const updatedRequest = (await request('admin-list', undefined, env.COMMERCE_ADMIN_KEY)).data.toolRequests.find((row) => row.id === toolRequest.data.id);
+    assert.equal(updatedRequest.status, 'contacted');
+    assert.equal((await request('create', { productId: 'p093', paymentMethod: 'cash' })).code, 400);
+    const bankWindow = await request('create', { productId: 'p093', paymentMethod: 'bank' });
+    assert.equal(bankWindow.code, 200, JSON.stringify(bankWindow));
+    assert.equal(bankWindow.data.paymentMethod, 'bank');
+    assert.equal(bankWindow.data.paymentWindowMinutes, 30);
+    const bankWindowStatus = await request('status', undefined, bankWindow.data.recovery, bankWindow.data.id);
+    assert.equal(bankWindowStatus.data.paymentMethod, 'bank');
+    const bankWindowMs = new Date(bankWindowStatus.data.expiresAt) - new Date(bankWindowStatus.data.createdAt);
+    assert.ok(bankWindowMs >= 29 * 60 * 1000 && bankWindowMs <= 31 * 60 * 1000, String(bankWindowMs));
+    assert.equal((await request('cancel', { id: bankWindow.data.id }, bankWindow.data.recovery)).code, 200);
     assert.equal((await request('create', { productId: 'p013', couponCode: 'RESELL' })).code, 409);
     const disabledHor = await request('create', { productId: 'p093', couponCode: 'hor' });
     assert.equal(disabledHor.code, 409, JSON.stringify(disabledHor));
@@ -85,7 +113,9 @@ test('ChatGPT Plus local inventory supports checkout, verification, delivery and
     assert.equal(status.data.status, 'delivered', JSON.stringify(status));
     assert.equal(status.data.credentials.password, 'test-pass');
     assert.ok(status.data.paymentSubmittedAt);
-    const adminSnapshot = (await request('admin-list', undefined, env.COMMERCE_ADMIN_KEY)).data;
+    const profitUnlock = await request('admin-profit-unlock', { password: 'HOR' }, env.COMMERCE_ADMIN_KEY);
+    assert.equal(profitUnlock.code, 200);
+    const adminSnapshot = (await request('admin-list', undefined, env.COMMERCE_ADMIN_KEY, '', '', { 'x-profit-token': profitUnlock.data.token })).data;
     const metrics = adminSnapshot.metrics;
     assert.equal(metrics.income, 3499);
     assert.equal(metrics.cost, 1000);
@@ -93,6 +123,25 @@ test('ChatGPT Plus local inventory supports checkout, verification, delivery and
     assert.equal(adminSnapshot.teamCommissions.ratePkr, 50);
     assert.equal(adminSnapshot.teamCommissions.orders.length, 0);
     assert.equal(adminSnapshot.teamCommissions.totalPkr, 0);
+    const htmlOrder = await request('create', { productId: 'p093', paymentMethod: 'bank' });
+    assert.equal(htmlOrder.code, 200, JSON.stringify(htmlOrder));
+    const htmlTransaction = 'ABPAPKKA140926150945051530';
+    assert.equal((await request('claim', { id: htmlOrder.data.id, transactionId: htmlTransaction }, htmlOrder.data.recovery)).code, 200);
+    const htmlPayload = {
+      subject: 'You got Rs. 3,499 from Zain Ali 🎉',
+      text: '',
+      html: '<table><tr><td>Amount Received</td><td>Rs. 3,499</td></tr><tr><td>Service Fee (Incl. Tax)</td><td>Rs. 0</td></tr><tr><td>Total Amount</td><td>Rs. 3,499</td></tr><tr><td>Transaction ID</td><td>ABPAPKKA140926150945051530</td></tr><tr><td>Source Acc. Title</td><td>Zain Ali</td></tr><tr><td>Source Bank</td><td>Allied Bank</td></tr><tr><td>Raast ID / IBAN</td><td>••••0015</td></tr><tr><td>Destination Acc. Title</td><td>Syed Adeen Sarosh</td></tr><tr><td>Channel</td><td>Raast</td></tr></table>',
+      from: 'NayaPay <service@nayapay.com>',
+      date: new Date().toISOString(),
+      sentAt: String(Date.now()),
+      messageId: 'html-integration-test',
+      secret: env.NAYAPAY_WEBHOOK_SECRET,
+    };
+    htmlPayload.signature = signature(htmlPayload, env.NAYAPAY_SIGNING_KEY);
+    assert.equal((await request('email-webhook', htmlPayload)).code, 200);
+    const htmlStatus = await request('status', undefined, htmlOrder.data.recovery, htmlOrder.data.id);
+    assert.equal(htmlStatus.data.status, 'delivered', JSON.stringify(htmlStatus));
+    assert.equal(htmlStatus.data.paymentMethod, 'bank');
     await request('admin-import', { productId: 'p093', accounts: 'cancel@test.invalid|cancel-pass|cancel-2fa', purchaseCost: 1000 }, env.COMMERCE_ADMIN_KEY);
     const pending = await request('create', { productId: 'p093' });
     assert.equal(pending.code, 200);
@@ -118,11 +167,11 @@ test('ChatGPT Plus local inventory supports checkout, verification, delivery and
     const withdrawalInventory = (await request('admin-list', undefined, env.COMMERCE_ADMIN_KEY)).data.inventory.find((item) => item.email === 'withdraw@test.invalid');
     const withdrawal = await request('admin-inventory-pick', { inventoryId: withdrawalInventory.id, confirmed: true }, env.COMMERCE_ADMIN_KEY);
     assert.equal(withdrawal.code, 200, JSON.stringify(withdrawal));
-    const withdrawalMetrics = (await request('admin-list', undefined, env.COMMERCE_ADMIN_KEY)).data.metrics;
+    const withdrawalMetrics = (await request('admin-list', undefined, env.COMMERCE_ADMIN_KEY, '', '', { 'x-profit-token': profitUnlock.data.token })).data.metrics;
     assert.equal(withdrawalMetrics.admin_withdrawals, 1);
-    assert.equal(withdrawalMetrics.income, 10497);
-    assert.equal(withdrawalMetrics.cost, 3000);
-    assert.equal(withdrawalMetrics.profit, 7497);
+    assert.equal(withdrawalMetrics.income, 13996);
+    assert.equal(withdrawalMetrics.cost, 4000);
+    assert.equal(withdrawalMetrics.profit, 9996);
 
     await request('admin-import', { productId: 'p093', accounts: 'unique-one@test.invalid|unique-pass|unique-2fa\nunique-two@test.invalid|unique-pass|unique-2fa', purchaseCost: 1000 }, env.COMMERCE_ADMIN_KEY);
     const firstUnique = await request('create', { productId: 'p093' });
@@ -218,6 +267,46 @@ test('ChatGPT Plus local inventory supports checkout, verification, delivery and
     assert.ok(custSummary.sales >= 1);
     assert.ok(custSummary.total >= 350);
     assert.ok(commissionDashboard.data.commissions.some((row) => row.order_id === custOrder.data.id && row.commission_amount === 350));
+
+    await request('admin-import', { productId: 'p093', accounts: 'bank-delay@test.invalid|bank-pass|bank-2fa\nbank-late@test.invalid|late-pass|late-2fa', purchaseCost: 1000 }, env.COMMERCE_ADMIN_KEY);
+    const delayedBankOrder = await request('create', { productId: 'p093', paymentMethod: 'bank' });
+    await database.query("UPDATE commerce_orders SET created_at=now()-interval '10 minutes',expires_at=now()+interval '20 minutes' WHERE id=$1", [delayedBankOrder.data.id]);
+    assert.equal((await request('claim', { id: delayedBankOrder.data.id }, delayedBankOrder.data.recovery)).code, 200);
+    const delayedBankTransaction = 'BANKDELAY100926055571400001';
+    const delayedBankPayload = {
+      subject: `You got PKR ${delayedBankOrder.data.amount.toLocaleString()} from Meezan Bank`,
+      text: `Amount Received\nPKR ${delayedBankOrder.data.amount.toLocaleString()}\nTransaction ID\n${delayedBankTransaction}\nRaast ID / IBAN\nPK36MEZN0000123456789012\nDestination Acc. Title\nSYED ADEEN SAROSH`,
+      from: 'NayaPay <service@nayapay.com>',
+      date: new Date().toISOString(),
+      sentAt: String(Date.now()),
+      messageId: 'delayed-bank-payment-test',
+      secret: env.NAYAPAY_WEBHOOK_SECRET,
+    };
+    delayedBankPayload.signature = signature(delayedBankPayload, env.NAYAPAY_SIGNING_KEY);
+    assert.equal((await request('email-webhook', delayedBankPayload)).code, 200);
+    assert.equal((await request('status', undefined, delayedBankOrder.data.recovery, delayedBankOrder.data.id)).data.status, 'delivered');
+    const delayedBankPayment = (await request('admin-list', undefined, env.COMMERCE_ADMIN_KEY)).data.payments.find((row) => row.transaction_id === delayedBankTransaction);
+    assert.equal(delayedBankPayment.verification_reason, 'verified_and_delivered');
+
+    const lateBankOrder = await request('create', { productId: 'p093', paymentMethod: 'bank' });
+    await database.query("UPDATE commerce_orders SET created_at=now()-interval '31 minutes',expires_at=now()-interval '1 minute' WHERE id=$1", [lateBankOrder.data.id]);
+    assert.equal((await request('claim', { id: lateBankOrder.data.id }, lateBankOrder.data.recovery)).code, 200);
+    const lateBankTransaction = 'BANKLATE100926055571400002';
+    const lateBankPayload = {
+      ...delayedBankPayload,
+      subject: `You got PKR ${lateBankOrder.data.amount.toLocaleString()} from Meezan Bank`,
+      text: `Amount Received\nPKR ${lateBankOrder.data.amount.toLocaleString()}\nTransaction ID\n${lateBankTransaction}\nRaast ID / IBAN\nPK36MEZN0000123456789012\nDestination Acc. Title\nSYED ADEEN SAROSH`,
+      date: new Date().toISOString(),
+      sentAt: String(Date.now()),
+      messageId: 'late-bank-payment-test',
+    };
+    lateBankPayload.signature = signature(lateBankPayload, env.NAYAPAY_SIGNING_KEY);
+    assert.equal((await request('email-webhook', lateBankPayload)).code, 200);
+    const lateBankStatus = await request('status', undefined, lateBankOrder.data.recovery, lateBankOrder.data.id);
+    assert.equal(lateBankStatus.data.status, 'expired');
+    const lateBankPayment = (await request('admin-list', undefined, env.COMMERCE_ADMIN_KEY)).data.payments.find((row) => row.transaction_id === lateBankTransaction);
+    assert.equal(lateBankPayment.verified, true);
+    assert.equal(lateBankPayment.verification_reason, 'verified_after_order_window');
   } finally {
     await database.close();
   }

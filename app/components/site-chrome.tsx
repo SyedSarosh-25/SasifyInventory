@@ -12,7 +12,7 @@ export function SiteHeader() {
           <span className="brand-name"><strong>SASIFY</strong><small>SOLUTIONS</small></span>
         </a>
         <div className="nav-links">
-          <a href="/inventory">Tools</a><a href="/scammers">Scam reports</a><a href="/#reviews">Reviews</a>
+          <a href="/inventory">Tools</a><a href="/request-tool">Request a tool</a><a href="/scammers">Scam reports</a><a href="/#reviews">Reviews</a>
           <a href="/#faq">FAQ</a><a href="#contact">Contact</a>
         </div>
         <div className="nav-actions">
@@ -44,6 +44,7 @@ export function SiteFooter() {
         </a>
         <a href="/about" className="founder-link">About Sasify Solutions</a>
         <a href="/buying-guide" className="founder-link">Buying guide</a>
+        <a href="/request-tool" className="founder-link">Request a tool</a>
         <a href="/scammers" className="founder-link">Scam reports</a>
         <a href={whatsappLink()} target="_blank" rel="noreferrer" className="primary-button">
           <MessageCircle className="h-4 w-4" /> WhatsApp us

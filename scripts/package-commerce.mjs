@@ -39,22 +39,26 @@ for (const name of [
   'supplier-capabilities.mjs',
   'supplier-api-log.mjs',
   'description.mjs',
+  'product-display.mjs',
   'provider-media.mjs',
   'qamify.mjs',
   'mke.mjs',
   'piggyai.mjs',
   'zoomstore.mjs',
+  'elite-tools.mjs',
   'scam-reports.mjs',
+  'tool-requests.mjs',
   'google-reviews.mjs',
 ])
   await cp(path.join(root, 'commerce', name), path.join(func, name));
 const catalog = products.flatMap((p) => [
-  { id: p.id, name: p.name, price: p.sellingPricePkr },
+  { id: p.id, name: p.name, description: p.description, duration: p.duration, price: p.sellingPricePkr },
   ...(p.variants || [])
     .filter((v) => v.id)
     .map((v) => ({
       id: v.id,
       name: `${p.name} · ${v.name}`,
+      duration: v.duration,
       price: v.sellingPricePkr,
     })),
 ]);
@@ -122,7 +126,7 @@ await writeFile(
         },
         { src: '/api/commerce', dest: '/api/commerce' },
         {
-          src: '/(checkout|orders-admin)',
+          src: '/(checkout|orders-admin|team)',
           headers: {
             'Cache-Control': 'no-store',
             'X-Robots-Tag': 'noindex, nofollow',

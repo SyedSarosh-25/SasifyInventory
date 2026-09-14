@@ -39,6 +39,30 @@ test('Raast and internal transfers require matching source and recipient evidenc
   assert.equal(parseEmail({...wallet,to:'someone@example.com'},config).verified,false);
   assert.equal(parseEmail({...wallet,to:''},config).verified,false);
 });
+test('bank receipts accept full IBANs and normalized destination-title casing',()=>{
+  const receipt={subject:'You got PKR 3,499 from Meezan Bank',from:'NayaPay <service@nayapay.com>',date:new Date().toISOString(),text:'Amount Received\nPKR 3,499\nTransaction ID\nBANK123456\nRaast ID / IBAN\nPK36MEZN0000123456789012\nDestination Acc. Title\nSYED   ADEEN SAROSH'};
+  const result=parseEmail(receipt,{enabled:true,sender:'service@nayapay.com',receiver:'Syed Adeen Sarosh'});
+  assert.equal(result.sourceLast4,'9012');
+  assert.equal(result.transaction,'BANK123456');
+  assert.equal(result.verified,true);
+  assert.equal(result.reason,'verified');
+});
+test('NayaPay bank receipt sample parses the HTML table layout and masked Raast source',()=>{
+  const receipt={
+    subject:'You got Rs. 3,499 from Zain Ali 🎉',
+    from:'NayaPay <service@nayapay.com>',
+    to:'syedadeen18@gmail.com',
+    date:new Date().toISOString(),
+    html:'<table><tr><td>Amount Received</td><td>Rs. 3,499</td></tr><tr><td>Service Fee (Incl. Tax)</td><td>Rs. 0</td></tr><tr><td>Total Amount</td><td>Rs. 3,499</td></tr><tr><td>Transaction ID</td><td>ABPAPKKA140926150945051530</td></tr><tr><td>Source Acc. Title</td><td>Zain Ali</td></tr><tr><td>Source Bank</td><td>Allied Bank</td></tr><tr><td>Raast ID / IBAN</td><td>••••0015</td></tr><tr><td>Destination Acc. Title</td><td>Syed Adeen Sarosh</td></tr><tr><td>Channel</td><td>Raast</td></tr></table>',
+  };
+  const result=parseEmail(receipt,{enabled:true,sender:'service@nayapay.com',receiver:'Syed Adeen Sarosh'});
+  assert.equal(result.amount,3499);
+  assert.equal(result.payer,'Zain Ali');
+  assert.equal(result.transaction,'ABPAPKKA140926150945051530');
+  assert.equal(result.sourceLast4,'0015');
+  assert.equal(result.verified,true);
+  assert.equal(result.reason,'verified');
+});
 test('Qamify products and order delivery are normalized defensively',()=>{
   assert.deepEqual(normalizeQamifyProduct({id:42,name:'Test license',unit_price:'3.50',stock:2,slug:'test-license'},'USD'),{
     id:'42',name:'Test license',description:'',delivery_instruction:null,wholesale_price:3.5,currency:'USD',stock:2,canonical_key:'test-license'

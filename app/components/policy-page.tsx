@@ -25,7 +25,7 @@ export function policyMetadata(title: string, description: string, path: string)
   };
 }
 
-export function PolicyPage({ title, summary, path, children }: { title: string; summary: string; path: string; children: ReactNode }) {
+export function PolicyPage({ title, summary, path, children, updated = '3 September 2026' }: { title: string; summary: string; path: string; children: ReactNode; updated?: string }) {
   return <main>
     <SiteHeader />
     <StructuredData data={breadcrumbData([{ name: 'Home', path: '/' }, { name: title, path }])} />
@@ -34,7 +34,7 @@ export function PolicyPage({ title, summary, path, children }: { title: string; 
       <span className="section-kicker">Sasify Solutions policies</span>
       <h1>{title}</h1>
       <p className="policy-summary">{summary}</p>
-      <p className="policy-updated">Last updated: 3 September 2026</p>
+      <p className="policy-updated">{`Last updated: ${updated}`}</p>
       {children}
       <nav className="policy-navigation" aria-label="Related policies">
         {policyLinks.map((link) => <a key={link.href} href={link.href} aria-current={link.href === path ? 'page' : undefined}>{link.label}</a>)}

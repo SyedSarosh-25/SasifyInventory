@@ -25,15 +25,16 @@ import {
 test('sitemap contains only unique canonical pages at the configured domain', () => {
   assert.equal(defaultSiteOrigin, 'https://www.sasifysolutions.com');
   const entries = sitemapEntries();
-  assert.equal(entries.length, products.length + 9);
+  assert.equal(entries.length, products.length + 10);
   assert.equal(new Set(entries.map(({ url }) => url)).size, entries.length);
   assert.deepEqual(
-    entries.slice(0, 9).map(({ url }) => url),
+    entries.slice(0, 10).map(({ url }) => url),
     [
       '/',
       '/inventory',
       '/about',
       '/buying-guide',
+      '/request-tool',
       '/scammers',
       '/warranty',
       '/refunds',
@@ -112,12 +113,12 @@ test('every variant has unique search metadata and a truthful PKR offer', () => 
   }
 });
 
-test('plan answers preserve annual payments, limited warranty and unknown duration', () => {
+test('plan answers include full-duration warranty and retain ChatGPT terms and unknown duration', () => {
   const hostinger = products.find(({ id }) => id === 'p100');
   assert.match(productQuestions(hostinger)[1].answer, /PKR 4,500/);
   assert.match(
     productQuestions(products.find(({ id }) => id === 'p013'))[2].answer,
-    /25-day warranty/,
+    /Full warranty.*entire 1 Month plan duration/,
   );
   const chatGptAnswers = productQuestions(
     products.find(({ id }) => id === 'p093'),
@@ -125,6 +126,7 @@ test('plan answers preserve annual payments, limited warranty and unknown durati
   assert.match(chatGptAnswers[0].answer, /PKR 3,499/);
   assert.match(chatGptAnswers[1].answer, /25-day warranty/);
   assert.doesNotMatch(productQuestions(hostinger)[2].answer, /25-day/);
+  assert.match(productQuestions(hostinger)[2].answer, /entire 12 Months plan duration/);
   const unknown = { ...hostinger, duration: '-' };
   assert.match(productQuestions(unknown)[0].answer, /Review the access period/);
   assert.ok(!('additionalProperty' in productData(unknown)));

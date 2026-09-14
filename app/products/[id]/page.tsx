@@ -25,7 +25,7 @@ import {
 } from '../../seo';
 import {
   accessTypeLabel,
-  has25DayWarranty,
+  fullPlanWarranty,
   isAnnualPlan,
   originalPriceComparison,
   originalPricePkr,
@@ -74,9 +74,8 @@ export default async function ProductPage({ params }: Props) {
   const product = products.find((item) => item.id === id);
   if (!product) notFound();
   const annual = isAnnualPlan(product);
-  const warranty = has25DayWarranty(product);
+  const warranty = fullPlanWarranty(product);
   const appleWarrantyDays = warrantyDays(product, 'p093-ultra') ?? 25;
-  const momoWarrantyDays = warrantyDays(product, 'p093-momo') ?? 20;
   const savings = savingsPkr(product);
   const original = originalPricePkr(product);
   const comparison = originalPriceComparison(product);
@@ -288,25 +287,11 @@ export default async function ProductPage({ params }: Props) {
                     WhatsApp support button shown with your order if you need
                     help.
                   </p>
-                  <p className="chatgpt-momo-only">
-                    <strong>Full {momoWarrantyDays}-day warranty included.</strong> This Momo
-                    Pay / Partially Stable one-month product comes with a full
-                    {momoWarrantyDays}-day warranty from Sasify Solutions. Use the WhatsApp
-                    support button shown with your order if you need help.
-                  </p>
                 </>
-              ) : warranty ? (
-                <p>
-                  <strong>Full 25-day warranty included.</strong> This 30-day /
-                  one-month product comes with a full 25-day warranty from
-                  Sasify Solutions. Use the WhatsApp support button shown with
-                  your order if you need help.
-                </p>
               ) : (
                 <p>
-                  <strong>Warranty included.</strong> All products come with a
-                  warranty period. Review this package&apos;s warranty duration
-                  and coverage before payment.
+                  <strong>Full plan warranty included.</strong> {warranty} Use
+                  the WhatsApp support button shown with your order if you need help.
                 </p>
               )}
             </section>
@@ -473,21 +458,13 @@ export default async function ProductPage({ params }: Props) {
               <span>
                 <strong>
                   {product.id === 'p093' ? (
-                    <>
-                      <span className="chatgpt-ultra-only">Full {appleWarrantyDays}-day warranty</span>
-                      <span className="chatgpt-momo-only">Full {momoWarrantyDays}-day warranty</span>
-                    </>
-                  ) : warranty ? 'Full 25-day warranty' : 'Warranty included'}
+                    `Full ${appleWarrantyDays}-day warranty`
+                  ) : 'Full plan warranty'}
                 </strong>
                 {product.id === 'p093' ? (
-                  <>
-                    <span className="chatgpt-ultra-only">Included with this Apple Pay plan.</span>
-                    <span className="chatgpt-momo-only">Included with this Momo Pay plan.</span>
-                  </>
-                ) : warranty ? (
-                  'Included with this one-month plan.'
+                  'Included with this Apple Pay plan.'
                 ) : (
-                  "Review this plan's warranty period before payment."
+                  warranty
                 )}
               </span>
             </div>

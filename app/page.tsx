@@ -11,7 +11,6 @@ import {
   HeartHandshake,
   Landmark,
   Maximize2,
-  MessageCircle,
   RotateCcw,
   ShieldCheck,
   Star,
@@ -20,7 +19,7 @@ import {
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { products } from './products';
-import { productHref, whatsappLink } from './product-utils';
+import { productHref } from './product-utils';
 import { orbitTools } from './catalog-selection';
 import { ProductLogo } from './components/product-logo';
 import { TopSupplierProducts } from './components/top-supplier-products';
@@ -58,7 +57,7 @@ const whyChooseItems = [
   {
     icon: BadgeDollarSign,
     title: 'Competitive rates with warranty',
-    description: 'Market-competitive pricing with a confirmed warranty period for every product.',
+    description: 'Full plan-duration warranty on every non-ChatGPT plan. ChatGPT retains its listed warranty.',
   },
   {
     icon: ShieldCheck,
@@ -602,7 +601,7 @@ export default function Home() {
       <div className="warranty-banner">
         <div className="warranty-content">
           <ShieldCheck aria-hidden="true" />
-          <p><strong>All products come with a warranty period.</strong></p>
+          <p><strong>Full plan-duration warranty on all plans except ChatGPT.</strong> ChatGPT keeps its listed warranty.</p>
         </div>
       </div>
 
@@ -625,8 +624,8 @@ export default function Home() {
               <a href="#catalog" className="primary-button">
                 Explore top products <ArrowRight className="h-4 w-4" />
               </a>
-              <a href={whatsappLink()} target="_blank" rel="noreferrer" className="secondary-button">
-                <MessageCircle className="h-4 w-4" /> Request a tool
+              <a href="/request-tool" className="secondary-button">
+                Request a tool <ArrowRight className="h-4 w-4" />
               </a>
             </div>
           </div>
@@ -850,7 +849,7 @@ export default function Home() {
             </details>
             <details>
               <summary>Do all products come with a warranty?</summary>
-              <p>Yes, all products come with a warranty period. Our 30-day products and most one-month plans include a full 25-day warranty; the ChatGPT Plus Momo Pay / Partially Stable option includes a full 20-day warranty. Warranty periods for other plans vary by product; review the duration shown with the selected listing.</p>
+              <p>Yes. All plans except ChatGPT include a full warranty for the entire purchased duration, including monthly and yearly plans. ChatGPT keeps the warranty listed for its selected account option; Ultra Stable Apple Pay accounts include a full 25-day warranty.</p>
             </details>
             <details>
               <summary>Is shared access the same as a personal plan?</summary>

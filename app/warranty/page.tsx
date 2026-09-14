@@ -4,17 +4,17 @@ const description = 'Read Sasify Solutions warranty periods, coverage confirmati
 export const metadata = policyMetadata('Warranty Policy', description, '/warranty');
 
 export default function WarrantyPage() {
-  return <PolicyPage title="Warranty Policy" summary="All products come with a warranty period. The exact duration depends on the package and is shown with the listing or order details." path="/warranty">
+  return <PolicyPage title="Warranty Policy" summary="Every plan except ChatGPT includes a full warranty from Sasify Solutions for its entire duration. ChatGPT retains the warranty stated for its selected account option." path="/warranty" updated="14 September 2026">
     <section className="policy-section"><h2>Warranty periods</h2>
       <ul className="policy-list">
-        <li><strong>One-month and 30-day packages:</strong> the standard warranty is 25 days from Sasify Solutions. The ChatGPT Plus Momo Pay / Partially Stable option has a 20-day warranty.</li>
-        <li><strong>Yearly and other-duration packages:</strong> review the warranty duration and coverage shown with the listing or order.</li>
-        <li><strong>Credits and allocation packages:</strong> review both the usable allocation and warranty terms shown with the listing.</li>
+        <li><strong>ChatGPT:</strong> the Ultra Stable Apple Pay account keeps its full 25-day warranty. Other ChatGPT account options retain their listed warranty terms.</li>
+        <li><strong>All other plans:</strong> warranty covers the complete purchased plan duration. A one-month plan has a one-month warranty, a six-month plan has a six-month warranty, and a one-year plan has a one-year warranty.</li>
+        <li><strong>Credits and allocation packages:</strong> full warranty applies throughout the package&apos;s validity period. The purchased credit or usage allowance remains the same.</li>
       </ul>
-      <p>An access period is not automatically the warranty period. For example, a one-year plan does not by itself include a one-year warranty.</p>
+      <p>This warranty is provided by Sasify Solutions for both local and supplier-sourced plans. For non-ChatGPT plans, it covers the full plan duration even when the upstream supplier provides a shorter warranty.</p>
     </section>
     <section className="policy-section"><h2>What is covered</h2>
-      <p>Coverage is limited to the remedy and conditions written in your Sasify Solutions order confirmation. Review activation requirements, account or invite conditions, supported devices, provider limits and the available remedy before paying.</p>
+      <p>Contact us for access, activation or subscription issues during the warranty period. Follow the listed activation requirements, account or invite conditions, supported-device limits and usage rules. We assess issues and arrange the applicable correction, replacement or resolution through order support.</p>
     </section>
     <section className="policy-section"><h2>Requesting support</h2>
       <ol className="policy-list">

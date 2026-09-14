@@ -308,16 +308,16 @@ test('policy pages are indexable, linked and state only the confirmed commercial
       `Footer policy link missing: ${file}`,
     );
     assert.ok(html.includes(`https://www.sasifysolutions.com/${file}`));
-    assert.match(html, /Last updated: 3 September 2026/);
+    assert.match(html, file === 'warranty' ? /Last updated: 14 September 2026/ : /Last updated: 3 September 2026/);
     assert.match(html, /\+923116185711|Ask a policy question/);
   }
   assert.match(
     await read('warranty.html'),
-    /One-month and 30-day packages:[\s\S]*25 days[\s\S]*Momo Pay[\s\S]*20-day warranty/,
+    /ChatGPT:[\s\S]*25-day warranty/,
   );
   assert.match(
     await read('warranty.html'),
-    /one-year plan does not by itself include a one-year warranty/,
+    /one-year plan has a one-year warranty/,
   );
   assert.match(
     await read('refunds.html'),

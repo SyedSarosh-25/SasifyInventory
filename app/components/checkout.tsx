@@ -1,20 +1,21 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
+import { AdminShell } from './admin-shell';
+import { AdminOperations } from './admin-operations';
+import { AdminRecordControls, useRecordView } from './admin-record-controls';
+import { AdminToolRequests } from './admin-tool-requests';
 import {
   ClipboardList,
   Copy,
-  BadgeDollarSign,
   KeyRound,
-  LayoutDashboard,
+  Landmark,
   MessageCircle,
-  Package,
   Pencil,
   RefreshCw,
   Search,
   ShieldAlert,
   ShieldCheck,
   ShoppingCart,
-  TicketPercent,
   Trash2,
   WalletCards,
   X,
@@ -53,11 +54,19 @@ type Order = {
   paymentSubmittedAt?: string | null;
   createdAt?: string;
   transactionId?: string;
+  paymentMethod?: 'wallet' | 'bank';
+  paymentWindowMinutes?: number;
   payment: { number: string; title: string; provider: string };
   credentials?: AccountCredentials;
   delivery?: { content: string; instructions?: string };
 };
-async function api(action: string, token = '', body?: object, id = '') {
+async function api(
+  action: string,
+  token = '',
+  body?: object,
+  id = '',
+  extraHeaders: Record<string, string> = {},
+) {
   const response = await fetch(
     `/api/commerce?action=${action}${id ? `&id=${encodeURIComponent(id)}` : ''}`,
     {
@@ -65,6 +74,7 @@ async function api(action: string, token = '', body?: object, id = '') {
       headers: {
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
         ...(body ? { 'Content-Type': 'application/json' } : {}),
+        ...extraHeaders,
       },
       body: body ? JSON.stringify(body) : undefined,
       cache: 'no-store',
@@ -122,6 +132,7 @@ export function Checkout() {
     [key, setKey] = useState('');
   const [couponCode, setCouponCode] = useState('');
   const [customerEmail, setCustomerEmail] = useState('');
+  const [paymentMethod, setPaymentMethod] = useState<'wallet' | 'bank'>('wallet');
   const [now, setNow] = useState(Date.now());
   const [error, setError] = useState(''),
     [notice, setNotice] = useState(''),
@@ -242,11 +253,17 @@ export function Checkout() {
   }
   const product = products.find((p) => p.id === selected);
   const checkoutProducts = products.filter((p) => p.id !== 'p093');
+  const CUSTOMER_PAYMENT_DISPLAY_SECONDS = 5 * 60;
+  const orderExpiryMs = order ? new Date(order.expiresAt).getTime() : 0;
+  const createdAtMs = order?.createdAt ? new Date(order.createdAt).getTime() : NaN;
+  const customerDisplayExpiryMs = Number.isFinite(createdAtMs)
+    ? createdAtMs + CUSTOMER_PAYMENT_DISPLAY_SECONDS * 1000
+    : orderExpiryMs;
   const secondsLeft =
     order?.status === 'pending'
       ? Math.max(
           0,
-          Math.ceil((new Date(order.expiresAt).getTime() - now) / 1000),
+          Math.ceil((Math.min(customerDisplayExpiryMs, orderExpiryMs) - now) / 1000),
         )
       : 0;
   const countdown = `${String(Math.floor(secondsLeft / 60)).padStart(2, '0')}:${String(secondsLeft % 60).padStart(2, '0')}`;
@@ -305,7 +322,9 @@ export function Checkout() {
           <p>
             {order?.amount === 0
               ? 'HOR covered the full price. Your account credentials are ready below.'
-              : 'Pay here and your account credentials will appear on this screen automatically after verification, usually within one minute. No manual delivery delays.'}
+              : order?.paymentMethod === 'bank'
+                ? 'Your delivery appears here automatically after the signed NayaPay receipt is matched.'
+                : 'Pay here and your account credentials will appear on this screen automatically after verification, usually within one minute. No manual delivery delays.'}
           </p>
         </div>
         <span className="instant-badge">Instant</span>
@@ -329,6 +348,7 @@ export function Checkout() {
                   ...(product?.requires_customer_email
                     ? { customerEmail: customerEmail.trim() }
                     : {}),
+                  paymentMethod,
                 });
                 remember(data.id, data.recovery);
               });
@@ -381,6 +401,37 @@ export function Checkout() {
                 </small>
               </label>
             )}
+            <fieldset className="payment-method-picker">
+              <legend>How will you send the payment?</legend>
+              <label className={paymentMethod === 'wallet' ? 'selected' : ''}>
+                <input
+                  type="radio"
+                  name="payment-method"
+                  value="wallet"
+                  checked={paymentMethod === 'wallet'}
+                  onChange={() => setPaymentMethod('wallet')}
+                />
+                <WalletCards size={21} />
+                <span>
+                  <strong>Wallet transfer</strong>
+                  <small>Easypaisa, JazzCash, NayaPay, SadaPay and more</small>
+                </span>
+              </label>
+              <label className={paymentMethod === 'bank' ? 'selected' : ''}>
+                <input
+                  type="radio"
+                  name="payment-method"
+                  value="bank"
+                  checked={paymentMethod === 'bank'}
+                  onChange={() => setPaymentMethod('bank')}
+                />
+                <Landmark size={21} />
+                <span>
+                  <strong>Bank transfer</strong>
+                  <small>All banks</small>
+                </span>
+              </label>
+            </fieldset>
             <label>
               Reseller coupon (optional)
               <input
@@ -467,16 +518,21 @@ export function Checkout() {
           )}
           {order.status === 'pending' && (
             <section className="description-section">
-              <h2>Pay with NayaPay for automatic instant delivery</h2>
+              <h2>
+                {order.paymentMethod === 'bank'
+                  ? 'Pay from your bank account'
+                  : 'Pay with a wallet for automatic instant delivery'}
+              </h2>
               <p className="payment-callout">
                 Send exactly{' '}
                 <strong>PKR {order.amount.toLocaleString()}</strong> to the
                 NayaPay account below.
               </p>
               <p className="payment-source-note">
-                <strong>This number is for NayaPay payments.</strong> You can
-                transfer to it from any bank account, Easypaisa, JazzCash or
-                NayaPay.
+                <strong>This number belongs to NayaPay.</strong>{' '}
+                {order.paymentMethod === 'bank'
+                  ? 'Use your bank app and send the exact amount shown. Your reservation remains active for 5 minutes.'
+                  : 'Send from Easypaisa, JazzCash, NayaPay, SadaPay or another supported wallet. If you intend to use a bank, cancel this order and select Bank transfer first.'}
               </p>
               {order.paymentAdjustment ? (
                 <p className="payment-source-note">
@@ -566,8 +622,10 @@ export function Checkout() {
               <div>
                 <strong>Checking your payment</strong>
                 <p>
-                  Keep this page open. It refreshes automatically and normally
-                  delivers within one minute.
+                  Keep this page open. It refreshes automatically and{' '}
+                  {order.paymentMethod === 'bank'
+                    ? 'will deliver after the bank receipt reaches and matches NayaPay.'
+                    : 'normally delivers within one minute.'}
                 </p>
               </div>
             </section>
@@ -885,7 +943,11 @@ export function CommerceAdmin() {
     [busy, setBusy] = useState(false),
     [receipt, setReceipt] = useState<any>(null),
     [orderDelivery, setOrderDelivery] = useState<any>(null),
-    [supplierLogs, setSupplierLogs] = useState<any>(null);
+    [supplierLogs, setSupplierLogs] = useState<any>(null),
+    [profitToken, setProfitToken] = useState(''),
+    [profitPassword, setProfitPassword] = useState(''),
+    [teamEmail, setTeamEmail] = useState(''),
+    [teamPassword, setTeamPassword] = useState('');
   const [tab, setTab] = useState<
       | 'overview'
       | 'profit'
@@ -896,13 +958,15 @@ export function CommerceAdmin() {
       | 'payments'
       | 'coupons'
       | 'scammers'
+      | 'team'
+      | 'toolRequests'
     >('overview'),
     [inventorySearch, setInventorySearch] = useState(''),
     [supplierSearch, setSupplierSearch] = useState(''),
     [supplierKeyValues, setSupplierKeyValues] = useState<Record<string, string>>({}),
     [supplierKeysOpen, setSupplierKeysOpen] = useState(false),
     [supplierProvider, setSupplierProvider] = useState<
-      'all' | 'dodi' | 'qamify' | 'mke' | 'piggyai' | 'zoomstore' | 'fatbunny'
+      'all' | 'dodi' | 'qamify' | 'mke' | 'piggyai' | 'zoomstore' | 'fatbunny' | 'elitetools'
     >('all'),
     [orderFilter, setOrderFilter] = useState<
       'all' | 'delivered' | 'unfulfilled' | 'cancelled'
@@ -922,6 +986,7 @@ export function CommerceAdmin() {
   const [newCouponCode, setNewCouponCode] = useState(''),
     [newCouponDiscount, setNewCouponDiscount] = useState('10'),
     [newCouponMaxUses, setNewCouponMaxUses] = useState('10');
+  const [paymentFilter, setPaymentFilter] = useState('all');
   const seenOrderIds = useRef<Set<string>>(new Set());
   const seenSupplierAlertIds = useRef<Set<string>>(new Set());
   useEffect(() => {
@@ -978,12 +1043,18 @@ export function CommerceAdmin() {
     if (!adminReady) return;
     const timer = setInterval(() => {
       if (document.visibilityState !== 'visible') return;
-      void api('admin-list', key)
+      void api(
+        'admin-list',
+        key,
+        undefined,
+        '',
+        profitToken ? { 'X-Profit-Token': profitToken } : {},
+      )
         .then((dashboard) => setData(dashboard))
         .catch(() => {});
     }, 10000);
     return () => clearInterval(timer);
-  }, [adminReady, key]);
+  }, [adminReady, key, profitToken]);
   async function run(fn: () => Promise<void>) {
     setBusy(true);
     setError('');
@@ -994,6 +1065,7 @@ export function CommerceAdmin() {
       if (problem.status === 401) {
         setData(null);
         setKey('');
+        setProfitToken('');
         setPicked(null);
         setReceipt(null);
         setOrderDelivery(null);
@@ -1005,9 +1077,40 @@ export function CommerceAdmin() {
       setBusy(false);
     }
   }
-  const refresh = async () => setData(await api('admin-list', key));
+  const refresh = async () =>
+    setData(
+      await api(
+        'admin-list',
+        key,
+        undefined,
+        '',
+        profitToken ? { 'X-Profit-Token': profitToken } : {},
+      ),
+    );
   const showSupplierLogs = async (order = '') =>
     setSupplierLogs(await api('admin-supplier-logs', key, undefined, order));
+  const unlockProfit = async () => {
+    const result = await api('admin-profit-unlock', key, {
+      password: profitPassword,
+    });
+    setProfitToken(result.token);
+    setProfitPassword('');
+    setNotice('Profit details unlocked for this session.');
+    setData(
+      await api('admin-list', key, undefined, '', {
+        'X-Profit-Token': result.token,
+      }),
+    );
+  };
+  const saveTeamCredentials = async () => {
+    await api('admin-team-credentials', key, {
+      email: teamEmail,
+      password: teamPassword,
+    });
+    setTeamPassword('');
+    setNotice('Teammate login credentials saved.');
+    await refresh();
+  };
   const saveSupplierKey = async (provider: any, remove = false) => {
     const apiKey = supplierKeyValues[provider.providerId] || '';
     if (!remove && !apiKey.trim()) {
@@ -1039,6 +1142,7 @@ export function CommerceAdmin() {
     await api('admin-logout', '', {});
     setData(null);
     setKey('');
+    setProfitToken('');
     setEmail('');
     setPassword('');
     setAccounts('');
@@ -1050,9 +1154,14 @@ export function CommerceAdmin() {
     setNotice('');
   };
   const money = (value: any) => `PKR ${Number(value || 0).toLocaleString()}`;
+  const verificationReason = (value: unknown) => {
+    const text = typeof value === 'string' && value ? value : 'not_evaluated';
+    return text.replaceAll('_', ' ').replace(/^./, (letter) => letter.toUpperCase());
+  };
   const available = Number(
     data?.stock?.find((row: any) => row.state === 'available')?.count || 0,
   );
+  const profitVisible = data?.profitUnlocked === true;
   const filteredInventory = (data?.inventory || []).filter((item: any) =>
     `${item.email} ${item.state}`
       .toLowerCase()
@@ -1084,7 +1193,8 @@ export function CommerceAdmin() {
       | 'mke'
       | 'piggyai'
       | 'zoomstore'
-      | 'fatbunny',
+      | 'fatbunny'
+      | 'elitetools',
   ) =>
     provider === 'all'
       ? (data?.supplierProducts || []).length
@@ -1099,6 +1209,8 @@ export function CommerceAdmin() {
   const lowBalanceProviders = (data?.providerStates || []).filter(
     (provider: any) => provider.lowBalance,
   );
+  const inventoryView = useRecordView(filteredInventory, () => '');
+  const supplierView = useRecordView(supplierProducts, () => '');
   const horCommission =
     (data?.commissionSummary || []).find(
       (item: any) => item.code === 'HOR',
@@ -1123,6 +1235,8 @@ export function CommerceAdmin() {
     return ['pending', 'review'].includes(row.status);
   };
   const orderRows = (data?.orders || []).filter(orderMatchesFilter);
+  const orderView = useRecordView(orderRows, (row: any) => `${row.id} ${row.product_id} ${row.supplier_product_name || ''} ${row.supplier_name || ''} ${row.payer_name || ''} ${row.status}`);
+  const paymentView = useRecordView((data?.payments || []).filter((row: any) => paymentFilter === 'all' || (paymentFilter === 'verified' ? row.verified : !row.verified)), (row: any) => `${row.id} ${row.subject} ${row.order_id || ''} ${row.amount} ${row.transaction_id || ''}`);
   const orderFilterCount = (filter: (typeof orderFilterOptions)[number][0]) =>
     (data?.orders || []).filter((row: any) => {
       if (filter === 'all') return true;
@@ -1210,36 +1324,8 @@ export function CommerceAdmin() {
       </div>
     );
   return (
-    <div className="commerce-shell commerce-admin">
-      <header className="admin-header">
-        <div>
-          <span className="admin-eyebrow">Sasify operations</span>
-          <h1>Commerce admin</h1>
-          <p>
-            Automatic verification:{' '}
-            <strong className={data.autoVerify ? 'status-good' : 'status-warn'}>
-              {data.autoVerify ? 'Enabled' : 'Manual'}
-            </strong>
-          </p>
-        </div>
-        <div className="commerce-actions">
-          <button
-            title="Refresh dashboard"
-            className="icon-command"
-            disabled={busy}
-            onClick={() => void run(refresh)}
-          >
-            <RefreshCw size={18} />
-          </button>
-          <button
-            className="secondary-button"
-            disabled={busy}
-            onClick={() => void run(logout)}
-          >
-            Sign out
-          </button>
-        </div>
-      </header>
+    <AdminShell tab={tab} onNavigate={setTab} busy={busy} autoVerify={data.autoVerify}
+      onRefresh={() => void run(refresh)} onLogout={() => void run(logout)}>
       {error && (
         <p role="alert" className="commerce-error">
           {error}
@@ -1251,7 +1337,8 @@ export function CommerceAdmin() {
         </p>
       )}
       {(lowBalanceProviders.length > 0 || data.supplierAlerts?.length > 0) && (
-        <section className="admin-panel compact-panel supplier-alert-panel">
+        <details className="admin-panel compact-panel supplier-alert-panel">
+          <summary><ShieldAlert size={17} /> Supplier attention needed · {lowBalanceProviders.length} low balances · {data.supplierAlerts?.length || 0} recent issues</summary>
           <div className="panel-heading">
             <div>
               <span className="admin-eyebrow">Attention required</span>
@@ -1277,30 +1364,8 @@ export function CommerceAdmin() {
               review. Check the detailed request and response logs.
             </p>
           )}
-        </section>
+        </details>
       )}
-      <nav className="admin-tabs" aria-label="Admin sections">
-        {[
-          ['overview', 'Overview', LayoutDashboard],
-          ['profit', 'Profit', WalletCards],
-          ['inventory', 'Inventory', Package],
-          ['supplier', 'Supplier Store', ShoppingCart],
-          ['orders', 'Orders', ClipboardList],
-          ['payments', 'Payments', WalletCards],
-          ['coupons', 'Coupons', TicketPercent],
-          ['commissions', 'Commissions', BadgeDollarSign],
-          ['scammers', 'Scam reports', ShieldAlert],
-        ].map(([value, label, Icon]: any) => (
-          <button
-            key={value}
-            className={tab === value ? 'active' : ''}
-            onClick={() => setTab(value)}
-          >
-            <Icon size={18} />
-            {label}
-          </button>
-        ))}
-      </nav>
       {tab === 'supplier' && (
         <label className="admin-search supplier-search">
           <Search size={17} />
@@ -1308,7 +1373,7 @@ export function CommerceAdmin() {
             aria-label="Search supplier products"
             placeholder="Search supplier products"
             value={supplierSearch}
-            onChange={(e) => setSupplierSearch(e.target.value)}
+            onChange={(e) => { setSupplierSearch(e.target.value); supplierView.setPage(1); }}
           />
           {supplierSearch && (
             <button
@@ -1634,17 +1699,20 @@ export function CommerceAdmin() {
             >
               <span>Profit after coupon rules</span>
               <strong className="metric-profit">
-                {money(data.metrics.profit)}
+                {profitVisible ? money(data.metrics.profit) : 'Protected'}
               </strong>
               <small>
-                HOR value credited {money(data.metrics.hor_profit_credit)} ·
-                other coupons use discounted sale price
+                {profitVisible
+                  ? `HOR value credited ${money(data.metrics.hor_profit_credit)} · other coupons use discounted sale price`
+                  : 'Financial data protected. Unlock financial view →'}
               </small>
             </button>
             <article>
-              <span>This month</span>
-              <strong>{money(data.metrics.monthly_income)}</strong>
-              <small>Profit {money(data.metrics.monthly_profit)}</small>
+              <span>Delivered orders</span>
+              <strong>{data.metrics.delivered_orders}</strong>
+              <small>
+                {data.metrics.active_orders} active orders · {money(data.metrics.monthly_income)} sales this month
+              </small>
             </article>
             <article>
               <span>Available stock</span>
@@ -1658,6 +1726,7 @@ export function CommerceAdmin() {
               cost. Add their costs in Inventory for accurate profit.
             </p>
           )}
+          <AdminOperations orders={data.orders || []} payments={data.payments || []} providers={data.providerStates || []} onNavigate={setTab} />
           <section className="admin-panel">
             <div className="panel-heading">
               <div>
@@ -1668,7 +1737,7 @@ export function CommerceAdmin() {
             <div className="snapshot-grid">
               <div>
                 <span>Recorded stock cost</span>
-                <strong>{money(data.metrics.cost)}</strong>
+                <strong>{profitVisible ? money(data.metrics.cost) : 'Locked'}</strong>
               </div>
               <div>
                 <span>Active orders</span>
@@ -1688,6 +1757,7 @@ export function CommerceAdmin() {
       )}
       {tab === 'profit' && (
         <div className="admin-workspace">
+          {profitVisible ? (
           <section className="admin-panel">
             <div className="panel-heading">
               <div>
@@ -1764,6 +1834,119 @@ export function CommerceAdmin() {
               })}
             </div>
           </section>
+          ) : (
+            <section className="admin-panel profit-lock-panel">
+              <span className="admin-eyebrow">Protected financial data</span>
+              <h2>Financial data protected</h2>
+              <p>
+                Enter your financial password to view profit, costs, and the financial
+                breakdown. The password is checked server-side and is never
+                stored in the browser.
+              </p>
+              <form
+                className="profit-unlock-form"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  void run(unlockProfit);
+                }}
+              >
+                <label>
+                  Profit password
+                  <input
+                    type="password"
+                    value={profitPassword}
+                    onChange={(e) => setProfitPassword(e.target.value)}
+                    autoComplete="current-password"
+                    required
+                  />
+                </label>
+                <button className="primary-button" disabled={busy || !profitPassword}>
+                  Unlock financial view
+                </button>
+              </form>
+            </section>
+          )}
+        </div>
+      )}
+      {tab === 'toolRequests' && (
+        <AdminToolRequests
+          requests={data.toolRequests || []}
+          busy={busy}
+          onStatus={(requestId, status) => {
+            void run(async () => {
+              await api('admin-tool-request-update', key, { requestId, status });
+              setNotice(`Tool request marked ${status}.`);
+              await refresh();
+            });
+          }}
+        />
+      )}
+
+      {tab === 'team' && (
+        <div className="admin-workspace">
+          <section className="admin-panel team-access-panel">
+            <div className="panel-heading">
+              <div>
+                <span className="admin-eyebrow">Restricted stock access</span>
+                <h2>Teammate login</h2>
+                <p>
+                  The teammate portal shows available local stock only. Each
+                  stock pickup is removed from this admin inventory and records
+                  a PKR 50 HOR commission automatically.
+                </p>
+              </div>
+              <span className={`team-access-status ${data.teamAccess?.configured ? 'configured' : 'missing'}`}>
+                {data.teamAccess?.configured ? 'Configured' : 'Not configured'}
+              </span>
+            </div>
+            {data.teamAccess?.configured && (
+              <p className="team-access-current">
+                Current teammate email: <strong>{data.teamAccess.email}</strong>
+              </p>
+            )}
+            <form
+              className="admin-form-grid"
+              onSubmit={(e) => {
+                e.preventDefault();
+                void run(saveTeamCredentials);
+              }}
+            >
+              <label>
+                Teammate email
+                <input
+                  type="email"
+                  value={teamEmail}
+                  onChange={(e) => setTeamEmail(e.target.value)}
+                  placeholder="teammate@example.com"
+                  autoComplete="off"
+                  required
+                />
+              </label>
+              <label>
+                Teammate password
+                <input
+                  type="password"
+                  value={teamPassword}
+                  onChange={(e) => setTeamPassword(e.target.value)}
+                  placeholder="At least 8 characters"
+                  autoComplete="new-password"
+                  minLength={8}
+                  required
+                />
+              </label>
+              <button className="primary-button admin-span" disabled={busy}>
+                {data.teamAccess?.configured ? 'Update teammate login' : 'Create teammate login'}
+              </button>
+            </form>
+            <div className="team-access-link">
+              Teammate sign-in URL: <a href="/team" target="_blank" rel="noreferrer">/team</a>
+            </div>
+            <div className="ops-permissions">
+              <h3>Teammate access scope</h3>
+              <p>These permissions reflect the existing stock-only role; they are not editable here.</p>
+              <dl><div><dt>View available local stock</dt><dd>Allowed</dd></div><div><dt>Pick up stock · PKR 50 HOR commission</dt><dd>Allowed</dd></div><div><dt>Admin dashboard, financials and supplier keys</dt><dd>Not allowed</dd></div></dl>
+            </div>
+          </section>
         </div>
       )}
 
@@ -1775,9 +1958,9 @@ export function CommerceAdmin() {
                 <span className="admin-eyebrow">Partner payouts</span>
                 <h2>Commission tracking</h2>
                 <p>
-                  Delivered orders are recorded here. HOR is disabled for new
-                  orders; historical HOR records remain visible. CUST keeps the
-                  normal price and pays 10% per delivered sale.
+                  Delivered orders and teammate stock pickups are recorded here.
+                  Teammate pickups are always counted under HOR at PKR 50 each.
+                  CUST keeps the normal price and pays 10% per delivered sale.
                 </p>
               </div>
               <button
@@ -1801,7 +1984,7 @@ export function CommerceAdmin() {
               <div>
                 <span>Total commission</span>
                 <strong>{money(totalCommission)}</strong>
-                <small>Delivered orders only</small>
+                <small>Delivered sales and team pickups</small>
               </div>
             </div>
           </section>
@@ -1975,10 +2158,11 @@ export function CommerceAdmin() {
                   aria-label="Search inventory"
                   placeholder="Search email or status"
                   value={inventorySearch}
-                  onChange={(e) => setInventorySearch(e.target.value)}
+                  onChange={(e) => { setInventorySearch(e.target.value); inventoryView.setPage(1); }}
                 />
               </label>
             </div>
+            <AdminRecordControls view={inventoryView} label="inventory" hideSearch />
             <div className="commerce-table">
               <table>
                 <thead>
@@ -1992,7 +2176,7 @@ export function CommerceAdmin() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredInventory.map((item: any) => (
+                  {inventoryView.rows.map((item: any) => (
                     <tr key={item.id}>
                       <td>
                         <strong>{item.email}</strong>
@@ -2337,7 +2521,9 @@ export function CommerceAdmin() {
                             ? 'Fat Bunny Hub products'
                             : supplierProvider === 'zoomstore'
                               ? 'Zoom Store products'
-                              : 'DODI Store products'}
+                              : supplierProvider === 'elitetools'
+                                ? 'Elite Tools Store products'
+                                : 'DODI Store products'}
                 </h2>
                 <p>
                   Choose a supplier to manage its catalog separately. Automatic
@@ -2415,6 +2601,7 @@ export function CommerceAdmin() {
                   ['piggyai', 'PiggyAi'],
                   ['fatbunny', 'Fat Bunny Hub'],
                   ['zoomstore', 'Zoom Store'],
+                  ['elitetools', 'Elite Tools Store'],
                 ] as const
               ).map(([value, label]) => (
                 <button
@@ -2423,15 +2610,16 @@ export function CommerceAdmin() {
                   role="tab"
                   aria-selected={supplierProvider === value}
                   className={supplierProvider === value ? 'active' : ''}
-                  onClick={() => setSupplierProvider(value)}
+                  onClick={() => { setSupplierProvider(value); supplierView.setPage(1); }}
                 >
                   {label}
                   <span>{supplierCount(value)}</span>
                 </button>
               ))}
             </div>
+            <AdminRecordControls view={supplierView} label="supplier products" hideSearch orderLabels={['Catalog order', 'Reverse catalog order']} />
             <div className="supplier-admin-list">
-              {supplierProducts.map((item: any) => (
+              {supplierView.rows.map((item: any) => (
                 <SupplierProductRow
                   key={item.id}
                   item={item}
@@ -2464,7 +2652,9 @@ export function CommerceAdmin() {
                           ? 'Fat Bunny Hub'
                           : supplierProvider === 'zoomstore'
                             ? 'Zoom Store'
-                            : 'the selected supplier'}{' '}
+                            : supplierProvider === 'elitetools'
+                              ? 'Elite Tools Store'
+                              : 'the selected supplier'}{' '}
                 yet. Select Sync providers to refresh its catalog.
               </p>
             )}
@@ -2594,7 +2784,7 @@ export function CommerceAdmin() {
                   role="tab"
                   aria-selected={orderFilter === value}
                   className={orderFilter === value ? 'active' : ''}
-                  onClick={() => setOrderFilter(value)}
+                  onClick={() => { setOrderFilter(value); orderView.setPage(1); }}
                 >
                   {label}
                   <span>{orderFilterCount(value)}</span>
@@ -2605,6 +2795,8 @@ export function CommerceAdmin() {
               Showing {orderRows.length} of {(data.orders || []).length} recent
               orders. Expired reservations are grouped with cancelled orders.
             </p>
+            <AdminRecordControls view={orderView} label="orders" />
+            {!orderView.count && <p>No orders match these filters. Try another status or search.</p>}
             <div className="commerce-table">
               <table>
                 <thead>
@@ -2616,6 +2808,7 @@ export function CommerceAdmin() {
                     <th>Cost</th>
                     <th>Profit</th>
                     <th>Status</th>
+                    <th>Payment route</th>
                     <th>Payment match</th>
                     <th>Sender</th>
                     <th>Date</th>
@@ -2623,7 +2816,7 @@ export function CommerceAdmin() {
                   </tr>
                 </thead>
                 <tbody>
-                  {orderRows.map((row: any) => (
+                  {orderView.rows.map((row: any) => (
                     <tr key={row.id}>
                       <td>
                         <button
@@ -2657,6 +2850,13 @@ export function CommerceAdmin() {
                         <span className={`admin-state ${row.status}`}>
                           {row.status}
                         </span>
+                      </td>
+                      <td>
+                        <strong>
+                          {row.payment_method === 'bank'
+                            ? 'Bank transfer'
+                            : 'Wallet transfer'}
+                        </strong>
                       </td>
                       <td>
                         <strong>
@@ -2811,6 +3011,11 @@ export function CommerceAdmin() {
                 </p>
               </div>
             </div>
+            <div className="order-filter-bar" aria-label="Payment verification filters">
+              {['all', 'verified', 'review'].map(value => <button key={value} type="button" aria-pressed={paymentFilter === value} className={paymentFilter === value ? 'active' : ''} onClick={() => { setPaymentFilter(value); paymentView.setPage(1); }}>{value === 'all' ? 'All payments' : value === 'verified' ? 'Verified receipts' : 'Needs review'}</button>)}
+            </div>
+            <AdminRecordControls view={paymentView} label="payments" />
+            {!paymentView.count && <p>No payments match these filters.</p>}
             <div className="commerce-table">
               <table>
                 <thead>
@@ -2824,7 +3029,7 @@ export function CommerceAdmin() {
                   </tr>
                 </thead>
                 <tbody>
-                  {data.payments.map((row: any) => (
+                  {paymentView.rows.map((row: any) => (
                     <tr key={row.id}>
                       <td>
                         <button
@@ -2848,6 +3053,7 @@ export function CommerceAdmin() {
                             ? 'Reference captured in receipt'
                             : 'No reference captured'}
                         </small>
+                        <small>{verificationReason(row.verification_reason)}</small>
                       </td>
                       <td>{row.order_id?.slice(0, 8) || 'Unassigned'}</td>
                       <td>
@@ -2950,6 +3156,6 @@ export function CommerceAdmin() {
           </section>
         </div>
       )}
-    </div>
+    </AdminShell>
   );
 }
