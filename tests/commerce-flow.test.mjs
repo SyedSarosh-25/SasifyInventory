@@ -49,6 +49,24 @@ test('ChatGPT Plus local inventory supports checkout, verification, delivery and
     const stock = await request('stock');
     assert.equal(stock.code, 200);
     assert.equal(stock.data.products.find((product) => product.id === 'p093').available, 2);
+    const toolRequest = await request('tool-request', {
+      toolName: 'Runway',
+      requirement: 'I need a one-month Pro plan for video generation.',
+      priority: 'urgent',
+      contactNumber: '+92 311 6185711',
+    });
+    assert.equal(toolRequest.code, 200, JSON.stringify(toolRequest));
+    const requestSnapshot = await request('admin-list', undefined, env.COMMERCE_ADMIN_KEY);
+    const savedToolRequest = requestSnapshot.data.toolRequests.find((row) => row.id === toolRequest.data.id);
+    assert.equal(savedToolRequest.tool_name, 'Runway');
+    assert.equal(savedToolRequest.priority, 'urgent');
+    assert.equal(savedToolRequest.contact_number, '+92 311 6185711');
+    assert.equal((await request('admin-tool-request-update', {
+      requestId: toolRequest.data.id,
+      status: 'contacted',
+    }, env.COMMERCE_ADMIN_KEY)).code, 200);
+    const updatedRequest = (await request('admin-list', undefined, env.COMMERCE_ADMIN_KEY)).data.toolRequests.find((row) => row.id === toolRequest.data.id);
+    assert.equal(updatedRequest.status, 'contacted');
     assert.equal((await request('create', { productId: 'p093', paymentMethod: 'cash' })).code, 400);
     const bankWindow = await request('create', { productId: 'p093', paymentMethod: 'bank' });
     assert.equal(bankWindow.code, 200, JSON.stringify(bankWindow));
