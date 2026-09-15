@@ -25,7 +25,6 @@ import {
 } from '../../seo';
 import {
   accessTypeLabel,
-  fullPlanWarranty,
   isAnnualPlan,
   originalPriceComparison,
   originalPricePkr,
@@ -75,7 +74,6 @@ export default async function ProductPage({ params }: Props) {
   if (!product) notFound();
   const annual = isAnnualPlan(product);
   const sharedChatGpt = product.id === 'p093-shared';
-  const warranty = fullPlanWarranty(product);
   const appleWarrantyDays = warrantyDays(product, 'p093-ultra') ?? 25;
   const savings = savingsPkr(product);
   const original = originalPricePkr(product);
@@ -304,8 +302,9 @@ export default async function ProductPage({ params }: Props) {
                 </>
               ) : (
                 <p>
-                  <strong>Full plan warranty included.</strong> {warranty} Use
-                  the WhatsApp support button shown with your order if you need help.
+                  <strong>Warranty terms are listing-specific.</strong> Review the
+                  warranty shown for this product before payment, then use the
+                  WhatsApp support button shown with your order if you need help.
                 </p>
               )}
             </section>
@@ -473,14 +472,14 @@ export default async function ProductPage({ params }: Props) {
                 <strong>
                   {sharedChatGpt ? 'Shared access · no warranty' : product.id === 'p093' ? (
                     `Full ${appleWarrantyDays}-day warranty`
-                  ) : 'Full plan warranty'}
+                  ) : 'Listing-specific warranty'}
                 </strong>
                 {sharedChatGpt ? (
                   ' No replacement or refund after delivery or when shared usage is exhausted.'
                 ) : product.id === 'p093' ? (
                   'Included with this Apple Pay plan.'
                 ) : (
-                  warranty
+                  ' Review this product’s stated warranty terms before payment.'
                 )}
               </span>
             </div>

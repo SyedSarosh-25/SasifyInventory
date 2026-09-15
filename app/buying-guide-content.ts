@@ -27,7 +27,7 @@ export const guideQuestions = [
   },
   {
     question: 'What is the warranty on Sasify Solutions products?',
-    answer: 'All plans except ChatGPT include a full warranty from Sasify Solutions for the entire purchased duration. A one-month plan has a one-month warranty, and a one-year plan has a one-year warranty. ChatGPT keeps its listed account-specific warranty; the Ultra Stable Apple Pay option includes a full 25-day warranty.',
+    answer: 'Warranty terms are specific to each listing. Review the stated warranty duration and coverage for the exact product before payment. ChatGPT keeps its listed account-specific warranty; the Ultra Stable Apple Pay option includes a full 25-day warranty.',
   },
   {
     question: 'How are original prices and savings compared?',

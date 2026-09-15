@@ -113,12 +113,12 @@ test('every variant has unique search metadata and a truthful PKR offer', () => 
   }
 });
 
-test('plan answers include full-duration warranty and retain ChatGPT terms and unknown duration', () => {
+test('plan answers keep warranty terms listing-specific and retain ChatGPT terms and unknown duration', () => {
   const hostinger = products.find(({ id }) => id === 'p100');
   assert.match(productQuestions(hostinger)[1].answer, /PKR 4,500/);
   assert.match(
     productQuestions(products.find(({ id }) => id === 'p013'))[2].answer,
-    /Full warranty.*entire 1 Month plan duration/,
+    /Warranty terms are shown for the selected listing/,
   );
   const chatGptAnswers = productQuestions(
     products.find(({ id }) => id === 'p093'),
@@ -126,7 +126,7 @@ test('plan answers include full-duration warranty and retain ChatGPT terms and u
   assert.match(chatGptAnswers[0].answer, /PKR 3,499/);
   assert.match(chatGptAnswers[1].answer, /25-day warranty/);
   assert.doesNotMatch(productQuestions(hostinger)[2].answer, /25-day/);
-  assert.match(productQuestions(hostinger)[2].answer, /entire 12 Months plan duration/);
+  assert.match(productQuestions(hostinger)[2].answer, /may differ by product/);
   const unknown = { ...hostinger, duration: '-' };
   assert.match(productQuestions(unknown)[0].answer, /Review the access period/);
   assert.ok(!('additionalProperty' in productData(unknown)));

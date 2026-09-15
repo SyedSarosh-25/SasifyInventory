@@ -57,7 +57,7 @@ const whyChooseItems = [
   {
     icon: BadgeDollarSign,
     title: 'Competitive rates with warranty',
-    description: 'Full plan-duration warranty on every non-ChatGPT plan. ChatGPT retains its listed warranty.',
+    description: 'Each product has its own stated warranty terms. ChatGPT retains its listed warranty.',
   },
   {
     icon: ShieldCheck,
@@ -842,7 +842,7 @@ export default function Home() {
             </details>
             <details>
               <summary>Do all products come with a warranty?</summary>
-              <p>Yes. All plans except ChatGPT include a full warranty for the entire purchased duration, including monthly and yearly plans. ChatGPT keeps the warranty listed for its selected account option; Ultra Stable Apple Pay accounts include a full 25-day warranty.</p>
+              <p>Warranty terms vary by product. Check the exact listing before payment. ChatGPT keeps the warranty listed for its selected account option; Ultra Stable Apple Pay accounts include a full 25-day warranty.</p>
             </details>
             <details>
               <summary>Is shared access the same as a personal plan?</summary>

@@ -17,8 +17,8 @@ test('guide keeps access distinctions and warranty qualifications explicit', () 
   assert.match(guideQuestions[0].answer, /exact access arrangement/);
   assert.match(guideQuestions[1].answer, /team seat, not ownership/);
   assert.match(guideQuestions[2].answer, /purchased through WhatsApp/);
-  assert.match(guideQuestions[4].answer, /All plans except ChatGPT.*full warranty.*entire purchased duration/i);
-  assert.match(guideQuestions[4].answer, /one-year plan has a one-year warranty/);
+  assert.match(guideQuestions[4].answer, /Warranty terms are specific to each listing/i);
+  assert.match(guideQuestions[4].answer, /stated warranty duration and coverage/i);
   assert.match(guideQuestions[4].answer, /ChatGPT.*25-day warranty/);
   assert.match(guideQuestions[6].answer, /delivered automatically after payment verification/);
 });

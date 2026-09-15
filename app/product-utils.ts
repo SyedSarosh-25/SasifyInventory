@@ -1,7 +1,6 @@
 import type { Product } from './products';
 import { USD_TO_PKR } from './currency-utils.ts';
 import { isChatGptPlan } from '../commerce/product-display.mjs';
-export { fullPlanWarranty } from '../commerce/product-display.mjs';
 
 export { siteOrigin } from './site-config.ts';
 export const claudeLogoUrl = 'https://www.google.com/s2/favicons?domain_url=https%3A%2F%2Fclaude.ai&sz=128';

@@ -2,7 +2,6 @@ import type { Product } from './products.ts';
 import { products } from './products.ts';
 import {
   formatPkr,
-  fullPlanWarranty,
   isAnnualPlan,
   productHref,
   productLogo,
@@ -22,9 +21,9 @@ export function productTitle(product: Product) {
 
 export function productDescription(product: Product) {
   if (product.contactOnly)
-    return `${product.name}: KVM1, KVM2, KVM4 and KVM8 packages with full plan warranty. Contact Sasify Solutions on WhatsApp for pricing and purchase.`;
+    return `${product.name}: KVM1, KVM2, KVM4 and KVM8 packages with listing-specific terms. Contact Sasify Solutions on WhatsApp for pricing and purchase.`;
   const duration = product.duration === '-' ? 'this package' : product.duration;
-  return `${product.name}: ${formatPkr(product.sellingPricePkr)} for ${duration} in Pakistan. ${isChatGptPlan(product) ? 'Check access, warranty and plan details' : 'Full warranty for the entire plan duration'}, then buy online with automatic delivery after payment verification.`;
+  return `${product.name}: ${formatPkr(product.sellingPricePkr)} for ${duration} in Pakistan. Check the product’s individual access and warranty terms, then buy online with automatic delivery after payment verification.`;
 }
 
 export function productQuestions(product: Product) {
@@ -41,7 +40,7 @@ export function productQuestions(product: Product) {
       {
         question: `What support comes with ${product.name}?`,
         answer:
-          `${fullPlanWarranty(product)} Sasify Solutions support is available on WhatsApp for availability, activation and plan questions.`,
+          'Warranty terms are specific to the selected package. Sasify Solutions support is available on WhatsApp for availability, activation and plan questions.',
       },
     ];
   if (product.id === 'p093' && product.variants?.length)
@@ -76,7 +75,7 @@ export function productQuestions(product: Product) {
     },
     {
       question: `What warranty comes with ${product.name}?`,
-      answer: `${isChatGptPlan(product) ? 'ChatGPT warranty terms are shown with the selected account option.' : fullPlanWarranty(product)} WhatsApp support is available after payment for delivery or activation issues.`,
+      answer: 'Warranty terms are shown for the selected listing and may differ by product. WhatsApp support is available after payment for delivery or activation issues.',
     },
   ];
 }

@@ -317,7 +317,7 @@ test('policy pages are indexable, linked and state only the confirmed commercial
   );
   assert.match(
     await read('warranty.html'),
-    /one-year plan has a one-year warranty/,
+    /individual product listing for the stated warranty period/,
   );
   assert.match(
     await read('refunds.html'),
