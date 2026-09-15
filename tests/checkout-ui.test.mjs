@@ -20,11 +20,11 @@ test('shared account checkout can submit HOR for tracking', () => {
     checkoutSource,
     /Coupons are not available for shared-account access/,
   );
-  assert.match(
+  assert.doesNotMatch(
     checkoutSource,
     /HOR can be used for team tracking\. The shared-account price stays unchanged\./,
   );
-  assert.match(
+  assert.doesNotMatch(
     checkoutSource,
     /HOR code applied · Shared-account price unchanged/,
   );

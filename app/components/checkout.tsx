@@ -507,9 +507,6 @@ export function Checkout() {
                 autoCapitalize="characters"
                 maxLength={32}
               />
-              {product?.id === 'p093-shared' && (
-                <small>HOR can be used for team tracking. The shared-account price stays unchanged.</small>
-              )}
             </label>
             <button
               className="primary-button"
@@ -552,11 +549,9 @@ export function Checkout() {
                   Shared account slot {order.sharedSlot}/4 · {order.sharedSlotsFilled || order.sharedSlot}/{order.sharedSlotsTotal || 4} filled
                 </small>
               ) : null}
-              {order.teamCoupon ? (
+              {order.teamCoupon && order.amount === 0 ? (
                 <small className="coupon-savings">
-                  {order.amount === 0
-                    ? 'Team access · No payment required'
-                    : 'HOR code applied · Shared-account price unchanged'}
+                  Team access · No payment required
                 </small>
               ) : order.couponDiscount || order.paymentAdjustment ? (
                 <>
