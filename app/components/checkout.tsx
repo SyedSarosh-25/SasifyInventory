@@ -395,7 +395,7 @@ export function Checkout() {
               void run(async () => {
                 const data = await api('create', '', {
                   productId: selected,
-                  couponCode: product?.id === 'p093-shared' ? '' : couponCode,
+                  couponCode,
                   ...(product?.requires_customer_email
                     ? { customerEmail: customerEmail.trim() }
                     : {}),
@@ -506,10 +506,9 @@ export function Checkout() {
                 placeholder="Enter coupon code"
                 autoCapitalize="characters"
                 maxLength={32}
-                disabled={product?.id === 'p093-shared'}
               />
               {product?.id === 'p093-shared' && (
-                <small>Coupons are not available for shared-account access.</small>
+                <small>HOR can be used for team tracking. The shared-account price stays unchanged.</small>
               )}
             </label>
             <button
@@ -554,7 +553,11 @@ export function Checkout() {
                 </small>
               ) : null}
               {order.teamCoupon ? (
-                <small className="coupon-savings">Team access · No payment required</small>
+                <small className="coupon-savings">
+                  {order.amount === 0
+                    ? 'Team access · No payment required'
+                    : 'HOR code applied · Shared-account price unchanged'}
+                </small>
               ) : order.couponDiscount || order.paymentAdjustment ? (
                 <>
                   <small>
