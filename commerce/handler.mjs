@@ -1293,6 +1293,14 @@ async function ensureSharedAccountSchema(db) {
       await db.query(
         "CREATE UNIQUE INDEX IF NOT EXISTS commerce_inventory_assignment ON commerce_orders(inventory_id) WHERE shared_account_id IS NULL AND status IN ('pending','review','delivered')",
       );
+      await db.query(
+        `UPDATE commerce_inventory i SET state='available'
+         FROM commerce_shared_accounts sa
+         WHERE sa.inventory_id=i.id
+           AND sa.status='active'
+           AND sa.slots_filled<sa.max_slots
+           AND i.state='delivered'`,
+      );
     })().catch((error) => {
       sharedAccountSchemaReady = null;
       throw error;
@@ -1347,7 +1355,7 @@ async function reserveSharedAccount(db) {
        FROM commerce_shared_accounts sa
        INNER JOIN commerce_inventory i ON i.id=sa.inventory_id
        WHERE sa.status='active' AND sa.slots_filled<sa.max_slots
-         AND i.state IN ('available','reserved')
+         AND i.state IN ('available','reserved','delivered')
        ORDER BY sa.created_at,sa.id
        FOR UPDATE OF sa,i SKIP LOCKED LIMIT 1`,
     )
@@ -2435,7 +2443,9 @@ export function createHandler(
                     COALESCE(SUM(sa.slots_filled),0)::int AS slots_filled,
                     COALESCE(SUM(sa.max_slots),0)::int AS slots_total
              FROM commerce_shared_accounts sa
-             WHERE sa.status='active' AND sa.slots_filled<sa.max_slots`,
+             INNER JOIN commerce_inventory i ON i.id=sa.inventory_id
+             WHERE sa.status='active' AND sa.slots_filled<sa.max_slots
+               AND i.state IN ('available','reserved','delivered')`,
           )
         ).rows[0] || { available: 0, slots_filled: 0, slots_total: 0 };
         const supplierProducts = (

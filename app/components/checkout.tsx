@@ -226,6 +226,12 @@ export function Checkout() {
       clearInterval(timer);
     };
   }, [id, key]);
+  useEffect(() => {
+    if (!error || order || id) return;
+    const selectedProduct = products.find((p) => p.id === selected);
+    if (Number(selectedProduct?.available || 0) > 0 && /sold out/i.test(error))
+      setError('');
+  }, [error, id, order, products, selected]);
   const orderStatus = order?.status;
   const orderExpiresAt = order?.expiresAt;
   const orderPaymentSubmittedAt = order?.paymentSubmittedAt;

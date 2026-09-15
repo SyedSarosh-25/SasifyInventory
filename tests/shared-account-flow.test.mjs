@@ -70,6 +70,10 @@ test('shared ChatGPT inventory rotates four slots and allocates profit per slot'
     }, env.COMMERCE_ADMIN_KEY);
     assert.equal(added.code, 200, JSON.stringify(added));
   }
+  await database.query(
+    "UPDATE commerce_inventory SET state='delivered' WHERE id=$1",
+    [inventory[0].id],
+  );
 
   const stock = await request('stock');
   const sharedStock = stock.data.products.find((item) => item.id === 'p093-shared');
