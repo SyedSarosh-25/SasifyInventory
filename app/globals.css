@@ -1579,17 +1579,30 @@ svg { flex-shrink: 0; }
 }
 @media (max-width: 900px) {
   .detail-layout { grid-template-columns: minmax(0, 1fr); }
-  .purchase-summary { position: static; grid-row: 1; }
-  .detail-content { grid-row: 2; }
+  .detail-content { order: 1; }
+  .purchase-summary { position: static; order: 2; }
   .related-grid { grid-template-columns: 1fr; }
   .vps-variant-grid { grid-template-columns: 1fr; }
 }
 @media (max-width: 640px) {
   .warranty-banner { padding: 12px 18px; }
   .detail-shell { padding: 25px 18px 45px; }
-  .detail-layout { margin-top: 24px; }
+  .detail-layout { gap: 24px; margin-top: 24px; }
+  .detail-identity { gap: 16px; }
   .detail-identity h1 { font-size: 1.85rem; }
+  .detail-logo-frame { width: 86px; height: 86px; }
+  .detail-logo-frame .product-logo { width: 58px; height: 58px; }
+  .description-section { margin-top: 24px; padding-top: 21px; }
+  .description-section h2,
+  .related-section > h2 { font-size: 1.16rem; }
+  .description-section > p,
+  .supplier-description-raw { font-size: 0.9rem; line-height: 1.72; }
+  .package-facts { margin-top: 18px; }
+  .detail-prices .selling-price dd { font-size: 1.55rem; }
   .purchase-summary { padding: 22px; }
+  .purchase-heading { margin-bottom: 16px; }
+  .plan-notice { margin-top: 18px; }
+  .detail-buy { min-height: 52px; margin-top: 18px; }
   .package-facts > div { grid-template-columns: minmax(0, 1fr); gap: 7px; }
   .footer-socials { padding-inline: 18px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 22px 16px; }
   .footer-socials a { min-width: 0; align-items: start; }
