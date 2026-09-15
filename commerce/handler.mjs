@@ -2634,7 +2634,7 @@ export function createHandler(
         const sharedProduct = isSharedChatGptProduct(product?.id);
         const requestedCouponCode = normalizeCouponCode(body.couponCode);
         const isRequestedTeamCoupon = requestedCouponCode === TEAM_COUPON_CODE;
-        if (isRequestedTeamCoupon && !TEAM_COUPON_ENABLED)
+        if (isRequestedTeamCoupon && !TEAM_COUPON_ENABLED && !isSharedChatGptProduct(product?.id))
           throw fail(409, 'The HOR coupon is currently disabled.');
         if (!product || (!process.env.PAYMENT_ACCOUNT_TITLE && !isRequestedTeamCoupon))
           throw fail(
@@ -2679,24 +2679,23 @@ export function createHandler(
         const couponCode = requestedCouponCode;
         const isTeamCoupon = couponCode === TEAM_COUPON_CODE;
         if (couponCode) {
-            if (
-              supplierProduct ||
-              sharedProduct ||
-              !['p093', 'p093-ultra'].includes(product.id)
-          )
+            const sharedHorCoupon = sharedProduct && isTeamCoupon;
+            if (supplierProduct || (!sharedHorCoupon && (!['p093', 'p093-ultra'].includes(product.id) || sharedProduct)))
             throw fail(
               409,
               'Reseller coupons are available for ChatGPT Plus only.',
             );
           coupon = (
             await db.query(
-              "SELECT * FROM commerce_coupons WHERE code_hash=$1 AND product_id='p093' AND enabled=true AND (unlimited=true OR used_count<max_uses) FOR UPDATE",
-              [hash(couponCode)],
+              "SELECT * FROM commerce_coupons WHERE code_hash=$1 AND product_id='p093' AND (enabled=true OR ($2=true AND code_display='HOR')) AND (unlimited=true OR used_count<max_uses) FOR UPDATE",
+              [hash(couponCode), sharedHorCoupon],
             )
           ).rows[0];
           if (!coupon)
             throw fail(409, 'Invalid, disabled or fully used coupon code.');
-          discount = couponDiscount(product.price, coupon.discount_percent);
+          discount = sharedHorCoupon
+            ? 0
+            : couponDiscount(product.price, coupon.discount_percent);
           if (discount === product.price && !isTeamCoupon)
             throw fail(409, 'Only the HOR team code can provide free access.');
         }

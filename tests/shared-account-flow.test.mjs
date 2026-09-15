@@ -79,8 +79,17 @@ test('shared ChatGPT inventory rotates four slots and allocates profit per slot'
 
   const deliveredOrders = [];
   for (let index = 0; index < 5; index += 1) {
-    const created = await request('create', { productId: 'p093-shared' });
+    const created = await request('create', {
+      productId: 'p093-shared',
+      ...(index === 0 ? { couponCode: 'HOR' } : {}),
+    });
     assert.equal(created.code, 200, JSON.stringify(created));
+    if (index === 0) {
+      assert.equal(created.data.couponDiscount, 0);
+      assert.equal(created.data.commissionCode, 'HOR');
+      assert.equal(created.data.commissionAmount, 50);
+      assert.equal(created.data.amount, created.data.originalAmount);
+    }
     const transaction = `SHARED-${index + 1}-PAYMENT`;
     await database.query(
       `INSERT INTO commerce_payments(id,event_hash,transaction_id,amount,payer_name,source_last4,received_at,verified,subject,encrypted_body)
