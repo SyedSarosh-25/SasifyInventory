@@ -414,6 +414,8 @@ test('all product offers match visible content and answers exist without running
         `Missing visible answer: ${product.id}`,
       );
     }
+    assert.match(html, /About this (subscription|service|product)/);
+    assert.match(html, /real-world use case/);
   }
   for (const product of supplierSeoProducts.slice(0, 25)) {
     const html = await read(`products/${product.slug}.html`);
@@ -425,6 +427,8 @@ test('all product offers match visible content and answers exist without running
     assert.equal(offers[0].offers.priceCurrency, 'PKR');
     assert.equal(offers[0].offers.availability, 'https://schema.org/InStock');
     assert.match(html, /Product description/);
+    assert.match(html, /About this (subscription|service|product)/);
+    assert.match(html, /real-world use case/);
     assert.match(html, /Questions about this product/);
   }
 });

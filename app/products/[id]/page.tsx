@@ -12,6 +12,10 @@ import {
   Tag,
 } from 'lucide-react';
 import { products } from '../../products';
+import {
+  productAbout,
+  supplierProductAbout,
+} from '../../product-about';
 import { ProductLogo } from '../../components/product-logo';
 import { StockBuy } from '../../components/checkout';
 import { SiteFooter, SiteHeader } from '../../components/site-chrome';
@@ -111,6 +115,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 function SupplierSeoProductPage({ product }: { product: SupplierSeoProduct }) {
   const questions = supplierProductQuestions(product);
+  const about = supplierProductAbout(product);
   const logo = supplierLogo(product.name, product.logoUrl);
   const descriptionBlocks = product.description
     .split(/\n{2,}/)
@@ -197,6 +202,18 @@ function SupplierSeoProductPage({ product }: { product: SupplierSeoProduct }) {
                   <dd>{product.id}</dd>
                 </div>
               </dl>
+            </section>
+
+            <section className="description-section product-about-section">
+              <h2>{about.heading}</h2>
+              {about.paragraphs.map((paragraph) => (
+                <p key={paragraph}>{paragraph}</p>
+              ))}
+              <ul className="about-use-case-list">
+                {about.useCases.map((useCase) => (
+                  <li key={useCase}>{useCase}</li>
+                ))}
+              </ul>
             </section>
 
             <section className="description-section">
@@ -320,6 +337,7 @@ export default async function ProductPage({ params }: Props) {
   const original = originalPricePkr(product);
   const comparison = originalPriceComparison(product);
   const questions = productQuestions(product);
+  const about = productAbout(product);
   const related = products
     .filter((item) => item.id !== id && item.category === product.category)
     .sort(
@@ -401,6 +419,18 @@ export default async function ProductPage({ params }: Props) {
                   <dd>{product.id}</dd>
                 </div>
               </dl>
+            </section>
+
+            <section className="description-section product-about-section">
+              <h2>{about.heading}</h2>
+              {about.paragraphs.map((paragraph) => (
+                <p key={paragraph}>{paragraph}</p>
+              ))}
+              <ul className="about-use-case-list">
+                {about.useCases.map((useCase) => (
+                  <li key={useCase}>{useCase}</li>
+                ))}
+              </ul>
             </section>
 
             {product.variants?.length && product.id !== 'p093' ? (
