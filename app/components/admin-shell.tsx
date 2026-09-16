@@ -10,6 +10,7 @@ import {
   BadgeDollarSign,
   Users,
   ShieldAlert,
+  ShieldX,
   PanelLeftClose,
   PanelLeftOpen,
   Menu,
@@ -38,6 +39,7 @@ export const adminSections = [
   ['profit', 'Profit', WalletCards],
   ['team', 'Team access', Users],
   ['toolRequests', 'Tool requests', MessageSquarePlus],
+  ['blockedUsers', 'Blocked users', ShieldX],
   ['scammers', 'Scam reports', ShieldAlert],
 ] as const;
 export type AdminSection = (typeof adminSections)[number][0];

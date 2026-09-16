@@ -3726,6 +3726,16 @@ export function createHandler(
                 ? row
                 : { ...row, cost_pkr: null, profit_pkr: null },
             ),
+          blockedUsers: (
+            await db.query(
+              `SELECT a.ip_address,a.attempts,a.last_attempt_at,count(o.id)::int AS order_count
+               FROM commerce_payment_claim_attempts a
+               LEFT JOIN commerce_orders o ON o.ip_address=a.ip_address
+               WHERE a.attempts>=5
+               GROUP BY a.ip_address,a.attempts,a.last_attempt_at
+               ORDER BY a.last_attempt_at DESC LIMIT 500`,
+            )
+          ).rows,
           payments: (
             await db.query(
               'SELECT id,amount,subject,transaction_id,payer_name,source_last4,verified,verification_reason,order_id,received_at,created_at FROM commerce_payments ORDER BY created_at DESC LIMIT 100',

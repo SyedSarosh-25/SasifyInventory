@@ -2017,6 +2017,29 @@ export function CommerceAdmin() {
           )}
         </div>
       )}
+      {tab === 'blockedUsers' && (
+        <div className="admin-workspace">
+          <section className="admin-panel">
+            <div className="panel-heading">
+              <div>
+                <span className="admin-eyebrow">Abuse prevention</span>
+                <h2>Blocked users</h2>
+                <p>IPs blocked after five or more payment-claim attempts. This list is visible only in the admin workspace.</p>
+              </div>
+            </div>
+            {!data.blockedUsers?.length ? <p>No blocked IP addresses yet.</p> : (
+              <div className="commerce-table">
+                <table>
+                  <thead><tr><th>IP address</th><th>Claim attempts</th><th>Orders</th><th>Last attempt</th></tr></thead>
+                  <tbody>{data.blockedUsers.map((row: any) => (
+                    <tr key={row.ip_address}><td><strong>{row.ip_address}</strong></td><td>{row.attempts}</td><td>{row.order_count}</td><td>{new Date(row.last_attempt_at).toLocaleString()}</td></tr>
+                  ))}</tbody>
+                </table>
+              </div>
+            )}
+          </section>
+        </div>
+      )}
       {tab === 'toolRequests' && (
         <AdminToolRequests
           requests={data.toolRequests || []}
