@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { products } from '../app/products.ts';
+import { supplierProductHref, supplierSeoProducts } from '../app/supplier-seo.ts';
 import {
   siteOrigin,
   defaultSiteOrigin,
@@ -19,13 +20,16 @@ import {
   serializeJsonLd,
   sitemapEntries,
   sitemapXml,
+  supplierProductData,
+  supplierProductDescription,
+  supplierProductTitle,
   websiteData,
 } from '../app/seo.ts';
 
 test('sitemap contains only unique canonical pages at the configured domain', () => {
   assert.equal(defaultSiteOrigin, 'https://www.sasifysolutions.com');
   const entries = sitemapEntries();
-  assert.equal(entries.length, products.length + 10);
+  assert.equal(entries.length, products.length + supplierSeoProducts.length + 10);
   assert.equal(new Set(entries.map(({ url }) => url)).size, entries.length);
   assert.deepEqual(
     entries.slice(0, 10).map(({ url }) => url),
@@ -53,6 +57,12 @@ test('sitemap contains only unique canonical pages at the configured domain', ()
     );
   }
   assert.equal((sitemapXml().match(/<loc>/g) || []).length, entries.length);
+  for (const product of supplierSeoProducts.slice(0, 10)) {
+    assert.ok(
+      entries.some(({ url }) => url === `${siteOrigin}${supplierProductHref(product)}`),
+      `Missing supplier URL from sitemap: ${product.slug}`,
+    );
+  }
 });
 
 test('robots rules allow discovery and advertise the same sitemap', () => {
@@ -110,6 +120,25 @@ test('every variant has unique search metadata and a truthful PKR offer', () => 
     }
     for (const key of ['aggregateRating', 'review', 'brand', 'gtin'])
       assert.ok(!(key in data));
+  }
+});
+
+test('supplier SEO products have canonical titles and crawlable Product offers', () => {
+  assert.ok(supplierSeoProducts.length > 0);
+  assert.equal(new Set(supplierSeoProducts.map(({ slug }) => slug)).size, supplierSeoProducts.length);
+  for (const product of supplierSeoProducts) {
+    assert.match(supplierProductTitle(product), /Price in Pakistan/);
+    assert.ok(supplierProductDescription(product).includes(product.price.toLocaleString('en-PK')));
+    assert.equal(supplierProductHref(product), `/products/${product.slug}`);
+    const data = supplierProductData(product);
+    assert.equal(data['@type'], 'Product');
+    assert.equal(data.sku, product.id);
+    assert.equal(data.offers.price, product.price);
+    assert.equal(data.offers.priceCurrency, 'PKR');
+    assert.equal(data.offers.availability, 'https://schema.org/InStock');
+    assert.equal(data.offers.seller['@id'], organizationData['@id']);
+    assert.ok(!('aggregateRating' in data));
+    assert.ok(!('review' in data));
   }
 });
 

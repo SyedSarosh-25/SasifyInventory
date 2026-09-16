@@ -9,6 +9,7 @@ import {
   MessageCircle,
   ShieldCheck,
   ShoppingCart,
+  Tag,
 } from 'lucide-react';
 import { products } from '../../products';
 import { ProductLogo } from '../../components/product-logo';
@@ -22,7 +23,18 @@ import {
   productDescription,
   productQuestions,
   productTitle,
+  supplierProductData,
+  supplierProductDescription,
+  supplierProductQuestions,
+  supplierProductTitle,
 } from '../../seo';
+import {
+  findSupplierSeoProduct,
+  supplierProductHref,
+  supplierSeoProducts,
+  type SupplierSeoProduct,
+} from '../../supplier-seo';
+import { supplierLogo, supplierMonogram } from '../../supplier-product-utils';
 import {
   accessTypeLabel,
   isAnnualPlan,
@@ -39,17 +51,42 @@ import {
 type Props = { params: Promise<{ id: string }> };
 
 export function generateStaticParams() {
-  return products.map((product) => ({ id: product.id }));
+  return [
+    ...products.map((product) => ({ id: product.id })),
+    ...supplierSeoProducts.map((product) => ({ id: product.slug })),
+  ];
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id } = await params;
   const product = products.find((item) => item.id === id);
-  if (!product)
+  if (!product) {
+    const supplierProduct = findSupplierSeoProduct(id);
+    if (supplierProduct) {
+      const title = supplierProductTitle(supplierProduct);
+      const description = supplierProductDescription(supplierProduct);
+      const logo = supplierLogo(supplierProduct.name, supplierProduct.logoUrl);
+      const images = logo ? [{ url: logo, alt: supplierProduct.name }] : [];
+      return {
+        title,
+        description,
+        alternates: {
+          canonical: `${siteOrigin}${supplierProductHref(supplierProduct)}`,
+        },
+        openGraph: {
+          title,
+          description,
+          url: `${siteOrigin}${supplierProductHref(supplierProduct)}`,
+          images,
+        },
+        twitter: { card: 'summary', title, description, images },
+      };
+    }
     return {
       title: 'Product not found | Sasify Solutions',
       robots: { index: false },
     };
+  }
   const title = productTitle(product);
   const description = productDescription(product);
   const logo = productLogo(product);
@@ -68,10 +105,208 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   };
 }
 
+function SupplierSeoProductPage({ product }: { product: SupplierSeoProduct }) {
+  const questions = supplierProductQuestions(product);
+  const logo = supplierLogo(product.name, product.logoUrl);
+  const descriptionBlocks = product.description
+    .split(/\n{2,}/)
+    .map((block) => block.trim())
+    .filter(Boolean);
+  return (
+    <main>
+      <SiteHeader />
+      <StructuredData data={supplierProductData(product)} />
+      <StructuredData
+        data={breadcrumbData([
+          { name: 'Home', path: '/' },
+          { name: 'Full inventory', path: '/inventory' },
+          { name: product.name, path: supplierProductHref(product) },
+        ])}
+      />
+      <div className="detail-shell supplier-detail-shell">
+        <nav className="breadcrumbs" aria-label="Breadcrumb">
+          <a href="/">Home</a>
+          <span aria-hidden="true">/</span>
+          <a href="/inventory">Full inventory</a>
+          <span aria-hidden="true">/</span>
+          <span aria-current="page">{product.name}</span>
+        </nav>
+        <a href="/inventory" className="back-link">
+          <ArrowLeft className="h-4 w-4" /> All products
+        </a>
+        <div className="detail-layout">
+          <article className="detail-content">
+            <div className="detail-identity">
+              <div className="detail-logo-frame supplier-detail-logo">
+                {logo ? (
+                  <img src={logo} alt={`${product.name} logo`} />
+                ) : (
+                  <span aria-label={`${product.name} logo`}>
+                    {supplierMonogram(product.name)}
+                  </span>
+                )}
+              </div>
+              <div>
+                <span className="section-kicker">{product.category}</span>
+                <h1>{product.name}</h1>
+                <span className="detail-duration">
+                  <CalendarDays className="h-4 w-4" /> Instant delivery
+                </span>
+              </div>
+            </div>
+
+            <section className="description-section">
+              <h2>Product description</h2>
+              {descriptionBlocks.length ? (
+                descriptionBlocks.map((block) => <p key={block}>{block}</p>)
+              ) : (
+                <p>
+                  {product.name} is available through Sasify Solutions with
+                  automatic delivery after payment verification.
+                </p>
+              )}
+              {product.deliveryInstruction ? (
+                <p>
+                  <strong>Activation note:</strong>{' '}
+                  {product.deliveryInstruction}
+                </p>
+              ) : null}
+              <dl className="package-facts">
+                <div>
+                  <dt>Package</dt>
+                  <dd>{product.name}</dd>
+                </div>
+                <div>
+                  <dt>Category</dt>
+                  <dd>{product.category}</dd>
+                </div>
+                <div>
+                  <dt>Availability</dt>
+                  <dd>{product.available.toLocaleString('en-PK')} in stock</dd>
+                </div>
+                <div>
+                  <dt>Supplier route</dt>
+                  <dd>{product.providerName || 'Automated supplier'}</dd>
+                </div>
+                <div>
+                  <dt>Listing reference</dt>
+                  <dd>{product.id}</dd>
+                </div>
+              </dl>
+            </section>
+
+            <section className="description-section">
+              <h2>Payment &amp; delivery</h2>
+              <p>
+                The listed Sasify price is{' '}
+                <strong>
+                  <Money amount={product.price} />
+                </strong>
+                . Pay online through secure checkout and keep the order page
+                open while payment is verified.
+              </p>
+              <p>
+                <strong>Warranty terms are listing-specific.</strong> Review the
+                product description and activation requirements before payment,
+                then use the WhatsApp support button shown with your order if
+                you need help.
+              </p>
+              {product.requiresCustomerEmail ? (
+                <p>
+                  <strong>Customer email required.</strong> This supplier needs
+                  your email during checkout to process or deliver the product.
+                </p>
+              ) : null}
+            </section>
+
+            <section className="description-section">
+              <h2>Questions about this product</h2>
+              <div className="faq-list">
+                {questions.map(({ question, answer }, index) => (
+                  <details key={question} open={index === 0}>
+                    <summary>{question}</summary>
+                    <p>{answer}</p>
+                  </details>
+                ))}
+              </div>
+            </section>
+          </article>
+
+          <aside
+            className="purchase-summary"
+            aria-label="Product pricing and purchase"
+          >
+            <span className="section-kicker">Ready to order</span>
+            <div className="purchase-heading">
+              <div className="product-logo-frame supplier-detail-logo">
+                {logo ? (
+                  <img src={logo} alt={`${product.name} logo`} />
+                ) : (
+                  <span aria-label={`${product.name} logo`}>
+                    {supplierMonogram(product.name)}
+                  </span>
+                )}
+              </div>
+              <h2>{product.name}</h2>
+            </div>
+            <dl className="detail-prices">
+              <div className="selling-price">
+                <dt>
+                  <Tag className="h-4 w-4" /> Our price
+                </dt>
+                <dd>
+                  <Money amount={product.price} />
+                </dd>
+              </div>
+              <div>
+                <dt>Availability</dt>
+                <dd>{product.available.toLocaleString('en-PK')} in stock</dd>
+              </div>
+              <div>
+                <dt>Delivery</dt>
+                <dd>Automatic after payment verification</dd>
+              </div>
+            </dl>
+            <div className="plan-notice">
+              <ShieldCheck className="h-5 w-5" />
+              <span>
+                <strong>Listing-specific terms</strong>
+                Review the product requirements before payment.
+              </span>
+            </div>
+            <a
+              href={`/checkout?product=${encodeURIComponent(product.id)}`}
+              className="primary-button detail-buy"
+            >
+              <ShoppingCart className="h-5 w-5" /> Buy online
+            </a>
+            <p className="order-footnote">
+              WhatsApp support is available after successful payment.
+            </p>
+            <button
+              type="button"
+              className="whatsapp-purchase detail-buy"
+              disabled
+            >
+              <MessageCircle className="h-5 w-5" /> WhatsApp support{' '}
+              <span>(after payment)</span>
+            </button>
+          </aside>
+        </div>
+      </div>
+      <SiteFooter />
+    </main>
+  );
+}
+
 export default async function ProductPage({ params }: Props) {
   const { id } = await params;
   const product = products.find((item) => item.id === id);
-  if (!product) notFound();
+  if (!product) {
+    const supplierProduct = findSupplierSeoProduct(id);
+    if (supplierProduct) return <SupplierSeoProductPage product={supplierProduct} />;
+    notFound();
+  }
   const annual = isAnnualPlan(product);
   const sharedChatGpt = product.id === 'p093-shared';
   const appleWarrantyDays = warrantyDays(product, 'p093-ultra') ?? 25;

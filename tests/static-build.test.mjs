@@ -4,6 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 import { products } from '../app/products.ts';
+import { supplierProductHref, supplierSeoProducts } from '../app/supplier-seo.ts';
 import { siteOrigin } from '../app/site-config.ts';
 import {
   productQuestions,
@@ -25,6 +26,7 @@ const canonicalPages = [
   'scammers',
   ...policyPages,
   ...products.map(({ id }) => `products/${id}`),
+  ...supplierSeoProducts.map(({ slug }) => `products/${slug}`),
 ];
 
 test('brand title and standards-compatible favicons are included in exported pages', async () => {
@@ -110,6 +112,20 @@ test('homepage, inventory and every product have populated static HTML', async (
     assert.match(html, product.contactOnly ? /Packages/ : /Your Savings/);
     assert.match(html, /Access type/);
   }
+  for (const product of supplierSeoProducts.slice(0, 20)) {
+    const html = await read(`products/${product.slug}.html`);
+    assert.match(html, /Buy online/);
+    assert.ok(
+      html.includes(`${origin}${supplierProductHref(product)}`),
+      `Canonical URL missing: ${product.slug}`,
+    );
+    assert.ok(
+      inventory.includes(supplierProductHref(product)),
+      `Inventory supplier product missing: ${product.slug}`,
+    );
+    assert.ok(html.includes(product.name));
+    assert.ok(html.includes(product.price.toLocaleString('en-PK')));
+  }
 });
 
 test('scam reports page exposes the public submission action before any report is opened', async () => {
@@ -191,6 +207,7 @@ test('export includes crawlable sitemap and robots files using the final domain'
   assert.equal(await read('sitemap.xml'), sitemapXml());
   assert.match(await read('llms.txt'), /Sasify Solutions/);
   assert.match(await read('llms.txt'), /\/products\/p093/);
+  assert.equal((await read('sitemap.xml')).match(/<loc>/g).length, products.length + supplierSeoProducts.length + 10);
 });
 
 test('Vercel export preserves canonical routes without hiding missing pages', async () => {
@@ -384,6 +401,18 @@ test('all product offers match visible content and answers exist without running
         `Missing visible answer: ${product.id}`,
       );
     }
+  }
+  for (const product of supplierSeoProducts.slice(0, 25)) {
+    const html = await read(`products/${product.slug}.html`);
+    const data = jsonLd(html);
+    const offers = data.filter((item) => item['@type'] === 'Product');
+    assert.equal(offers.length, 1);
+    assert.equal(offers[0].sku, product.id);
+    assert.equal(offers[0].offers.price, product.price);
+    assert.equal(offers[0].offers.priceCurrency, 'PKR');
+    assert.equal(offers[0].offers.availability, 'https://schema.org/InStock');
+    assert.match(html, /Product description/);
+    assert.match(html, /Questions about this product/);
   }
 });
 

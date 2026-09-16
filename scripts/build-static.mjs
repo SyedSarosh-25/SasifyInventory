@@ -2,11 +2,10 @@ import { spawnSync } from 'node:child_process';
 import { cp, lstat, mkdir, readFile, realpath, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { defaultSiteOrigin } from '../app/site-config.ts';
-import { robotsText, sitemapXml } from '../app/seo.ts';
 
 const root = await realpath(fileURLToPath(new URL('../', import.meta.url)));
 const out = path.join(root, 'out');
+const { defaultSiteOrigin } = await import('../app/site-config.ts');
 const env = {
   ...process.env,
   SASIFY_STATIC_EXPORT: '1',
@@ -17,6 +16,14 @@ if (!['http:', 'https:'].includes(origin.protocol) || origin.pathname !== '/' ||
   throw new Error('NEXT_PUBLIC_SITE_ORIGIN must be a plain HTTP(S) origin, with no path or credentials.');
 }
 env.NEXT_PUBLIC_SITE_ORIGIN = origin.origin;
+
+const supplierSeoSync = spawnSync(
+  process.execPath,
+  [path.join(root, 'scripts', 'sync-supplier-seo-catalog.mjs')],
+  { cwd: root, env, stdio: 'inherit' },
+);
+if (supplierSeoSync.error) throw supplierSeoSync.error;
+if (supplierSeoSync.status !== 0) process.exit(supplierSeoSync.status ?? 1);
 
 const packagePath = fileURLToPath(new URL('../package.json', import.meta.resolve('vinext')));
 const { bin } = JSON.parse(await readFile(packagePath, 'utf8'));
@@ -38,6 +45,7 @@ await mkdir(out);
 await cp(path.join(root, 'dist/client'), out, { recursive: true });
 await cp(path.join(root, 'scripts/static.htaccess'), path.join(out, '.htaccess'));
 await cp(path.join(root, 'scripts/static.vercel.json'), path.join(out, 'vercel.json'));
+const { robotsText, sitemapXml } = await import('../app/seo.ts');
 await writeFile(path.join(out, 'sitemap.xml'), sitemapXml());
 await writeFile(path.join(out, 'robots.txt'), robotsText());
 

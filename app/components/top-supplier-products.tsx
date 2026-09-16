@@ -11,6 +11,7 @@ import { productHref } from '../product-utils';
 import { ProductLogo } from './product-logo';
 import { supplierLogo, supplierMonogram } from '../supplier-product-utils';
 import { cacheSupplierCatalog } from '../supplier-catalog-cache';
+import { supplierProductHref } from '../supplier-seo-utils';
 
 type SupplierProduct = {
   id: string;
@@ -36,7 +37,7 @@ function SupplierFeaturedCard({ product }: { product: FeaturedProduct }) {
       : '';
   const href =
     product.source === 'supplier'
-      ? `/supplier-product?product=${encodeURIComponent(product.id)}`
+      ? supplierProductHref(product)
       : productHref(product.localProduct!);
   const displayAvailable = product.displayAvailable ?? product.available;
   return (

@@ -7,6 +7,12 @@ import {
   productLogo,
 } from './product-utils.ts';
 import { isChatGptPlan } from '../commerce/product-display.mjs';
+import type { SupplierSeoProduct } from './supplier-seo.ts';
+import {
+  supplierProductHref,
+  supplierSeoProducts,
+} from './supplier-seo.ts';
+import { supplierLogo } from './supplier-product-utils.ts';
 import {
   founderProfile,
   siteDescription,
@@ -175,6 +181,57 @@ export function productData(product: Product) {
   };
 }
 
+export function supplierProductTitle(product: SupplierSeoProduct) {
+  return `${product.name} Price in Pakistan | Sasify Solutions`;
+}
+
+export function supplierProductDescription(product: SupplierSeoProduct) {
+  return `${product.name}: ${formatPkr(product.price)} in Pakistan with ${product.available.toLocaleString('en-PK')} available. Buy online from Sasify Solutions with automatic delivery after payment verification.`;
+}
+
+export function supplierProductQuestions(product: SupplierSeoProduct) {
+  return [
+    {
+      question: `What is the ${product.name} price in Pakistan?`,
+      answer: `Sasify Solutions lists ${product.name} at ${formatPkr(product.price)}. Stock and activation requirements can change, so review the listing before ordering.`,
+    },
+    {
+      question: `How is ${product.name} delivered?`,
+      answer:
+        'After payment verification, eligible supplier products are fulfilled automatically through the secure Sasify Solutions checkout.',
+    },
+    {
+      question: `What should I check before buying ${product.name}?`,
+      answer:
+        'Read the product description, account or redemption requirements, warranty terms stated in the listing, and any customer-email requirement before payment.',
+    },
+  ];
+}
+
+export function supplierProductData(product: SupplierSeoProduct) {
+  const url = `${siteOrigin}${supplierProductHref(product)}`;
+  const logo = supplierLogo(product.name, product.logoUrl);
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'Product',
+    '@id': `${url}#product`,
+    url,
+    name: product.name,
+    description: product.description,
+    sku: product.id,
+    category: product.category,
+    ...(logo ? { image: [logo] } : {}),
+    offers: {
+      '@type': 'Offer',
+      url,
+      price: product.price,
+      priceCurrency: 'PKR',
+      availability: 'https://schema.org/InStock',
+      seller: { '@id': `${siteOrigin}/#organization` },
+    },
+  };
+}
+
 export function serializeJsonLd(data: Record<string, unknown>) {
   return JSON.stringify(data).replaceAll('<', '\\u003c');
 }
@@ -211,6 +268,7 @@ export function sitemapEntries() {
     '/privacy',
     '/terms',
     ...products.map(productHref),
+    ...supplierSeoProducts.map(supplierProductHref),
   ].map((path) => ({ url: `${siteOrigin}${path}` }));
 }
 

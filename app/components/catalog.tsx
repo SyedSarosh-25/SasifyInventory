@@ -10,6 +10,7 @@ import { Money, ProductOriginalPrice } from './currency';
 import { CategoryNavigation } from './category-navigation';
 import { supplierLogo, supplierMonogram } from '../supplier-product-utils';
 import { cacheSupplierCatalog } from '../supplier-catalog-cache';
+import { supplierProductHref } from '../supplier-seo-utils';
 
 const categoryColors: Record<string, string> = {
   'API & Credit Packages': '#2563ff', 'AI Assistants & Research': '#7047eb',
@@ -47,7 +48,7 @@ type LiveSupplierProduct = { id:string; name:string; description?:string; price:
 function SupplierSearchCard({ product }: { product: LiveSupplierProduct }) {
   const logo = supplierLogo(product.name, product.logo_url);
   const category = product.category || inferSupplierCategory(product.name, product.description);
-  return <a className="product-card supplier-search-card" href={`/supplier-product?product=${encodeURIComponent(product.id)}`}>
+  return <a className="product-card supplier-search-card" href={supplierProductHref(product)}>
     <div className="product-art supplier-search-art"><div className="supplier-search-icon">{logo ? <img src={logo} alt={`${product.name} logo`} /> : <span className="product-monogram" aria-label={`${product.name} logo`}>{supplierMonogram(product.name)}</span>}</div><span className="product-category">{category}</span></div>
     <div className="product-content"><div className="product-meta"><span>Instant delivery</span><span className="available"><i /> {product.available} in stock</span></div><h3>{product.name}</h3><p className="product-description">{product.description || 'Product description is currently unavailable.'}</p><div className="price-panel"><div className="our-price"><span><Tag className="h-3.5 w-3.5" /> Our price</span><strong>PKR {Number(product.price).toLocaleString('en-PK')}</strong></div></div><span className="buy-button">Buy online <ArrowRight className="h-4 w-4" /></span></div>
   </a>;

@@ -1,4 +1,4 @@
-import { favicon, initials } from './product-utils';
+import { favicon, initials } from './product-utils.ts';
 
 const supplierDomains: Array<[RegExp, string]> = [
   [/chatgpt|openai/i, 'chatgpt.com'],

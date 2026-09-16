@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { Catalog } from '../components/catalog';
 import { SiteFooter, SiteHeader } from '../components/site-chrome';
+import { SupplierSeoDirectory } from '../components/supplier-seo-directory';
 import { siteOrigin } from '../product-utils';
 import { breadcrumbData } from '../seo';
 import { StructuredData } from '../components/structured-data';
@@ -17,5 +18,5 @@ export const metadata: Metadata = {
 };
 
 export default function InventoryPage() {
-  return <main><SiteHeader /><StructuredData data={breadcrumbData([{ name: 'Home', path: '/' }, { name: 'Full inventory', path: '/inventory' }])} /><Catalog /><SiteFooter /></main>;
+  return <main><SiteHeader /><StructuredData data={breadcrumbData([{ name: 'Home', path: '/' }, { name: 'Full inventory', path: '/inventory' }])} /><Catalog /><SupplierSeoDirectory /><SiteFooter /></main>;
 }
