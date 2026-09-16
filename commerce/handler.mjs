@@ -3776,7 +3776,7 @@ export function createHandler(
         if (!Number.isSafeInteger(maxUses) || maxUses < 1)
           throw fail(400, 'Maximum usage must be a positive whole number.');
         const inserted = await db.query(
-          `INSERT INTO commerce_coupons(id,code_hash,code_display,product_id,discount,discount_percent,max_uses,enabled) VALUES($1,$2,$3,'p093',$4,$4,$5,$6)
+          `INSERT INTO commerce_coupons(id,code_hash,code_display,product_id,discount,discount_percent,max_uses,enabled) VALUES($1,$2,$3,'p093',$4::numeric,$4::numeric,$5::integer,$6::boolean)
         RETURNING id,code_display,discount_percent,commission_percent,max_uses,used_count,enabled`,
           [
             randomUUID(),
@@ -3834,7 +3834,7 @@ export function createHandler(
             `Maximum usage cannot be lower than current usage (${current.used_count}).`,
           );
         const updated = await db.query(
-          `UPDATE commerce_coupons SET code_hash=$1,code_display=$2,discount=$3,discount_percent=$3,max_uses=$4,enabled=$5,updated_at=now() WHERE id=$6
+          `UPDATE commerce_coupons SET code_hash=$1,code_display=$2,discount=$3::numeric,discount_percent=$3::numeric,max_uses=$4::integer,enabled=$5::boolean,updated_at=now() WHERE id=$6
         RETURNING id,code_display,discount_percent,commission_percent,max_uses,used_count,enabled`,
           [
             hash(code),
