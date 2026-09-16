@@ -14,11 +14,11 @@ Canonical site: https://www.sasifysolutions.com/
 
 ## Current product pages
 
-- ChatGPT Plus: https://www.sasifysolutions.com/products/p093
-- Claude Team Plan Premium: https://www.sasifysolutions.com/products/p012
-- Claude Team Plan Standard: https://www.sasifysolutions.com/products/p013
-- Hostinger Unlimited Web Hosting: https://www.sasifysolutions.com/products/p100
-- Hostinger VPS Hosting: https://www.sasifysolutions.com/products/p101
+- ChatGPT Plus: https://www.sasifysolutions.com/products/chatgpt-plus-1-month
+- Claude Team Plan Premium: https://www.sasifysolutions.com/products/claude-team-plan-premium
+- Claude Team Plan Standard: https://www.sasifysolutions.com/products/claude-team-plan-standard
+- Hostinger Unlimited Web Hosting: https://www.sasifysolutions.com/products/hostinger-unlimited-12-months
+- Hostinger VPS Hosting: https://www.sasifysolutions.com/products/hostinger-vps
 
 ## Customer policies
 

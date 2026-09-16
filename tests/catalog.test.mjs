@@ -7,7 +7,7 @@ import { featuredProducts, filterProducts, heroProducts, orbitTools, selectRando
 test('every inventory variant has a unique detail URL', () => {
   assert.equal(new Set(products.map(productHref)).size, products.length);
   for (const product of products) {
-    assert.match(productHref(product), /^\/products\/p\d+(?:-[a-z]+)?$/);
+    assert.equal(productHref(product), `/products/${product.slug}`);
     assert.ok(product.description.length > 30);
     assert.ok(product.contactOnly || product.sellingPricePkr > 0);
   }
@@ -172,7 +172,7 @@ test('all orbit logos link to the corresponding tool detail page', () => {
   assert.equal(orbitTools.find((tool) => tool.name === 'GPT')?.product.id, 'p093');
   assert.equal(orbitTools.find((tool) => tool.name === 'Claude')?.product.id, 'p013');
   assert.equal(orbitTools.find((tool) => tool.name === 'Hostinger')?.product.id, 'p100');
-  for (const tool of orbitTools.filter(({ product }) => product)) assert.equal(productHref(tool.product), `/products/${tool.id}`);
+  for (const tool of orbitTools.filter(({ product }) => product)) assert.equal(productHref(tool.product), `/products/${tool.product.slug}`);
   for (const tool of orbitTools.filter(({ product }) => !product)) assert.equal(tool.searchQuery, tool.name);
 });
 
@@ -186,7 +186,7 @@ test('full inventory keeps all products, search, categories and empty results', 
 test('hero shows the requested top selling product shortcuts without reducing the top ten', () => {
   assert.deepEqual(heroProducts.map((product) => product.id), ['p013', 'p012', 'p100', 'p101']);
   assert.equal(featuredProducts.length, 4);
-  for (const product of heroProducts) assert.equal(productHref(product), `/products/${product.id}`);
+  for (const product of heroProducts) assert.equal(productHref(product), `/products/${product.slug}`);
 });
 
 test('live hero search matches VPN category and partial names across the full inventory', () => {

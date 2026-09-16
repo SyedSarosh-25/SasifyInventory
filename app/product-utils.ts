@@ -18,7 +18,7 @@ export function whatsappLink(productName?: string, duration?: string) {
 }
 
 export function productHref(product: Product) {
-  return `/products/${product.id}`;
+  return `/products/${product.slug || product.id}`;
 }
 
 export function initials(name: string) {

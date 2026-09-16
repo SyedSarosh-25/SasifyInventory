@@ -12,6 +12,7 @@ import {
   robotsText,
   sitemapXml,
 } from '../app/seo.ts';
+import { productHref } from '../app/product-utils.ts';
 import { guidePlans, guideQuestions } from '../app/buying-guide-content.ts';
 
 const out = fileURLToPath(new URL('../out/', import.meta.url));
@@ -25,7 +26,7 @@ const canonicalPages = [
   'buying-guide',
   'scammers',
   ...policyPages,
-  ...products.map(({ id }) => `products/${id}`),
+  ...products.map((product) => productHref(product).slice(1)),
   ...supplierSeoProducts.map(({ slug }) => `products/${slug}`),
 ];
 
@@ -41,8 +42,8 @@ test('brand title and standards-compatible favicons are included in exported pag
     'about.html',
     'buying-guide.html',
     'privacy.html',
-    'products/p013.html',
-    'products/p101.html',
+    'products/claude-team-plan-standard.html',
+    'products/hostinger-vps.html',
   ]) {
     const html = await read(file);
     const icons = [...html.matchAll(/<link\b[^>]*>/g)]
@@ -91,7 +92,8 @@ test('homepage, inventory and every product have populated static HTML', async (
   const inventory = await read('inventory.html');
   assert.match(inventory, /Full inventory/);
   for (const product of products) {
-    const html = await read(`products/${product.id}.html`);
+    const productPath = productHref(product);
+    const html = await read(`${productPath.slice(1)}.html`);
     assert.match(
       html,
       product.contactOnly
@@ -102,11 +104,11 @@ test('homepage, inventory and every product have populated static HTML', async (
     );
     assert.match(html, /wa\.me\/923116185711/);
     assert.ok(
-      html.includes(`${origin}/products/${product.id}`),
+      html.includes(`${origin}${productPath}`),
       `Canonical URL missing: ${product.id}`,
     );
     assert.ok(
-      inventory.includes(`/products/${product.id}`),
+      inventory.includes(productPath),
       `Inventory product missing: ${product.id}`,
     );
     assert.match(html, product.contactOnly ? /Packages/ : /Your Savings/);
@@ -206,7 +208,7 @@ test('export includes crawlable sitemap and robots files using the final domain'
   assert.equal(await read('robots.txt'), robotsText());
   assert.equal(await read('sitemap.xml'), sitemapXml());
   assert.match(await read('llms.txt'), /Sasify Solutions/);
-  assert.match(await read('llms.txt'), /\/products\/p093/);
+  assert.match(await read('llms.txt'), /\/products\/chatgpt-plus-1-month/);
   assert.equal((await read('sitemap.xml')).match(/<loc>/g).length, products.length + supplierSeoProducts.length + 10);
 });
 
@@ -214,6 +216,17 @@ test('Vercel export preserves canonical routes without hiding missing pages', as
   const config = JSON.parse(await read('vercel.json'));
   assert.equal(config.cleanUrls, true);
   assert.equal(config.trailingSlash, false);
+  for (const product of products) {
+    assert.ok(
+      config.redirects.some(
+        (redirect) =>
+          redirect.source === `/products/${product.id}` &&
+          redirect.destination === productHref(product) &&
+          redirect.permanent === true,
+      ),
+      `Missing legacy redirect for ${product.id}`,
+    );
+  }
   assert.equal(
     config.rewrites,
     undefined,
@@ -306,12 +319,12 @@ test('buying guide answers and plan links are visible and match its structured d
     assert.ok(visible.includes(answer));
   }
   for (const product of guidePlans) {
-    assert.ok(visible.includes(`href="/products/${product.id}"`));
+    assert.ok(visible.includes(`href="${productHref(product)}"`));
     assert.ok(
       visible.includes(product.sellingPricePkr.toLocaleString('en-PK')),
     );
   }
-  for (const file of ['index', 'about', 'products/p013']) {
+  for (const file of ['index', 'about', 'products/claude-team-plan-standard']) {
     assert.ok((await read(`${file}.html`)).includes('href="/buying-guide"'));
   }
 });
@@ -359,7 +372,7 @@ test('policy pages are indexable, linked and state only the confirmed commercial
 
 test('all product offers match visible content and answers exist without running JavaScript', async () => {
   for (const product of products) {
-    const html = await read(`products/${product.id}.html`);
+    const html = await read(`${productHref(product).slice(1)}.html`);
     const data = jsonLd(html);
     const offers = data.filter((item) => item['@type'] === 'Product');
     assert.equal(offers.length, 1);

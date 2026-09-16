@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import {
   ArrowLeft,
   ArrowRight,
@@ -50,16 +50,20 @@ import {
 
 type Props = { params: Promise<{ id: string }> };
 
+function findLocalProduct(routeId: string) {
+  return products.find((item) => item.slug === routeId || item.id === routeId);
+}
+
 export function generateStaticParams() {
   return [
-    ...products.map((product) => ({ id: product.id })),
+    ...products.map((product) => ({ id: product.slug || product.id })),
     ...supplierSeoProducts.map((product) => ({ id: product.slug })),
   ];
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id } = await params;
-  const product = products.find((item) => item.id === id);
+  const product = findLocalProduct(id);
   if (!product) {
     const supplierProduct = findSupplierSeoProduct(id);
     if (supplierProduct) {
@@ -301,12 +305,14 @@ function SupplierSeoProductPage({ product }: { product: SupplierSeoProduct }) {
 
 export default async function ProductPage({ params }: Props) {
   const { id } = await params;
-  const product = products.find((item) => item.id === id);
+  const product = findLocalProduct(id);
   if (!product) {
     const supplierProduct = findSupplierSeoProduct(id);
     if (supplierProduct) return <SupplierSeoProductPage product={supplierProduct} />;
     notFound();
   }
+  if (id === product.id && product.slug && product.slug !== product.id)
+    redirect(productHref(product));
   const annual = isAnnualPlan(product);
   const sharedChatGpt = product.id === 'p093-shared';
   const appleWarrantyDays = warrantyDays(product, 'p093-ultra') ?? 25;

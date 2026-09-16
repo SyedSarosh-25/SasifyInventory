@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { products } from '../app/products.ts';
 import { supplierProductHref, supplierSeoProducts } from '../app/supplier-seo.ts';
+import { productHref } from '../app/product-utils.ts';
 import {
   siteOrigin,
   defaultSiteOrigin,
@@ -103,11 +104,12 @@ test('every variant has unique search metadata and a truthful PKR offer', () => 
       );
       for (const offer of offers) {
         assert.equal(offer.priceCurrency, 'PKR');
+        const href = `${siteOrigin}${productHref(product)}`;
         assert.equal(
           offer.url,
           product.variants && product.id !== 'p093'
-            ? `${siteOrigin}/products/${product.id}#account-options`
-            : `${siteOrigin}/products/${product.id}`,
+            ? `${href}#account-options`
+            : href,
         );
         assert.equal(offer.seller['@id'], organizationData['@id']);
         for (const key of [

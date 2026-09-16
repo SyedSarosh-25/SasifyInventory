@@ -45,7 +45,25 @@ await mkdir(out);
 await cp(path.join(root, 'dist/client'), out, { recursive: true });
 await cp(path.join(root, 'scripts/static.htaccess'), path.join(out, '.htaccess'));
 await cp(path.join(root, 'scripts/static.vercel.json'), path.join(out, 'vercel.json'));
+const { products } = await import('../app/products.ts');
+const { productHref } = await import('../app/product-utils.ts');
 const { robotsText, sitemapXml } = await import('../app/seo.ts');
+const vercelConfigPath = path.join(out, 'vercel.json');
+const vercelConfig = JSON.parse(await readFile(vercelConfigPath, 'utf8'));
+const productRedirects = products
+  .map((product) => ({
+    source: `/products/${product.id}`,
+    destination: productHref(product),
+    permanent: true,
+  }))
+  .filter((redirect) => redirect.source !== redirect.destination);
+if (productRedirects.length) {
+  vercelConfig.redirects = [
+    ...productRedirects,
+    ...(Array.isArray(vercelConfig.redirects) ? vercelConfig.redirects : []),
+  ];
+}
+await writeFile(vercelConfigPath, `${JSON.stringify(vercelConfig, null, 2)}\n`);
 await writeFile(path.join(out, 'sitemap.xml'), sitemapXml());
 await writeFile(path.join(out, 'robots.txt'), robotsText());
 
