@@ -209,6 +209,14 @@ function SupplierSeoProductPage({ product }: { product: SupplierSeoProduct }) {
               {about.paragraphs.map((paragraph) => (
                 <p key={paragraph}>{paragraph}</p>
               ))}
+              <div className="search-intent-terms">
+                <h3>Related searches in Pakistan</h3>
+                <ul>
+                  {about.searchTerms.map((term) => (
+                    <li key={term}>{term}</li>
+                  ))}
+                </ul>
+              </div>
               <ul className="about-use-case-list">
                 {about.useCases.map((useCase) => (
                   <li key={useCase}>{useCase}</li>
@@ -426,6 +434,14 @@ export default async function ProductPage({ params }: Props) {
               {about.paragraphs.map((paragraph) => (
                 <p key={paragraph}>{paragraph}</p>
               ))}
+              <div className="search-intent-terms">
+                <h3>Related searches in Pakistan</h3>
+                <ul>
+                  {about.searchTerms.map((term) => (
+                    <li key={term}>{term}</li>
+                  ))}
+                </ul>
+              </div>
               <ul className="about-use-case-list">
                 {about.useCases.map((useCase) => (
                   <li key={useCase}>{useCase}</li>

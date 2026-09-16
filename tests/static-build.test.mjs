@@ -416,6 +416,7 @@ test('all product offers match visible content and answers exist without running
     }
     assert.match(html, /About this (subscription|service|product)/);
     assert.match(html, /real-world use case/);
+    assert.match(html, /Related searches in Pakistan/);
     if (/chatgpt/i.test(product.name)) {
       assert.match(html, /ChatGPT Plus price in Pakistan/);
       assert.match(html, /buy ChatGPT Plus Pakistan/);
@@ -433,6 +434,7 @@ test('all product offers match visible content and answers exist without running
     assert.match(html, /Product description/);
     assert.match(html, /About this (subscription|service|product)/);
     assert.match(html, /real-world use case/);
+    assert.match(html, /Related searches in Pakistan/);
     assert.match(html, /Questions about this product/);
   }
 });

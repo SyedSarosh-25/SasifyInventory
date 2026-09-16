@@ -13,6 +13,7 @@ type AboutInput = {
 export type ProductAbout = {
   heading: string;
   paragraphs: string[];
+  searchTerms: string[];
   useCases: string[];
 };
 
@@ -24,27 +25,40 @@ function cleanSentence(value: string) {
 }
 
 function readableSearchName(input: AboutInput, blob: string) {
-  if (blob.includes('chatgpt')) return 'ChatGPT Plus';
-  if (blob.includes('cursor')) return 'Cursor AI';
-  if (blob.includes('canva')) return 'Canva Pro';
-  if (blob.includes('netflix')) return 'Netflix screen';
-  if (blob.includes('capcut')) return 'CapCut Pro';
-  if (blob.includes('figma')) return 'Figma Pro';
-  if (blob.includes('adobe')) return 'Adobe';
-  if (blob.includes('claude')) return 'Claude AI';
-  if (blob.includes('gemini')) return 'Gemini AI';
-  if (blob.includes('grok')) return 'Grok AI';
-  if (blob.includes('perplexity')) return 'Perplexity Pro';
-  if (blob.includes('youtube')) return 'YouTube Premium';
-  if (blob.includes('spotify')) return 'Spotify Premium';
-  if (blob.includes('microsoft') || blob.includes('office 365') || blob.includes('ms office'))
+  const brandText = `${input.name} ${input.category || ''}`.toLowerCase();
+  const inBrand = (value: string) => brandText.includes(value);
+  if (inBrand('chatgpt')) return 'ChatGPT Plus';
+  if (inBrand('cursor')) return 'Cursor AI';
+  if (inBrand('canva')) return 'Canva Pro';
+  if (inBrand('netflix')) return 'Netflix screen';
+  if (inBrand('capcut')) return 'CapCut Pro';
+  if (inBrand('figma')) return 'Figma Pro';
+  if (inBrand('adobe') && /premiere|premier/.test(brandText))
+    return 'Adobe Premiere Pro';
+  if (inBrand('adobe') && inBrand('express')) return 'Adobe Express';
+  if (inBrand('adobe') && inBrand('photoshop')) return 'Adobe Photoshop';
+  if (inBrand('adobe') && inBrand('lightroom')) return 'Adobe Lightroom';
+  if (inBrand('adobe')) return 'Adobe subscription';
+  if (inBrand('freepik')) return 'Freepik Premium';
+  if (inBrand('heygen')) return 'HeyGen AI';
+  if (inBrand('kling')) return 'Kling AI';
+  if (inBrand('veo')) return 'Veo 3';
+  if (inBrand('elevenlabs')) return 'ElevenLabs';
+  if (inBrand('minimax')) return 'Minimax AI';
+  if (inBrand('claude')) return 'Claude AI';
+  if (inBrand('gemini')) return 'Gemini AI';
+  if (inBrand('grok')) return 'Grok AI';
+  if (inBrand('perplexity')) return 'Perplexity Pro';
+  if (inBrand('youtube')) return 'YouTube Premium';
+  if (inBrand('spotify')) return 'Spotify Premium';
+  if (inBrand('microsoft') || inBrand('office 365') || inBrand('ms office'))
     return 'Microsoft 365';
-  if (blob.includes('hostinger') && blob.includes('vps')) return 'Hostinger VPS';
-  if (blob.includes('hostinger')) return 'Hostinger hosting';
-  if (blob.includes('vpn')) {
-    if (blob.includes('surfshark')) return 'Surfshark VPN';
-    if (blob.includes('express')) return 'ExpressVPN';
-    if (blob.includes('proton')) return 'Proton VPN';
+  if (inBrand('hostinger') && inBrand('vps')) return 'Hostinger VPS';
+  if (inBrand('hostinger')) return 'Hostinger hosting';
+  if (brandText.includes('vpn')) {
+    if (inBrand('surfshark')) return 'Surfshark VPN';
+    if (inBrand('express')) return 'ExpressVPN';
+    if (inBrand('proton')) return 'Proton VPN';
     return 'VPN subscription';
   }
   return input.name
@@ -59,8 +73,9 @@ function readableSearchName(input: AboutInput, blob: string) {
 
 function searchIntentPhrases(input: AboutInput, kind: string) {
   const blob = `${input.name} ${input.category || ''} ${input.description || ''}`.toLowerCase();
+  const brandText = `${input.name} ${input.category || ''}`.toLowerCase();
   const term = readableSearchName(input, blob);
-  if (blob.includes('chatgpt')) {
+  if (brandText.includes('chatgpt')) {
     return [
       'ChatGPT Plus price in Pakistan',
       'buy ChatGPT Plus Pakistan',
@@ -68,7 +83,7 @@ function searchIntentPhrases(input: AboutInput, kind: string) {
       'ChatGPT Plus account Pakistan',
     ];
   }
-  if (blob.includes('cursor')) {
+  if (brandText.includes('cursor')) {
     return [
       'Cursor AI price in Pakistan',
       'buy Cursor AI Pakistan',
@@ -76,7 +91,7 @@ function searchIntentPhrases(input: AboutInput, kind: string) {
       'AI coding tool Pakistan',
     ];
   }
-  if (blob.includes('canva')) {
+  if (brandText.includes('canva')) {
     return [
       'Canva Pro price in Pakistan',
       'buy Canva Pro Pakistan',
@@ -84,7 +99,7 @@ function searchIntentPhrases(input: AboutInput, kind: string) {
       'Canva Pro account Pakistan',
     ];
   }
-  if (blob.includes('netflix')) {
+  if (brandText.includes('netflix')) {
     return [
       'Netflix screen price in Pakistan',
       'Netflix account Pakistan',
@@ -92,7 +107,7 @@ function searchIntentPhrases(input: AboutInput, kind: string) {
       'Netflix subscription Pakistan',
     ];
   }
-  if (blob.includes('capcut')) {
+  if (brandText.includes('capcut')) {
     return [
       'CapCut Pro price in Pakistan',
       'buy CapCut Pro Pakistan',
@@ -100,7 +115,63 @@ function searchIntentPhrases(input: AboutInput, kind: string) {
       'video editing app Pakistan',
     ];
   }
-  if (blob.includes('vpn') || blob.includes('surfshark') || blob.includes('expressvpn')) {
+  if (brandText.includes('adobe') && /premiere|premier/.test(brandText)) {
+    return [
+      'Adobe Premiere Pro price in Pakistan',
+      'buy Adobe Premiere Pro Pakistan',
+      'Adobe Premiere Pro subscription Pakistan',
+      'video editing software Pakistan',
+    ];
+  }
+  if (brandText.includes('adobe') && brandText.includes('express')) {
+    return [
+      'Adobe Express price in Pakistan',
+      'buy Adobe Express Pakistan',
+      'Adobe Express subscription Pakistan',
+      'graphic design app Pakistan',
+    ];
+  }
+  if (brandText.includes('adobe')) {
+    return [
+      `${term} price in Pakistan`,
+      `buy ${term} Pakistan`,
+      `${term} subscription Pakistan`,
+      'Adobe account Pakistan',
+    ];
+  }
+  if (brandText.includes('figma')) {
+    return [
+      'Figma Pro price in Pakistan',
+      'buy Figma Pro Pakistan',
+      'Figma subscription Pakistan',
+      'UI design tool Pakistan',
+    ];
+  }
+  if (hasAny(brandText, ['freepik', 'heygen', 'kling', 'veo', 'elevenlabs', 'minimax'])) {
+    return [
+      `${term} price in Pakistan`,
+      `buy ${term} Pakistan`,
+      `${term} subscription Pakistan`,
+      'AI creative tool Pakistan',
+    ];
+  }
+  if (hasAny(brandText, ['youtube', 'spotify', 'prime video', 'apple music', 'xbox'])) {
+    return [
+      `${term} price in Pakistan`,
+      `buy ${term} Pakistan`,
+      `${term} subscription Pakistan`,
+      'streaming subscription Pakistan',
+    ];
+  }
+  if (hasAny(brandText, ['microsoft', 'office', '365', 'notion', 'quillbot', 'coursera', 'udemy', 'duolingo', 'linkedin'])) {
+    return [
+      `${term} price in Pakistan`,
+      `buy ${term} Pakistan`,
+      `${term} subscription Pakistan`,
+      'productivity subscription Pakistan',
+    ];
+  }
+  if (brandText.includes('vpn') || brandText.includes('surfshark') || brandText.includes('expressvpn')) {
     return [
       `${term} price in Pakistan`,
       `buy ${term} Pakistan`,
@@ -134,9 +205,10 @@ function productKind(input: AboutInput) {
 
 function capabilityProfile(input: AboutInput) {
   const blob = `${input.name} ${input.category || ''} ${input.description || ''}`.toLowerCase();
+  const brandText = `${input.name} ${input.category || ''}`.toLowerCase();
   const name = input.name;
 
-  if (hasAny(blob, ['cursor', 'codex', 'replit', 'github', 'kiro', 'lovable'])) {
+  if (hasAny(brandText, ['cursor', 'codex', 'replit', 'github', 'kiro', 'lovable'])) {
     return {
       audience: 'developers, students and teams building software projects',
       purpose:
@@ -149,7 +221,7 @@ function capabilityProfile(input: AboutInput) {
     };
   }
 
-  if (hasAny(blob, ['chatgpt', 'claude', 'gemini', 'grok', 'perplexity'])) {
+  if (hasAny(brandText, ['chatgpt', 'claude', 'gemini', 'grok', 'perplexity'])) {
     return {
       audience: 'students, creators, researchers, freelancers and business users',
       purpose:
@@ -162,7 +234,7 @@ function capabilityProfile(input: AboutInput) {
     };
   }
 
-  if (hasAny(blob, ['netflix', 'prime video', 'youtube premium', 'spotify', 'apple music', 'xbox'])) {
+  if (hasAny(brandText, ['netflix', 'prime video', 'youtube premium', 'spotify', 'apple music', 'xbox'])) {
     const quality = hasAny(blob, ['4k', 'ultra hd', 'uhd'])
       ? 'including supported 4K or Ultra HD playback where the plan and device allow it'
       : 'depending on the plan, app and supported device';
@@ -178,7 +250,7 @@ function capabilityProfile(input: AboutInput) {
     };
   }
 
-  if (hasAny(blob, ['canva', 'capcut', 'figma', 'adobe', 'freepik', 'leonardo', 'kling', 'heygen', 'veo', 'krea', 'flux', 'minimax', 'xingtu', 'meitu'])) {
+  if (hasAny(brandText, ['canva', 'capcut', 'figma', 'adobe', 'freepik', 'leonardo', 'kling', 'heygen', 'veo', 'krea', 'flux', 'minimax', 'xingtu', 'meitu', 'elevenlabs'])) {
     return {
       audience: 'designers, editors, marketers, social media creators and agencies',
       purpose:
@@ -191,7 +263,7 @@ function capabilityProfile(input: AboutInput) {
     };
   }
 
-  if (hasAny(blob, ['surfshark', 'express vpn', 'expressvpn', 'protonvpn', 'proton vpn', 'pia vpn', 'hma', 'vpn'])) {
+  if (hasAny(brandText, ['surfshark', 'express vpn', 'expressvpn', 'protonvpn', 'proton vpn', 'pia vpn', 'hma', 'vpn'])) {
     return {
       audience: 'users who need privacy-focused browsing and secure access on supported devices',
       purpose:
@@ -292,6 +364,7 @@ function buildProductAbout(input: AboutInput): ProductAbout {
         `For Pakistan search intent, this page is also written for customers comparing ${searchPhrases.slice(0, -1).join(', ')} and ${searchPhrases.at(-1)} before buying online in PKR.`,
       ),
     ],
+    searchTerms: searchPhrases,
     useCases: profile.examples.map(cleanSentence),
   };
 }

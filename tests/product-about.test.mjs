@@ -14,6 +14,12 @@ test('about sections explain searchable use cases for coding tools', () => {
     category: 'AI coding tools',
   });
   assert.equal(about.heading, 'About this subscription');
+  assert.deepEqual(about.searchTerms, [
+    'Cursor AI price in Pakistan',
+    'buy Cursor AI Pakistan',
+    'Cursor AI subscription Pakistan',
+    'AI coding tool Pakistan',
+  ]);
   assert.match(about.paragraphs.join(' '), /developers, students and teams/);
   assert.match(about.paragraphs.join(' '), /Cursor AI price in Pakistan/);
   assert.match(about.paragraphs.join(' '), /Cursor AI subscription Pakistan/);
@@ -32,6 +38,12 @@ test('about sections explain searchable use cases for streaming plans', () => {
     category: 'Streaming',
   });
   assert.equal(about.heading, 'About this subscription');
+  assert.deepEqual(about.searchTerms, [
+    'Netflix screen price in Pakistan',
+    'Netflix account Pakistan',
+    'Netflix 4K screen Pakistan',
+    'Netflix subscription Pakistan',
+  ]);
   assert.match(about.paragraphs.join(' '), /Netflix screen price in Pakistan/);
   assert.match(about.paragraphs.join(' '), /Netflix 4K screen Pakistan/);
   assert.match(about.useCases.join(' '), /watching movies, shows, videos/);
@@ -50,6 +62,12 @@ test('about sections explain searchable use cases for creative subscriptions', (
     category: 'Design',
   });
   assert.equal(about.heading, 'About this subscription');
+  assert.deepEqual(about.searchTerms, [
+    'Canva Pro price in Pakistan',
+    'buy Canva Pro Pakistan',
+    'Canva Pro subscription Pakistan',
+    'Canva Pro account Pakistan',
+  ]);
   assert.match(about.paragraphs.join(' '), /Canva Pro price in Pakistan/);
   assert.match(about.paragraphs.join(' '), /buy Canva Pro Pakistan/);
   assert.match(about.useCases.join(' '), /social media posts, reels, ads/);
@@ -67,7 +85,70 @@ test('about sections use high-intent ChatGPT searches for Pakistan', () => {
     category: 'AI Assistants',
   });
   assert.equal(about.heading, 'About this subscription');
+  assert.deepEqual(about.searchTerms, [
+    'ChatGPT Plus price in Pakistan',
+    'buy ChatGPT Plus Pakistan',
+    'ChatGPT Plus subscription Pakistan',
+    'ChatGPT Plus account Pakistan',
+  ]);
   assert.match(about.paragraphs.join(' '), /ChatGPT Plus price in Pakistan/);
   assert.match(about.paragraphs.join(' '), /buy ChatGPT Plus Pakistan/);
   assert.match(about.paragraphs.join(' '), /ChatGPT Plus account Pakistan/);
+});
+
+test('about sections use exact Adobe product keywords', () => {
+  const express = supplierProductAbout({
+    id: 'supplier:adobe-express',
+    slug: 'adobe-express',
+    canonicalKey: 'adobe-express',
+    name: 'Adobe Express 12M',
+    description: 'Creative design app subscription.',
+    price: 2499,
+    available: 10,
+    category: 'Design',
+  });
+  assert.deepEqual(express.searchTerms, [
+    'Adobe Express price in Pakistan',
+    'buy Adobe Express Pakistan',
+    'Adobe Express subscription Pakistan',
+    'graphic design app Pakistan',
+  ]);
+
+  const premiere = supplierProductAbout({
+    id: 'supplier:adobe-premiere',
+    slug: 'adobe-premiere',
+    canonicalKey: 'adobe-premiere',
+    name: 'Adobe Premiere Pro 1 Month',
+    description: 'Video editing software subscription.',
+    price: 3999,
+    available: 3,
+    category: 'Video editing',
+  });
+  assert.deepEqual(premiere.searchTerms, [
+    'Adobe Premiere Pro price in Pakistan',
+    'buy Adobe Premiere Pro Pakistan',
+    'Adobe Premiere Pro subscription Pakistan',
+    'video editing software Pakistan',
+  ]);
+});
+
+test('supplier description words do not override the actual product brand', () => {
+  const about = supplierProductAbout({
+    id: 'supplier:elevenlabs',
+    slug: 'elevenlabs',
+    canonicalKey: 'elevenlabs',
+    name: 'ElevenLabs Redeem 1M Credit',
+    description:
+      'Use these credits for voice generation. This description mentions CapCut only as an unrelated example.',
+    price: 1999,
+    available: 3,
+    category: 'AI voice tools',
+  });
+  assert.deepEqual(about.searchTerms, [
+    'ElevenLabs price in Pakistan',
+    'buy ElevenLabs Pakistan',
+    'ElevenLabs subscription Pakistan',
+    'AI creative tool Pakistan',
+  ]);
+  assert.doesNotMatch(about.paragraphs.join(' '), /CapCut Pro price in Pakistan/);
 });
