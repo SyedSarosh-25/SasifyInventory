@@ -1,17 +1,18 @@
 # Sasify Search and GEO Setup
 
-Status date: 11 September 2026.
+Status date: 16 September 2026.
 
 ## Current technical setup
 
 - Canonical origin: `https://www.sasifysolutions.com`.
-- The XML sitemap contains 14 canonical URLs: the homepage, inventory, About, buying guide, scam reports, four policy pages and five product pages.
+- The XML sitemap contains the current canonical public pages, including the full indexable product catalog.
 - `robots.txt` allows public crawling and points to the sitemap.
 - Checkout and admin application surfaces are excluded from indexing through hosting headers.
 - Public pages render titles, descriptions, canonical links and Open Graph URLs in their HTML.
 - The site renders Organization and WebSite structured data. Product pages render Product, Offer and BreadcrumbList data. ChatGPT Plus publishes one truthful Offer record: Apple Pay at PKR 3,499.
 - The buying guide renders visible questions with matching FAQPage structured data.
 - Google and Bing ownership-verification meta tags remain in the shared layout.
+- Vercel Analytics and Speed Insights are enabled on public pages. GA4 support is wired through `NEXT_PUBLIC_GA_MEASUREMENT_ID` and activates when a valid `G-...` measurement ID is present at build time.
 - `llms.txt` gives nonstandard, optional discovery guidance to compatible AI systems. Google does not require this file for search or AI features.
 
 Prices, stock and warranty language must stay synchronized with the visible page. Do not invent ratings, availability, return promises, business addresses or provider affiliations in structured data.
@@ -28,7 +29,17 @@ Historical dashboard checks on 3 September 2026 showed:
 - Bing accepted the sitemap and initially showed it as processing.
 - Google's Search generative AI control was set to Include through the parent property.
 
-Those values describe the old 96-product catalog and are not proof that every current URL is indexed. The catalog now contains five product pages and the sitemap must be reprocessed. A public search check on 11 September 2026 did not return a reliable `site:sasifysolutions.com` result, so current coverage should be read directly from Search Console and Bing Webmaster Tools.
+Those values describe older catalog snapshots and are not proof that every current URL is indexed. Current coverage should be read directly from Search Console and Bing Webmaster Tools.
+
+Dashboard checks on 16 September 2026 showed:
+
+- Google Search Console URL-prefix property `https://www.sasifysolutions.com/` was accessible.
+- Google Search Console showed 20 web search clicks, 179 impressions, average CTR 11.2% and average position 5.9 for the last 3 months.
+- Google Search Console sitemap submission for `/sitemap.xml` was accepted successfully.
+- Google Search Console had previously discovered only the old 14-page sitemap, so the expanded sitemap must be allowed time to reprocess.
+- Bing Webmaster Tools was accessible and showed 3 clicks and 34 impressions.
+- Bing Webmaster Tools sitemap submission for `https://www.sasifysolutions.com/sitemap.xml` was accepted and marked as processing.
+- IndexNow accepted 202 submitted sitemap URLs through Bing and the IndexNow endpoint.
 
 ## Deployment and verification
 
@@ -50,6 +61,16 @@ After deployment, confirm successful responses for:
 - `/llms.txt`
 
 Then inspect Google Search Console and Bing Webmaster Tools. Resubmit `https://www.sasifysolutions.com/sitemap.xml` when the dashboard still reflects the old catalog, and use URL Inspection for the homepage and representative public pages. Submission and indexing requests do not guarantee indexing or ranking.
+
+## GA4 setup
+
+To enable Google Analytics 4 page-view tracking, set this environment variable before building:
+
+```powershell
+$env:NEXT_PUBLIC_GA_MEASUREMENT_ID = "G-XXXXXXXXXX"
+```
+
+For Vercel production deployments, store the same value in the production environment and rebuild the static output. The current static build does not send GA4 hits unless the measurement ID is present during the build.
 
 ## Ongoing search quality
 
