@@ -252,7 +252,9 @@ export function Checkout() {
     try {
       await action();
     } catch (e) {
-      setError((e as Error).message);
+      const error = e as Error & { status?: number };
+      setError(error.message);
+      if (error.status === 429) window.alert(error.message);
     } finally {
       setBusy(false);
     }
@@ -3022,6 +3024,7 @@ export function CommerceAdmin() {
                     <th>Payment route</th>
                     <th>Payment match</th>
                     <th>Sender</th>
+                    <th>IP address</th>
                     <th>Date</th>
                     <th>Actions</th>
                   </tr>
@@ -3089,6 +3092,7 @@ export function CommerceAdmin() {
                         )}
                       </td>
                       <td>{row.payer_name || '-'}</td>
+                      <td>{row.ip_address || '-'}</td>
                       <td>{new Date(row.created_at).toLocaleString()}</td>
                       <td>
                         <button

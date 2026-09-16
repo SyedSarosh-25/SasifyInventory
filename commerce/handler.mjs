@@ -86,6 +86,16 @@ const SUPPLIER_MAX_FAILURES = 3;
 const PROFIT_PASSWORD_HASH =
   process.env.COMMERCE_PROFIT_PASSWORD_HASH || hash(TEAM_COUPON_CODE);
 const PAYMENT_WINDOWS_MINUTES = Object.freeze({ wallet: 5, bank: 30 });
+const clientIp = (req) =>
+  String(
+    req.headers['x-vercel-forwarded-for'] ||
+      req.headers['x-forwarded-for'] ||
+      req.socket?.remoteAddress ||
+      'unknown',
+  )
+    .split(',')[0]
+    .trim()
+    .slice(0, 128) || 'unknown';
 function paymentMethod(value) {
   const method = String(value || 'wallet').trim().toLowerCase();
   if (!Object.hasOwn(PAYMENT_WINDOWS_MINUTES, method))
@@ -535,6 +545,13 @@ async function ensureCouponSchema(db) {
       await db.query(
         'ALTER TABLE commerce_orders ADD COLUMN IF NOT EXISTS payment_submitted_at timestamptz',
       );
+      await db.query(
+        'ALTER TABLE commerce_orders ADD COLUMN IF NOT EXISTS ip_address text',
+      );
+      await db.query(`CREATE TABLE IF NOT EXISTS commerce_payment_claim_attempts (
+        ip_hash text PRIMARY KEY, ip_address text NOT NULL, attempts integer NOT NULL DEFAULT 0,
+        last_attempt_at timestamptz NOT NULL DEFAULT now()
+      )`);
       await db.query(
         'ALTER TABLE commerce_orders ADD COLUMN IF NOT EXISTS listed_amount integer',
       );
@@ -2760,8 +2777,8 @@ export function createHandler(
             [coupon.id],
           );
         await db.query(
-          `INSERT INTO commerce_orders(id,product_id,amount,listed_amount,customer_email,recovery_hash,session_hash,inventory_id,supplier_product_id,supplier_cost_pkr,coupon_id,coupon_discount,commission_code,commission_rate,commission_amount,payment_method,shared_account_id,shared_slot,expires_at)
-        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$18,$19,now()+($17 * interval '1 minute'))`,
+          `INSERT INTO commerce_orders(id,product_id,amount,listed_amount,customer_email,recovery_hash,session_hash,inventory_id,supplier_product_id,supplier_cost_pkr,coupon_id,coupon_discount,commission_code,commission_rate,commission_amount,payment_method,shared_account_id,shared_slot,expires_at,ip_address)
+        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$18,$19,now()+($17 * interval '1 minute'),$20)`,
           [
             id,
             product.id,
@@ -2782,6 +2799,7 @@ export function createHandler(
             paymentWindowMinutes,
             sharedAccount?.id || null,
             sharedAccount?.slot || null,
+            clientIp(req),
           ],
         );
         if (isTeamCoupon && paymentAmount === 0)
@@ -2835,6 +2853,18 @@ export function createHandler(
           await releaseCoupon(db, order);
           output = { ok: true };
         } else if (action === 'claim') {
+          const ip = clientIp(req);
+          const claimAttempt = (
+            await db.query(
+              `INSERT INTO commerce_payment_claim_attempts(ip_hash,ip_address,attempts,last_attempt_at)
+               VALUES($1,$2,1,now())
+               ON CONFLICT(ip_hash) DO UPDATE SET ip_address=EXCLUDED.ip_address,attempts=commerce_payment_claim_attempts.attempts+1,last_attempt_at=now()
+               RETURNING attempts`,
+              [hash(ip), ip],
+            )
+          ).rows[0];
+          if (Number(claimAttempt.attempts) >= 5)
+            throw fail(429, 'Nice Try Hacking Bro Better Luck Next Time :)');
           if (!['pending', 'review', 'expired'].includes(order.status))
             throw fail(409, 'Order is already closed.');
           const submittedTransaction = String(body.transactionId || '').trim();
@@ -3678,7 +3708,7 @@ export function createHandler(
           ).rows,
           orders: (
             await db.query(
-              `SELECT o.id,o.product_id,o.amount,o.listed_amount,o.coupon_discount,o.status,o.transaction_id,o.payer_name,o.payment_method,
+              `SELECT o.id,o.product_id,o.amount,o.listed_amount,o.coupon_discount,o.status,o.transaction_id,o.payer_name,o.ip_address,o.payment_method,
                  o.payment_submitted_at,o.supplier_order_id,o.supplier_status,c.code_display AS coupon_code,
                  o.shared_account_id,o.shared_slot,
                 sp.provider_name AS supplier_name,sp.name AS supplier_product_name,o.created_at,o.delivered_at,

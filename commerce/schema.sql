@@ -11,13 +11,18 @@ CREATE TABLE IF NOT EXISTS commerce_orders (
  customer_email text,
  recovery_hash text NOT NULL, session_hash text NOT NULL, inventory_id uuid REFERENCES commerce_inventory(id),
  status text NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','review','delivered','expired','cancelled')),
- transaction_id text, payer_name text, source_last4 text, payment_submitted_at timestamptz,
+ transaction_id text, payer_name text, source_last4 text, payment_submitted_at timestamptz, ip_address text,
  payment_method text NOT NULL DEFAULT 'wallet' CHECK(payment_method IN ('wallet','bank')),
  commission_code text, commission_rate numeric(5,2) NOT NULL DEFAULT 0 CHECK(commission_rate>=0 AND commission_rate<=100),
  commission_amount integer NOT NULL DEFAULT 0 CHECK(commission_amount>=0),
  created_at timestamptz NOT NULL DEFAULT now(), expires_at timestamptz NOT NULL DEFAULT now()+interval '5 minutes', delivered_at timestamptz
 );
 ALTER TABLE commerce_orders ADD COLUMN IF NOT EXISTS payment_submitted_at timestamptz;
+ALTER TABLE commerce_orders ADD COLUMN IF NOT EXISTS ip_address text;
+CREATE TABLE IF NOT EXISTS commerce_payment_claim_attempts (
+ ip_hash text PRIMARY KEY, ip_address text NOT NULL, attempts integer NOT NULL DEFAULT 0,
+ last_attempt_at timestamptz NOT NULL DEFAULT now()
+);
 ALTER TABLE commerce_orders ADD COLUMN IF NOT EXISTS customer_email text;
 ALTER TABLE commerce_orders ADD COLUMN IF NOT EXISTS payment_method text NOT NULL DEFAULT 'wallet';
 ALTER TABLE commerce_orders DROP CONSTRAINT IF EXISTS commerce_orders_payment_method_check;
