@@ -10,6 +10,7 @@ import {
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { products } from '../app/products.ts';
+import { productHref } from '../app/product-utils.ts';
 
 const root = await realpath(fileURLToPath(new URL('../', import.meta.url)));
 const target = path.join(root, '.vercel/output');
@@ -105,6 +106,13 @@ async function htmlOverrides(dir, prefix = '') {
   }
 }
 await htmlOverrides(staticDir);
+const productRedirectRoutes = products
+  .map((product) => ({
+    src: `/products/${product.id}`,
+    status: 308,
+    headers: { Location: productHref(product) },
+  }))
+  .filter((route) => route.src !== route.headers.Location);
 await writeFile(
   path.join(target, 'config.json'),
   JSON.stringify(
@@ -112,6 +120,7 @@ await writeFile(
       version: 3,
       overrides,
       routes: [
+        ...productRedirectRoutes,
         {
           src: '/api/google-reviews-sync',
           dest: '/api/commerce?action=google-reviews-sync',
