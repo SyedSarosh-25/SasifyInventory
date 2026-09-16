@@ -15,6 +15,8 @@ test('about sections explain searchable use cases for coding tools', () => {
   });
   assert.equal(about.heading, 'About this subscription');
   assert.match(about.paragraphs.join(' '), /developers, students and teams/);
+  assert.match(about.paragraphs.join(' '), /Cursor AI price in Pakistan/);
+  assert.match(about.paragraphs.join(' '), /Cursor AI subscription Pakistan/);
   assert.match(about.useCases.join(' '), /writing code, fixing bugs/);
 });
 
@@ -30,6 +32,8 @@ test('about sections explain searchable use cases for streaming plans', () => {
     category: 'Streaming',
   });
   assert.equal(about.heading, 'About this subscription');
+  assert.match(about.paragraphs.join(' '), /Netflix screen price in Pakistan/);
+  assert.match(about.paragraphs.join(' '), /Netflix 4K screen Pakistan/);
   assert.match(about.useCases.join(' '), /watching movies, shows, videos/);
   assert.match(about.useCases.join(' '), /4K or Ultra HD/);
 });
@@ -46,5 +50,24 @@ test('about sections explain searchable use cases for creative subscriptions', (
     category: 'Design',
   });
   assert.equal(about.heading, 'About this subscription');
+  assert.match(about.paragraphs.join(' '), /Canva Pro price in Pakistan/);
+  assert.match(about.paragraphs.join(' '), /buy Canva Pro Pakistan/);
   assert.match(about.useCases.join(' '), /social media posts, reels, ads/);
+});
+
+test('about sections use high-intent ChatGPT searches for Pakistan', () => {
+  const about = supplierProductAbout({
+    id: 'supplier:chatgpt',
+    slug: 'chatgpt-plus',
+    canonicalKey: 'chatgpt-plus',
+    name: 'ChatGPT Plus 1 Month',
+    description: 'AI chat subscription for writing, research and coding.',
+    price: 3499,
+    available: 4,
+    category: 'AI Assistants',
+  });
+  assert.equal(about.heading, 'About this subscription');
+  assert.match(about.paragraphs.join(' '), /ChatGPT Plus price in Pakistan/);
+  assert.match(about.paragraphs.join(' '), /buy ChatGPT Plus Pakistan/);
+  assert.match(about.paragraphs.join(' '), /ChatGPT Plus account Pakistan/);
 });

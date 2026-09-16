@@ -416,6 +416,10 @@ test('all product offers match visible content and answers exist without running
     }
     assert.match(html, /About this (subscription|service|product)/);
     assert.match(html, /real-world use case/);
+    if (/chatgpt/i.test(product.name)) {
+      assert.match(html, /ChatGPT Plus price in Pakistan/);
+      assert.match(html, /buy ChatGPT Plus Pakistan/);
+    }
   }
   for (const product of supplierSeoProducts.slice(0, 25)) {
     const html = await read(`products/${product.slug}.html`);

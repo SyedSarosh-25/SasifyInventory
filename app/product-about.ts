@@ -23,6 +23,105 @@ function cleanSentence(value: string) {
   return value.replace(/\s+/g, ' ').trim();
 }
 
+function readableSearchName(input: AboutInput, blob: string) {
+  if (blob.includes('chatgpt')) return 'ChatGPT Plus';
+  if (blob.includes('cursor')) return 'Cursor AI';
+  if (blob.includes('canva')) return 'Canva Pro';
+  if (blob.includes('netflix')) return 'Netflix screen';
+  if (blob.includes('capcut')) return 'CapCut Pro';
+  if (blob.includes('figma')) return 'Figma Pro';
+  if (blob.includes('adobe')) return 'Adobe';
+  if (blob.includes('claude')) return 'Claude AI';
+  if (blob.includes('gemini')) return 'Gemini AI';
+  if (blob.includes('grok')) return 'Grok AI';
+  if (blob.includes('perplexity')) return 'Perplexity Pro';
+  if (blob.includes('youtube')) return 'YouTube Premium';
+  if (blob.includes('spotify')) return 'Spotify Premium';
+  if (blob.includes('microsoft') || blob.includes('office 365') || blob.includes('ms office'))
+    return 'Microsoft 365';
+  if (blob.includes('hostinger') && blob.includes('vps')) return 'Hostinger VPS';
+  if (blob.includes('hostinger')) return 'Hostinger hosting';
+  if (blob.includes('vpn')) {
+    if (blob.includes('surfshark')) return 'Surfshark VPN';
+    if (blob.includes('express')) return 'ExpressVPN';
+    if (blob.includes('proton')) return 'Proton VPN';
+    return 'VPN subscription';
+  }
+  return input.name
+    .replace(/[·|()[\]{}]/g, ' ')
+    .replace(/\b(full warranty|warranty|fw|official|account|slot|invite|code|redeem)\b/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .split(' ')
+    .slice(0, 5)
+    .join(' ');
+}
+
+function searchIntentPhrases(input: AboutInput, kind: string) {
+  const blob = `${input.name} ${input.category || ''} ${input.description || ''}`.toLowerCase();
+  const term = readableSearchName(input, blob);
+  if (blob.includes('chatgpt')) {
+    return [
+      'ChatGPT Plus price in Pakistan',
+      'buy ChatGPT Plus Pakistan',
+      'ChatGPT Plus subscription Pakistan',
+      'ChatGPT Plus account Pakistan',
+    ];
+  }
+  if (blob.includes('cursor')) {
+    return [
+      'Cursor AI price in Pakistan',
+      'buy Cursor AI Pakistan',
+      'Cursor AI subscription Pakistan',
+      'AI coding tool Pakistan',
+    ];
+  }
+  if (blob.includes('canva')) {
+    return [
+      'Canva Pro price in Pakistan',
+      'buy Canva Pro Pakistan',
+      'Canva Pro subscription Pakistan',
+      'Canva Pro account Pakistan',
+    ];
+  }
+  if (blob.includes('netflix')) {
+    return [
+      'Netflix screen price in Pakistan',
+      'Netflix account Pakistan',
+      'Netflix 4K screen Pakistan',
+      'Netflix subscription Pakistan',
+    ];
+  }
+  if (blob.includes('capcut')) {
+    return [
+      'CapCut Pro price in Pakistan',
+      'buy CapCut Pro Pakistan',
+      'CapCut Pro subscription Pakistan',
+      'video editing app Pakistan',
+    ];
+  }
+  if (blob.includes('vpn') || blob.includes('surfshark') || blob.includes('expressvpn')) {
+    return [
+      `${term} price in Pakistan`,
+      `buy ${term} Pakistan`,
+      `${term} account Pakistan`,
+      'VPN subscription Pakistan',
+    ];
+  }
+  const descriptor =
+    kind === 'subscription'
+      ? 'subscription'
+      : kind === 'service'
+        ? 'service'
+        : 'digital product';
+  return [
+    `${term} price in Pakistan`,
+    `buy ${term} Pakistan`,
+    `${term} ${descriptor} Pakistan`,
+    `${term} account Pakistan`,
+  ];
+}
+
 function productKind(input: AboutInput) {
   const blob = `${input.name} ${input.category || ''} ${input.description || ''}`.toLowerCase();
   if (hasAny(blob, ['api', 'token', 'credit'])) return 'service';
@@ -172,6 +271,7 @@ function capabilityProfile(input: AboutInput) {
 function buildProductAbout(input: AboutInput): ProductAbout {
   const kind = productKind(input);
   const profile = capabilityProfile(input);
+  const searchPhrases = searchIntentPhrases(input, kind);
   const duration =
     input.duration && input.duration !== '-'
       ? ` The listed access period is ${input.duration}.`
@@ -187,6 +287,9 @@ function buildProductAbout(input: AboutInput): ProductAbout {
       ),
       cleanSentence(
         `This section explains the real-world use case of ${input.name} so you can decide whether this tool, subscription, account or service matches what you searched for.${customerEmail}`,
+      ),
+      cleanSentence(
+        `For Pakistan search intent, this page is also written for customers comparing ${searchPhrases.slice(0, -1).join(', ')} and ${searchPhrases.at(-1)} before buying online in PKR.`,
       ),
     ],
     useCases: profile.examples.map(cleanSentence),
