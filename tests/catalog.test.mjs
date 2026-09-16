@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { products } from '../app/products.ts';
 import { accessTypeLabel, has25DayWarranty, isAnnualPlan, originalPriceComparison, originalPricePkr, planMonths, productHref, productLogo, savingsPkr, warrantyDays, whatsappLink } from '../app/product-utils.ts';
-import { featuredProducts, filterProducts, heroProducts, orbitTools, selectRandomTopProducts, supplierEquivalentProductName } from '../app/catalog-selection.ts';
+import { featuredProducts, filterProducts, heroProducts, heroSupplierShortcuts, orbitTools, selectHeroSupplierShortcut, selectRandomTopProducts, supplierEquivalentProductName } from '../app/catalog-selection.ts';
 
 test('every inventory variant has a unique detail URL', () => {
   assert.equal(new Set(products.map(productHref)).size, products.length);
@@ -187,6 +187,17 @@ test('hero shows the requested top selling product shortcuts without reducing th
   assert.deepEqual(heroProducts.map((product) => product.id), ['p013', 'p012', 'p100', 'p101']);
   assert.equal(featuredProducts.length, 4);
   for (const product of heroProducts) assert.equal(productHref(product), `/products/${product.slug}`);
+});
+
+test('hero supplier shortcuts open the requested stocked variants', () => {
+  const catalog = [
+    { id: 'auto:capcut-pro-7days-fw', canonical_key: 'auto:capcut-pro-7days-fw', name: 'Capcut Pro 7Days', price: 249, available: 154, source: 'supplier' },
+    { id: 'auto:capcut-pro-30d-has-a-30-day-warranty', canonical_key: 'auto:capcut-pro-30d-has-a-30-day-warranty', name: 'Capcut Pro 30D has a 30-day warranty', price: 1499, available: 4, source: 'supplier' },
+    { id: 'auto:cdk-heavy-grok-1m', canonical_key: 'auto:cdk-heavy-grok-1m', name: 'CDK Heavy Grok 1M', price: 24999, available: 30, source: 'supplier' },
+    { id: 'auto:cdk-supergrok-1m', canonical_key: 'auto:cdk-supergrok-1m', name: 'CDK Supergrok 1M', price: 9999, available: 49, source: 'supplier' },
+  ];
+  assert.equal(selectHeroSupplierShortcut(catalog, heroSupplierShortcuts.find((item) => item.label === 'CapCut')).id, 'auto:capcut-pro-30d-has-a-30-day-warranty');
+  assert.equal(selectHeroSupplierShortcut(catalog, heroSupplierShortcuts.find((item) => item.label === 'Grok')).id, 'auto:cdk-supergrok-1m');
 });
 
 test('live hero search matches VPN category and partial names across the full inventory', () => {

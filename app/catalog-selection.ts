@@ -46,7 +46,33 @@ export type LiveCatalogProduct = {
   logo_url?: string;
   source?: 'local' | 'supplier';
   canonical_key?: string;
+  provider_name?: string;
 };
+
+export const heroSupplierShortcuts = [
+  {
+    label: 'CapCut',
+    canonicalKey: 'auto:capcut-pro-30d-has-a-30-day-warranty',
+    fallbackPattern: /\bcapcut\b.*(?:30\s*d|30\s*day|1\s*month|1m)|(?:30\s*d|30\s*day|1\s*month|1m).*\bcapcut\b/i,
+  },
+  {
+    label: 'Grok',
+    canonicalKey: 'auto:cdk-supergrok-1m',
+    fallbackPattern: /\bcdk\b.*(?:super\s*grok|supergrok).*(?:1\s*month|1m)|(?:super\s*grok|supergrok).*\bcdk\b.*(?:1\s*month|1m)/i,
+  },
+] as const;
+
+export function selectHeroSupplierShortcut(
+  catalog: LiveCatalogProduct[],
+  target: (typeof heroSupplierShortcuts)[number],
+) {
+  const available = catalog.filter((product) => product.source !== 'local' && product.available > 0);
+  return available.find((product) => product.canonical_key === target.canonicalKey || product.id === target.canonicalKey)
+    || available
+      .filter((product) => target.fallbackPattern.test(product.name))
+      .sort((left, right) => left.price - right.price)[0]
+    || null;
+}
 
 function shuffleProducts<T>(items: T[], random: () => number) {
   for (let index = items.length - 1; index > 0; index -= 1) {

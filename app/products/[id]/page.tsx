@@ -267,15 +267,6 @@ function SupplierSeoProductPage({ product }: { product: SupplierSeoProduct }) {
           >
             <span className="section-kicker">Ready to order</span>
             <div className="purchase-heading">
-              <div className="product-logo-frame supplier-detail-logo">
-                {logo ? (
-                  <img src={logo} alt={`${product.name} logo`} />
-                ) : (
-                  <span aria-label={`${product.name} logo`}>
-                    {supplierMonogram(product.name)}
-                  </span>
-                )}
-              </div>
               <h2>{product.name}</h2>
             </div>
             <dl className="detail-prices">
@@ -639,9 +630,6 @@ export default async function ProductPage({ params }: Props) {
           >
             <span className="section-kicker">Your selected plan</span>
             <div className="purchase-heading">
-              <div className="product-logo-frame">
-                <ProductLogo product={product} eager />
-              </div>
               <h2>{product.name}</h2>
             </div>
             {product.id === 'p093' && (
