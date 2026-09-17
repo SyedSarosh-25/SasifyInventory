@@ -86,6 +86,12 @@ const SUPPLIER_MAX_FAILURES = 3;
 const PROFIT_PASSWORD_HASH =
   process.env.COMMERCE_PROFIT_PASSWORD_HASH || hash(TEAM_COUPON_CODE);
 const PAYMENT_WINDOWS_MINUTES = Object.freeze({ wallet: 5, bank: 30 });
+const PAYMENT_CLAIM_IP_ALLOWLIST = new Set(
+  String(process.env.PAYMENT_CLAIM_IP_ALLOWLIST || '')
+    .split(',')
+    .map((value) => value.trim())
+    .filter(Boolean),
+);
 const clientIp = (req) =>
   String(
     req.headers['x-vercel-forwarded-for'] ||
@@ -2854,17 +2860,19 @@ export function createHandler(
           output = { ok: true };
         } else if (action === 'claim') {
           const ip = clientIp(req);
-          const claimAttempt = (
-            await db.query(
-              `INSERT INTO commerce_payment_claim_attempts(ip_hash,ip_address,attempts,last_attempt_at)
-               VALUES($1,$2,1,now())
-               ON CONFLICT(ip_hash) DO UPDATE SET ip_address=EXCLUDED.ip_address,attempts=commerce_payment_claim_attempts.attempts+1,last_attempt_at=now()
-               RETURNING attempts`,
-              [hash(ip), ip],
-            )
-          ).rows[0];
-          if (Number(claimAttempt.attempts) >= 5)
-            throw fail(429, 'Nice Try Hacking Bro Better Luck Next Time :)');
+          if (!PAYMENT_CLAIM_IP_ALLOWLIST.has(ip)) {
+            const claimAttempt = (
+              await db.query(
+                `INSERT INTO commerce_payment_claim_attempts(ip_hash,ip_address,attempts,last_attempt_at)
+                 VALUES($1,$2,1,now())
+                 ON CONFLICT(ip_hash) DO UPDATE SET ip_address=EXCLUDED.ip_address,attempts=commerce_payment_claim_attempts.attempts+1,last_attempt_at=now()
+                 RETURNING attempts`,
+                [hash(ip), ip],
+              )
+            ).rows[0];
+            if (Number(claimAttempt.attempts) >= 5)
+              throw fail(429, 'Nice Try Hacking Bro Better Luck Next Time :)');
+          }
           if (!['pending', 'review', 'expired'].includes(order.status))
             throw fail(409, 'Order is already closed.');
           const submittedTransaction = String(body.transactionId || '').trim();

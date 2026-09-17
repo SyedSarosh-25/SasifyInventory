@@ -9,7 +9,7 @@ import { supplierLogo, supplierMonogram } from '../supplier-product-utils';
 import { Money } from './currency';
 import { ProductLogo } from './product-logo';
 import { cacheSupplierCatalog } from '../supplier-catalog-cache';
-import { supplierProductHref } from '../supplier-seo-utils';
+import { liveSupplierProductHref } from '../supplier-seo-utils';
 
 type LiveSupplierResult = { id:string; name:string; description?:string; price:number; available:number; provider_name?:string; logo_url?:string };
 
@@ -109,7 +109,7 @@ export function HeroProductSearch() {
               </a>
             </li>)}
           {supplierMatches.map((product) => <li key={product.id}>
-            <a href={supplierProductHref(product)} className="hero-search-result">
+            <a href={liveSupplierProductHref(product)} className="hero-search-result">
               <span className="hero-mini-logo">{supplierLogo(product.name, product.logo_url) ? <img src={supplierLogo(product.name, product.logo_url)} alt={`${product.name} logo`} /> : supplierMonogram(product.name)}</span>
               <span className="hero-result-copy"><strong>{product.name}</strong><small>Instant delivery · {product.available} in stock</small></span>
               <strong className="hero-result-price">PKR {Number(product.price).toLocaleString('en-PK')}</strong>
@@ -121,7 +121,7 @@ export function HeroProductSearch() {
           <button type="button" onClick={clearSearch}>Show top products</button>
         </div>}
       </div> : <nav className="hero-top-products" aria-label="Top selling products">
-        {(topSelling.length ? topSelling : heroProducts.map((product) => ({ kind: 'local' as const, label: product.name, product }))).map((item) => <a key={item.kind === 'supplier' ? item.product.id : item.product.id} href={item.kind === 'supplier' ? supplierProductHref(item.product) : productHref(item.product)}>
+        {(topSelling.length ? topSelling : heroProducts.map((product) => ({ kind: 'local' as const, label: product.name, product }))).map((item) => <a key={item.kind === 'supplier' ? item.product.id : item.product.id} href={item.kind === 'supplier' ? liveSupplierProductHref(item.product) : productHref(item.product)}>
           <span className="hero-mini-logo">{item.kind === 'supplier' ? (supplierLogo(item.product.name, item.product.logo_url) ? <img src={supplierLogo(item.product.name, item.product.logo_url)} alt={`${item.product.name} logo`} /> : supplierMonogram(item.product.name)) : <ProductLogo product={item.product} />}</span>
           <span>{item.label}</span>
         </a>)}
