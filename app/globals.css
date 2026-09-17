@@ -2101,6 +2101,8 @@ svg { flex-shrink: 0; }
 .commerce-table td,.commerce-table th { padding: 12px; border-bottom: 1px solid #d5deea; text-align: left; }
 .commerce-table td { max-width: 280px; overflow-wrap: anywhere; }
 .commerce-table small { display: block; }
+.commerce-order-actions { display: flex; flex-direction: column; gap: 8px; min-width: 150px; }
+.commerce-order-actions > button { width: 100%; justify-content: center; }
 .commerce-receipt { white-space: pre-wrap; overflow-wrap: anywhere; padding: 16px; background: #eef4ff; }
 .checkout-cancel-action { display: grid; gap: 10px; margin-top: 22px; padding-top: 16px; border-top: 1px solid #dbe4f0; }
 .checkout-cancel-action p { margin: 0; color: #66758c; font-size: 14px; }

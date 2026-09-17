@@ -691,12 +691,77 @@ async function ensurePaymentWorkflowSchema(db) {
       await db.query(
         "ALTER TABLE commerce_payments ADD COLUMN IF NOT EXISTS verification_reason text NOT NULL DEFAULT 'not_evaluated'",
       );
+      await db.query(`CREATE TABLE IF NOT EXISTS commerce_payment_receivers (
+        id text PRIMARY KEY,
+        label text NOT NULL,
+        title text NOT NULL,
+        account_number text NOT NULL,
+        receiver_marker text NOT NULL,
+        enabled boolean NOT NULL DEFAULT true,
+        created_at timestamptz NOT NULL DEFAULT now(),
+        updated_at timestamptz NOT NULL DEFAULT now()
+      )`);
+      await db.query(`CREATE TABLE IF NOT EXISTS commerce_payment_receiver_state (
+        id boolean PRIMARY KEY DEFAULT true CHECK(id),
+        active_receiver_id text NOT NULL REFERENCES commerce_payment_receivers(id),
+        updated_at timestamptz NOT NULL DEFAULT now()
+      )`);
+      await db.query(
+        'ALTER TABLE commerce_orders ADD COLUMN IF NOT EXISTS receiver_id text',
+      );
+      await db.query(
+        'ALTER TABLE commerce_payments ADD COLUMN IF NOT EXISTS receiver_id text',
+      );
+      await db.query(
+        `INSERT INTO commerce_payment_receivers(id,label,title,account_number,receiver_marker)
+         VALUES
+           ('primary','Syed Adeen Sarosh',$1,$2,$1),
+           ('secondary','Laiba Seemab Ahmad',$3,$4,$3)
+         ON CONFLICT(id) DO NOTHING`,
+        [
+          process.env.PAYMENT_ACCOUNT_TITLE || 'Syed Adeen Sarosh',
+          process.env.PAYMENT_ACCOUNT_NUMBER || '03450485711',
+          process.env.PAYMENT_SECONDARY_TITLE || 'LAIBA SEEMAB AHMAD',
+          process.env.PAYMENT_SECONDARY_NUMBER || '03013219068',
+        ],
+      );
+      await db.query(
+        `INSERT INTO commerce_payment_receiver_state(id,active_receiver_id)
+         VALUES(true,'primary') ON CONFLICT(id) DO NOTHING`,
+      );
+      await db.query(
+        "UPDATE commerce_orders SET receiver_id='primary' WHERE receiver_id IS NULL",
+      );
+      await db.query(
+        "UPDATE commerce_payments SET receiver_id='primary' WHERE receiver_id IS NULL",
+      );
     })().catch((error) => {
       paymentWorkflowSchemaReady = null;
       throw error;
     });
   }
   await paymentWorkflowSchemaReady;
+}
+async function listPaymentReceivers(db) {
+  return (
+    await db.query(
+      `SELECT r.id,r.label,r.title,r.account_number,r.receiver_marker,r.enabled,
+              s.active_receiver_id=r.id AS active
+       FROM commerce_payment_receivers r
+       CROSS JOIN commerce_payment_receiver_state s
+       WHERE r.enabled=true ORDER BY r.id`,
+    )
+  ).rows;
+}
+async function activePaymentReceiver(db) {
+  return (
+    await db.query(
+      `SELECT r.id,r.label,r.title,r.account_number,r.receiver_marker
+       FROM commerce_payment_receivers r
+       INNER JOIN commerce_payment_receiver_state s ON s.active_receiver_id=r.id
+       WHERE r.enabled=true LIMIT 1`,
+    )
+  ).rows[0];
 }
 let supplierApiLogSchemaReady;
 async function ensureSupplierApiLogSchema(db) {
@@ -2011,18 +2076,20 @@ async function findVerifiedPaymentForOrder(db, order) {
         await db.query(
           `SELECT id,transaction_id FROM commerce_payments
            WHERE verified=true AND order_id IS NULL AND amount=$2
+             AND (receiver_id=$3 OR receiver_id IS NULL)
              AND (transaction_id=$1 OR (length($1)>=8 AND right(transaction_id,length($1))=$1))
            ORDER BY (transaction_id=$1) DESC,created_at DESC LIMIT 2`,
-          [order.transaction_id, order.amount],
+          [order.transaction_id, order.amount, order.receiver_id || 'primary'],
         )
       ).rows
     : (
         await db.query(
           `SELECT id,transaction_id FROM commerce_payments
            WHERE verified=true AND order_id IS NULL AND amount=$1
+             AND (receiver_id=$4 OR receiver_id IS NULL)
              AND received_at>=($2::timestamptz) AND received_at<=($3::timestamptz)
            ORDER BY received_at ASC LIMIT 2`,
-          [order.amount, order.created_at, order.expires_at],
+          [order.amount, order.created_at, order.expires_at, order.receiver_id || 'primary'],
         )
       ).rows;
   return rows.length === 1 ? rows[0] : null;
@@ -2065,6 +2132,27 @@ async function manualDeliverLocalOrder(db, orderId, inventoryId, key) {
       409,
       'Supplier orders must use supplier fulfilment; manual credential delivery is for local inventory only.',
     );
+  if (order.shared_account_id) {
+    const assigned = (
+      await db.query(
+        `SELECT i.credentials,i.purchase_cost,sa.status AS shared_status
+         FROM commerce_inventory i
+         INNER JOIN commerce_shared_accounts sa ON sa.inventory_id=i.id
+         WHERE i.id=$1 AND sa.id=$2 FOR UPDATE OF i,sa`,
+        [order.inventory_id, order.shared_account_id],
+      )
+    ).rows[0];
+    if (!assigned || assigned.shared_status === 'withdrawn')
+      throw fail(409, 'The shared account is unavailable. Contact support for a replacement.');
+    await db.query(
+      `UPDATE commerce_orders SET status='delivered',delivered_at=now(),
+        fulfillment_cost_pkr=$1,supplier_status='shared_account_delivered'
+       WHERE id=$2`,
+      [sharedSlotCost(assigned.purchase_cost, order.shared_slot), order.id],
+    );
+    await db.query("INSERT INTO commerce_audit(action,object_id) VALUES('manual_admin_shared_delivery',$1)", [order.id]);
+    return { orderId: order.id, inventoryId: order.inventory_id, credentials: decrypt(assigned.credentials, key) };
+  }
   const allowedProducts = localInventoryProductIds(order.product_id);
   let item = order.inventory_id
     ? (
@@ -2287,6 +2375,7 @@ export function createHandler(
       await ensureCouponSchema(db);
       await ensureOrderFinanceSchema(db);
       await ensurePaymentWorkflowSchema(db);
+      const paymentReceiver = await activePaymentReceiver(db);
       await ensureSupplierApiLogSchema(db);
       await ensureSupplierSecretSchema(db);
       await ensureSupplierMediaSchema(db);
@@ -2361,6 +2450,29 @@ export function createHandler(
           "INSERT INTO commerce_audit(action,object_id) VALUES('profit_unlock',$1)",
           ['admin'],
         );
+      } else if (action === 'admin-payment-receiver-switch') {
+        const receiverId = String(body.receiverId || '').trim();
+        const receiver = (
+          await db.query(
+            'SELECT id FROM commerce_payment_receivers WHERE id=$1 AND enabled=true',
+            [receiverId],
+          )
+        ).rows[0];
+        if (!receiver) throw fail(404, 'Payment receiver not found.');
+        await db.query(
+          `UPDATE commerce_payment_receiver_state
+           SET active_receiver_id=$1,updated_at=now() WHERE id=true`,
+          [receiverId],
+        );
+        await db.query(
+          "INSERT INTO commerce_audit(action,object_id) VALUES('payment_receiver_switch',$1)",
+          [receiverId],
+        );
+        output = {
+          ok: true,
+          activeReceiverId: receiverId,
+          paymentReceivers: await listPaymentReceivers(db),
+        };
       } else if (action === 'team-login') {
         const teamEmail = String(body.email || '')
           .trim()
@@ -2534,7 +2646,14 @@ export function createHandler(
           ],
           productCount: visibleCatalog.length + supplierTotal,
           catalogSyncedAt,
-          ready: !!process.env.PAYMENT_ACCOUNT_TITLE,
+          ready: Boolean(paymentReceiver?.title),
+          paymentReceiver: paymentReceiver
+            ? {
+                id: paymentReceiver.id,
+                title: paymentReceiver.title,
+                number: paymentReceiver.account_number,
+              }
+            : null,
         };
       } else if (action === 'google-reviews') {
         const sync = (
@@ -2669,7 +2788,7 @@ export function createHandler(
         const isRequestedTeamCoupon = requestedCouponCode === TEAM_COUPON_CODE;
         if (isRequestedTeamCoupon && !TEAM_COUPON_ENABLED && !isSharedChatGptProduct(product?.id))
           throw fail(409, 'The HOR coupon is currently disabled.');
-        if (!product || (!process.env.PAYMENT_ACCOUNT_TITLE && !isRequestedTeamCoupon))
+        if (!product || (!paymentReceiver?.title && !isRequestedTeamCoupon))
           throw fail(
             409,
             'Online purchasing is not available for this product yet.',
@@ -2783,8 +2902,8 @@ export function createHandler(
             [coupon.id],
           );
         await db.query(
-          `INSERT INTO commerce_orders(id,product_id,amount,listed_amount,customer_email,recovery_hash,session_hash,inventory_id,supplier_product_id,supplier_cost_pkr,coupon_id,coupon_discount,commission_code,commission_rate,commission_amount,payment_method,shared_account_id,shared_slot,expires_at,ip_address)
-        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$18,$19,now()+($17 * interval '1 minute'),$20)`,
+          `INSERT INTO commerce_orders(id,product_id,amount,listed_amount,customer_email,recovery_hash,session_hash,inventory_id,supplier_product_id,supplier_cost_pkr,coupon_id,coupon_discount,commission_code,commission_rate,commission_amount,payment_method,receiver_id,shared_account_id,shared_slot,expires_at,ip_address)
+        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,now()+($20 * interval '1 minute'),$21)`,
           [
             id,
             product.id,
@@ -2802,9 +2921,10 @@ export function createHandler(
             commissionRate,
             commissionAmount,
             selectedPaymentMethod,
-            paymentWindowMinutes,
+            paymentReceiver.id,
             sharedAccount?.id || null,
             sharedAccount?.slot || null,
+            paymentWindowMinutes,
             clientIp(req),
           ],
         );
@@ -2837,8 +2957,11 @@ export function createHandler(
         if (!idOk(id)) throw fail(404, 'Order not found.');
         let order = (
           await db.query(
-            `SELECT o.*,c.code_display AS coupon_code FROM commerce_orders o
-             LEFT JOIN commerce_coupons c ON c.id=o.coupon_id WHERE o.id=$1 FOR UPDATE OF o`,
+          `SELECT o.*,c.code_display AS coupon_code,r.title AS receiver_title,r.account_number AS receiver_number
+             FROM commerce_orders o
+             LEFT JOIN commerce_coupons c ON c.id=o.coupon_id
+             LEFT JOIN commerce_payment_receivers r ON r.id=o.receiver_id
+             WHERE o.id=$1 FOR UPDATE OF o`,
             [id],
           )
         ).rows[0];
@@ -2894,18 +3017,20 @@ export function createHandler(
                 await db.query(
                   `SELECT id,transaction_id FROM commerce_payments
             WHERE verified=true AND order_id IS NULL AND amount=$2
+            AND (receiver_id=$3 OR receiver_id IS NULL)
             AND (transaction_id=$1 OR (length($1)>=8 AND right(transaction_id,length($1))=$1))
             ORDER BY (transaction_id=$1) DESC,created_at DESC LIMIT 2`,
-                  [transaction, order.amount],
+                  [transaction, order.amount, order.receiver_id || 'primary'],
                 )
               ).rows
             : (
                 await db.query(
                   `SELECT id,transaction_id FROM commerce_payments
             WHERE verified=true AND order_id IS NULL AND amount=$1
+              AND (receiver_id=$4 OR receiver_id IS NULL)
               AND received_at>=($2::timestamptz) AND received_at<=($3::timestamptz)
             ORDER BY received_at ASC LIMIT 2`,
-                  [order.amount, order.created_at, order.expires_at],
+                  [order.amount, order.created_at, order.expires_at, order.receiver_id || 'primary'],
                 )
               ).rows;
           const payment =
@@ -2982,8 +3107,11 @@ export function createHandler(
               }
               order = (
                 await db.query(
-                  `SELECT o.*,c.code_display AS coupon_code FROM commerce_orders o
-                   LEFT JOIN commerce_coupons c ON c.id=o.coupon_id WHERE o.id=$1`,
+                  `SELECT o.*,c.code_display AS coupon_code,r.title AS receiver_title,r.account_number AS receiver_number
+                   FROM commerce_orders o
+                   LEFT JOIN commerce_coupons c ON c.id=o.coupon_id
+                   LEFT JOIN commerce_payment_receivers r ON r.id=o.receiver_id
+                   WHERE o.id=$1`,
                   [id],
                 )
               ).rows[0];
@@ -3050,9 +3178,9 @@ export function createHandler(
               ? { twoFactorCodeAvailable: !sharedTwoFactorChallenge }
               : {}),
             payment: {
-              number: process.env.PAYMENT_ACCOUNT_NUMBER || '03450485711',
+              number: order.receiver_number || paymentReceiver?.account_number || '03450485711',
               provider: 'NayaPay',
-              title: process.env.PAYMENT_ACCOUNT_TITLE,
+              title: order.receiver_title || paymentReceiver?.title,
             },
           };
           if (order.status === 'delivered') {
@@ -3097,7 +3225,9 @@ export function createHandler(
         const parsed = parseEmail(email, {
           enabled: signatureValid && process.env.NAYAPAY_AUTO_VERIFY === 'true',
           sender: process.env.NAYAPAY_SENDER,
-          receiver: process.env.NAYAPAY_RECEIVER_MARKER,
+          receiver:
+            paymentReceiver?.receiver_marker ||
+            process.env.NAYAPAY_RECEIVER_MARKER,
           receiverMailbox: process.env.NAYAPAY_RECEIVER_EMAIL,
         });
         const verificationReason = parsed.verified
@@ -3125,8 +3255,8 @@ export function createHandler(
           key,
         );
         let inserted = await db.query(
-          `INSERT INTO commerce_payments(id,event_hash,source_message_id,transaction_id,amount,payer_name,source_last4,received_at,verified,verification_reason,subject,encrypted_body)
-        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) ON CONFLICT DO NOTHING RETURNING id`,
+          `INSERT INTO commerce_payments(id,event_hash,source_message_id,transaction_id,amount,payer_name,source_last4,received_at,verified,verification_reason,subject,encrypted_body,receiver_id)
+        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) ON CONFLICT DO NOTHING RETURNING id`,
           [
             randomUUID(),
             eventHash,
@@ -3140,12 +3270,13 @@ export function createHandler(
             verificationReason,
             email.subject.slice(0, 500),
             encryptedBody,
+            paymentReceiver?.id || 'primary',
           ],
         );
         // A trusted retry can validate a previously recorded, unused receipt. Message IDs also deduplicate forwarded and Apps Script deliveries.
         if (!inserted.rowCount && parsed.verified)
           inserted = await db.query(
-            `UPDATE commerce_payments SET transaction_id=$1,source_last4=$2,verified=true,verification_reason='verified',encrypted_body=$3
+            `UPDATE commerce_payments SET transaction_id=$1,source_last4=$2,verified=true,verification_reason='verified',encrypted_body=$3,receiver_id=$7
         WHERE (event_hash=$4 OR ($5::text IS NOT NULL AND source_message_id=$5::text)) AND order_id IS NULL AND verified=false AND amount=$6 AND (transaction_id IS NULL OR transaction_id=$1) RETURNING id`,
             [
               parsed.transaction,
@@ -3154,16 +3285,18 @@ export function createHandler(
               eventHash,
               sourceMessageId,
               parsed.amount,
+              paymentReceiver?.id || 'primary',
             ],
           );
         if (inserted.rowCount && parsed.verified) {
           const orders = (
             await db.query(
-              `SELECT id FROM commerce_orders
+          `SELECT id FROM commerce_orders
           WHERE status IN ('pending','review') AND payment_submitted_at IS NOT NULL
             AND amount=$2 AND $3::timestamptz>=created_at AND $3::timestamptz<=expires_at
+          AND (receiver_id=$4 OR receiver_id IS NULL)
           AND (transaction_id IS NULL OR transaction_id=$1 OR (length(transaction_id)>=8 AND right($1,length(transaction_id))=transaction_id))`,
-              [parsed.transaction, parsed.amount, parsed.received],
+              [parsed.transaction, parsed.amount, parsed.received, paymentReceiver?.id || 'primary'],
             )
           ).rows;
           let matchReason =
@@ -3178,8 +3311,9 @@ export function createHandler(
                 `SELECT id FROM commerce_orders
                  WHERE status IN ('pending','review','expired') AND payment_submitted_at IS NOT NULL
                    AND amount=$1 AND $2::timestamptz>=created_at AND $2::timestamptz>expires_at
+                   AND (receiver_id=$3 OR receiver_id IS NULL)
                  ORDER BY created_at DESC LIMIT 1`,
-                [parsed.amount, parsed.received],
+                [parsed.amount, parsed.received, paymentReceiver?.id || 'primary'],
               )
             ).rows[0];
             if (lateOrder) matchReason = 'verified_after_order_window';
@@ -3665,6 +3799,7 @@ export function createHandler(
           )
         ).rows[0];
         output = {
+          paymentReceivers: await listPaymentReceivers(db),
           metrics: dashboardMetrics,
           coupons,
           inventory,

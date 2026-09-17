@@ -161,6 +161,19 @@ CREATE TABLE IF NOT EXISTS commerce_payments (
 );
 ALTER TABLE commerce_payments ADD COLUMN IF NOT EXISTS source_message_id text;
 ALTER TABLE commerce_payments ADD COLUMN IF NOT EXISTS verification_reason text NOT NULL DEFAULT 'not_evaluated';
+ALTER TABLE commerce_orders ADD COLUMN IF NOT EXISTS receiver_id text;
+ALTER TABLE commerce_payments ADD COLUMN IF NOT EXISTS receiver_id text;
+CREATE TABLE IF NOT EXISTS commerce_payment_receivers (
+ id text PRIMARY KEY, label text NOT NULL, title text NOT NULL,
+ account_number text NOT NULL, receiver_marker text NOT NULL,
+ enabled boolean NOT NULL DEFAULT true,
+ created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS commerce_payment_receiver_state (
+ id boolean PRIMARY KEY DEFAULT true CHECK(id),
+ active_receiver_id text NOT NULL REFERENCES commerce_payment_receivers(id),
+ updated_at timestamptz NOT NULL DEFAULT now()
+);
 CREATE UNIQUE INDEX IF NOT EXISTS commerce_payments_source_message_id ON commerce_payments(source_message_id) WHERE source_message_id IS NOT NULL;
 CREATE TABLE IF NOT EXISTS commerce_limits (key text PRIMARY KEY, window_start timestamptz NOT NULL DEFAULT now(), hits integer NOT NULL DEFAULT 1);
 CREATE TABLE IF NOT EXISTS commerce_audit (id bigserial PRIMARY KEY, action text NOT NULL, object_id text, created_at timestamptz NOT NULL DEFAULT now());

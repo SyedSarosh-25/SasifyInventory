@@ -1,5 +1,21 @@
 import { Resolver } from 'node:dns/promises';
 
+function txtRecordValue(value) {
+  return String(value || '').replace(/^"|"$/g, '').replace(/"\s*"/g, '');
+}
+
+async function dohResolve(name, type) {
+  const url = `https://dns.google/resolve?name=${encodeURIComponent(name)}&type=${encodeURIComponent(type)}`;
+  const response = await fetch(url, {
+    headers: { accept: 'application/dns-json' },
+    signal: AbortSignal.timeout(2500),
+  });
+  if (!response.ok) throw new Error(`DNS-over-HTTPS returned ${response.status}`);
+  const body = await response.json();
+  if (body?.Status && body.Status !== 0) throw new Error(`DNS-over-HTTPS status ${body.Status}`);
+  return (body?.Answer || []).map((answer) => type === 'TXT' ? txtRecordValue(answer.data) : answer.data).filter(Boolean);
+}
+
 function stringValue(value) {
   return typeof value === 'string' ? value.trim() : '';
 }
@@ -48,13 +64,21 @@ export async function authenticateInboundEmail(payload, sender, options = {}) {
   const [{ dkimVerify }, { simpleParser }] = await Promise.all([
     import('mailauth/lib/dkim/verify.js'), import('mailparser'),
   ]);
-  const dns = new Resolver({ timeout: 2000, tries: 2 });
+  const dns = new Resolver({ timeout: 2500, tries: 2 });
   let lookups = 0;
   const resolver = options.resolver || (async (name, type) => {
-    if (++lookups > 6) throw Object.assign(new Error('DNS lookup limit'), { code: 'ETIMEOUT' });
-    return dns.resolve(name, type);
+    if (++lookups > 8) throw Object.assign(new Error('DNS lookup limit'), { code: 'ETIMEOUT' });
+    try {
+      return await dns.resolve(name, type);
+    } catch (error) {
+      // Vercel's short-lived runtimes can intermittently return a DNS
+      // temporary error. Retry through a public DNS-over-HTTPS resolver so a
+      // valid NayaPay DKIM signature is not incorrectly rejected as a 503.
+      if (error?.code !== 'ETIMEOUT' && error?.code !== 'ESERVFAIL' && error?.code !== 'EAI_AGAIN') throw error;
+      return dohResolve(name, type);
+    }
   });
-  const deadline = setTimeout(() => dns.cancel(), 8000);
+  const deadline = setTimeout(() => dns.cancel(), 10000);
   let verification;
   try { verification = await dkimVerify(raw, { ...options, resolver }); }
   finally { clearTimeout(deadline); }

@@ -32,6 +32,7 @@ export const adminSections = [
   ['overview', 'Overview', LayoutDashboard],
   ['orders', 'Orders', ClipboardList],
   ['payments', 'Payments', WalletCards],
+  ['paymentAccounts', 'Payment accounts', WalletCards],
   ['inventory', 'Inventory', Package],
   ['supplier', 'Supplier Store', ShoppingCart],
   ['coupons', 'Coupons', TicketPercent],

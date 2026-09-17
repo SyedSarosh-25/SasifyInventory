@@ -1099,6 +1099,7 @@ export function CommerceAdmin() {
       | 'supplier'
       | 'orders'
       | 'payments'
+      | 'paymentAccounts'
       | 'coupons'
       | 'scammers'
       | 'team'
@@ -3118,6 +3119,42 @@ export function CommerceAdmin() {
                       <td>{row.ip_address || '-'}</td>
                       <td>{new Date(row.created_at).toLocaleString()}</td>
                       <td>
+                        <div className="commerce-order-actions">
+                        {['pending', 'review'].includes(row.status) && !row.supplier_product_name && (
+                          <button
+                            className="primary-button compact"
+                            disabled={busy}
+                            onClick={() => {
+                              if (!window.confirm('Deliver this order manually without payment verification?')) return;
+                              void run(async () => {
+                                const result = await api('admin-manual-delivery', key, { orderId: row.id, confirmed: true });
+                                setOrderId(row.id);
+                                setOrderDelivery(await api('admin-order-delivery', key, { orderId: result.orderId }));
+                                setNotice('Credentials delivered manually.');
+                                await refresh();
+                              });
+                            }}
+                          >
+                            <KeyRound size={16} /> Deliver manually
+                          </button>
+                        )}
+                        {['pending', 'review'].includes(row.status) && (
+                          <button
+                            className="secondary-button compact danger-action"
+                            disabled={busy}
+                            onClick={() => {
+                              if (!window.confirm('Cancel this order and release its reserved stock?')) return;
+                              void run(async () => {
+                                await api('admin-cancel', key, { orderId: row.id, confirmed: true });
+                                setNotice('Order cancelled and stock released.');
+                                if (orderId === row.id) setOrderId('');
+                                await refresh();
+                              });
+                            }}
+                          >
+                            Cancel order
+                          </button>
+                        )}
                         <button
                           className="secondary-button compact"
                           disabled={busy || row.status !== 'delivered'}
@@ -3144,6 +3181,7 @@ export function CommerceAdmin() {
                             <ClipboardList size={16} /> Check API logs
                           </button>
                         )}
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -3232,6 +3270,47 @@ export function CommerceAdmin() {
                 <KeyRound size={18} /> Deliver credentials manually
               </button>
             </form>
+          </section>
+        </div>
+      )}
+
+      {tab === 'paymentAccounts' && (
+        <div className="admin-workspace">
+          <section className="admin-panel">
+            <div className="panel-heading">
+              <div>
+                <span className="admin-eyebrow">Admin-only control</span>
+                <h2>Payment receiving accounts</h2>
+                <p>
+                  Select which receiving account is shown at checkout and used
+                  for automatic receipt verification. Existing orders keep the
+                  account selected when they were created.
+                </p>
+              </div>
+            </div>
+            <div className="supplier-key-list">
+              {(data.paymentReceivers || []).map((receiver: any) => (
+                <div className="supplier-key-row" key={receiver.id}>
+                  <div>
+                    <strong>{receiver.label}</strong>
+                    <small>{receiver.title} · {receiver.account_number}</small>
+                    {receiver.active && <small>Currently active</small>}
+                  </div>
+                  <button
+                    type="button"
+                    className={receiver.active ? 'secondary-button compact' : 'primary-button compact'}
+                    disabled={busy || receiver.active}
+                    onClick={() => void run(async () => {
+                      await api('admin-payment-receiver-switch', key, { receiverId: receiver.id });
+                      setNotice(`${receiver.title} is now the active payment account.`);
+                      await refresh();
+                    })}
+                  >
+                    {receiver.active ? 'Active account' : 'Use this account'}
+                  </button>
+                </div>
+              ))}
+            </div>
           </section>
         </div>
       )}
