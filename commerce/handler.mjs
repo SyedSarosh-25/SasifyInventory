@@ -1579,10 +1579,17 @@ async function syncSupplierCatalog(db, force = false, keys = {}, onlyProviderId 
       if (fresh) continue;
     }
     const synced = await provider.catalog();
+    const seenProductIds = new Set();
     let accepted = 0;
     for (const product of synced.products) {
       const wholesale = Number(product.wholesale_price),
         stock = Number(product.stock);
+      if (product.id) {
+        const externalId = String(product.id);
+        seenProductIds.add(
+          provider.id === 'dodi' ? externalId : `${provider.id}:${externalId}`,
+        );
+      }
       if (
         !product.id ||
         !product.name ||
@@ -1633,6 +1640,14 @@ async function syncSupplierCatalog(db, force = false, keys = {}, onlyProviderId 
       );
       accepted++;
     }
+    // A successful catalog response is authoritative for this provider. Products
+    // omitted by it must not keep advertising the stock from an older sync.
+    await db.query(
+      `UPDATE commerce_supplier_products
+       SET supplier_stock=0,enabled=false
+       WHERE provider_id=$1 AND NOT (id=ANY($2::text[])) AND (supplier_stock>0 OR enabled=true)`,
+      [provider.id, [...seenProductIds]],
+    );
     await db.query(
       `INSERT INTO commerce_provider_state(provider_id,provider_name,balance,currency,synced_at) VALUES($1,$2,$3,$4,now())
       ON CONFLICT(provider_id) DO UPDATE SET provider_name=excluded.provider_name,balance=excluded.balance,currency=excluded.currency,synced_at=now()`,

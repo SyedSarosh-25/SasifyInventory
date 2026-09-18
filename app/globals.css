@@ -1561,6 +1561,7 @@ svg { flex-shrink: 0; }
 .plan-notice svg { flex: 0 0 auto; margin-top: 2px; }
 .plan-notice strong { display: block; margin-bottom: 3px; }
 .detail-buy { width: 100%; margin-top: 24px; min-height: 49px; }
+.detail-unavailable { display: flex; align-items: center; justify-content: center; border: 1px solid #e6b8be; border-radius: 12px; color: #8a3140; background: #fff5f6; font-weight: 800; text-align: center; }
 .order-footnote { text-align: center; margin-bottom: 0; }
 .related-section { margin-top: 54px; padding-top: 32px; border-top: 1px solid var(--line); }
 .related-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 15px; }
