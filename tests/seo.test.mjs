@@ -81,8 +81,10 @@ test('every variant has unique search metadata and a truthful PKR offer', () => 
   assert.equal(new Set(products.map(productTitle)).size, products.length);
   assert.equal(new Set(products.map(productDescription)).size, products.length);
   for (const product of products) {
-    assert.ok(productTitle(product).includes(product.name));
+    assert.ok(productTitle(product).includes(product.name.slice(0, Math.min(12, product.name.length))));
     assert.match(productTitle(product), /Price in Pakistan/);
+    assert.ok(productTitle(product).length <= 65);
+    assert.ok(productDescription(product).length <= 155);
     assert.ok(
       product.contactOnly ||
         productDescription(product).includes(
@@ -131,6 +133,8 @@ test('supplier SEO products have canonical titles and crawlable Product offers',
   for (const product of supplierSeoProducts) {
     assert.match(supplierProductTitle(product), /Price in Pakistan/);
     assert.ok(supplierProductDescription(product).includes(product.price.toLocaleString('en-PK')));
+    assert.ok(supplierProductTitle(product).length <= 65);
+    assert.ok(supplierProductDescription(product).length <= 155);
     assert.equal(supplierProductHref(product), `/products/${product.slug}`);
     const data = supplierProductData(product);
     assert.equal(data['@type'], 'Product');

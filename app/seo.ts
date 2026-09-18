@@ -6,7 +6,6 @@ import {
   productHref,
   productLogo,
 } from './product-utils.ts';
-import { isChatGptPlan } from '../commerce/product-display.mjs';
 import type { SupplierSeoProduct } from './supplier-seo.ts';
 import {
   supplierProductHref,
@@ -20,16 +19,46 @@ import {
   socials,
 } from './site-config.ts';
 
+const SEO_TITLE_LIMIT = 65;
+const SEO_DESCRIPTION_LIMIT = 155;
+const titleSuffix = '| Price in Pakistan | Sasify';
+const duplicateSupplierNames = new Set(
+  supplierSeoProducts
+    .map((product) => product.name)
+    .filter((name, index, names) => names.indexOf(name) !== index),
+);
+
+function trimSeoText(value: string, limit: number) {
+  const normalized = value.replace(/\s+/g, ' ').trim();
+  if (normalized.length <= limit) return normalized;
+  const clipped = normalized.slice(0, Math.max(1, limit - 1)).trimEnd();
+  const boundary = clipped.lastIndexOf(' ');
+  const safeClip = boundary >= Math.floor(limit * 0.6) ? clipped.slice(0, boundary) : clipped;
+  return `${safeClip.trimEnd()}…`;
+}
+
+function compactProductTitle(name: string, disambiguator?: string) {
+  const detail = disambiguator ? ` · ${disambiguator}` : '';
+  const availableNameLength = Math.max(18, SEO_TITLE_LIMIT - titleSuffix.length - detail.length - 1);
+  const compactName = trimSeoText(`${name}${detail}`, availableNameLength);
+  return `${compactName} ${titleSuffix}`;
+}
+
 export function productTitle(product: Product) {
-  const duration = product.duration === '-' ? '' : ` (${product.duration})`;
-  return `${product.name}${duration} Price in Pakistan | Sasify Solutions`;
+  return compactProductTitle(product.name);
 }
 
 export function productDescription(product: Product) {
   if (product.contactOnly)
-    return `${product.name}: KVM1, KVM2, KVM4 and KVM8 packages with listing-specific terms. Contact Sasify Solutions on WhatsApp for pricing and purchase.`;
+    return trimSeoText(
+      `${product.name}: KVM1, KVM2, KVM4 and KVM8 packages. Contact Sasify Solutions on WhatsApp for pricing and purchase.`,
+      SEO_DESCRIPTION_LIMIT,
+    );
   const duration = product.duration === '-' ? 'this package' : product.duration;
-  return `${product.name}: ${formatPkr(product.sellingPricePkr)} for ${duration} in Pakistan. Check the product’s individual access and warranty terms, then buy online with automatic delivery after payment verification.`;
+  return trimSeoText(
+    `${product.name}: ${formatPkr(product.sellingPricePkr)} for ${duration} in Pakistan. Review access, warranty and availability before ordering online.`,
+    SEO_DESCRIPTION_LIMIT,
+  );
 }
 
 export function productQuestions(product: Product) {
@@ -182,11 +211,17 @@ export function productData(product: Product) {
 }
 
 export function supplierProductTitle(product: SupplierSeoProduct) {
-  return `${product.name} Price in Pakistan | Sasify Solutions`;
+  const disambiguator = duplicateSupplierNames.has(product.name)
+    ? product.slug.slice(-6)
+    : undefined;
+  return compactProductTitle(product.name, disambiguator);
 }
 
 export function supplierProductDescription(product: SupplierSeoProduct) {
-  return `${product.name}: ${formatPkr(product.price)} in Pakistan with ${product.available.toLocaleString('en-PK')} available. Buy online from Sasify Solutions with automatic delivery after payment verification.`;
+  return trimSeoText(
+    `${product.name}: ${formatPkr(product.price)} in Pakistan. Check stock, warranty and delivery before ordering online.`,
+    SEO_DESCRIPTION_LIMIT,
+  );
 }
 
 export function supplierProductQuestions(product: SupplierSeoProduct) {

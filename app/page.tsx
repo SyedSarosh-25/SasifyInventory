@@ -135,10 +135,6 @@ function HeroTypingTitle() {
           </span>
         </span>
       </span>
-      <noscript>
-        <span className="hero-title-line">{heroTitleLead}</span>
-        <span className="hero-title-line hero-title-text-accent">{heroTitleAccent}</span>
-      </noscript>
     </h1>
   );
 }
