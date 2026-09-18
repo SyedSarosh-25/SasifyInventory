@@ -1749,8 +1749,9 @@ svg { flex-shrink: 0; }
 
 @media (max-width: 640px) {
   .nav-inner { display: grid; grid-template-columns: minmax(0, 1fr) auto; min-height: 68px; padding: 8px 16px 4px; gap: 4px 8px; }
-  .nav-links { grid-column: 1 / -1; grid-row: 2; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0; }
-  .nav-links a { justify-content: center; }
+  .nav-links { grid-column: 1 / -1; grid-row: 2; display: flex; justify-content: flex-start; gap: 4px; padding-bottom: 4px; overflow-x: auto; scrollbar-width: none; }
+  .nav-links::-webkit-scrollbar { display: none; }
+  .nav-links a { flex: 0 0 auto; min-height: 36px; justify-content: center; padding-inline: 9px; font-size: 0.69rem; white-space: nowrap; }
   .brand > img { width: 40px; height: 40px; }
   .brand-name strong { font-size: 0.84rem; }
   .nav-actions { grid-column: 2; grid-row: 1; gap: 8px; }
@@ -1758,11 +1759,14 @@ svg { flex-shrink: 0; }
   .currency-toggle { grid-template-columns: repeat(2, 44px); }
   .currency-toggle button { font-size: 0.67rem; }
   .primary-button.compact { width: 44px; padding: 0; font-size: 0; }
-  .new-products-ticker-inner { display: block; min-height: 0; padding: 7px 16px 8px; }
-  .new-products-ticker-label { gap: 6px; margin-bottom: 6px; font-size: 0.63rem; }
-  .new-products-ticker-viewport { margin-inline: -16px; padding-inline: 10px; mask-image: none; }
-  .new-products-ticker-track { animation-duration: 48s; }
-  .new-products-ticker-item { min-width: 236px; min-height: 38px; padding-right: 8px; }
+  .new-products-ticker-inner { min-height: 0; gap: 9px; padding: 7px 12px 8px; }
+  .new-products-ticker-label { gap: 6px; font-size: 0.61rem; }
+  .new-products-ticker-label strong { display: inline; }
+  .new-products-ticker-viewport { flex: 1 1 auto; margin: 0; padding: 0; overflow-x: auto; mask-image: none; scrollbar-width: none; scroll-snap-type: x proximity; }
+  .new-products-ticker-viewport::-webkit-scrollbar { display: none; }
+  .new-products-ticker-track { animation: none; }
+  .new-products-ticker-group + .new-products-ticker-group { display: none; }
+  .new-products-ticker-item { min-width: 222px; min-height: 38px; padding-right: 8px; scroll-snap-align: start; }
   .new-products-ticker-copy strong { max-width: 125px; }
   .new-products-ticker-price { font-size: 0.63rem; }
   .new-products-ticker-stock { font-size: 0.55rem; }
