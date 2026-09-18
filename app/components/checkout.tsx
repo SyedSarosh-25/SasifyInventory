@@ -1850,11 +1850,12 @@ export function CommerceAdmin() {
         <div className="admin-workspace">
           <section className="metric-grid">
             <article>
-              <span>Net sales after coupons</span>
+              <span>Recognized sales value</span>
               <strong>{money(data.metrics.income)}</strong>
               <small>
-                Gross {money(data.metrics.gross_income)} · Discounts{' '}
+                Gross {money(data.metrics.gross_income)} · Customer discounts{' '}
                 {money(data.metrics.coupon_discounts)} ·{' '}
+                HOR value {profitVisible ? money(data.metrics.hor_profit_credit) : 'Protected'} ·{' '}
                 {data.metrics.delivered_orders} delivered ·{' '}
                 {data.metrics.admin_withdrawals || 0} admin withdrawals
               </small>
@@ -1870,7 +1871,7 @@ export function CommerceAdmin() {
               </strong>
               <small>
                 {profitVisible
-                  ? `HOR value credited ${money(data.metrics.hor_profit_credit)} · other coupons use discounted sale price`
+                  ? `HOR is a team rule, not a customer discount · value credited ${money(data.metrics.hor_profit_credit)} · other coupons use discounted sale price`
                   : 'Financial data protected. Unlock financial view →'}
               </small>
             </button>

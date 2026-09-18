@@ -275,16 +275,21 @@ function summarizeProfit(deliveredRows, withdrawnRows) {
   for (const row of deliveredRows) {
     const isTeamCoupon = String(row.code_display || '').toUpperCase() === TEAM_COUPON_CODE;
     const netIncome = Number(row.amount || 0);
-    const couponDiscount = Number(row.coupon_discount || 0);
-    const income = netIncome + (isTeamCoupon ? couponDiscount : 0);
+    const recordedCouponDiscount = Number(row.coupon_discount || 0);
+    // HOR is an internal team-sales/commission rule, not a customer discount.
+    // Older HOR orders may still contain a historical coupon_discount value;
+    // keep that value as HOR credit for the profit view, but never include it
+    // in the customer discount totals.
+    const couponDiscount = isTeamCoupon ? 0 : recordedCouponDiscount;
+    const income = netIncome + (isTeamCoupon ? recordedCouponDiscount : 0);
     const cost = row.shared_account_id
       ? row.fulfillment_cost_pkr ?? sharedSlotCost(row.purchase_cost, row.shared_slot)
       : row.purchase_cost ?? row.supplier_cost_pkr ?? 0;
     add(row, income, cost, row.supplier_product_id ? 'supplier' : 'local', row.delivered_at, {
       netIncome,
-      grossIncome: netIncome + couponDiscount,
+      grossIncome: netIncome + recordedCouponDiscount,
       couponDiscount,
-      horProfitCredit: isTeamCoupon ? couponDiscount : 0,
+      horProfitCredit: isTeamCoupon ? recordedCouponDiscount : 0,
     });
   }
   for (const row of withdrawnRows)
@@ -294,9 +299,8 @@ function summarizeProfit(deliveredRows, withdrawnRows) {
     summary[key] = Math.round(summary[key]);
   }
   for (const bucket of Object.values(breakdown)) {
-    bucket.income = Math.round(bucket.income);
-    bucket.cost = Math.round(bucket.cost);
-    bucket.profit = Math.round(bucket.profit);
+    for (const key of ['income', 'gross_income', 'coupon_discounts', 'hor_profit_credit', 'cost', 'profit'])
+      bucket[key] = Math.round(bucket[key]);
   }
   return { metrics: summary, breakdown };
 }
@@ -4285,4 +4289,5 @@ export function createHandler(
     }
   };
 }
+export { summarizeProfit };
 export default createHandler();
