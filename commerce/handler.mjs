@@ -356,6 +356,9 @@ async function notifyTelegram(message) {
     clearTimeout(timeout);
   }
 }
+function paymentVerifiedMessage({ orderId, amount, transactionId, receiverTitle }) {
+  return `Payment verified\nOrder: ${String(orderId || '').slice(0, 8)}\nAmount: PKR ${Number(amount || 0).toLocaleString()}\nTransaction: ${String(transactionId || 'matched').slice(0, 80)}${receiverTitle ? `\nReceiver: ${String(receiverTitle).slice(0, 100)}` : ''}`;
+}
 function supplierIssueMessage(log) {
   if (!log) return '';
   const status = log.responseStatus ? `HTTP ${log.responseStatus}` : 'No HTTP response';
@@ -1441,6 +1444,18 @@ async function releaseSharedSlot(db, order) {
       'UPDATE commerce_orders SET shared_slot_released=true WHERE id=$1',
       [order.id],
     );
+}
+async function cancelUnpaidOrder(db, order) {
+  await db.query(
+    "UPDATE commerce_orders SET status='cancelled',supplier_status='cancelled_without_payment' WHERE id=$1",
+    [order.id],
+  );
+  await db.query(
+    "UPDATE commerce_inventory SET state='available' WHERE id=$1 AND state='reserved'",
+    [order.inventory_id],
+  );
+  await releaseSharedSlot(db, order);
+  await releaseCoupon(db, order);
 }
 async function reserveSharedAccount(db) {
   const shared = (
@@ -2954,7 +2969,6 @@ export function createHandler(
           paymentMethod: selectedPaymentMethod,
           paymentWindowMinutes,
         };
-        telegramMessages.push(`New order placed\nOrder: ${id.slice(0, 8)}\nProduct: ${String(product.name || product.id).slice(0, 120)}\nAmount: PKR ${paymentAmount.toLocaleString()}${isTeamCoupon ? '\nTeam coupon: HOR' : commissionCode ? `\nCoupon: ${commissionCode}` : ''}`);
       } else if (action === 'shared-2fa-code') {
         if (!idOk(body.id)) throw fail(400, 'Invalid order ID.');
         output = await issueSharedTwoFactorCode(db, req, body.id, key);
@@ -3013,10 +3027,6 @@ export function createHandler(
               409,
               'A transaction is already submitted. Contact support for a correction.',
             );
-          await db.query(
-            "UPDATE commerce_orders SET transaction_id=COALESCE(transaction_id,$1),payment_submitted_at=COALESCE(payment_submitted_at,now()),status=CASE WHEN status='expired' THEN 'expired' ELSE 'review' END WHERE id=$2",
-            [transaction, id],
-          );
           // Late claims stay in review and cannot automatically consume released inventory.
           const matchingPayments = transaction
             ? (
@@ -3042,7 +3052,18 @@ export function createHandler(
           const payment =
             matchingPayments.length === 1 ? matchingPayments[0] : null;
           let fulfillment;
-          if (payment) {
+          if (!payment) {
+            await cancelUnpaidOrder(db, order);
+            output = {
+              ok: true,
+              status: 'cancelled',
+              reason: 'payment_not_received',
+            };
+          } else {
+            await db.query(
+              "UPDATE commerce_orders SET transaction_id=COALESCE(transaction_id,$1),payment_submitted_at=COALESCE(payment_submitted_at,now()),status=CASE WHEN status='expired' THEN 'expired' ELSE 'review' END WHERE id=$2",
+              [transaction, id],
+            );
             // NayaPay's app can expose only the trailing reference digits while its
             // receipt email contains the complete prefixed transaction ID.
             await db.query(
@@ -3066,10 +3087,19 @@ export function createHandler(
                 await insertSupplierApiLogs(db, supplierLogs);
               }
             }
+            if (order.status !== 'expired')
+              telegramMessages.push(
+                paymentVerifiedMessage({
+                  orderId: id,
+                  amount: order.amount,
+                  transactionId: payment.transaction_id,
+                  receiverTitle: order.receiver_title,
+                }),
+              );
+            output = fulfillment?.cancelled
+              ? { ok: true, status: 'cancelled', reason: fulfillment.reason }
+              : { ok: true };
           }
-          output = fulfillment?.cancelled
-            ? { ok: true, status: 'cancelled', reason: fulfillment.reason }
-            : { ok: true };
         } else {
           // A receipt can be recorded just before the customer clicks the
           // verification button, or an earlier delivery attempt can fail
@@ -3111,6 +3141,21 @@ export function createHandler(
                 );
                 await insertSupplierApiLogs(db, supplierLogs);
               }
+              const delivered = (
+                await db.query(
+                  'SELECT status FROM commerce_orders WHERE id=$1',
+                  [id],
+                )
+              ).rows[0]?.status === 'delivered';
+              if (delivered)
+                telegramMessages.push(
+                  paymentVerifiedMessage({
+                    orderId: id,
+                    amount: order.amount,
+                    transactionId: payment.transaction_id,
+                    receiverTitle: order.receiver_title,
+                  }),
+                );
               order = (
                 await db.query(
                   `SELECT o.*,c.code_display AS coupon_code,r.title AS receiver_title,r.account_number AS receiver_number
@@ -3348,6 +3393,21 @@ export function createHandler(
               await db.query('ROLLBACK TO SAVEPOINT delivery');
               await insertSupplierApiLogs(db, supplierLogs);
             }
+            const delivered = (
+              await db.query(
+                'SELECT status FROM commerce_orders WHERE id=$1',
+                [orders[0].id],
+              )
+            ).rows[0]?.status === 'delivered';
+            if (delivered)
+              telegramMessages.push(
+                paymentVerifiedMessage({
+                  orderId: orders[0].id,
+                  amount: parsed.amount,
+                  transactionId: parsed.transaction,
+                  receiverTitle: paymentReceiver?.title,
+                }),
+              );
           }
         }
         await expire(db);

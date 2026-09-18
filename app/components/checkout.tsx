@@ -584,7 +584,9 @@ export function Checkout() {
             <section className="description-section" role="alert">
               <h2>Order cancelled</h2>
               <p>
-                {order.supplierStatus ===
+                {order.supplierStatus === 'cancelled_without_payment'
+                  ? 'Sorry, we detected that the payment receipt was not received. Your order has been cancelled automatically.'
+                  : order.supplierStatus ===
                 'cancelled_after_3_supplier_failures'
                   ? 'The supplier failed three times after payment verification, so this order was cancelled automatically. Please contact support to arrange a refund or replacement.'
                   : 'This order is closed and no credentials were delivered.'}
@@ -618,6 +620,12 @@ export function Checkout() {
               <p className="support-note">
                 WhatsApp support will be enabled 30 seconds after you submit
                 payment if delivery has not completed.
+              </p>
+              <p className="payment-source-note">
+                After completing the payment, wait at least 5 seconds before
+                clicking “I paid”. We first check for the verified payment
+                email; if no matching receipt is received, this order is
+                cancelled automatically.
               </p>
               <dl className="commerce-details">
                 <dt>Account title</dt>
@@ -685,6 +693,8 @@ export function Checkout() {
                 <p>
                   After sending the exact amount, click below. We will match the
                   verified payment automatically using your unique order amount.
+                  Wait at least 5 seconds after paying before clicking. If no
+                  verified receipt is available, the order will be cancelled.
                 </p>
                 <button className="primary-button" disabled={busy}>
                   {busy ? 'Checking payment...' : 'I paid — verify automatically'}
