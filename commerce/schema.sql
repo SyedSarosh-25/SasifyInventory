@@ -104,6 +104,10 @@ UPDATE commerce_supplier_products SET canonical_key=id WHERE canonical_key IS NU
 UPDATE commerce_supplier_products SET provider_id='dodi',provider_name='DODI Store' WHERE provider_id='dody';
 ALTER TABLE commerce_supplier_products ALTER COLUMN provider_id SET DEFAULT 'dodi';
 ALTER TABLE commerce_supplier_products ALTER COLUMN provider_name SET DEFAULT 'DODI Store';
+CREATE TABLE IF NOT EXISTS commerce_supplier_catalog_meta (
+ id boolean PRIMARY KEY DEFAULT true,
+ first_seen_migrated_at timestamptz NOT NULL DEFAULT now()
+);
 CREATE UNIQUE INDEX IF NOT EXISTS commerce_supplier_external_offer ON commerce_supplier_products(provider_id,external_product_id);
 
 CREATE TABLE IF NOT EXISTS commerce_provider_state (

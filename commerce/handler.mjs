@@ -1214,6 +1214,18 @@ async function ensureSupplierMediaSchema(db) {
       await db.query(
         'ALTER TABLE commerce_supplier_products ADD COLUMN IF NOT EXISTS first_seen_at timestamptz NOT NULL DEFAULT now()',
       );
+      await db.query(`CREATE TABLE IF NOT EXISTS commerce_supplier_catalog_meta (
+        id boolean PRIMARY KEY DEFAULT true,
+        first_seen_migrated_at timestamptz NOT NULL DEFAULT now()
+      )`);
+      const firstSeenMigration = await db.query(
+        'INSERT INTO commerce_supplier_catalog_meta(id) VALUES(true) ON CONFLICT(id) DO NOTHING RETURNING id',
+      );
+      if (firstSeenMigration.rowCount) {
+        await db.query(
+          "UPDATE commerce_supplier_products SET first_seen_at=now()-interval '1 year'",
+        );
+      }
     })()
       .catch((error) => {
         supplierMediaSchemaReady = null;
