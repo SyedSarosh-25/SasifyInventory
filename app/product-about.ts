@@ -24,7 +24,7 @@ function cleanSentence(value: string) {
   return value.replace(/\s+/g, ' ').trim();
 }
 
-function readableSearchName(input: AboutInput, blob: string) {
+function readableSearchName(input: AboutInput) {
   const brandText = `${input.name} ${input.category || ''}`.toLowerCase();
   const inBrand = (value: string) => brandText.includes(value);
   if (inBrand('chatgpt')) return 'ChatGPT Plus';
@@ -71,126 +71,100 @@ function readableSearchName(input: AboutInput, blob: string) {
     .join(' ');
 }
 
+const keywordFamilies = [
+  { matches: ['chatgpt'], terms: ['ChatGPT Plus price in Pakistan', 'buy ChatGPT Plus Pakistan', 'ChatGPT Plus subscription Pakistan', 'ChatGPT Plus account Pakistan', 'ChatGPT Plus shared account Pakistan', 'ChatGPT Plus 1 month Pakistan'] },
+  { matches: ['claude'], terms: ['Claude AI price in Pakistan', 'buy Claude subscription Pakistan', 'Claude Pro Pakistan', 'Claude Team plan Pakistan', 'Claude AI account Pakistan', 'Claude API credits Pakistan'] },
+  { matches: ['cursor'], terms: ['Cursor AI price in Pakistan', 'buy Cursor Pro Pakistan', 'Cursor AI subscription Pakistan', 'Cursor AI credits Pakistan', 'Cursor coding tool Pakistan', 'AI coding tool Pakistan'] },
+  { matches: ['canva'], terms: ['Canva Pro price in Pakistan', 'buy Canva Pro Pakistan', 'Canva Pro subscription Pakistan', 'Canva Pro account Pakistan', 'Canva Edu Pakistan', 'Canva design tool Pakistan'] },
+  { matches: ['netflix'], terms: ['Netflix screen price in Pakistan', 'Netflix account Pakistan', 'Netflix 4K screen Pakistan', 'Netflix subscription Pakistan', 'buy Netflix Pakistan', 'Netflix streaming Pakistan'] },
+  { matches: ['capcut'], terms: ['CapCut Pro price in Pakistan', 'buy CapCut Pro Pakistan', 'CapCut Pro subscription Pakistan', 'CapCut Pro account Pakistan', 'CapCut video editor Pakistan', 'video editing app Pakistan'] },
+  { matches: ['adobe', 'premiere'], requireAll: true, terms: ['Adobe Premiere Pro price in Pakistan', 'buy Adobe Premiere Pro Pakistan', 'Adobe Premiere Pro subscription Pakistan', 'Adobe Premiere Pro account Pakistan', 'Adobe video editing software Pakistan', 'video editing software Pakistan'] },
+  { matches: ['adobe', 'express'], requireAll: true, terms: ['Adobe Express price in Pakistan', 'buy Adobe Express Pakistan', 'Adobe Express subscription Pakistan', 'Adobe Express account Pakistan', 'Adobe graphic design app Pakistan', 'graphic design app Pakistan'] },
+  { matches: ['adobe'], terms: ['Adobe subscription price in Pakistan', 'buy Adobe subscription Pakistan', 'Adobe Creative Cloud Pakistan', 'Adobe account Pakistan', 'Adobe software Pakistan', 'creative software Pakistan'] },
+  { matches: ['figma'], terms: ['Figma Pro price in Pakistan', 'buy Figma Pro Pakistan', 'Figma subscription Pakistan', 'Figma Pro account Pakistan', 'Figma Education Pakistan', 'UI design tool Pakistan'] },
+  { matches: ['freepik'], terms: ['Freepik Premium price in Pakistan', 'buy Freepik Premium Pakistan', 'Freepik subscription Pakistan', 'Freepik Magnific Pakistan', 'Freepik credits Pakistan', 'AI image tool Pakistan'] },
+  { matches: ['heygen'], terms: ['HeyGen AI price in Pakistan', 'buy HeyGen Creator Pakistan', 'HeyGen subscription Pakistan', 'HeyGen AI account Pakistan', 'AI avatar tool Pakistan', 'AI video tool Pakistan'] },
+  { matches: ['kling'], terms: ['Kling AI price in Pakistan', 'buy Kling AI Pakistan', 'Kling AI subscription Pakistan', 'Kling AI credits Pakistan', 'Kling 26K credits Pakistan', 'AI video tool Pakistan'] },
+  { matches: ['veo'], terms: ['Veo 3 price in Pakistan', 'buy Veo 3 Pakistan', 'Veo 3 subscription Pakistan', 'Veo 3 credits Pakistan', 'Veo AI video Pakistan', 'AI video tool Pakistan'] },
+  { matches: ['elevenlabs'], terms: ['ElevenLabs price in Pakistan', 'buy ElevenLabs Pakistan', 'ElevenLabs subscription Pakistan', 'ElevenLabs credits Pakistan', 'ElevenLabs 1M credits Pakistan', 'AI voice tool Pakistan'] },
+  { matches: ['minimax'], terms: ['Minimax AI price in Pakistan', 'buy Minimax AI Pakistan', 'Minimax AI subscription Pakistan', 'Minimax credits Pakistan', 'Minimax voice AI Pakistan', 'AI voice tool Pakistan'] },
+  { matches: ['gemini'], terms: ['Gemini Pro price in Pakistan', 'buy Gemini Pro Pakistan', 'Gemini AI subscription Pakistan', 'Gemini AI 18 months Pakistan', 'Gemini AI account Pakistan', 'AI assistant Pakistan'] },
+  { matches: ['grok'], terms: ['Grok Premium price in Pakistan', 'buy Grok subscription Pakistan', 'SuperGrok Pakistan', 'Grok AI account Pakistan', 'Grok 1 month Pakistan', 'AI assistant Pakistan'] },
+  { matches: ['perplexity'], terms: ['Perplexity Pro price in Pakistan', 'buy Perplexity Pro Pakistan', 'Perplexity subscription Pakistan', 'Perplexity AI account Pakistan', 'AI research tool Pakistan', 'AI assistant Pakistan'] },
+  { matches: ['coursera'], terms: ['Coursera Premium price in Pakistan', 'buy Coursera Premium Pakistan', 'Coursera subscription Pakistan', 'Coursera account Pakistan', 'Coursera Gemini package Pakistan', 'online learning subscription Pakistan'] },
+  { matches: ['codex'], terms: ['Codex API credits Pakistan', 'buy Codex API credits Pakistan', 'Codex token package Pakistan', 'Codex 1 day Pakistan', 'AI API credits Pakistan', 'developer API credits Pakistan'] },
+  { matches: ['upgrade x', 'x premium'], terms: ['X Premium price in Pakistan', 'buy X Premium Pakistan', 'X Premium subscription Pakistan', 'X Premium account Pakistan', 'X monetization Pakistan', 'X Premium 3 months Pakistan'] },
+  { matches: ['hostinger'], terms: ['Hostinger hosting price in Pakistan', 'buy Hostinger hosting Pakistan', 'Hostinger hosting service Pakistan', 'Hostinger hosting account Pakistan', 'Hostinger VPS Pakistan', 'web hosting Pakistan'] },
+  { matches: ['microsoft', 'office 365', 'ms office', 'office'], terms: ['Microsoft 365 price in Pakistan', 'buy Microsoft 365 Pakistan', 'Microsoft 365 subscription Pakistan', 'Office 365 Family Pakistan', 'Microsoft 365 account Pakistan', 'productivity subscription Pakistan'] },
+  { matches: ['autodesk'], terms: ['Autodesk price in Pakistan', 'buy Autodesk Pakistan', 'AutoCAD subscription Pakistan', 'Autodesk license Pakistan', 'Autodesk 3 year license Pakistan', 'design software Pakistan'] },
+  { matches: ['kaspersky'], terms: ['Kaspersky Premium price in Pakistan', 'buy Kaspersky Premium Pakistan', 'Kaspersky subscription Pakistan', 'Kaspersky VPN Pakistan', 'Kaspersky account Pakistan', 'security software Pakistan'] },
+  { matches: ['xbox'], terms: ['Xbox Game Pass price in Pakistan', 'buy Xbox Game Pass Pakistan', 'Xbox Game Pass Ultimate Pakistan', 'Xbox subscription Pakistan', 'PC Game Pass Pakistan', 'gaming subscription Pakistan'] },
+  { matches: ['github'], terms: ['GitHub Student Pack Pakistan', 'buy GitHub Student upgrade Pakistan', 'GitHub Education Pakistan', 'GitHub Pro Pakistan', 'GitHub subscription Pakistan', 'developer tools Pakistan'] },
+  { matches: ['udemy'], terms: ['Udemy subscription price in Pakistan', 'buy Udemy Personal Plan Pakistan', 'Udemy Personal Plan Pakistan', 'Udemy account Pakistan', 'Udemy courses Pakistan', 'online learning subscription Pakistan'] },
+  { matches: ['discord'], terms: ['Discord Nitro price in Pakistan', 'buy Discord Nitro Pakistan', 'Discord subscription Pakistan', 'Discord Nitro account Pakistan', 'Discord gifting badge Pakistan', 'gaming communication tool Pakistan'] },
+  { matches: ['apple id'], terms: ['Apple ID 2FA Pakistan', 'buy Apple ID 2FA service Pakistan', 'Apple ID Gmail Pakistan', 'Apple account verification Pakistan', 'Apple ID support Pakistan', 'Apple account service Pakistan'] },
+  { matches: ['youtube'], terms: ['YouTube Premium price in Pakistan', 'buy YouTube Premium Pakistan', 'YouTube Premium subscription Pakistan', 'YouTube Premium account Pakistan', 'YouTube Premium 1 month Pakistan', 'streaming subscription Pakistan'] },
+  { matches: ['spotify'], terms: ['Spotify Premium price in Pakistan', 'buy Spotify Premium Pakistan', 'Spotify Premium subscription Pakistan', 'Spotify Premium account Pakistan', 'Spotify 3 months Pakistan', 'music subscription Pakistan'] },
+  { matches: ['prime video'], terms: ['Amazon Prime Video price in Pakistan', 'buy Amazon Prime Video Pakistan', 'Prime Video subscription Pakistan', 'Prime Video account Pakistan', 'Amazon streaming Pakistan', 'streaming subscription Pakistan'] },
+  { matches: ['apple music'], terms: ['Apple Music price in Pakistan', 'buy Apple Music Pakistan', 'Apple Music subscription Pakistan', 'Apple Music account Pakistan', 'Apple Music 5 months Pakistan', 'music subscription Pakistan'] },
+  { matches: ['outlook', 'hotmail'], terms: ['Outlook account Pakistan', 'buy Outlook email account Pakistan', 'Outlook mail Pakistan', 'Microsoft email account Pakistan', 'business email Pakistan', 'email account service Pakistan'] },
+  { matches: ['gmail'], terms: ['Gmail account Pakistan', 'buy Gmail account Pakistan', 'Gmail service Pakistan', 'Google email account Pakistan', 'email account service Pakistan', 'Gmail verification Pakistan'] },
+  { matches: ['duolingo'], terms: ['Duolingo Max price in Pakistan', 'buy Duolingo Max Pakistan', 'Duolingo Super Pakistan', 'Duolingo subscription Pakistan', 'Duolingo language learning Pakistan', 'education subscription Pakistan'] },
+  { matches: ['notion'], terms: ['Notion Plus price in Pakistan', 'buy Notion Plus Pakistan', 'Notion Business Pakistan', 'Notion Education Pakistan', 'Notion subscription Pakistan', 'productivity app Pakistan'] },
+  { matches: ['quillbot'], terms: ['QuillBot Premium price in Pakistan', 'buy QuillBot Premium Pakistan', 'QuillBot subscription Pakistan', 'QuillBot account Pakistan', 'AI writing tool Pakistan', 'writing assistant Pakistan'] },
+  { matches: ['jetbrains'], terms: ['JetBrains student pack Pakistan', 'buy JetBrains Edu Pack Pakistan', 'JetBrains subscription Pakistan', 'JetBrains account Pakistan', 'developer software Pakistan', 'coding tools Pakistan'] },
+  { matches: ['replit'], terms: ['Replit Core price in Pakistan', 'buy Replit Core Pakistan', 'Replit subscription Pakistan', 'Replit account Pakistan', 'online coding tool Pakistan', 'AI coding tool Pakistan'] },
+  { matches: ['lovable'], terms: ['Lovable AI price in Pakistan', 'buy Lovable Pro Pakistan', 'Lovable subscription Pakistan', 'Lovable AI credits Pakistan', 'AI app builder Pakistan', 'no-code development tool Pakistan'] },
+  { matches: ['xingtu'], terms: ['Xingtu VIP price in Pakistan', 'buy Xingtu VIP Pakistan', 'Xingtu subscription Pakistan', 'Xingtu photo editor Pakistan', 'Xingtu account Pakistan', 'photo editing app Pakistan'] },
+  { matches: ['meitu'], terms: ['Meitu VIP price in Pakistan', 'buy Meitu VIP Pakistan', 'Meitu subscription Pakistan', 'Meitu photo editor Pakistan', 'Meitu account Pakistan', 'photo editing app Pakistan'] },
+  { matches: ['leonardo'], terms: ['Leonardo AI price in Pakistan', 'buy Leonardo AI Pakistan', 'Leonardo AI subscription Pakistan', 'Leonardo AI credits Pakistan', 'AI image tool Pakistan', 'AI creative tool Pakistan'] },
+  { matches: ['krea'], terms: ['Krea AI price in Pakistan', 'buy Krea AI Pakistan', 'Krea AI credits Pakistan', 'Krea subscription Pakistan', 'AI image tool Pakistan', 'AI creative tool Pakistan'] },
+  { matches: ['flux'], terms: ['Flux AI price in Pakistan', 'buy Flux AI Pakistan', 'Flux AI subscription Pakistan', 'Flux credits Pakistan', 'AI image tool Pakistan', 'AI creative tool Pakistan'] },
+  { matches: ['ilovepdf'], terms: ['iLovePDF Premium price in Pakistan', 'buy iLovePDF Premium Pakistan', 'iLovePDF subscription Pakistan', 'iLovePDF account Pakistan', 'PDF tool Pakistan', 'productivity app Pakistan'] },
+  { matches: ['scribd'], terms: ['Scribd Premium price in Pakistan', 'buy Scribd Premium Pakistan', 'Scribd subscription Pakistan', 'Scribd account Pakistan', 'ebook subscription Pakistan', 'reading subscription Pakistan'] },
+  { matches: ['kahoot'], terms: ['Kahoot Gold price in Pakistan', 'buy Kahoot Gold Pakistan', 'Kahoot subscription Pakistan', 'Kahoot account Pakistan', 'education tool Pakistan', 'learning subscription Pakistan'] },
+  { matches: ['linkedin'], terms: ['LinkedIn Premium price in Pakistan', 'buy LinkedIn Premium Pakistan', 'LinkedIn Career Pakistan', 'LinkedIn subscription Pakistan', 'LinkedIn Premium account Pakistan', 'professional subscription Pakistan'] },
+  { matches: ['zoom'], terms: ['Zoom Pro price in Pakistan', 'buy Zoom Pro Pakistan', 'Zoom Pro subscription Pakistan', 'Zoom Pro account Pakistan', 'Zoom annual subscription Pakistan', 'video meeting tool Pakistan'] },
+  { matches: ['vpn', 'surfshark', 'expressvpn', 'nord vpn', 'proton vpn', 'pia vpn'], terms: ['VPN subscription price in Pakistan', 'buy VPN Pakistan', 'VPN account Pakistan', 'NordVPN Pakistan', 'ExpressVPN Pakistan', 'VPN service Pakistan'] },
+  { matches: ['telegram'], terms: ['Telegram members Pakistan', 'Telegram group members Pakistan', 'Telegram buy-sell groups Pakistan', 'buy Telegram members Pakistan', 'Telegram marketing Pakistan', 'Telegram digital product Pakistan'] },
+];
+
+function listingKeywordModifiers(input: AboutInput, term: string) {
+  const source = `${input.name} ${input.duration || ''}`.toLowerCase();
+  const modifiers: string[] = [];
+  const duration = source.match(/\b(\d+)\s*(months?|m|years?|y|days?|d)\b/);
+  if (duration) {
+    const unit = duration[2].startsWith('m') ? 'month' : duration[2].startsWith('y') ? 'year' : 'day';
+    modifiers.push(`${term} ${duration[1]} ${unit} Pakistan`);
+  }
+  if (/credit|token/.test(source)) modifiers.push(`${term} credits Pakistan`);
+  if (/shared/.test(source)) modifiers.push(`${term} shared account Pakistan`);
+  if (/edu|education/.test(source)) modifiers.push(`${term} education Pakistan`);
+  if (/slot/.test(source)) modifiers.push(`${term} slot Pakistan`);
+  if (/api/.test(source)) modifiers.push(`${term} API Pakistan`);
+  return modifiers;
+}
+
 function searchIntentPhrases(input: AboutInput, kind: string) {
   const blob = `${input.name} ${input.category || ''} ${input.description || ''}`.toLowerCase();
-  const brandText = `${input.name} ${input.category || ''}`.toLowerCase();
-  const term = readableSearchName(input, blob);
-  if (brandText.includes('chatgpt')) {
-    return [
-      'ChatGPT Plus price in Pakistan',
-      'buy ChatGPT Plus Pakistan',
-      'ChatGPT Plus subscription Pakistan',
-      'ChatGPT Plus account Pakistan',
-    ];
-  }
-  if (brandText.includes('cursor')) {
-    return [
-      'Cursor AI price in Pakistan',
-      'buy Cursor AI Pakistan',
-      'Cursor AI subscription Pakistan',
-      'AI coding tool Pakistan',
-    ];
-  }
-  if (brandText.includes('canva')) {
-    return [
-      'Canva Pro price in Pakistan',
-      'buy Canva Pro Pakistan',
-      'Canva Pro subscription Pakistan',
-      'Canva Pro account Pakistan',
-    ];
-  }
-  if (brandText.includes('netflix')) {
-    return [
-      'Netflix screen price in Pakistan',
-      'Netflix account Pakistan',
-      'Netflix 4K screen Pakistan',
-      'Netflix subscription Pakistan',
-    ];
-  }
-  if (brandText.includes('capcut')) {
-    return [
-      'CapCut Pro price in Pakistan',
-      'buy CapCut Pro Pakistan',
-      'CapCut Pro subscription Pakistan',
-      'video editing app Pakistan',
-    ];
-  }
-  if (brandText.includes('adobe') && /premiere|premier/.test(brandText)) {
-    return [
-      'Adobe Premiere Pro price in Pakistan',
-      'buy Adobe Premiere Pro Pakistan',
-      'Adobe Premiere Pro subscription Pakistan',
-      'video editing software Pakistan',
-    ];
-  }
-  if (brandText.includes('adobe') && brandText.includes('express')) {
-    return [
-      'Adobe Express price in Pakistan',
-      'buy Adobe Express Pakistan',
-      'Adobe Express subscription Pakistan',
-      'graphic design app Pakistan',
-    ];
-  }
-  if (brandText.includes('adobe')) {
-    return [
-      `${term} price in Pakistan`,
-      `buy ${term} Pakistan`,
-      `${term} subscription Pakistan`,
-      'Adobe account Pakistan',
-    ];
-  }
-  if (brandText.includes('figma')) {
-    return [
-      'Figma Pro price in Pakistan',
-      'buy Figma Pro Pakistan',
-      'Figma subscription Pakistan',
-      'UI design tool Pakistan',
-    ];
-  }
-  if (hasAny(brandText, ['freepik', 'heygen', 'kling', 'veo', 'elevenlabs', 'minimax'])) {
-    return [
-      `${term} price in Pakistan`,
-      `buy ${term} Pakistan`,
-      `${term} subscription Pakistan`,
-      'AI creative tool Pakistan',
-    ];
-  }
-  if (hasAny(brandText, ['youtube', 'spotify', 'prime video', 'apple music', 'xbox'])) {
-    return [
-      `${term} price in Pakistan`,
-      `buy ${term} Pakistan`,
-      `${term} subscription Pakistan`,
-      'streaming subscription Pakistan',
-    ];
-  }
-  if (hasAny(brandText, ['microsoft', 'office', '365', 'notion', 'quillbot', 'coursera', 'udemy', 'duolingo', 'linkedin'])) {
-    return [
-      `${term} price in Pakistan`,
-      `buy ${term} Pakistan`,
-      `${term} subscription Pakistan`,
-      'productivity subscription Pakistan',
-    ];
-  }
-  if (brandText.includes('vpn') || brandText.includes('surfshark') || brandText.includes('expressvpn')) {
-    return [
-      `${term} price in Pakistan`,
-      `buy ${term} Pakistan`,
-      `${term} account Pakistan`,
-      'VPN subscription Pakistan',
-    ];
-  }
-  const descriptor =
-    kind === 'subscription'
-      ? 'subscription'
-      : kind === 'service'
-        ? 'service'
-        : 'digital product';
-  return [
+  // Match families from the listing name only. Category labels can be broad
+  // (for example, a Telegram product may sit under a VPN category) and should
+  // not inject unrelated commercial keywords into the page.
+  const brandText = input.name.toLowerCase();
+  const term = readableSearchName(input);
+  const family = keywordFamilies.find(({ matches, requireAll }) =>
+    requireAll
+      ? matches.every((match) => brandText.includes(match))
+      : matches.some((match) => brandText.includes(match)),
+  );
+  const descriptor = kind === 'subscription' ? 'subscription' : kind === 'service' ? 'service' : 'digital product';
+  const base = family?.terms || [
     `${term} price in Pakistan`,
     `buy ${term} Pakistan`,
     `${term} ${descriptor} Pakistan`,
     `${term} account Pakistan`,
   ];
+  return [...new Set([...base, ...listingKeywordModifiers(input, term)])].slice(0, 8);
 }
 
 function productKind(input: AboutInput) {
