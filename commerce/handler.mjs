@@ -1336,13 +1336,34 @@ async function ensureTeamSchema(db) {
       .then(() =>
         db.query(`CREATE TABLE IF NOT EXISTS commerce_team_withdrawals (
           id uuid PRIMARY KEY,
-          inventory_id uuid NOT NULL UNIQUE REFERENCES commerce_inventory(id),
+          inventory_id uuid NOT NULL REFERENCES commerce_inventory(id),
           team_email text NOT NULL,
           commission_code text NOT NULL DEFAULT 'HOR',
           commission_amount integer NOT NULL DEFAULT ${TEAM_COMMISSION_PKR} CHECK(commission_amount>=0),
           commission_paid boolean NOT NULL DEFAULT false,
+          shared_slot integer,
           created_at timestamptz NOT NULL DEFAULT now()
         )`),
+      )
+      .then(() =>
+        db.query(
+          'ALTER TABLE commerce_team_withdrawals DROP CONSTRAINT IF EXISTS commerce_team_withdrawals_inventory_id_key',
+        ),
+      )
+      .then(() =>
+        db.query(
+          'ALTER TABLE commerce_team_withdrawals ADD COLUMN IF NOT EXISTS shared_slot integer',
+        ),
+      )
+      .then(() =>
+        db.query(
+          'CREATE UNIQUE INDEX IF NOT EXISTS commerce_team_withdrawals_inventory_unique ON commerce_team_withdrawals(inventory_id) WHERE shared_slot IS NULL',
+        ),
+      )
+      .then(() =>
+        db.query(
+          'CREATE UNIQUE INDEX IF NOT EXISTS commerce_team_withdrawals_shared_slot_unique ON commerce_team_withdrawals(inventory_id,shared_slot) WHERE shared_slot IS NOT NULL',
+        ),
       )
       .then(() =>
         db.query(
@@ -2524,54 +2545,121 @@ export function createHandler(
             [RETIRED_LOCAL_PRODUCT_IDS],
           )
         ).rows;
+        const sharedRows = (
+          await db.query(
+            `SELECT COALESCE(SUM(sa.max_slots-sa.slots_filled),0)::int AS available
+             FROM commerce_shared_accounts sa
+             INNER JOIN commerce_inventory i ON i.id=sa.inventory_id
+             WHERE sa.status='active' AND sa.slots_filled<sa.max_slots
+               AND i.state IN ('available','reserved','delivered')`,
+          )
+        ).rows[0];
         output = {
-          products: rows.map((row) => ({
-            productId: row.product_id,
-            productName:
-              catalog.find((product) => product.id === row.product_id)?.name ||
-              row.product_id,
-            available: Number(row.available),
-          })),
+          products: [
+            ...rows.map((row) => ({
+              productId: row.product_id,
+              productName:
+                catalog.find((product) => product.id === row.product_id)?.name ||
+                row.product_id,
+              available: Number(row.available),
+            })),
+            ...(Number(sharedRows?.available || 0) > 0
+              ? [{
+                  productId: SHARED_CHATGPT_PRODUCT_ID,
+                  productName:
+                    catalog.find((product) => product.id === SHARED_CHATGPT_PRODUCT_ID)?.name ||
+                    SHARED_CHATGPT_PRODUCT_ID,
+                  available: Number(sharedRows.available),
+                }]
+              : []),
+          ],
         };
       } else if (action === 'team-inventory-pick') {
         const productId = String(body.productId || '').trim();
         if (!productId || RETIRED_LOCAL_PRODUCT_IDS.includes(productId))
           throw fail(400, 'Select a valid available stock product.');
-        const item = (
+        if (productId === SHARED_CHATGPT_PRODUCT_ID) {
+          const sharedItem = (
+            await db.query(
+              `SELECT i.*,sa.id AS shared_account_id,sa.slots_filled,sa.max_slots
+               FROM commerce_shared_accounts sa
+               INNER JOIN commerce_inventory i ON i.id=sa.inventory_id
+               WHERE sa.status='active' AND sa.slots_filled<sa.max_slots
+                 AND i.state IN ('available','reserved','delivered')
+               ORDER BY sa.created_at,sa.id
+               FOR UPDATE OF sa,i SKIP LOCKED LIMIT 1`,
+            )
+          ).rows[0];
+          if (!sharedItem)
+            throw fail(409, 'No shared ChatGPT slot is available.');
+          const credentials = decrypt(sharedItem.credentials, key);
+          const sharedSlot = Number(sharedItem.slots_filled) + 1;
+          const reservedShared = await db.query(
+            `UPDATE commerce_shared_accounts
+             SET slots_filled=$1,
+                 status=CASE WHEN $1>=max_slots THEN 'sold' ELSE 'active' END,
+                 sold_at=CASE WHEN $1>=max_slots THEN now() ELSE sold_at END
+             WHERE id=$2 AND status='active' AND slots_filled<max_slots
+             RETURNING id`,
+            [sharedSlot, sharedItem.shared_account_id],
+          );
+          if (!reservedShared.rowCount)
+            throw fail(409, 'That shared slot is no longer available.');
           await db.query(
-             `SELECT * FROM commerce_inventory
-             WHERE product_id=$1 AND state='available'
-               AND NOT EXISTS (SELECT 1 FROM commerce_shared_accounts sa WHERE sa.inventory_id=commerce_inventory.id)
-             ORDER BY created_at ASC FOR UPDATE SKIP LOCKED LIMIT 1`,
-            [productId],
-          )
-        ).rows[0];
-        if (!item) throw fail(409, 'That stock is no longer available.');
-        const credentials = decrypt(item.credentials, key);
-        const changed = await db.query(
-          "UPDATE commerce_inventory SET state='withdrawn' WHERE id=$1 AND state='available' RETURNING id",
-          [item.id],
-        );
-        if (!changed.rowCount)
-          throw fail(409, 'That stock is no longer available.');
-        await db.query(
-          `INSERT INTO commerce_team_withdrawals(id,inventory_id,team_email,commission_code,commission_amount)
-           VALUES($1,$2,$3,$4,$5)`,
-          [randomUUID(), item.id, teamClaims.email, TEAM_COUPON_CODE, TEAM_COMMISSION_PKR],
-        );
-        await db.query(
-          "INSERT INTO commerce_audit(action,object_id) VALUES('team_inventory_pick',$1)",
-          [item.id],
-        );
-        output = {
-          ok: true,
-          productId: item.product_id,
-          productName:
-            catalog.find((product) => product.id === item.product_id)?.name ||
-            item.product_id,
-          credentials,
-          commission: { code: TEAM_COUPON_CODE, amountPkr: TEAM_COMMISSION_PKR },
-        };
+            `INSERT INTO commerce_team_withdrawals(id,inventory_id,team_email,commission_code,commission_amount,shared_slot)
+             VALUES($1,$2,$3,$4,$5,$6)`,
+            [randomUUID(), sharedItem.id, teamClaims.email, TEAM_COUPON_CODE, TEAM_COMMISSION_PKR, sharedSlot],
+          );
+          await db.query(
+            "INSERT INTO commerce_audit(action,object_id) VALUES('team_shared_slot_pick',$1)",
+            [sharedItem.id],
+          );
+          output = {
+            ok: true,
+            productId: SHARED_CHATGPT_PRODUCT_ID,
+            productName:
+              catalog.find((product) => product.id === SHARED_CHATGPT_PRODUCT_ID)?.name ||
+              SHARED_CHATGPT_PRODUCT_ID,
+            credentials,
+            commission: { code: TEAM_COUPON_CODE, amountPkr: TEAM_COMMISSION_PKR },
+          };
+        } else {
+          const item = (
+            await db.query(
+              `SELECT * FROM commerce_inventory
+               WHERE product_id=$1 AND state='available'
+                 AND NOT EXISTS (SELECT 1 FROM commerce_shared_accounts sa WHERE sa.inventory_id=commerce_inventory.id)
+               ORDER BY created_at ASC FOR UPDATE SKIP LOCKED LIMIT 1`,
+              [productId],
+            )
+          ).rows[0];
+          if (!item) throw fail(409, 'That stock is no longer available.');
+          const credentials = decrypt(item.credentials, key);
+          const changed = await db.query(
+            "UPDATE commerce_inventory SET state='withdrawn' WHERE id=$1 AND state='available' RETURNING id",
+            [item.id],
+          );
+          if (!changed.rowCount)
+            throw fail(409, 'That stock is no longer available.');
+          await db.query(
+            `INSERT INTO commerce_team_withdrawals(id,inventory_id,team_email,commission_code,commission_amount)
+             VALUES($1,$2,$3,$4,$5)`,
+            [randomUUID(), item.id, teamClaims.email, TEAM_COUPON_CODE, TEAM_COMMISSION_PKR],
+          );
+          await db.query(
+            "INSERT INTO commerce_audit(action,object_id) VALUES('team_inventory_pick',$1)",
+            [item.id],
+          );
+          output = {
+            ok: true,
+            productId: item.product_id,
+            productName:
+              catalog.find((product) => product.id === item.product_id)?.name ||
+              item.product_id,
+            credentials,
+            commission: { code: TEAM_COUPON_CODE, amountPkr: TEAM_COMMISSION_PKR },
+          };
+        }
       } else if (action === 'stock') {
         const counts = (
           await db.query(

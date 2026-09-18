@@ -187,13 +187,16 @@ CREATE TABLE IF NOT EXISTS commerce_team_users (
 );
 CREATE TABLE IF NOT EXISTS commerce_team_withdrawals (
  id uuid PRIMARY KEY,
- inventory_id uuid NOT NULL UNIQUE REFERENCES commerce_inventory(id),
+ inventory_id uuid NOT NULL REFERENCES commerce_inventory(id),
  team_email text NOT NULL,
  commission_code text NOT NULL DEFAULT 'HOR',
  commission_amount integer NOT NULL DEFAULT 50 CHECK(commission_amount>=0),
  commission_paid boolean NOT NULL DEFAULT false,
+ shared_slot integer,
  created_at timestamptz NOT NULL DEFAULT now()
 );
+CREATE UNIQUE INDEX IF NOT EXISTS commerce_team_withdrawals_inventory_unique ON commerce_team_withdrawals(inventory_id) WHERE shared_slot IS NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS commerce_team_withdrawals_shared_slot_unique ON commerce_team_withdrawals(inventory_id,shared_slot) WHERE shared_slot IS NOT NULL;
 CREATE INDEX IF NOT EXISTS commerce_team_withdrawals_created ON commerce_team_withdrawals(created_at DESC);
 CREATE TABLE IF NOT EXISTS commerce_supplier_secrets (
  provider_id text PRIMARY KEY,

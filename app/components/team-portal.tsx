@@ -164,7 +164,7 @@ export function TeamPortal() {
       {notice && <p className="team-notice" role="status">{notice}</p>}
       <section className="team-panel team-info-panel">
         <Zap size={22} />
-        <div><strong>Controlled stock pickup</strong><p>Only available local accounts appear here. One pickup reserves one account and records a PKR 50 HOR commission.</p></div>
+        <div><strong>Controlled stock pickup</strong><p>Available local accounts appear here, including unallocated shared ChatGPT Plus accounts. One pickup records a PKR 50 HOR commission.</p></div>
       </section>
       {picked && (
         <section className="team-panel team-delivery-panel">
