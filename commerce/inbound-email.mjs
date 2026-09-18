@@ -82,13 +82,12 @@ export async function authenticateInboundEmail(payload, sender, options = {}) {
   let verification;
   try { verification = await dkimVerify(raw, { ...options, resolver }); }
   finally { clearTimeout(deadline); }
-  // Reject duplicate critical headers to avoid parser/signature disagreement.
-  const critical = ['from', 'to', 'subject', 'date', 'message-id'];
+  // NayaPay signs the business-critical receipt headers below. Message-ID and
+  // MIME headers are added by mail transport and are not part of its DKIM set.
+  // Reject duplicates for the signed fields to avoid parser/signature
+  // disagreement while matching NayaPay's actual signature contract.
+  const critical = ['from', 'to', 'subject', 'date'];
   const headerLines = verification.headers?.parsed || [];
-  // MIME interpretation must also be covered by the signature when present.
-  for (const key of ['content-type', 'content-transfer-encoding', 'mime-version']) {
-    if (headerLines.some((line) => line.key === key)) critical.push(key);
-  }
   if (critical.some((key) => headerLines.filter((line) => line.key === key).length !== 1)) {
     return { email: fallback, authenticated: false, reason: 'ambiguous_original_headers' };
   }
