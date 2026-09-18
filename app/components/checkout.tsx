@@ -290,6 +290,7 @@ export function Checkout() {
   const customerDisplayExpiryMs = Number.isFinite(createdAtMs)
     ? createdAtMs + CUSTOMER_PAYMENT_DISPLAY_SECONDS * 1000
     : orderExpiryMs;
+  const PAYMENT_VERIFICATION_GRACE_SECONDS = 90;
   const secondsLeft =
     order?.status === 'pending'
       ? Math.max(
@@ -298,6 +299,16 @@ export function Checkout() {
         )
       : 0;
   const countdown = `${String(Math.floor(secondsLeft / 60)).padStart(2, '0')}:${String(secondsLeft % 60).padStart(2, '0')}`;
+  const verificationSecondsLeft =
+    order?.status === 'pending' && order.paymentSubmittedAt
+      ? Math.max(
+          0,
+          PAYMENT_VERIFICATION_GRACE_SECONDS -
+            Math.floor(
+              (now - new Date(order.paymentSubmittedAt).getTime()) / 1000,
+            ),
+        )
+      : 0;
   const supportSecondsLeft =
     order && ['review', 'expired'].includes(order.status) && order.paymentSubmittedAt
       ? Math.max(
@@ -577,21 +588,27 @@ export function Checkout() {
               <strong>PKR {order.amount.toLocaleString()}</strong>
             </div>
             <span className={`order-state ${order.status}`}>
-              {order.status === 'review' ? 'Verifying payment' : order.status}
+              {order.status === 'review'
+                ? 'Verifying payment'
+                : order.status === 'pending' && order.paymentSubmittedAt
+                  ? 'Verification pending'
+                  : order.status}
             </span>
           </div>
           {order.status === 'cancelled' && (
             <section className="description-section" role="alert">
               <h2>Order cancelled</h2>
               <p>
-                {order.supplierStatus ===
+                {order.supplierStatus === 'cancelled_without_payment'
+                  ? 'No verified payment receipt was found during the verification window. This order was cancelled and the reserved stock was released.'
+                  : order.supplierStatus ===
                 'cancelled_after_3_supplier_failures'
                   ? 'The supplier failed three times after payment verification, so this order was cancelled automatically. Please contact support to arrange a refund or replacement.'
                   : 'This order is closed and no credentials were delivered.'}
               </p>
             </section>
           )}
-          {order.status === 'pending' && (
+          {order.status === 'pending' && !order.paymentSubmittedAt && (
             <section className="description-section">
               <h2>
                 {order.paymentMethod === 'bank'
@@ -663,7 +680,22 @@ export function Checkout() {
               )}
             </section>
           )}
+          {order.status === 'pending' && order.paymentSubmittedAt && (
+            <section className="verification-state" role="status">
+              <RefreshCw size={24} />
+              <div>
+                <strong>Payment verification pending</strong>
+                <p>
+                  We are checking for a verified Postmark receipt. Keep this
+                  page open; the order will cancel automatically in{' '}
+                  {verificationSecondsLeft} second
+                  {verificationSecondsLeft === 1 ? '' : 's'} if no payment is found.
+                </p>
+              </div>
+            </section>
+          )}
           {['pending', 'expired'].includes(order.status) &&
+            !order.paymentSubmittedAt &&
             !order.transactionId && (
               <form
                 className="description-section"
@@ -1392,6 +1424,11 @@ export function CommerceAdmin() {
   const activePaymentReceiver = paymentReceivers.find((receiver: any) => receiver.active);
   const paymentReceiverLabel = (receiverId: string) =>
     paymentReceivers.find((receiver: any) => receiver.id === receiverId)?.label || receiverId || 'Unknown account';
+  const paymentNeedsReview = (row: any) =>
+    !row.verified ||
+    ['verified_no_eligible_order', 'verified_after_order_window', 'verified_multiple_eligible_orders'].includes(
+      String(row.verification_reason || ''),
+    );
   const paymentRows = (data?.payments || []).filter((row: any) => {
     const accountMatches =
       paymentReceiverFilter === 'all' ||
@@ -1400,7 +1437,7 @@ export function CommerceAdmin() {
         : row.receiver_id === paymentReceiverFilter);
     const verificationMatches =
       paymentFilter === 'all' ||
-      (paymentFilter === 'verified' ? row.verified : !row.verified);
+      (paymentFilter === 'verified' ? !paymentNeedsReview(row) : paymentNeedsReview(row));
     return accountMatches && verificationMatches;
   });
   const paymentView = useRecordView(paymentRows, (row: any) => `${row.id} ${row.subject} ${row.order_id || ''} ${row.amount} ${row.transaction_id || ''} ${paymentReceiverLabel(row.receiver_id)}`);
@@ -3419,7 +3456,7 @@ export function CommerceAdmin() {
                       <td>{money(row.amount)}</td>
                       <td>
                         <strong>
-                          {row.verified ? 'Verified receipt' : 'Needs review'}
+                          {paymentNeedsReview(row) ? 'Needs review' : 'Verified receipt'}
                         </strong>
                         <small>
                           {row.transaction_id

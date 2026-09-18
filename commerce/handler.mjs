@@ -86,6 +86,7 @@ const SUPPLIER_MAX_FAILURES = 3;
 const PROFIT_PASSWORD_HASH =
   process.env.COMMERCE_PROFIT_PASSWORD_HASH || hash(TEAM_COUPON_CODE);
 const PAYMENT_WINDOWS_MINUTES = Object.freeze({ wallet: 5, bank: 30 });
+const PAYMENT_VERIFICATION_GRACE_SECONDS = 90;
 const PAYMENT_CLAIM_IP_ALLOWLIST = new Set(
   String(process.env.PAYMENT_CLAIM_IP_ALLOWLIST || '')
     .split(',')
@@ -1669,6 +1670,38 @@ async function syncSupplierCatalog(db, force = false, keys = {}, onlyProviderId 
   return results;
 }
 async function expire(db, includeReview = true) {
+  const pendingVerification = (
+    await db.query(
+      `SELECT * FROM commerce_orders
+       WHERE status='pending' AND payment_submitted_at IS NOT NULL
+         AND payment_submitted_at < now() - ($1 * interval '1 second')`,
+      [PAYMENT_VERIFICATION_GRACE_SECONDS],
+    )
+  ).rows;
+  for (const order of pendingVerification) {
+    // Keep ambiguous or already-received receipts available for admin review;
+    // only cancel when no verified receipt exists at all.
+    const hasPayment = await hasVerifiedPaymentForOrder(db, order);
+    if (hasPayment) continue;
+    const cancelled = await db.query(
+      `UPDATE commerce_orders
+       SET status='cancelled',supplier_status='cancelled_without_payment'
+       WHERE id=$1 AND status='pending' AND payment_submitted_at IS NOT NULL
+       RETURNING id`,
+      [order.id],
+    );
+    if (!cancelled.rowCount) continue;
+    await db.query(
+      "UPDATE commerce_inventory SET state='available' WHERE id=$1 AND state='reserved'",
+      [order.inventory_id],
+    );
+    await releaseSharedSlot(db, order);
+    await releaseCoupon(db, order);
+    await db.query(
+      "INSERT INTO commerce_audit(action,object_id) VALUES('payment_verification_timeout',$1)",
+      [order.id],
+    );
+  }
   const statuses = includeReview ? "('pending','review')" : "('pending')";
   await db.query(`WITH expired AS (
       UPDATE commerce_orders SET status='expired',coupon_usage_released=CASE WHEN coupon_id IS NOT NULL THEN true ELSE coupon_usage_released END
@@ -2127,6 +2160,30 @@ async function findVerifiedPaymentForOrder(db, order) {
         )
       ).rows;
   return rows.length === 1 ? rows[0] : null;
+}
+async function hasVerifiedPaymentForOrder(db, order) {
+  const rows = order.transaction_id
+    ? (
+        await db.query(
+          `SELECT 1 FROM commerce_payments
+           WHERE verified=true AND order_id IS NULL AND amount=$2
+             AND (receiver_id=$3 OR receiver_id IS NULL)
+             AND (transaction_id=$1 OR (length($1)>=8 AND right(transaction_id,length($1))=$1))
+           LIMIT 1`,
+          [order.transaction_id, order.amount, order.receiver_id || 'primary'],
+        )
+      ).rows
+    : (
+        await db.query(
+          `SELECT 1 FROM commerce_payments
+           WHERE verified=true AND order_id IS NULL AND amount=$1
+             AND (receiver_id=$4 OR receiver_id IS NULL)
+             AND received_at>=($2::timestamptz) AND received_at<=($3::timestamptz)
+           LIMIT 1`,
+          [order.amount, order.created_at, order.expires_at, order.receiver_id || 'primary'],
+        )
+      ).rows;
+  return rows.length > 0;
 }
 async function fulfillFreeOrder(db, orderId) {
   const order = (
@@ -3108,10 +3165,11 @@ export function createHandler(
               'A transaction is already submitted. Contact support for a correction.',
             );
           await db.query(
-            "UPDATE commerce_orders SET transaction_id=COALESCE(transaction_id,$1),payment_submitted_at=COALESCE(payment_submitted_at,now()),status=CASE WHEN status='expired' THEN 'expired' ELSE 'review' END WHERE id=$2",
+            "UPDATE commerce_orders SET transaction_id=COALESCE(transaction_id,$1),payment_submitted_at=COALESCE(payment_submitted_at,now()),status=CASE WHEN status='expired' THEN 'expired' ELSE 'pending' END WHERE id=$2",
             [transaction, id],
           );
-          // Late claims stay in review and cannot automatically consume released inventory.
+          // A claim only records a verification request; it does not mark payment
+          // as received or deliver anything until a verified receipt is found.
           const matchingPayments = transaction
             ? (
                 await db.query(
@@ -3136,7 +3194,17 @@ export function createHandler(
           const payment =
             matchingPayments.length === 1 ? matchingPayments[0] : null;
           let fulfillment;
-          if (payment) {
+          if (!payment) {
+            output = {
+              ok: true,
+              status: 'verification_pending',
+              verificationWindowSeconds: PAYMENT_VERIFICATION_GRACE_SECONDS,
+            };
+          } else {
+            await db.query(
+              "UPDATE commerce_orders SET transaction_id=COALESCE(transaction_id,$1),payment_submitted_at=COALESCE(payment_submitted_at,now()),status=CASE WHEN status='expired' THEN 'expired' ELSE 'review' END WHERE id=$2",
+              [payment.transaction_id, id],
+            );
             // NayaPay's app can expose only the trailing reference digits while its
             // receipt email contains the complete prefixed transaction ID.
             await db.query(
@@ -3168,17 +3236,17 @@ export function createHandler(
                 }),
               );
             }
+            output = fulfillment?.cancelled
+              ? { ok: true, status: 'cancelled', reason: fulfillment.reason }
+              : { ok: true };
           }
-          output = fulfillment?.cancelled
-            ? { ok: true, status: 'cancelled', reason: fulfillment.reason }
-            : { ok: true };
         } else {
           // A receipt can be recorded just before the customer clicks the
           // verification button, or an earlier delivery attempt can fail
           // transiently. Retry only a single verified, unassigned payment that
           // matches this order's unique amount and receipt reference/window.
           if (
-            order.status === 'review' &&
+            ['pending', 'review'].includes(order.status) &&
             order.payment_submitted_at
           ) {
             const payment = await findVerifiedPaymentForOrder(db, order);

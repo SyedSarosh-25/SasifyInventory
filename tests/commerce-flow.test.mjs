@@ -181,7 +181,33 @@ test('ChatGPT Plus local inventory supports checkout, verification, delivery and
     assert.notEqual(secondUnique.data.amount, firstUnique.data.amount);
     const paidWithoutTransaction = await request('claim', { id: secondUnique.data.id }, secondUnique.data.recovery);
     assert.equal(paidWithoutTransaction.code, 200, JSON.stringify(paidWithoutTransaction));
-    assert.equal((await request('status', undefined, secondUnique.data.recovery, secondUnique.data.id)).data.status, 'review');
+    const pendingVerification = (await request('status', undefined, secondUnique.data.recovery, secondUnique.data.id)).data;
+    assert.equal(pendingVerification.status, 'pending');
+    assert.ok(pendingVerification.paymentSubmittedAt);
+    await request('admin-import', { productId: 'p093', accounts: 'fake-unpaid@test.invalid|fake-pass|fake-2fa', purchaseCost: 1000 }, env.COMMERCE_ADMIN_KEY);
+    const fakeUnpaid = await request('create', { productId: 'p093' });
+    assert.equal((await request('claim', { id: fakeUnpaid.data.id }, fakeUnpaid.data.recovery)).data.status, 'verification_pending');
+    await database.query("UPDATE commerce_orders SET payment_submitted_at=now()-interval '91 seconds' WHERE id=$1", [fakeUnpaid.data.id]);
+    const fakeCancelled = await request('status', undefined, fakeUnpaid.data.recovery, fakeUnpaid.data.id);
+    assert.equal(fakeCancelled.data.status, 'cancelled');
+    assert.equal(fakeCancelled.data.supplierStatus, 'cancelled_without_payment');
+    const lateTransaction = 'FAKELATE100926055571400003';
+    const latePayload = {
+      subject: `You got PKR ${fakeUnpaid.data.amount.toLocaleString()} from Bank Alfalah-0388 🎉`,
+      text: `Amount Received\nPKR ${fakeUnpaid.data.amount.toLocaleString()}\nTransaction ID\n${lateTransaction}\nSource Acc. Number\n****0388\nDestination Acc. Title\nSyed Adeen Sarosh`,
+      from: 'NayaPay <service@nayapay.com>',
+      date: new Date().toISOString(),
+      sentAt: String(Date.now()),
+      messageId: 'late-after-verification-window',
+      secret: env.NAYAPAY_WEBHOOK_SECRET,
+    };
+    latePayload.signature = signature(latePayload, env.NAYAPAY_SIGNING_KEY);
+    assert.equal((await request('email-webhook', latePayload)).code, 200);
+    const lateDashboard = await request('admin-list', undefined, env.COMMERCE_ADMIN_KEY);
+    const latePayment = lateDashboard.data.payments.find((payment) => payment.transaction_id === lateTransaction);
+    assert.ok(latePayment);
+    assert.equal(latePayment.order_id, null);
+    assert.equal(latePayment.verification_reason, 'verified_no_eligible_order');
     const uniqueTransaction = 'UNIQUEPAY100926055571425999';
     const uniquePayload = {
       subject: `You got Rs. ${secondUnique.data.amount.toLocaleString()} from Bank Alfalah-0388 🎉`,
