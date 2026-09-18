@@ -18,7 +18,6 @@ import {
 } from '../../product-about';
 import { ProductLogo } from '../../components/product-logo';
 import { StockBuy } from '../../components/checkout';
-import { SupplierLivePurchase } from '../../components/supplier-live-purchase';
 import { SiteFooter, SiteHeader } from '../../components/site-chrome';
 import { Money, OriginalPrice } from '../../components/currency';
 import { StructuredData } from '../../components/structured-data';
@@ -295,10 +294,12 @@ function SupplierSeoProductPage({ product }: { product: SupplierSeoProduct }) {
                 Review the product requirements before payment.
               </span>
             </div>
-            <SupplierLivePurchase
-              productId={product.id}
-              canonicalKey={product.canonicalKey}
-            />
+            <a
+              href={`/checkout?product=${encodeURIComponent(product.id)}`}
+              className="primary-button detail-buy"
+            >
+              <ShoppingCart className="h-5 w-5" /> Buy online
+            </a>
             <p className="order-footnote">
               WhatsApp support is available after successful payment.
             </p>

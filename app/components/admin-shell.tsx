@@ -19,7 +19,6 @@ import {
   LogOut,
   ArrowUpRight,
   MessageSquarePlus,
-  ListChecks,
 } from 'lucide-react';
 import {
   Sheet,
@@ -36,7 +35,6 @@ export const adminSections = [
   ['paymentAccounts', 'Payment accounts', WalletCards],
   ['inventory', 'Inventory', Package],
   ['supplier', 'Supplier Store', ShoppingCart],
-  ['catalogStatus', 'Catalog status', ListChecks],
   ['coupons', 'Coupons', TicketPercent],
   ['commissions', 'Commissions', BadgeDollarSign],
   ['profit', 'Profit', WalletCards],

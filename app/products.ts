@@ -10,8 +10,6 @@ export type Product = {
   sellingPricePkr: number;
   originalPrice: string;
   originalPricePkr?: number;
-  /** Used by the storefront's new-products ticker for locally published offers. */
-  publishedAt?: string;
   contactOnly?: boolean;
   variants?: ProductVariant[];
   details?: string[];
@@ -39,7 +37,6 @@ const catalogProducts: Product[] = [
     sellingPricePkr: 999,
     originalPrice: 'PKR 5,700/month',
     originalPricePkr: 5700,
-    publishedAt: '2026-09-14T18:35:53+05:00',
     sourceUrl: 'https://openai.com/chatgpt/pricing/',
     description:
       'One-month ChatGPT Plus access through a shared account. Each account is shared by up to four members, with the email and password delivered after payment verification and a one-time 2FA login code available on the original checkout device.',
@@ -91,7 +88,6 @@ const catalogProducts: Product[] = [
     sellingPricePkr: 24999,
     originalPrice: 'PKR 35,000 per seat/month',
     originalPricePkr: 35000,
-    publishedAt: '2026-09-10T12:56:41+05:00',
     sourceUrl: 'https://claude.com/pricing',
     description:
       'One-month Claude Team Premium seat for demanding writing, research, coding and document-analysis workflows, with higher usage capacity than a Standard seat.',
@@ -111,7 +107,6 @@ const catalogProducts: Product[] = [
     sellingPricePkr: 5199,
     originalPrice: 'PKR 7,500 per seat/month',
     originalPricePkr: 7500,
-    publishedAt: '2026-09-10T12:56:41+05:00',
     sourceUrl: 'https://claude.com/pricing',
     description:
       'One-month Claude Team Standard seat for AI-assisted writing, research, document analysis and coding in a team workspace.',
@@ -131,7 +126,6 @@ const catalogProducts: Product[] = [
     sellingPricePkr: 4500,
     originalPrice: 'PKR 38,000/year',
     originalPricePkr: 38000,
-    publishedAt: '2026-09-10T12:56:41+05:00',
     sourceUrl: 'https://www.hostinger.com/web-hosting',
     description:
       'Hostinger Unlimited web hosting for 12 months with generous website resources for personal and business sites.',
@@ -145,7 +139,6 @@ const catalogProducts: Product[] = [
     vendor: 'Sasify Solutions',
     sellingPricePkr: 0,
     contactOnly: true,
-    publishedAt: '2026-09-10T13:02:36+05:00',
     originalPrice: 'KVM packages from PKR 28,788',
     sourceUrl: 'https://www.hostinger.com/vps',
     description:

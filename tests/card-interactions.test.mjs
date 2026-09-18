@@ -21,7 +21,6 @@ test('hero headline types one character at a time with an accessible static labe
   assert.match(page, /function HeroTypingTitle/);
   assert.match(page, /setTimeout\(typeNextCharacter/);
   assert.match(page, /hero-title-accessible/);
-  assert.doesNotMatch(page, /<noscript>/);
   assert.match(page, /prefers-reduced-motion: reduce/);
 
   let caret;

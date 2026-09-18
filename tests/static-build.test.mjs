@@ -116,7 +116,7 @@ test('homepage, inventory and every product have populated static HTML', async (
   }
   for (const product of supplierSeoProducts.slice(0, 20)) {
     const html = await read(`products/${product.slug}.html`);
-    assert.match(html, /Buy online|Checking availability…|Currently Unavailable/);
+    assert.match(html, /Buy online/);
     assert.ok(
       html.includes(`${origin}${supplierProductHref(product)}`),
       `Canonical URL missing: ${product.slug}`,
