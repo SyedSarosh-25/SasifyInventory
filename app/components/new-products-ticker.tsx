@@ -60,7 +60,7 @@ function TickerItem({ product, duplicate = false }: { product: NewProduct; dupli
         )}
       </span>
       <span className="new-products-ticker-copy">
-        <small>{supplier ? 'New from supplier' : 'New on Sasify'}</small>
+        <small>New From Sasify</small>
         <strong>{product.name}</strong>
       </span>
       <span className="new-products-ticker-price">{formatPrice(product.price)}</span>
