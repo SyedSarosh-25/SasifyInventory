@@ -2794,6 +2794,7 @@ export function createHandler(
             ...localCatalog.map((p) => ({
               ...customerProduct(p),
                 source: 'local',
+                ...(p.publishedAt ? { publishedAt: p.publishedAt } : {}),
                 available:
                 p.id === SHARED_CHATGPT_PRODUCT_ID
                   ? Number(sharedAvailability.available || 0)
