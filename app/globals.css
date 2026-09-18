@@ -1762,11 +1762,10 @@ svg { flex-shrink: 0; }
   .new-products-ticker-inner { min-height: 0; gap: 9px; padding: 7px 12px 8px; }
   .new-products-ticker-label { gap: 6px; font-size: 0.61rem; }
   .new-products-ticker-label strong { display: inline; }
-  .new-products-ticker-viewport { flex: 1 1 auto; margin: 0; padding: 0; overflow-x: auto; mask-image: none; scrollbar-width: none; scroll-snap-type: x proximity; }
+  .new-products-ticker-viewport { flex: 1 1 auto; margin: 0; padding: 0; overflow: hidden; mask-image: none; scrollbar-width: none; }
   .new-products-ticker-viewport::-webkit-scrollbar { display: none; }
-  .new-products-ticker-track { animation: none; }
-  .new-products-ticker-group + .new-products-ticker-group { display: none; }
-  .new-products-ticker-item { min-width: 222px; min-height: 38px; padding-right: 8px; scroll-snap-align: start; }
+  .new-products-ticker-track { animation: new-products-ticker-scroll 48s linear infinite; }
+  .new-products-ticker-item { min-width: 222px; min-height: 38px; padding-right: 8px; }
   .new-products-ticker-copy strong { max-width: 125px; }
   .new-products-ticker-price { font-size: 0.63rem; }
   .new-products-ticker-stock { font-size: 0.55rem; }
