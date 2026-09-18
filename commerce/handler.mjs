@@ -717,7 +717,13 @@ async function ensurePaymentWorkflowSchema(db) {
          VALUES
            ('primary','Syed Adeen Sarosh',$1,$2,$1),
            ('secondary','Laiba Seemab Ahmad',$3,$4,$3)
-         ON CONFLICT(id) DO NOTHING`,
+         ON CONFLICT(id) DO UPDATE SET
+           label=EXCLUDED.label,
+           title=EXCLUDED.title,
+           account_number=EXCLUDED.account_number,
+           receiver_marker=EXCLUDED.receiver_marker,
+           enabled=true,
+           updated_at=now()`,
         [
           process.env.PAYMENT_ACCOUNT_TITLE || 'Syed Adeen Sarosh',
           process.env.PAYMENT_ACCOUNT_NUMBER || '03450485711',

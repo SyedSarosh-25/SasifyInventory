@@ -1102,6 +1102,7 @@ export function CommerceAdmin() {
       | 'paymentAccounts'
       | 'coupons'
       | 'scammers'
+      | 'blockedUsers'
       | 'team'
       | 'toolRequests'
     >('overview'),
