@@ -1132,6 +1132,7 @@ export function CommerceAdmin() {
     [newCouponDiscount, setNewCouponDiscount] = useState('10'),
     [newCouponMaxUses, setNewCouponMaxUses] = useState('10');
   const [paymentFilter, setPaymentFilter] = useState('all');
+  const [paymentReceiverFilter, setPaymentReceiverFilter] = useState('active');
   const seenOrderIds = useRef<Set<string>>(new Set());
   const seenSupplierAlertIds = useRef<Set<string>>(new Set());
   useEffect(() => {
@@ -1387,7 +1388,22 @@ export function CommerceAdmin() {
   };
   const orderRows = (data?.orders || []).filter(orderMatchesFilter);
   const orderView = useRecordView(orderRows, (row: any) => `${row.id} ${row.product_id} ${row.supplier_product_name || ''} ${row.supplier_name || ''} ${row.payer_name || ''} ${row.status}`);
-  const paymentView = useRecordView((data?.payments || []).filter((row: any) => paymentFilter === 'all' || (paymentFilter === 'verified' ? row.verified : !row.verified)), (row: any) => `${row.id} ${row.subject} ${row.order_id || ''} ${row.amount} ${row.transaction_id || ''}`);
+  const paymentReceivers = data?.paymentReceivers || [];
+  const activePaymentReceiver = paymentReceivers.find((receiver: any) => receiver.active);
+  const paymentReceiverLabel = (receiverId: string) =>
+    paymentReceivers.find((receiver: any) => receiver.id === receiverId)?.label || receiverId || 'Unknown account';
+  const paymentRows = (data?.payments || []).filter((row: any) => {
+    const accountMatches =
+      paymentReceiverFilter === 'all' ||
+      (paymentReceiverFilter === 'active'
+        ? row.receiver_id === activePaymentReceiver?.id
+        : row.receiver_id === paymentReceiverFilter);
+    const verificationMatches =
+      paymentFilter === 'all' ||
+      (paymentFilter === 'verified' ? row.verified : !row.verified);
+    return accountMatches && verificationMatches;
+  });
+  const paymentView = useRecordView(paymentRows, (row: any) => `${row.id} ${row.subject} ${row.order_id || ''} ${row.amount} ${row.transaction_id || ''} ${paymentReceiverLabel(row.receiver_id)}`);
   const orderFilterCount = (filter: (typeof orderFilterOptions)[number][0]) =>
     (data?.orders || []).filter((row: any) => {
       if (filter === 'all') return true;
@@ -3303,6 +3319,7 @@ export function CommerceAdmin() {
                     disabled={busy || receiver.active}
                     onClick={() => void run(async () => {
                       await api('admin-payment-receiver-switch', key, { receiverId: receiver.id });
+                      setPaymentReceiverFilter('active');
                       setNotice(`${receiver.title} is now the active payment account.`);
                       await refresh();
                     })}
@@ -3332,6 +3349,42 @@ export function CommerceAdmin() {
             <div className="order-filter-bar" aria-label="Payment verification filters">
               {['all', 'verified', 'review'].map(value => <button key={value} type="button" aria-pressed={paymentFilter === value} className={paymentFilter === value ? 'active' : ''} onClick={() => { setPaymentFilter(value); paymentView.setPage(1); }}>{value === 'all' ? 'All payments' : value === 'verified' ? 'Verified receipts' : 'Needs review'}</button>)}
             </div>
+            <div className="order-filter-bar" aria-label="Payment receiving account filters">
+              <button
+                type="button"
+                aria-pressed={paymentReceiverFilter === 'active'}
+                className={paymentReceiverFilter === 'active' ? 'active' : ''}
+                onClick={() => { setPaymentReceiverFilter('active'); paymentView.setPage(1); }}
+              >
+                Current account{activePaymentReceiver ? ` · ${activePaymentReceiver.label}` : ''}
+              </button>
+              <button
+                type="button"
+                aria-pressed={paymentReceiverFilter === 'all'}
+                className={paymentReceiverFilter === 'all' ? 'active' : ''}
+                onClick={() => { setPaymentReceiverFilter('all'); paymentView.setPage(1); }}
+              >
+                All accounts
+              </button>
+              {paymentReceivers.map((receiver: any) => (
+                <button
+                  key={receiver.id}
+                  type="button"
+                  aria-pressed={paymentReceiverFilter === receiver.id}
+                  className={paymentReceiverFilter === receiver.id ? 'active' : ''}
+                  onClick={() => { setPaymentReceiverFilter(receiver.id); paymentView.setPage(1); }}
+                >
+                  {receiver.label}
+                </button>
+              ))}
+            </div>
+            <p className="order-filter-summary">
+              Showing receipts received by {paymentReceiverFilter === 'all'
+                ? 'all payment accounts'
+                : paymentReceiverFilter === 'active'
+                  ? (activePaymentReceiver?.label || 'the current account')
+                  : paymentReceiverLabel(paymentReceiverFilter)}.
+            </p>
             <AdminRecordControls view={paymentView} label="payments" />
             {!paymentView.count && <p>No payments match these filters.</p>}
             <div className="commerce-table">
@@ -3360,6 +3413,7 @@ export function CommerceAdmin() {
                           {row.subject}
                         </button>
                         <small>{row.id.slice(0, 8)}</small>
+                        <small>{paymentReceiverLabel(row.receiver_id)}</small>
                       </td>
                       <td>{money(row.amount)}</td>
                       <td>

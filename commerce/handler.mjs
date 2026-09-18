@@ -3887,7 +3887,7 @@ export function createHandler(
           ).rows,
           payments: (
             await db.query(
-              'SELECT id,amount,subject,transaction_id,payer_name,source_last4,verified,verification_reason,order_id,received_at,created_at FROM commerce_payments ORDER BY created_at DESC LIMIT 100',
+              'SELECT id,amount,subject,transaction_id,payer_name,source_last4,verified,verification_reason,order_id,receiver_id,received_at,created_at FROM commerce_payments ORDER BY created_at DESC LIMIT 100',
             )
           ).rows,
           stock: (
