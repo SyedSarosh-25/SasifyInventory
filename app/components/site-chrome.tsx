@@ -2,6 +2,7 @@ import { ArrowRight, MessageCircle } from 'lucide-react';
 import { favicon, whatsappLink } from '../product-utils';
 import { CurrencyToggle } from './currency';
 import { founderProfile, socials } from '../site-config';
+import { NewProductsTicker } from './new-products-ticker';
 
 export function SiteHeader() {
   return (
@@ -22,6 +23,7 @@ export function SiteHeader() {
           </a>
         </div>
       </nav>
+      <NewProductsTicker />
     </header>
   );
 }

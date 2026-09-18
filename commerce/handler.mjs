@@ -1206,6 +1206,9 @@ async function ensureSupplierMediaSchema(db) {
       await db.query(
         'ALTER TABLE commerce_supplier_products ADD COLUMN IF NOT EXISTS requires_customer_email boolean NOT NULL DEFAULT false',
       );
+      await db.query(
+        'ALTER TABLE commerce_supplier_products ADD COLUMN IF NOT EXISTS first_seen_at timestamptz NOT NULL DEFAULT now()',
+      );
     })()
       .catch((error) => {
         supplierMediaSchemaReady = null;
@@ -2621,10 +2624,10 @@ export function createHandler(
         ).rows[0] || { available: 0, slots_filled: 0, slots_total: 0 };
         const supplierProducts = (
           await db.query(`WITH ranked AS (
-        SELECT id,name,description,delivery_instruction,logo_url,requires_customer_email,selling_price AS price,supplier_stock AS available,provider_id,provider_name,canonical_key,
+        SELECT id,name,description,delivery_instruction,logo_url,requires_customer_email,selling_price AS price,supplier_stock AS available,provider_id,provider_name,canonical_key,first_seen_at,
           row_number() OVER(PARTITION BY canonical_key ORDER BY cost_pkr ASC NULLS LAST,wholesale_price ASC,id) AS choice
         FROM commerce_supplier_products WHERE enabled=true AND selling_price IS NOT NULL AND supplier_stock>0)
-        SELECT id,name,description,delivery_instruction,logo_url,requires_customer_email,price,available,provider_id,provider_name,canonical_key FROM ranked WHERE choice=1 ORDER BY name`)
+        SELECT id,name,description,delivery_instruction,logo_url,requires_customer_email,price,available,provider_id,provider_name,canonical_key,first_seen_at FROM ranked WHERE choice=1 ORDER BY name`)
         ).rows.filter((product) => !isChatGptPlusProduct(product.name));
         const supplierTotal = Number(
           (
@@ -2678,6 +2681,7 @@ export function createHandler(
               ...customerProduct(p),
               id: p.canonical_key,
               source: 'supplier',
+              firstSeenAt: p.first_seen_at,
             })),
           ],
           productCount: visibleCatalog.length + supplierTotal,
