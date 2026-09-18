@@ -1570,8 +1570,14 @@ export function CommerceAdmin() {
       {tab === 'catalogStatus' && (
         <AdminCatalogStatus
           products={data?.supplierProducts || []}
-          onManage={() => {
-            setSupplierSearch('');
+          onManage={(product) => {
+            const provider = product.provider_id === 'dody' ? 'dodi' : product.provider_id;
+            setSupplierSearch(product.name);
+            setSupplierProvider(
+              ['dodi', 'qamify', 'mke', 'piggyai', 'zoomstore', 'fatbunny', 'elitetools'].includes(String(provider))
+                ? provider as typeof supplierProvider
+                : 'all',
+            );
             setTab('supplier');
           }}
         />

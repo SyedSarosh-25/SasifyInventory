@@ -47,15 +47,17 @@ function StatusList({
   status,
   products,
   onManage,
+  id,
 }: {
   status: keyof typeof statusConfig;
   products: SupplierCatalogStatusProduct[];
-  onManage: () => void;
+  onManage: (product: SupplierCatalogStatusProduct) => void;
+  id: string;
 }) {
   const config = statusConfig[status];
   const Icon = config.icon;
   return (
-    <section className={`admin-panel catalog-status-section ${config.className}`}>
+    <section id={id} className={`admin-panel catalog-status-section ${config.className}`} role="tabpanel" aria-labelledby={`${id}-tab`}>
       <div className="panel-heading catalog-status-section-heading">
         <div>
           <span className="admin-eyebrow"><Icon size={15} /> {supplierStatusLabel(status)}</span>
@@ -77,7 +79,7 @@ function StatusList({
                 <span><b>Selling price</b>{money(product.selling_price)}</span>
                 <span><b>Website</b>{product.enabled === true ? 'Enabled' : 'Not enabled'}</span>
               </div>
-              <button type="button" className="secondary-button compact" onClick={onManage}>
+              <button type="button" className="secondary-button compact" onClick={() => onManage(product)}>
                 Manage <ArrowRight size={15} />
               </button>
             </article>
@@ -98,9 +100,10 @@ export function AdminCatalogStatus({
   onManage,
 }: {
   products: SupplierCatalogStatusProduct[];
-  onManage: () => void;
+  onManage: (product: SupplierCatalogStatusProduct) => void;
 }) {
   const [query, setQuery] = useState('');
+  const [activeStatus, setActiveStatus] = useState<keyof typeof statusConfig>('live');
   const grouped = useMemo(() => {
     const normalized = query.trim().toLowerCase();
     const matching = products.filter((product) =>
@@ -136,17 +139,29 @@ export function AdminCatalogStatus({
           />
         </label>
       </section>
-      <div className="catalog-status-summary" aria-label="Catalog status summary">
+      <div className="catalog-status-summary" role="tablist" aria-label="Catalog status lists">
         {(Object.keys(statusConfig) as Array<keyof typeof statusConfig>).map((status) => (
-          <div className={`catalog-status-summary-card ${statusConfig[status].className}`} key={status}>
+          <button
+            type="button"
+            role="tab"
+            id={`catalog-status-${status}-tab`}
+            aria-selected={activeStatus === status}
+            aria-controls={`catalog-status-${status}`}
+            className={`catalog-status-summary-card ${statusConfig[status].className}${activeStatus === status ? ' active' : ''}`}
+            key={status}
+            onClick={() => setActiveStatus(status)}
+          >
             <span>{statusConfig[status].title}</span>
             <strong>{grouped[status].length}</strong>
-          </div>
+          </button>
         ))}
       </div>
-      {(Object.keys(statusConfig) as Array<keyof typeof statusConfig>).map((status) => (
-        <StatusList key={status} status={status} products={grouped[status]} onManage={onManage} />
-      ))}
+      <StatusList
+        status={activeStatus}
+        products={grouped[activeStatus]}
+        onManage={onManage}
+        id={`catalog-status-${activeStatus}`}
+      />
       {grouped.unconfigured.length > 0 && (
         <p className="catalog-status-note">
           {grouped.unconfigured.length} supplier record(s) have no stock and no selling price, so they are kept out of the three action groups above.

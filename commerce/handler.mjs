@@ -972,14 +972,74 @@ function automaticCostPkr(price, currency) {
     return Math.ceil(price * supplierUsdRate());
   return null;
 }
-function automaticProductKey(name) {
-  const normalized = String(name || '')
+const automaticProductNoise = new Set([
+  'a', 'an', 'the', 'api', 'cdk', 'comes', 'd', 'day', 'days', 'for', 'full',
+  'has', 'included', 'm', 'mo', 'month', 'months', 'no', 'not', 'nw', 'fw',
+  'pre', 'order', 'preorder', 'warranty', 'week', 'weeks', 'with', 'without',
+  'y', 'year', 'years', 'code', 'codes', 'link', 'links', 'promotion',
+  'promotional', 'promo', 'account', 'accounts', 'slot', 'official', 'package',
+  'packages', 'plan', 'plans', 'access', 'upgrade', 'upgrading',
+]);
+const durationUnit = /^(?:d|day|days|m|mo|month|months|y|year|years)$/;
+const compactDuration = /^(\d+)(d|day|days|m|mo|month|months|y|year|years)$/;
+function supplierOfferGroupKey(name) {
+  const rawTokens = String(name || '')
     .normalize('NFKD')
     .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, 180);
+    .replace(/(\d),(?=\d)/g, '$1')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+  const tokens = [];
+  for (let index = 0; index < rawTokens.length; index += 1) {
+    const token = rawTokens[index];
+    const next = rawTokens[index + 1] || '';
+    const afterNext = rawTokens[index + 2] || '';
+    if (/^\d+$/.test(token) && durationUnit.test(next)) {
+      const unit = next.startsWith('d') ? 'd' : next.startsWith('y') ? 'y' : 'm';
+      const isCreditAmount = unit === 'm' && /^(?:credit|credits|token|tokens)$/.test(afterNext);
+      tokens.push(isCreditAmount ? `${token}${next}` : `${token}${unit}`);
+      index += 1;
+      continue;
+    }
+    const compact = token.match(compactDuration);
+    if (compact) {
+      const unit = compact[2].startsWith('d') ? 'd' : compact[2].startsWith('y') ? 'y' : 'm';
+      const isCreditAmount = unit === 'm' && /^(?:credit|credits|token|tokens)$/.test(next);
+      tokens.push(isCreditAmount ? token : `${compact[1]}${unit}`);
+      continue;
+    }
+    if (!automaticProductNoise.has(token)) tokens.push(token);
+  }
+  return tokens.sort().join('-').slice(0, 180);
+}
+function supplierProductSelectionKey(product) {
+  const canonical = String(product.canonical_key || '').trim();
+  if (product.canonical_manual && canonical) return `manual:${canonical}`;
+  return `automatic:${supplierOfferGroupKey(product.name) || canonical || product.id}`;
+}
+function supplierCostOrder(left, right) {
+  const costDifference = (Number.isFinite(Number(left.cost_pkr)) ? Number(left.cost_pkr) : Number.POSITIVE_INFINITY)
+    - (Number.isFinite(Number(right.cost_pkr)) ? Number(right.cost_pkr) : Number.POSITIVE_INFINITY);
+  if (costDifference) return costDifference;
+  const wholesaleDifference = (Number.isFinite(Number(left.wholesale_price)) ? Number(left.wholesale_price) : Number.POSITIVE_INFINITY)
+    - (Number.isFinite(Number(right.wholesale_price)) ? Number(right.wholesale_price) : Number.POSITIVE_INFINITY);
+  if (wholesaleDifference) return wholesaleDifference;
+  return String(left.id).localeCompare(String(right.id));
+}
+function cheapestSupplierProducts(rows) {
+  const selected = new Map();
+  for (const row of rows) {
+    const key = supplierProductSelectionKey(row);
+    const previous = selected.get(key);
+    if (!previous || supplierCostOrder(row, previous) < 0) selected.set(key, row);
+  }
+  return [...selected.values()].sort((left, right) => String(left.name).localeCompare(String(right.name)));
+}
+function automaticProductKey(name) {
+  const normalized = supplierOfferGroupKey(name);
   return normalized ? `auto:${normalized}` : null;
 }
 const localInventoryProductIds = (productId) =>
@@ -1882,11 +1942,13 @@ async function fulfill(
       throw fail(409, 'Supplier product is unavailable. Contact support.');
     const candidates = (
       await db.query(
-        `SELECT * FROM commerce_supplier_products WHERE canonical_key=$1 AND enabled=true AND selling_price IS NOT NULL
-      AND selling_price<=$2 AND supplier_stock>0 ORDER BY cost_pkr ASC NULLS LAST,wholesale_price ASC,id FOR UPDATE`,
-        [selected.canonical_key, Number(order.listed_amount ?? order.amount)],
+        `SELECT * FROM commerce_supplier_products WHERE enabled=true AND selling_price IS NOT NULL
+      AND selling_price<=$1 AND supplier_stock>0 FOR UPDATE`,
+        [Number(order.listed_amount ?? order.amount)],
       )
-    ).rows;
+    ).rows
+      .filter((candidate) => supplierProductSelectionKey(candidate) === supplierProductSelectionKey(selected))
+      .sort(supplierCostOrder);
     if (
       !candidates.some((product) => product.id === selected.id) &&
       selected.supplier_stock > 0
@@ -2622,20 +2684,16 @@ export function createHandler(
                AND i.state IN ('available','reserved','delivered')`,
           )
         ).rows[0] || { available: 0, slots_filled: 0, slots_total: 0 };
-        const supplierProducts = (
-          await db.query(`WITH ranked AS (
-        SELECT id,name,description,delivery_instruction,logo_url,requires_customer_email,selling_price AS price,supplier_stock AS available,provider_id,provider_name,canonical_key,first_seen_at,
-          row_number() OVER(PARTITION BY canonical_key ORDER BY cost_pkr ASC NULLS LAST,wholesale_price ASC,id) AS choice
-        FROM commerce_supplier_products WHERE enabled=true AND selling_price IS NOT NULL AND supplier_stock>0)
-        SELECT id,name,description,delivery_instruction,logo_url,requires_customer_email,price,available,provider_id,provider_name,canonical_key,first_seen_at FROM ranked WHERE choice=1 ORDER BY name`)
-        ).rows.filter((product) => !isChatGptPlusProduct(product.name));
-        const supplierTotal = Number(
+        const supplierProducts = cheapestSupplierProducts(
           (
-            await db.query(
-              "SELECT count(*)::int AS count FROM commerce_supplier_products WHERE lower(name) NOT LIKE '%chatgpt plus%'",
-            )
-          ).rows[0]?.count || 0,
-        );
+            await db.query(`SELECT id,name,description,delivery_instruction,logo_url,requires_customer_email,
+              selling_price AS price,supplier_stock AS available,provider_id,provider_name,canonical_key,
+              canonical_manual,cost_pkr,wholesale_price,first_seen_at
+              FROM commerce_supplier_products
+              WHERE enabled=true AND selling_price IS NOT NULL AND supplier_stock>0`)
+          ).rows,
+        ).filter((product) => !isChatGptPlusProduct(product.name));
+        const supplierTotal = supplierProducts.length;
         const catalogSyncedAt =
           (
             await db.query(
@@ -2802,20 +2860,24 @@ export function createHandler(
         let product = catalog.find((p) => p.id === body.productId);
         let supplierProduct;
         if (!product) {
-          const requested = (
+          const requestedRows = (
             await db.query(
-              'SELECT canonical_key FROM commerce_supplier_products WHERE (id=$1 OR canonical_key=$1) AND enabled=true AND selling_price IS NOT NULL',
+              'SELECT * FROM commerce_supplier_products WHERE (id=$1 OR canonical_key=$1) AND enabled=true AND selling_price IS NOT NULL',
               [body.productId],
             )
-          ).rows[0];
-          if (requested)
-            supplierProduct = (
+          ).rows;
+          const requested = requestedRows.find((row) => row.id === body.productId) || requestedRows[0];
+          if (requested) {
+            const candidates = (
               await db.query(
-                `SELECT * FROM commerce_supplier_products WHERE canonical_key=$1 AND enabled=true AND selling_price IS NOT NULL
-          AND supplier_stock>0 ORDER BY cost_pkr ASC NULLS LAST,wholesale_price ASC,id FOR UPDATE SKIP LOCKED LIMIT 1`,
-                [requested.canonical_key],
+                `SELECT * FROM commerce_supplier_products WHERE enabled=true AND selling_price IS NOT NULL
+                 AND supplier_stock>0 FOR UPDATE SKIP LOCKED`,
               )
-            ).rows[0];
+            ).rows
+              .filter((row) => supplierProductSelectionKey(row) === supplierProductSelectionKey(requested))
+              .sort(supplierCostOrder);
+            supplierProduct = candidates[0];
+          }
         if (supplierProduct)
             product = {
               id: supplierProduct.id,

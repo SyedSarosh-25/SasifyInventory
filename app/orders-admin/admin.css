@@ -481,6 +481,7 @@
 }
 .catalog-status-summary-card {
   display: flex;
+  width: 100%;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
@@ -488,6 +489,21 @@
   border: 1px solid #dbe4ef;
   border-radius: 10px;
   background: #fff;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+  transition: border-color 140ms ease, box-shadow 140ms ease, transform 140ms ease;
+}
+.catalog-status-summary-card:hover,
+.catalog-status-summary-card.active {
+  border-color: #285cff;
+  box-shadow: 0 8px 20px rgba(40, 92, 255, .12);
+  transform: translateY(-1px);
+}
+.catalog-status-summary-card:focus-visible {
+  outline: 3px solid #60a5fa;
+  outline-offset: 3px;
 }
 .catalog-status-summary-card span {
   color: #475569;
