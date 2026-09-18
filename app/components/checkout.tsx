@@ -4,6 +4,7 @@ import { AdminShell } from './admin-shell';
 import { AdminOperations } from './admin-operations';
 import { AdminRecordControls, useRecordView } from './admin-record-controls';
 import { AdminToolRequests } from './admin-tool-requests';
+import { AdminCatalogStatus } from './admin-catalog-status';
 import {
   ClipboardList,
   Copy,
@@ -1107,6 +1108,7 @@ export function CommerceAdmin() {
       | 'commissions'
       | 'inventory'
       | 'supplier'
+      | 'catalogStatus'
       | 'orders'
       | 'payments'
       | 'paymentAccounts'
@@ -1563,6 +1565,16 @@ export function CommerceAdmin() {
             </button>
           )}
         </label>
+      )}
+
+      {tab === 'catalogStatus' && (
+        <AdminCatalogStatus
+          products={data?.supplierProducts || []}
+          onManage={() => {
+            setSupplierSearch('');
+            setTab('supplier');
+          }}
+        />
       )}
 
       {tab === 'coupons' && (
