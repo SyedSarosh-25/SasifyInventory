@@ -133,7 +133,7 @@ export function NewProductsTicker() {
       <div className="new-products-ticker-inner">
         <div className="new-products-ticker-label">
           <Megaphone className="h-4 w-4" aria-hidden="true" />
-          <strong>Full Inventory</strong>
+          <strong>New Releases</strong>
         </div>
         <div className="new-products-ticker-viewport">
           <div className="new-products-ticker-track">
