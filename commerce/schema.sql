@@ -87,8 +87,7 @@ CREATE TABLE IF NOT EXISTS commerce_supplier_products (
  selling_price integer CHECK(selling_price>0),
  enabled boolean NOT NULL DEFAULT false,
  requires_customer_email boolean NOT NULL DEFAULT false,
- synced_at timestamptz NOT NULL DEFAULT now(),
- first_seen_at timestamptz NOT NULL DEFAULT now()
+ synced_at timestamptz NOT NULL DEFAULT now()
 );
 ALTER TABLE commerce_supplier_products ADD COLUMN IF NOT EXISTS logo_url text;
 ALTER TABLE commerce_supplier_products ADD COLUMN IF NOT EXISTS requires_customer_email boolean NOT NULL DEFAULT false;

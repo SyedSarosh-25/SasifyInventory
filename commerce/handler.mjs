@@ -356,9 +356,6 @@ async function notifyTelegram(message) {
     clearTimeout(timeout);
   }
 }
-function paymentVerifiedMessage({ orderId, amount, transactionId, receiverTitle }) {
-  return `Payment verified\nOrder: ${String(orderId || '').slice(0, 8)}\nAmount: PKR ${Number(amount || 0).toLocaleString()}\nTransaction: ${String(transactionId || 'matched').slice(0, 80)}${receiverTitle ? `\nReceiver: ${String(receiverTitle).slice(0, 100)}` : ''}`;
-}
 function supplierIssueMessage(log) {
   if (!log) return '';
   const status = log.responseStatus ? `HTTP ${log.responseStatus}` : 'No HTTP response';
@@ -972,74 +969,14 @@ function automaticCostPkr(price, currency) {
     return Math.ceil(price * supplierUsdRate());
   return null;
 }
-const automaticProductNoise = new Set([
-  'a', 'an', 'the', 'api', 'cdk', 'comes', 'd', 'day', 'days', 'for', 'full',
-  'has', 'included', 'm', 'mo', 'month', 'months', 'no', 'not', 'nw', 'fw',
-  'pre', 'order', 'preorder', 'warranty', 'week', 'weeks', 'with', 'without',
-  'y', 'year', 'years', 'code', 'codes', 'link', 'links', 'promotion',
-  'promotional', 'promo', 'account', 'accounts', 'slot', 'official', 'package',
-  'packages', 'plan', 'plans', 'access', 'upgrade', 'upgrading',
-]);
-const durationUnit = /^(?:d|day|days|m|mo|month|months|y|year|years)$/;
-const compactDuration = /^(\d+)(d|day|days|m|mo|month|months|y|year|years)$/;
-function supplierOfferGroupKey(name) {
-  const rawTokens = String(name || '')
+function automaticProductKey(name) {
+  const normalized = String(name || '')
     .normalize('NFKD')
     .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase()
-    .replace(/(\d),(?=\d)/g, '$1')
-    .replace(/[^a-z0-9]+/g, ' ')
-    .trim()
-    .split(/\s+/)
-    .filter(Boolean);
-  const tokens = [];
-  for (let index = 0; index < rawTokens.length; index += 1) {
-    const token = rawTokens[index];
-    const next = rawTokens[index + 1] || '';
-    const afterNext = rawTokens[index + 2] || '';
-    if (/^\d+$/.test(token) && durationUnit.test(next)) {
-      const unit = next.startsWith('d') ? 'd' : next.startsWith('y') ? 'y' : 'm';
-      const isCreditAmount = unit === 'm' && /^(?:credit|credits|token|tokens)$/.test(afterNext);
-      tokens.push(isCreditAmount ? `${token}${next}` : `${token}${unit}`);
-      index += 1;
-      continue;
-    }
-    const compact = token.match(compactDuration);
-    if (compact) {
-      const unit = compact[2].startsWith('d') ? 'd' : compact[2].startsWith('y') ? 'y' : 'm';
-      const isCreditAmount = unit === 'm' && /^(?:credit|credits|token|tokens)$/.test(next);
-      tokens.push(isCreditAmount ? token : `${compact[1]}${unit}`);
-      continue;
-    }
-    if (!automaticProductNoise.has(token)) tokens.push(token);
-  }
-  return tokens.sort().join('-').slice(0, 180);
-}
-function supplierProductSelectionKey(product) {
-  const canonical = String(product.canonical_key || '').trim();
-  if (product.canonical_manual && canonical) return `manual:${canonical}`;
-  return `automatic:${supplierOfferGroupKey(product.name) || canonical || product.id}`;
-}
-function supplierCostOrder(left, right) {
-  const costDifference = (Number.isFinite(Number(left.cost_pkr)) ? Number(left.cost_pkr) : Number.POSITIVE_INFINITY)
-    - (Number.isFinite(Number(right.cost_pkr)) ? Number(right.cost_pkr) : Number.POSITIVE_INFINITY);
-  if (costDifference) return costDifference;
-  const wholesaleDifference = (Number.isFinite(Number(left.wholesale_price)) ? Number(left.wholesale_price) : Number.POSITIVE_INFINITY)
-    - (Number.isFinite(Number(right.wholesale_price)) ? Number(right.wholesale_price) : Number.POSITIVE_INFINITY);
-  if (wholesaleDifference) return wholesaleDifference;
-  return String(left.id).localeCompare(String(right.id));
-}
-function cheapestSupplierProducts(rows) {
-  const selected = new Map();
-  for (const row of rows) {
-    const key = supplierProductSelectionKey(row);
-    const previous = selected.get(key);
-    if (!previous || supplierCostOrder(row, previous) < 0) selected.set(key, row);
-  }
-  return [...selected.values()].sort((left, right) => String(left.name).localeCompare(String(right.name)));
-}
-function automaticProductKey(name) {
-  const normalized = supplierOfferGroupKey(name);
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 180);
   return normalized ? `auto:${normalized}` : null;
 }
 const localInventoryProductIds = (productId) =>
@@ -1265,9 +1202,6 @@ async function ensureSupplierMediaSchema(db) {
       );
       await db.query(
         'ALTER TABLE commerce_supplier_products ADD COLUMN IF NOT EXISTS requires_customer_email boolean NOT NULL DEFAULT false',
-      );
-      await db.query(
-        'ALTER TABLE commerce_supplier_products ADD COLUMN IF NOT EXISTS first_seen_at timestamptz NOT NULL DEFAULT now()',
       );
     })()
       .catch((error) => {
@@ -1508,18 +1442,6 @@ async function releaseSharedSlot(db, order) {
       [order.id],
     );
 }
-async function cancelUnpaidOrder(db, order) {
-  await db.query(
-    "UPDATE commerce_orders SET status='cancelled',supplier_status='cancelled_without_payment' WHERE id=$1",
-    [order.id],
-  );
-  await db.query(
-    "UPDATE commerce_inventory SET state='available' WHERE id=$1 AND state='reserved'",
-    [order.inventory_id],
-  );
-  await releaseSharedSlot(db, order);
-  await releaseCoupon(db, order);
-}
 async function reserveSharedAccount(db) {
   const shared = (
     await db.query(
@@ -1642,17 +1564,10 @@ async function syncSupplierCatalog(db, force = false, keys = {}, onlyProviderId 
       if (fresh) continue;
     }
     const synced = await provider.catalog();
-    const seenProductIds = new Set();
     let accepted = 0;
     for (const product of synced.products) {
       const wholesale = Number(product.wholesale_price),
         stock = Number(product.stock);
-      if (product.id) {
-        const externalId = String(product.id);
-        seenProductIds.add(
-          provider.id === 'dodi' ? externalId : `${provider.id}:${externalId}`,
-        );
-      }
       if (
         !product.id ||
         !product.name ||
@@ -1703,14 +1618,6 @@ async function syncSupplierCatalog(db, force = false, keys = {}, onlyProviderId 
       );
       accepted++;
     }
-    // A successful catalog response is authoritative for this provider. Products
-    // omitted by it must not keep advertising the stock from an older sync.
-    await db.query(
-      `UPDATE commerce_supplier_products
-       SET supplier_stock=0,enabled=false
-       WHERE provider_id=$1 AND NOT (id=ANY($2::text[])) AND (supplier_stock>0 OR enabled=true)`,
-      [provider.id, [...seenProductIds]],
-    );
     await db.query(
       `INSERT INTO commerce_provider_state(provider_id,provider_name,balance,currency,synced_at) VALUES($1,$2,$3,$4,now())
       ON CONFLICT(provider_id) DO UPDATE SET provider_name=excluded.provider_name,balance=excluded.balance,currency=excluded.currency,synced_at=now()`,
@@ -1942,13 +1849,11 @@ async function fulfill(
       throw fail(409, 'Supplier product is unavailable. Contact support.');
     const candidates = (
       await db.query(
-        `SELECT * FROM commerce_supplier_products WHERE enabled=true AND selling_price IS NOT NULL
-      AND selling_price<=$1 AND supplier_stock>0 FOR UPDATE`,
-        [Number(order.listed_amount ?? order.amount)],
+        `SELECT * FROM commerce_supplier_products WHERE canonical_key=$1 AND enabled=true AND selling_price IS NOT NULL
+      AND selling_price<=$2 AND supplier_stock>0 ORDER BY cost_pkr ASC NULLS LAST,wholesale_price ASC,id FOR UPDATE`,
+        [selected.canonical_key, Number(order.listed_amount ?? order.amount)],
       )
-    ).rows
-      .filter((candidate) => supplierProductSelectionKey(candidate) === supplierProductSelectionKey(selected))
-      .sort(supplierCostOrder);
+    ).rows;
     if (
       !candidates.some((product) => product.id === selected.id) &&
       selected.supplier_stock > 0
@@ -2684,16 +2589,20 @@ export function createHandler(
                AND i.state IN ('available','reserved','delivered')`,
           )
         ).rows[0] || { available: 0, slots_filled: 0, slots_total: 0 };
-        const supplierProducts = cheapestSupplierProducts(
+        const supplierProducts = (
+          await db.query(`WITH ranked AS (
+        SELECT id,name,description,delivery_instruction,logo_url,requires_customer_email,selling_price AS price,supplier_stock AS available,provider_id,provider_name,canonical_key,
+          row_number() OVER(PARTITION BY canonical_key ORDER BY cost_pkr ASC NULLS LAST,wholesale_price ASC,id) AS choice
+        FROM commerce_supplier_products WHERE enabled=true AND selling_price IS NOT NULL AND supplier_stock>0)
+        SELECT id,name,description,delivery_instruction,logo_url,requires_customer_email,price,available,provider_id,provider_name,canonical_key FROM ranked WHERE choice=1 ORDER BY name`)
+        ).rows.filter((product) => !isChatGptPlusProduct(product.name));
+        const supplierTotal = Number(
           (
-            await db.query(`SELECT id,name,description,delivery_instruction,logo_url,requires_customer_email,
-              selling_price AS price,supplier_stock AS available,provider_id,provider_name,canonical_key,
-              canonical_manual,cost_pkr,wholesale_price,first_seen_at
-              FROM commerce_supplier_products
-              WHERE enabled=true AND selling_price IS NOT NULL AND supplier_stock>0`)
-          ).rows,
-        ).filter((product) => !isChatGptPlusProduct(product.name));
-        const supplierTotal = supplierProducts.length;
+            await db.query(
+              "SELECT count(*)::int AS count FROM commerce_supplier_products WHERE lower(name) NOT LIKE '%chatgpt plus%'",
+            )
+          ).rows[0]?.count || 0,
+        );
         const catalogSyncedAt =
           (
             await db.query(
@@ -2739,7 +2648,6 @@ export function createHandler(
               ...customerProduct(p),
               id: p.canonical_key,
               source: 'supplier',
-              firstSeenAt: p.first_seen_at,
             })),
           ],
           productCount: visibleCatalog.length + supplierTotal,
@@ -2860,24 +2768,20 @@ export function createHandler(
         let product = catalog.find((p) => p.id === body.productId);
         let supplierProduct;
         if (!product) {
-          const requestedRows = (
+          const requested = (
             await db.query(
-              'SELECT * FROM commerce_supplier_products WHERE (id=$1 OR canonical_key=$1) AND enabled=true AND selling_price IS NOT NULL',
+              'SELECT canonical_key FROM commerce_supplier_products WHERE (id=$1 OR canonical_key=$1) AND enabled=true AND selling_price IS NOT NULL',
               [body.productId],
             )
-          ).rows;
-          const requested = requestedRows.find((row) => row.id === body.productId) || requestedRows[0];
-          if (requested) {
-            const candidates = (
+          ).rows[0];
+          if (requested)
+            supplierProduct = (
               await db.query(
-                `SELECT * FROM commerce_supplier_products WHERE enabled=true AND selling_price IS NOT NULL
-                 AND supplier_stock>0 FOR UPDATE SKIP LOCKED`,
+                `SELECT * FROM commerce_supplier_products WHERE canonical_key=$1 AND enabled=true AND selling_price IS NOT NULL
+          AND supplier_stock>0 ORDER BY cost_pkr ASC NULLS LAST,wholesale_price ASC,id FOR UPDATE SKIP LOCKED LIMIT 1`,
+                [requested.canonical_key],
               )
-            ).rows
-              .filter((row) => supplierProductSelectionKey(row) === supplierProductSelectionKey(requested))
-              .sort(supplierCostOrder);
-            supplierProduct = candidates[0];
-          }
+            ).rows[0];
         if (supplierProduct)
             product = {
               id: supplierProduct.id,
@@ -3050,6 +2954,7 @@ export function createHandler(
           paymentMethod: selectedPaymentMethod,
           paymentWindowMinutes,
         };
+        telegramMessages.push(`New order placed\nOrder: ${id.slice(0, 8)}\nProduct: ${String(product.name || product.id).slice(0, 120)}\nAmount: PKR ${paymentAmount.toLocaleString()}${isTeamCoupon ? '\nTeam coupon: HOR' : commissionCode ? `\nCoupon: ${commissionCode}` : ''}`);
       } else if (action === 'shared-2fa-code') {
         if (!idOk(body.id)) throw fail(400, 'Invalid order ID.');
         output = await issueSharedTwoFactorCode(db, req, body.id, key);
@@ -3108,6 +3013,10 @@ export function createHandler(
               409,
               'A transaction is already submitted. Contact support for a correction.',
             );
+          await db.query(
+            "UPDATE commerce_orders SET transaction_id=COALESCE(transaction_id,$1),payment_submitted_at=COALESCE(payment_submitted_at,now()),status=CASE WHEN status='expired' THEN 'expired' ELSE 'review' END WHERE id=$2",
+            [transaction, id],
+          );
           // Late claims stay in review and cannot automatically consume released inventory.
           const matchingPayments = transaction
             ? (
@@ -3133,18 +3042,7 @@ export function createHandler(
           const payment =
             matchingPayments.length === 1 ? matchingPayments[0] : null;
           let fulfillment;
-          if (!payment) {
-            await cancelUnpaidOrder(db, order);
-            output = {
-              ok: true,
-              status: 'cancelled',
-              reason: 'payment_not_received',
-            };
-          } else {
-            await db.query(
-              "UPDATE commerce_orders SET transaction_id=COALESCE(transaction_id,$1),payment_submitted_at=COALESCE(payment_submitted_at,now()),status=CASE WHEN status='expired' THEN 'expired' ELSE 'review' END WHERE id=$2",
-              [transaction, id],
-            );
+          if (payment) {
             // NayaPay's app can expose only the trailing reference digits while its
             // receipt email contains the complete prefixed transaction ID.
             await db.query(
@@ -3168,19 +3066,10 @@ export function createHandler(
                 await insertSupplierApiLogs(db, supplierLogs);
               }
             }
-            if (order.status !== 'expired')
-              telegramMessages.push(
-                paymentVerifiedMessage({
-                  orderId: id,
-                  amount: order.amount,
-                  transactionId: payment.transaction_id,
-                  receiverTitle: order.receiver_title,
-                }),
-              );
-            output = fulfillment?.cancelled
-              ? { ok: true, status: 'cancelled', reason: fulfillment.reason }
-              : { ok: true };
           }
+          output = fulfillment?.cancelled
+            ? { ok: true, status: 'cancelled', reason: fulfillment.reason }
+            : { ok: true };
         } else {
           // A receipt can be recorded just before the customer clicks the
           // verification button, or an earlier delivery attempt can fail
@@ -3222,21 +3111,6 @@ export function createHandler(
                 );
                 await insertSupplierApiLogs(db, supplierLogs);
               }
-              const delivered = (
-                await db.query(
-                  'SELECT status FROM commerce_orders WHERE id=$1',
-                  [id],
-                )
-              ).rows[0]?.status === 'delivered';
-              if (delivered)
-                telegramMessages.push(
-                  paymentVerifiedMessage({
-                    orderId: id,
-                    amount: order.amount,
-                    transactionId: payment.transaction_id,
-                    receiverTitle: order.receiver_title,
-                  }),
-                );
               order = (
                 await db.query(
                   `SELECT o.*,c.code_display AS coupon_code,r.title AS receiver_title,r.account_number AS receiver_number
@@ -3474,21 +3348,6 @@ export function createHandler(
               await db.query('ROLLBACK TO SAVEPOINT delivery');
               await insertSupplierApiLogs(db, supplierLogs);
             }
-            const delivered = (
-              await db.query(
-                'SELECT status FROM commerce_orders WHERE id=$1',
-                [orders[0].id],
-              )
-            ).rows[0]?.status === 'delivered';
-            if (delivered)
-              telegramMessages.push(
-                paymentVerifiedMessage({
-                  orderId: orders[0].id,
-                  amount: parsed.amount,
-                  transactionId: parsed.transaction,
-                  receiverTitle: paymentReceiver?.title,
-                }),
-              );
           }
         }
         await expire(db);
