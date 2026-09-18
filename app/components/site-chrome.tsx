@@ -2,6 +2,7 @@ import { ArrowRight, MessageCircle } from 'lucide-react';
 import { favicon, whatsappLink } from '../product-utils';
 import { CurrencyToggle } from './currency';
 import { founderProfile, socials } from '../site-config';
+import { NewProductsTicker } from './new-products-ticker';
 
 export function SiteHeader() {
   return (
@@ -12,7 +13,7 @@ export function SiteHeader() {
           <span className="brand-name"><strong>SASIFY</strong><small>SOLUTIONS</small></span>
         </a>
         <div className="nav-links">
-          <a href="/inventory">Tools</a><a href="/request-tool">Request a tool</a><a href="/scammers">Scam reports</a><a href="/#reviews">Reviews</a>
+          <a href="/inventory">Full inventory</a><a href="/request-tool">Request a tool</a><a href="/scammers">Scam reports</a><a href="/#reviews">Reviews</a>
           <a href="/#faq">FAQ</a><a href="#contact">Contact</a>
         </div>
         <div className="nav-actions">
@@ -22,6 +23,7 @@ export function SiteHeader() {
           </a>
         </div>
       </nav>
+      <NewProductsTicker />
     </header>
   );
 }

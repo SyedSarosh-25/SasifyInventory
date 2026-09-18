@@ -360,6 +360,9 @@ async function notifyTelegram(message) {
     clearTimeout(timeout);
   }
 }
+function paymentVerifiedMessage({ orderId, amount, transactionId, receiverTitle }) {
+  return `Payment verified after I paid\nOrder: ${String(orderId || '').slice(0, 8)}\nAmount: PKR ${Number(amount || 0).toLocaleString()}\nTransaction: ${String(transactionId || 'matched').slice(0, 80)}${receiverTitle ? `\nReceiver: ${String(receiverTitle).slice(0, 100)}` : ''}`;
+}
 function supplierIssueMessage(log) {
   if (!log) return '';
   const status = log.responseStatus ? `HTTP ${log.responseStatus}` : 'No HTTP response';
@@ -3046,7 +3049,6 @@ export function createHandler(
           paymentMethod: selectedPaymentMethod,
           paymentWindowMinutes,
         };
-        telegramMessages.push(`New order placed\nOrder: ${id.slice(0, 8)}\nProduct: ${String(product.name || product.id).slice(0, 120)}\nAmount: PKR ${paymentAmount.toLocaleString()}${isTeamCoupon ? '\nTeam coupon: HOR' : commissionCode ? `\nCoupon: ${commissionCode}` : ''}`);
       } else if (action === 'shared-2fa-code') {
         if (!idOk(body.id)) throw fail(400, 'Invalid order ID.');
         output = await issueSharedTwoFactorCode(db, req, body.id, key);
@@ -3157,6 +3159,14 @@ export function createHandler(
                 await db.query('ROLLBACK TO SAVEPOINT delivery');
                 await insertSupplierApiLogs(db, supplierLogs);
               }
+              telegramMessages.push(
+                paymentVerifiedMessage({
+                  orderId: id,
+                  amount: order.amount,
+                  transactionId: payment.transaction_id,
+                  receiverTitle: order.receiver_title,
+                }),
+              );
             }
           }
           output = fulfillment?.cancelled
@@ -3203,6 +3213,21 @@ export function createHandler(
                 );
                 await insertSupplierApiLogs(db, supplierLogs);
               }
+              const delivered = (
+                await db.query(
+                  'SELECT status FROM commerce_orders WHERE id=$1',
+                  [id],
+                )
+              ).rows[0]?.status === 'delivered';
+              if (delivered)
+                telegramMessages.push(
+                  paymentVerifiedMessage({
+                    orderId: id,
+                    amount: order.amount,
+                    transactionId: payment.transaction_id,
+                    receiverTitle: order.receiver_title,
+                  }),
+                );
               order = (
                 await db.query(
                   `SELECT o.*,c.code_display AS coupon_code,r.title AS receiver_title,r.account_number AS receiver_number
@@ -3440,6 +3465,21 @@ export function createHandler(
               await db.query('ROLLBACK TO SAVEPOINT delivery');
               await insertSupplierApiLogs(db, supplierLogs);
             }
+            const delivered = (
+              await db.query(
+                'SELECT status FROM commerce_orders WHERE id=$1',
+                [orders[0].id],
+              )
+            ).rows[0]?.status === 'delivered';
+            if (delivered)
+              telegramMessages.push(
+                paymentVerifiedMessage({
+                  orderId: orders[0].id,
+                  amount: parsed.amount,
+                  transactionId: parsed.transaction,
+                  receiverTitle: paymentReceiver?.title,
+                }),
+              );
           }
         }
         await expire(db);
