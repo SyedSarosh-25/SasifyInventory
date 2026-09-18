@@ -9,6 +9,7 @@ import {
 import { products as localProducts, type Product } from '../products';
 import { productHref } from '../product-utils';
 import { ProductLogo } from './product-logo';
+import { Money } from './currency';
 import { supplierLogo, supplierMonogram } from '../supplier-product-utils';
 import { cacheSupplierCatalog } from '../supplier-catalog-cache';
 import { liveSupplierProductHref } from '../supplier-seo-utils';
@@ -73,7 +74,7 @@ function SupplierFeaturedCard({ product }: { product: FeaturedProduct }) {
           <span className="featured-price-label">
             <Tag className="h-3 w-3" /> Our price
           </span>
-          <strong>PKR {Number(product.price).toLocaleString('en-PK')}</strong>
+          <strong><Money amount={product.price} /></strong>
         </div>
         <span className="featured-arrow" aria-hidden="true">
           <ArrowRight className="h-4 w-4" />

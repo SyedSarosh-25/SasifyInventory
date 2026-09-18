@@ -1211,6 +1211,9 @@ async function ensureSupplierMediaSchema(db) {
       await db.query(
         'ALTER TABLE commerce_supplier_products ADD COLUMN IF NOT EXISTS requires_customer_email boolean NOT NULL DEFAULT false',
       );
+      await db.query(
+        'ALTER TABLE commerce_supplier_products ADD COLUMN IF NOT EXISTS first_seen_at timestamptz NOT NULL DEFAULT now()',
+      );
     })()
       .catch((error) => {
         supplierMediaSchemaReady = null;
@@ -1613,8 +1616,8 @@ async function syncSupplierCatalog(db, force = false, keys = {}, onlyProviderId 
         .slice(0, 12)
         .toUpperCase();
       await db.query(
-        `INSERT INTO commerce_supplier_products(id,name,description,delivery_instruction,wholesale_price,currency,supplier_stock,cost_pkr,provider_id,provider_name,external_product_id,canonical_key,logo_url,requires_customer_email,synced_at)
-        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,now()) ON CONFLICT(id) DO UPDATE SET name=excluded.name,description=excluded.description,
+        `INSERT INTO commerce_supplier_products(id,name,description,delivery_instruction,wholesale_price,currency,supplier_stock,cost_pkr,provider_id,provider_name,external_product_id,canonical_key,logo_url,requires_customer_email,first_seen_at,synced_at)
+        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,now(),now()) ON CONFLICT(id) DO UPDATE SET name=excluded.name,description=excluded.description,
         delivery_instruction=excluded.delivery_instruction,wholesale_price=excluded.wholesale_price,currency=excluded.currency,supplier_stock=excluded.supplier_stock,
         provider_id=excluded.provider_id,provider_name=excluded.provider_name,external_product_id=excluded.external_product_id,
         canonical_key=CASE WHEN commerce_supplier_products.canonical_manual THEN commerce_supplier_products.canonical_key ELSE excluded.canonical_key END,
@@ -2743,10 +2746,10 @@ export function createHandler(
         ).rows[0] || { available: 0, slots_filled: 0, slots_total: 0 };
         const supplierProducts = (
           await db.query(`WITH ranked AS (
-        SELECT id,name,description,delivery_instruction,logo_url,requires_customer_email,selling_price AS price,supplier_stock AS available,provider_id,provider_name,canonical_key,
+        SELECT id,name,description,delivery_instruction,logo_url,requires_customer_email,selling_price AS price,supplier_stock AS available,provider_id,provider_name,canonical_key,first_seen_at,
           row_number() OVER(PARTITION BY canonical_key ORDER BY cost_pkr ASC NULLS LAST,wholesale_price ASC,id) AS choice
         FROM commerce_supplier_products WHERE enabled=true AND selling_price IS NOT NULL AND supplier_stock>0)
-        SELECT id,name,description,delivery_instruction,logo_url,requires_customer_email,price,available,provider_id,provider_name,canonical_key FROM ranked WHERE choice=1 ORDER BY name`)
+        SELECT id,name,description,delivery_instruction,logo_url,requires_customer_email,price,available,provider_id,provider_name,canonical_key,first_seen_at FROM ranked WHERE choice=1 ORDER BY name`)
         ).rows.filter((product) => !isChatGptPlusProduct(product.name));
         const supplierTotal = Number(
           (
@@ -2800,6 +2803,7 @@ export function createHandler(
               ...customerProduct(p),
               id: p.canonical_key,
               source: 'supplier',
+              firstSeenAt: p.first_seen_at,
             })),
           ],
           productCount: visibleCatalog.length + supplierTotal,

@@ -183,6 +183,12 @@ test('full inventory keeps all products, search, categories and empty results', 
   assert.equal(filterProducts('zzzz-not-a-product', 'All').length, 0);
 });
 
+test('product search matches titles only, never slugs, categories or durations', () => {
+  assert.equal(filterProducts('ai-assistants-research', 'All').length, 0);
+  assert.equal(filterProducts('1 month', 'All').length, 0);
+  assert.ok(filterProducts('Claude Team Plan Premium', 'All').some((product) => product.id === 'p012'));
+});
+
 test('hero shows the requested top selling product shortcuts without reducing the top ten', () => {
   assert.deepEqual(heroProducts.map((product) => product.id), ['p013', 'p012', 'p100', 'p101']);
   assert.equal(featuredProducts.length, 4);

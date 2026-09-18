@@ -6,6 +6,7 @@ import { products as localProducts, type Product } from '../products';
 import { productHref } from '../product-utils';
 import { supplierLogo, supplierMonogram } from '../supplier-product-utils';
 import { liveSupplierProductHref } from '../supplier-seo-utils';
+import { Money } from './currency';
 import { ProductLogo } from './product-logo';
 
 type NewProduct = {
@@ -37,10 +38,6 @@ function productDate(product: NewProduct) {
   return Number.isFinite(timestamp) ? timestamp : 0;
 }
 
-function formatPrice(value: number) {
-  return `PKR ${Number(value).toLocaleString('en-PK')}`;
-}
-
 function TickerItem({ product, duplicate = false }: { product: NewProduct; duplicate?: boolean }) {
   const supplier = product.source === 'supplier';
   const logo = supplier ? supplierLogo(product.name, product.logoUrl) : '';
@@ -63,7 +60,7 @@ function TickerItem({ product, duplicate = false }: { product: NewProduct; dupli
         <small>New From Sasify</small>
         <strong>{product.name}</strong>
       </span>
-      <span className="new-products-ticker-price">{formatPrice(product.price)}</span>
+      <span className="new-products-ticker-price"><Money amount={product.price} /></span>
       <span className="new-products-ticker-stock"><i /> {product.available} left</span>
     </a>
   );
@@ -121,7 +118,7 @@ export function NewProductsTicker() {
           firstSeenAt: product.firstSeenAt,
         };
       })
-      .filter((product): product is NewProduct => Boolean(product))
+      .filter((product): product is NewProduct => Boolean(product) && productDate(product) > 0)
       .sort((left, right) => productDate(right) - productDate(left))
       .slice(0, 8);
   }, [stock]);

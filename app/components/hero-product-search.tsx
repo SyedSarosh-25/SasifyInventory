@@ -30,7 +30,7 @@ export function HeroProductSearch() {
     return [...(sharedChatGpt ? [{ kind: 'local' as const, label: 'ChatGPT Plus', product: sharedChatGpt }] : []), ...selected, ...(claude ? [{ kind: 'local' as const, label: 'Claude', product: claude }] : [])];
   }, [supplierProducts]);
   const matches = searching ? filterProducts(query, 'All').filter((product) => !supplierProducts.some((supplier) => supplierEquivalentProductName(product.name, supplier.name))) : [];
-  const supplierMatches = searching ? supplierProducts.filter((product) => !isChatGptPlusProduct(product.name) && normalizeSearchText(`${product.name} ${product.id} ${product.provider_name || ''}`).includes(normalizeSearchText(query))) : [];
+  const supplierMatches = searching ? supplierProducts.filter((product) => !isChatGptPlusProduct(product.name) && normalizeSearchText(product.name).includes(normalizeSearchText(query))) : [];
 
   useEffect(() => {
     const prompt = 'Search Claude';
@@ -112,7 +112,7 @@ export function HeroProductSearch() {
             <a href={liveSupplierProductHref(product)} className="hero-search-result">
               <span className="hero-mini-logo">{supplierLogo(product.name, product.logo_url) ? <img src={supplierLogo(product.name, product.logo_url)} alt={`${product.name} logo`} /> : supplierMonogram(product.name)}</span>
               <span className="hero-result-copy"><strong>{product.name}</strong><small>Instant delivery · {product.available} in stock</small></span>
-              <strong className="hero-result-price">PKR {Number(product.price).toLocaleString('en-PK')}</strong>
+              <strong className="hero-result-price"><Money amount={product.price} /></strong>
               <ArrowRight className="h-4 w-4 hero-result-arrow" aria-hidden="true" />
             </a>
           </li>)}

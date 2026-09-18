@@ -50,7 +50,7 @@ function SupplierSearchCard({ product }: { product: LiveSupplierProduct }) {
   const category = product.category || inferSupplierCategory(product.name, product.description);
   return <a className="product-card supplier-search-card" href={liveSupplierProductHref(product)}>
     <div className="product-art supplier-search-art"><div className="supplier-search-icon">{logo ? <img src={logo} alt={`${product.name} logo`} /> : <span className="product-monogram" aria-label={`${product.name} logo`}>{supplierMonogram(product.name)}</span>}</div><span className="product-category">{category}</span></div>
-    <div className="product-content"><div className="product-meta"><span>Instant delivery</span><span className="available"><i /> {product.available} in stock</span></div><h3>{product.name}</h3><p className="product-description">{product.description || 'Product description is currently unavailable.'}</p><div className="price-panel"><div className="our-price"><span><Tag className="h-3.5 w-3.5" /> Our price</span><strong>PKR {Number(product.price).toLocaleString('en-PK')}</strong></div></div><span className="buy-button">Buy online <ArrowRight className="h-4 w-4" /></span></div>
+    <div className="product-content"><div className="product-meta"><span>Instant delivery</span><span className="available"><i /> {product.available} in stock</span></div><h3>{product.name}</h3><p className="product-description">{product.description || 'Product description is currently unavailable.'}</p><div className="price-panel"><div className="our-price"><span><Tag className="h-3.5 w-3.5" /> Our price</span><strong><Money amount={product.price} /></strong></div></div><span className="buy-button">Buy online <ArrowRight className="h-4 w-4" /></span></div>
   </a>;
 }
 
@@ -67,7 +67,7 @@ export function Catalog({ initialQuery = '' }: { initialQuery?: string }) {
   }, [initialQuery]);
   useEffect(() => { let active = true; fetch('/api/commerce?action=stock',{cache:'no-store'}).then((response) => response.ok ? response.json() : Promise.reject()).then((data:any) => { cacheSupplierCatalog(data.products || []); if (active) setSupplierProducts((data.products || []).filter((product:LiveSupplierProduct & {source?:string}) => product.source === 'supplier')); }).catch(() => {}); return () => { active = false; }; }, []);
   const filtered = useMemo(() => filterProducts(query, activeCategory).filter((product) => !supplierProducts.some((supplier) => supplierEquivalentProductName(product.name, supplier.name))), [query, activeCategory, supplierProducts]);
-  const supplierMatches = useMemo(() => { const normalized = query.trim().toLowerCase(); return supplierProducts.filter((product) => !isChatGptPlusProduct(product.name) && (activeCategory === 'All' || (product.category || inferSupplierCategory(product.name, product.description)) === activeCategory) && (!normalized || `${product.name} ${product.description || ''} ${product.provider_name || ''}`.toLowerCase().includes(normalized))); }, [query, activeCategory, supplierProducts]);
+  const supplierMatches = useMemo(() => { const normalized = query.trim().toLowerCase(); return supplierProducts.filter((product) => !isChatGptPlusProduct(product.name) && (activeCategory === 'All' || (product.category || inferSupplierCategory(product.name, product.description)) === activeCategory) && (!normalized || product.name.toLowerCase().includes(normalized))); }, [query, activeCategory, supplierProducts]);
 
   return <section id="catalog" className="catalog-section">
     <div className="section-inner">
