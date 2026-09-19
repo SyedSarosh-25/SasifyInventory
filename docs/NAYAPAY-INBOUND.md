@@ -1,44 +1,83 @@
-# NayaPay inbound email receiver
+# NayaPay payment receipt receiver
 
-This repository now supports a separate inbound-email endpoint for a future Gmail forwarding setup. It is intentionally disabled until the receiver authentication variables are configured and the site is deployed.
+The primary low-cost receiver is Google Gmail plus the Apps Script bridge in
+`commerce/nayapay-apps-script.gs`. The script scans the Gmail mailbox for
+NayaPay receipt messages and sends signed receipt fields to the existing
+`/api/nayapay/email-webhook` endpoint. The backend remains responsible for
+parsing, amount matching, transaction checks, duplicate protection, payment
+windows and fulfilment.
 
 ## Flow
 
-1. Gmail forwards only matching NayaPay receipt emails to an inbound-email provider.
-2. The provider sends the parsed email payload to `/api/nayapay/inbound-email`.
-3. The commerce handler verifies the original MIME's DKIM signature against the configured NayaPay sender domain, parses that same signed content, and runs the existing destination, amount, transaction, time-window, duplicate, reservation, and fulfilment checks.
-4. The payment appears in the admin panel. Credentials are delivered only when the existing verification rules pass.
+1. NayaPay sends a receipt to the connected Gmail mailbox.
+2. Gmail Apps Script searches for matching NayaPay receipt messages every five
+   minutes.
+3. The script sends the sender, recipient, subject, text, HTML, date and stable
+   Gmail message ID to `/api/nayapay/email-webhook`, together with an HMAC
+   signature.
+4. The commerce handler verifies the webhook secret and signature, parses the
+   receipt again, and runs the destination, amount, transaction, time-window,
+   duplicate, reservation and fulfilment checks.
+5. The script records successfully handled message IDs so retries do not create
+   duplicate payment events. The backend also deduplicates messages and
+   transaction IDs.
 
-The existing `/api/nayapay/email-webhook` endpoint remains available for the Apps Script migration period.
+The script does not approve a payment itself. A receipt is delivered only when
+the backend verification rules pass.
 
-## Runtime configuration
+## Apps Script setup
 
-Configure one of these authentication options in the server environment. Do not place values in frontend code, this document, or Git:
+1. Open the Apps Script project connected to the Gmail mailbox.
+2. Copy `commerce/nayapay-apps-script.gs` into the project.
+3. In Apps Script project settings, add these Script Properties:
+   - `WEBHOOK_SECRET`: exactly the value used by the backend as
+     `NAYAPAY_WEBHOOK_SECRET`.
+   - `NAYAPAY_SIGNING_KEY`: exactly the value used by the backend as
+     `NAYAPAY_SIGNING_KEY`.
+4. Run `installPaymentTrigger()` once and approve the Gmail and URL-fetch
+   permissions.
+5. Run `checkNayaPayEmails()` once manually and confirm the execution log shows a
+   successful webhook response.
+6. Send or wait for one controlled NayaPay receipt and confirm that the payment
+   appears in the admin panel and is delivered only once.
 
-- `NAYAPAY_INBOUND_TOKEN`: provider must send the same value in `X-NayaPay-Inbound-Token`.
-- `NAYAPAY_INBOUND_BASIC_USER` and `NAYAPAY_INBOUND_BASIC_PASSWORD`: provider must send HTTP Basic authentication.
+Keep the Gmail message in the mailbox for audit and retry. Do not expose either
+secret in frontend code, public documentation or the repository.
 
-The endpoint returns an error when neither option is configured, and rejects requests that do not authenticate.
+## Backend configuration
 
-## Forwarding provider
+Set these server-only environment variables:
 
-An inbound-email service such as Postmark can receive forwarded mail and POST parsed JSON to the endpoint. Configure its inbound webhook URL with HTTPS and its supported authentication method. Gmail forwarding addresses must be verified first; use a Gmail filter that matches the NayaPay sender and receipt subject, and keep the original Gmail copy in the inbox for audit/reconciliation.
+- `NAYAPAY_WEBHOOK_SECRET`: authenticates the Apps Script request.
+- `NAYAPAY_SIGNING_KEY`: verifies the signed receipt fields.
+- `NAYAPAY_SENDER`: the exact NayaPay sender address, normally
+  `service@nayapay.com`.
+- `NAYAPAY_RECEIVER_MARKER` and/or `NAYAPAY_RECEIVER_EMAIL`: the configured
+  destination marker used by the receipt parser.
+- `NAYAPAY_AUTO_VERIFY=true`: enables automatic receipt verification.
 
-Do not activate automatic fulfilment from a new provider until a dry-run test confirms that the provider preserves the original NayaPay sender, subject, date, transaction ID, amount, destination title, and stable message ID.
+The endpoint is intentionally fail-closed. Invalid signatures, mismatched
+sender or destination, inconsistent subject/body amounts, missing transaction
+references, stale receipts and duplicate transactions are not automatically
+fulfilled.
 
-## Original email verification
+## Optional raw-email upgrade
 
-Enable `RawEmailEnabled` on the Postmark server. The receiver expects the original MIME string in `RawEmail`. Provider JSON text is never used to approve payment when original MIME is supplied: the signed original is parsed separately. Webhook authentication alone and forwarded Authentication-Results headers cannot approve a payment.
+The current bridge sends the fields needed by the existing signed webhook. If
+stronger original-message validation is required later, the Apps Script can also
+send `GmailMessage.getRawContent()` to a separately authenticated inbound-email
+endpoint. The backend can then parse the raw MIME and verify its original DKIM
+evidence before applying the same commerce checks. That upgrade should be
+tested with a real NayaPay receipt before being enabled for fulfilment.
 
-Automatic verification requires a valid full-body DKIM signature from the configured sender's exact domain, signing From, To, Subject, Date and Message-ID. Duplicate critical headers and partial-body signatures are rejected. Missing or invalid signature evidence records an unverified receipt for admin review; temporary DNS verification failures return 503 so the provider can retry. Missing email dates are not replaced by the current time.
+## Troubleshooting and cutover
 
-The response includes `verified` and `authentication` for inbound deliveries. `recorded` means stored, not necessarily paid or delivered. Original Message-ID takes precedence over a provider-generated ID. Transaction uniqueness continues to prevent duplicate delivery across Apps Script and forwarding.
-
-## Cutover checklist
-
-1. Connect a Postmark account and create a dedicated inbound server with raw email enabled and HTTP Basic credentials matching the website environment. Use the stable HTTPS website endpoint, never a temporary tunnel.
-2. Verify the generated inbound address in Gmail, then forward only NayaPay receipt messages; keep the Gmail originals.
-3. Deploy the receiver and its server-only dependencies. Test a real newly received receipt for original DKIM verification, the correct recipient/amount/time, admin visibility and one-time delivery. Test retrying the same receipt and a mismatched transaction.
-4. Only after the forwarding path works, disable the Apps Script time trigger. Backfill missed receipts separately; old receipts must not be given new receipt timestamps.
-
-Current status: local implementation tested; receiving provider account, Gmail forwarding, production deployment and real-receipt cutover are still pending.
+- If no payment is recorded, inspect Apps Script executions first, then inspect
+  the commerce payment record and its `verification_reason`.
+- If a webhook returns a non-2xx response, leave the Gmail message unmarked so
+  the next scan can retry it.
+- The search window is intentionally limited to recent messages. Backfill old
+  receipts manually; do not assign old receipts a new receipt timestamp.
+- A third-party inbound-email service remains optional. If one is used later,
+  it must authenticate to the backend and preserve the original receipt fields;
+  it must not bypass backend verification.

@@ -4,7 +4,7 @@ import { normalizeInboundEmail, authenticateInboundEmail } from '../commerce/inb
 import { generateKeyPairSync } from 'node:crypto';
 import { dkimSign } from 'mailauth/lib/dkim/sign.js';
 
-test('normalizes a Postmark-style forwarded NayaPay email', () => {
+test('normalizes a provider-style forwarded NayaPay email', () => {
   const result = normalizeInboundEmail({
     FromFull: { Name: 'NayaPay', Email: 'service@nayapay.com' },
     ToFull: [{ Email: 'inbound@example.invalid' }],

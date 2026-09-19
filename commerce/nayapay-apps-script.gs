@@ -17,7 +17,7 @@ function checkNayaPayEmails() {
     const secret = props.getProperty('WEBHOOK_SECRET');
     const signingKey = props.getProperty('NAYAPAY_SIGNING_KEY');
     if (!secret || !signingKey) throw new Error('Set WEBHOOK_SECRET and NAYAPAY_SIGNING_KEY in Script Properties.');
-    const query = 'from:(nayapay) subject:("You got Rs.") newer_than:2d';
+    const query = 'from:(nayapay) newer_than:2d {subject:("You got Rs.") subject:("You got PKR")}';
     const threads = GmailApp.search(query, 0, MAX_THREADS_PER_SCAN);
     let attempted = 0;
     if (!threads.length) return;
