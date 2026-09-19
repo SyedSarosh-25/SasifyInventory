@@ -354,17 +354,16 @@ function summarizeCommissions(rows) {
   }
   return Object.values(summary);
 }
-async function notifyTelegram(message) {
+async function telegramRequest(method, payload) {
   const token = String(process.env.TELEGRAM_BOT_TOKEN || '').trim();
-  const chatId = String(process.env.TELEGRAM_CHAT_ID || '').trim();
-  if (!token || !chatId || !message) return false;
+  if (!token) return false;
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 2500);
   try {
-    const response = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+    const response = await fetch(`https://api.telegram.org/bot${token}/${method}`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ chat_id: chatId, text: message, disable_web_page_preview: true }),
+      body: JSON.stringify(payload),
       signal: controller.signal,
     });
     if (!response.ok)
@@ -377,10 +376,64 @@ async function notifyTelegram(message) {
     clearTimeout(timeout);
   }
 }
-function paymentVerifiedMessage({ orderId, amount, transactionId, receiverTitle }) {
-  return `Payment verified after I paid\nOrder: ${String(orderId || '').slice(0, 8)}\nAmount: PKR ${Number(amount || 0).toLocaleString()}\nTransaction: ${String(transactionId || 'matched').slice(0, 80)}${receiverTitle ? `\nReceiver: ${String(receiverTitle).slice(0, 100)}` : ''}`;
+async function notifyTelegram(message) {
+  const chatId = String(process.env.TELEGRAM_CHAT_ID || '').trim();
+  if (!chatId || !message) return false;
+  const payload = typeof message === 'string' ? { text: message } : message;
+  return telegramRequest('sendMessage', {
+    chat_id: chatId,
+    disable_web_page_preview: true,
+    ...payload,
+  });
 }
-
+function telegramWebhookAuthorized(req) {
+  const secret = String(process.env.TELEGRAM_WEBHOOK_SECRET || '').trim();
+  return !!secret && same(
+    String(req.headers['x-telegram-bot-api-secret-token'] || '').trim(),
+    secret,
+  );
+}
+function telegramChatAllowed(chatId) {
+  const configured = String(process.env.TELEGRAM_CHAT_ID || '').trim();
+  return !!configured && same(String(chatId || '').trim(), configured);
+}
+function telegramOrderMessage({
+  orderId,
+  productName,
+  amount,
+  paymentMethod,
+  status = 'pending payment',
+  transactionId = '',
+  paymentState = '',
+}) {
+  const lines = [
+    'New Sasify order',
+    `Order: ${String(orderId || '').slice(0, 8)}`,
+    `Product: ${String(productName || 'Unknown product').slice(0, 120)}`,
+    `Amount: PKR ${Number(amount || 0).toLocaleString()}`,
+    `Payment method: ${String(paymentMethod || 'wallet')}`,
+    `Status: ${status}`,
+  ];
+  if (transactionId) lines.push(`Transaction: ${String(transactionId).slice(0, 80)}`);
+  if (paymentState) lines.push(`Payment evidence: ${String(paymentState).slice(0, 120)}`);
+  lines.push('', 'Approve delivers the reserved credentials. Reject cancels the order without delivery.');
+  return lines.join('\n');
+}
+function telegramApprovalKeyboard(orderId) {
+  return {
+    inline_keyboard: [[
+      { text: 'Approve and deliver', callback_data: `approve:${orderId}` },
+      { text: 'Reject', callback_data: `reject:${orderId}` },
+    ]],
+  };
+}
+function telegramCallbackResponse(update) {
+  const callback = update?.callback_query;
+  const chatId = callback?.message?.chat?.id;
+  if (!callback?.id || !telegramChatAllowed(chatId)) return null;
+  const data = String(callback.data || '').match(/^(approve|reject):([a-f0-9-]{36})$/i);
+  return data ? { callback, action: data[1].toLowerCase(), orderId: data[2] } : null;
+}
 function supplierIssueMessage(log) {
   if (!log) return '';
   const status = log.responseStatus ? `HTTP ${log.responseStatus}` : 'No HTTP response';
@@ -2177,32 +2230,6 @@ async function fulfill(
     order.id,
   ]);
 }
-async function findVerifiedPaymentForOrder(db, order) {
-  const rows = order.transaction_id
-    ? (
-        await db.query(
-          `SELECT id,transaction_id FROM commerce_payments
-           WHERE verified=true AND order_id IS NULL
-             AND (amount=$2 OR (MOD($2,100)<>0 AND amount=$2+1))
-             AND (receiver_id=$3 OR receiver_id IS NULL)
-             AND (transaction_id=$1 OR (length($1)>=8 AND right(transaction_id,length($1))=$1))
-           ORDER BY (transaction_id=$1) DESC,created_at DESC LIMIT 2`,
-          [order.transaction_id, order.amount, order.receiver_id || 'primary'],
-        )
-      ).rows
-    : (
-        await db.query(
-          `SELECT id,transaction_id FROM commerce_payments
-           WHERE verified=true AND order_id IS NULL
-             AND (amount=$1 OR (MOD($1,100)<>0 AND amount=$1+1))
-             AND (receiver_id=$4 OR receiver_id IS NULL)
-             AND received_at>=($2::timestamptz) AND received_at<=($3::timestamptz)
-           ORDER BY received_at ASC LIMIT 2`,
-          [order.amount, order.created_at, order.expires_at, order.receiver_id || 'primary'],
-        )
-      ).rows;
-  return rows.length === 1 ? rows[0] : null;
-}
 async function hasVerifiedPaymentForOrder(db, order) {
   const rows = order.transaction_id
     ? (
@@ -2484,6 +2511,8 @@ export function createHandler(
         !same(body.secret, process.env.NAYAPAY_WEBHOOK_SECRET)
       )
         throw fail(401, 'Invalid webhook secret.');
+      if (action === 'telegram-webhook' && !telegramWebhookAuthorized(req))
+        throw fail(401, 'Invalid Telegram webhook secret.');
       if (action === 'inbound-email') {
         if (!inboundEmailAuthConfigured())
           throw fail(503, 'Inbound email receiver is not configured.');
@@ -2527,6 +2556,8 @@ export function createHandler(
       await expire(db, !['email-webhook', 'inbound-email'].includes(action));
       let output;
       const telegramMessages = [];
+      const telegramCallbacks = [];
+      const telegramEdits = [];
       if (action === 'admin-login') {
         const email = String(body.email || '')
           .trim()
@@ -2557,6 +2588,94 @@ export function createHandler(
           'sasify_admin=; HttpOnly; Secure; SameSite=Strict; Path=/api/commerce; Max-Age=0',
         );
         output = { ok: true };
+      } else if (action === 'telegram-webhook') {
+        const callback = telegramCallbackResponse(body);
+        if (!callback) {
+          output = { ok: true };
+        } else {
+          const order = (
+            await db.query(
+              `SELECT o.*,COALESCE(sp.name, o.product_id) AS product_name
+               FROM commerce_orders o
+               LEFT JOIN commerce_supplier_products sp ON sp.id=o.supplier_product_id
+               WHERE o.id=$1 FOR UPDATE OF o`,
+              [callback.orderId],
+            )
+          ).rows[0];
+          if (!order) throw fail(404, 'Order not found.');
+          if (callback.action === 'approve') {
+            if (order.status === 'delivered') {
+              output = { ok: true, status: 'delivered', alreadyHandled: true };
+            } else {
+              if (order.status === 'cancelled')
+                throw fail(409, 'This order was rejected or cancelled.');
+              const payment = order.transaction_id
+                ? (
+                    await db.query(
+                      `SELECT * FROM commerce_payments
+                       WHERE transaction_id=$1 AND order_id IS NULL
+                       ORDER BY created_at DESC LIMIT 1 FOR UPDATE`,
+                      [order.transaction_id],
+                    )
+                  ).rows[0]
+                : null;
+              if (!payment)
+                throw fail(409, 'The customer has not submitted payment evidence yet.');
+              await attachPaymentForManualApproval(db, order.id, payment.id);
+              await fulfill(
+                db,
+                order.id,
+                payment.id,
+                true,
+                captureSupplierExchange,
+                supplierApiKeys,
+              );
+              output = { ok: true, status: 'delivered' };
+            }
+            telegramCallbacks.push({
+              id: callback.callback.id,
+              text: output.alreadyHandled
+                ? 'This order was already delivered.'
+                : 'Approved. Credentials have been delivered.',
+            });
+            telegramEdits.push({
+              chatId: callback.callback.message.chat.id,
+              messageId: callback.callback.message.message_id,
+              text: `✅ Order ${String(order.id).slice(0, 8)} approved. Credentials delivered to the customer.`,
+            });
+          } else {
+            if (order.status === 'delivered')
+              throw fail(409, 'This order has already been delivered.');
+            if (order.status !== 'cancelled') {
+              await db.query(
+                "UPDATE commerce_orders SET status='cancelled' WHERE id=$1",
+                [order.id],
+              );
+              await db.query(
+                "UPDATE commerce_inventory SET state='available' WHERE id=$1 AND state='reserved'",
+                [order.inventory_id],
+              );
+              await releaseSharedSlot(db, order);
+              await releaseCoupon(db, order);
+              await db.query(
+                "INSERT INTO commerce_audit(action,object_id) VALUES('telegram_reject',$1)",
+                [order.id],
+              );
+            }
+            if (order.transaction_id)
+              await db.query(
+                "UPDATE commerce_payments SET verification_reason='rejected_by_admin' WHERE transaction_id=$1 AND order_id IS NULL",
+                [order.transaction_id],
+              );
+            output = { ok: true, status: 'cancelled' };
+            telegramCallbacks.push({ id: callback.callback.id, text: 'Rejected. No credentials were delivered.' });
+            telegramEdits.push({
+              chatId: callback.callback.message.chat.id,
+              messageId: callback.callback.message.message_id,
+              text: `❌ Order ${String(order.id).slice(0, 8)} rejected. No credentials were delivered.`,
+            });
+          }
+        }
       } else if (action === 'admin-team-credentials') {
         const teamEmail = String(body.email || '')
           .trim()
@@ -3134,6 +3253,16 @@ export function createHandler(
         );
         if (isTeamCoupon && paymentAmount === 0)
           await fulfillFreeOrder(db, id);
+        if (paymentAmount > 0)
+          telegramMessages.push({
+            text: telegramOrderMessage({
+              orderId: id,
+              productName: product.name,
+              amount: paymentAmount,
+              paymentMethod: selectedPaymentMethod,
+            }),
+            reply_markup: telegramApprovalKeyboard(id),
+          });
         res.setHeader(
           'Set-Cookie',
           `sasify_checkout=${session}; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=604800`,
@@ -3158,7 +3287,7 @@ export function createHandler(
       } else if (['status', 'claim', 'cancel'].includes(action)) {
         const id = req.query?.id || body.id;
         if (!idOk(id)) throw fail(404, 'Order not found.');
-        let order = (
+        const order = (
           await db.query(
           `SELECT o.*,c.code_display AS coupon_code,r.title AS receiver_title,r.account_number AS receiver_number
              FROM commerce_orders o
@@ -3239,9 +3368,40 @@ export function createHandler(
                   [order.amount, order.created_at, order.expires_at, order.receiver_id || 'primary'],
                 )
               ).rows;
-          const payment =
-            matchingPayments.length === 1 ? matchingPayments[0] : null;
-          let fulfillment;
+          let payment = matchingPayments.length === 1 ? matchingPayments[0] : null;
+          if (!payment && transaction) {
+            payment = (
+              await db.query(
+                'SELECT id,transaction_id,amount,verified FROM commerce_payments WHERE transaction_id=$1 AND order_id IS NULL FOR UPDATE',
+                [transaction],
+              )
+            ).rows[0];
+            if (payment && !paymentAmountMatchesOrder(payment.amount, order.amount))
+              throw fail(409, 'This transaction reference belongs to a different amount.');
+            if (!payment) {
+              payment = (
+                await db.query(
+                  `INSERT INTO commerce_payments(
+                     id,event_hash,transaction_id,amount,received_at,verified,
+                     verification_reason,subject,encrypted_body,receiver_id
+                   ) VALUES($1,$2,$3,$4,now(),false,'customer_claim_pending_approval',
+                     'Customer payment claim',$5,$6)
+                   RETURNING id,transaction_id,amount,verified`,
+                  [
+                    randomUUID(),
+                    hash(`customer-claim|${id}|${transaction}`),
+                    transaction,
+                    order.amount,
+                    encrypt(
+                      { source: 'customer_claim', orderId: id, transactionId: transaction },
+                      key,
+                    ),
+                    order.receiver_id || 'primary',
+                  ],
+                )
+              ).rows[0];
+            }
+          }
           if (!payment) {
             output = {
               ok: true,
@@ -3253,109 +3413,36 @@ export function createHandler(
               "UPDATE commerce_orders SET transaction_id=COALESCE(transaction_id,$1),payment_submitted_at=COALESCE(payment_submitted_at,now()),status=CASE WHEN status='expired' THEN 'expired' ELSE 'review' END WHERE id=$2",
               [payment.transaction_id, id],
             );
-            // NayaPay's app can expose only the trailing reference digits while its
-            // receipt email contains the complete prefixed transaction ID.
             await db.query(
               'UPDATE commerce_orders SET transaction_id=$1 WHERE id=$2',
               [payment.transaction_id, id],
             );
-            if (order.status !== 'expired') {
-              await db.query('SAVEPOINT delivery');
-              try {
-                fulfillment = await fulfill(
-                  db,
-                  id,
-                  payment.id,
-                  false,
-                  captureSupplierExchange,
-                  supplierApiKeys,
-                );
-              } catch (e) {
-                if (!e.status) throw e;
-                await db.query('ROLLBACK TO SAVEPOINT delivery');
-                await insertSupplierApiLogs(db, supplierLogs);
-              }
-              telegramMessages.push(
-                paymentVerifiedMessage({
-                  orderId: id,
-                  amount: order.amount,
-                  transactionId: payment.transaction_id,
-                  receiverTitle: order.receiver_title,
-                }),
-              );
-            }
-            output = fulfillment?.cancelled
-              ? { ok: true, status: 'cancelled', reason: fulfillment.reason }
-              : { ok: true };
+            const productName =
+              catalog.find((p) => p.id === order.product_id)?.name ||
+              (
+                await db.query(
+                  'SELECT name FROM commerce_supplier_products WHERE id=$1 OR canonical_key=$1 ORDER BY id LIMIT 1',
+                  [order.supplier_product_id || order.product_id],
+                )
+              ).rows[0]?.name || order.product_id;
+            telegramMessages.push({
+              text: telegramOrderMessage({
+                orderId: id,
+                productName,
+                amount: order.amount,
+                paymentMethod: order.payment_method,
+                status: 'awaiting approval',
+                transactionId: payment.transaction_id,
+                paymentState: payment.verified ? 'verified receipt' : 'customer-submitted reference',
+              }),
+              reply_markup: telegramApprovalKeyboard(id),
+            });
+            output = { ok: true, status: 'review' };
           }
         } else {
-          // A receipt can be recorded just before the customer clicks the
-          // verification button, or an earlier delivery attempt can fail
-          // transiently. Retry only a single verified, unassigned payment that
-          // matches this order's unique amount and receipt reference/window.
-          if (
-            ['pending', 'review'].includes(order.status) &&
-            order.payment_submitted_at
-          ) {
-            const payment = await findVerifiedPaymentForOrder(db, order);
-            if (payment) {
-              await db.query(
-                'UPDATE commerce_orders SET transaction_id=$1 WHERE id=$2',
-                [payment.transaction_id, id],
-              );
-              await db.query('SAVEPOINT status_delivery');
-              try {
-                await fulfill(
-                  db,
-                  id,
-                  payment.id,
-                  false,
-                  captureSupplierExchange,
-                  supplierApiKeys,
-                );
-              } catch (e) {
-                if (!e.status) throw e;
-                await db.query('ROLLBACK TO SAVEPOINT status_delivery');
-                console.error(
-                  'auto-delivery-retry-failed',
-                  id,
-                  payment.id,
-                  e.status,
-                  e.message,
-                );
-                await db.query(
-                  'UPDATE commerce_payments SET verification_reason=$1 WHERE id=$2 AND order_id IS NULL',
-                  [`verified_delivery_pending: ${String(e.message || 'delivery failed').slice(0, 180)}`, payment.id],
-                );
-                await insertSupplierApiLogs(db, supplierLogs);
-              }
-              const delivered = (
-                await db.query(
-                  'SELECT status FROM commerce_orders WHERE id=$1',
-                  [id],
-                )
-              ).rows[0]?.status === 'delivered';
-              if (delivered)
-                telegramMessages.push(
-                  paymentVerifiedMessage({
-                    orderId: id,
-                    amount: order.amount,
-                    transactionId: payment.transaction_id,
-                    receiverTitle: order.receiver_title,
-                  }),
-                );
-              order = (
-                await db.query(
-                  `SELECT o.*,c.code_display AS coupon_code,r.title AS receiver_title,r.account_number AS receiver_number
-                   FROM commerce_orders o
-                   LEFT JOIN commerce_coupons c ON c.id=o.coupon_id
-                   LEFT JOIN commerce_payment_receivers r ON r.id=o.receiver_id
-                   WHERE o.id=$1`,
-                  [id],
-                )
-              ).rows[0];
-            }
-          }
+          // Payment evidence is never delivered automatically. A status poll
+          // can expose review state, but only the Telegram approval action may
+          // call fulfill() and release credentials.
           const orderProduct =
             catalog.find((p) => p.id === order.product_id)?.name ||
             (
@@ -3568,36 +3655,30 @@ export function createHandler(
               'UPDATE commerce_orders SET transaction_id=$1 WHERE id=$2',
               [parsed.transaction, orders[0].id],
             );
-            await db.query('SAVEPOINT delivery');
-            try {
-              await fulfill(
-                db,
-                orders[0].id,
-                inserted.rows[0].id,
-                false,
-                captureSupplierExchange,
-                supplierApiKeys,
-              );
-            } catch (e) {
-              if (!e.status) throw e;
-              await db.query('ROLLBACK TO SAVEPOINT delivery');
-              await insertSupplierApiLogs(db, supplierLogs);
-            }
-            const delivered = (
-              await db.query(
-                'SELECT status FROM commerce_orders WHERE id=$1',
-                [orders[0].id],
-              )
-            ).rows[0]?.status === 'delivered';
-            if (delivered)
-              telegramMessages.push(
-                paymentVerifiedMessage({
-                  orderId: orders[0].id,
-                  amount: parsed.amount,
-                  transactionId: parsed.transaction,
-                  receiverTitle: paymentReceiver?.title,
-                }),
-              );
+            await db.query(
+              "UPDATE commerce_orders SET status=CASE WHEN status='expired' THEN 'expired' ELSE 'review' END WHERE id=$1",
+              [orders[0].id],
+            );
+            const orderProduct =
+              catalog.find((p) => p.id === orders[0].product_id)?.name ||
+              (
+                await db.query(
+                  'SELECT name FROM commerce_supplier_products WHERE id=$1 OR canonical_key=$1 ORDER BY id LIMIT 1',
+                  [orders[0].supplier_product_id || orders[0].product_id],
+                )
+              ).rows[0]?.name || orders[0].product_id;
+            telegramMessages.push({
+              text: telegramOrderMessage({
+                orderId: orders[0].id,
+                productName: orderProduct,
+                amount: parsed.amount,
+                paymentMethod: orders[0].payment_method,
+                status: 'awaiting approval',
+                transactionId: parsed.transaction,
+                paymentState: 'verified receipt',
+              }),
+              reply_markup: telegramApprovalKeyboard(orders[0].id),
+            });
           }
         }
         await expire(db);
@@ -4432,6 +4513,19 @@ export function createHandler(
       if (supplierIssue) telegramMessages.push(supplierIssueMessage(supplierIssue));
       await db.query('COMMIT');
       for (const message of telegramMessages) await notifyTelegram(message);
+      for (const callback of telegramCallbacks)
+        await telegramRequest('answerCallbackQuery', {
+          callback_query_id: callback.id,
+          text: callback.text,
+          show_alert: false,
+        });
+      for (const edit of telegramEdits)
+        await telegramRequest('editMessageText', {
+          chat_id: edit.chatId,
+          message_id: edit.messageId,
+          text: edit.text,
+          disable_web_page_preview: true,
+        });
       json(res, 200, output);
     } catch (e) {
       if (db) {

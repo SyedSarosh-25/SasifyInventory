@@ -58,7 +58,7 @@ Keep values in local or Vercel environment configuration, never in source contro
 - `NAYAPAY_RECEIVER_MARKER`
 - `NAYAPAY_RECEIVER_EMAIL`
 - `NAYAPAY_AUTO_VERIFY`
-- `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` (optional order/supplier alerts)
+- `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` and `TELEGRAM_WEBHOOK_SECRET` for Telegram order approval alerts and callbacks
 - `GOOGLE_REVIEWS_CLIENT_ID`, `GOOGLE_REVIEWS_CLIENT_SECRET`, `GOOGLE_REVIEWS_REFRESH_TOKEN`, `GOOGLE_REVIEWS_ACCOUNT_ID`, `GOOGLE_REVIEWS_LOCATION_ID` and `CRON_SECRET` (automatic Google Business Profile review sync; see `docs/GOOGLE-REVIEWS-SYNC.md`)
 - `SUPPLIER_LOW_BALANCE_PKR`, `SUPPLIER_LOW_BALANCE_USD` and `SUPPLIER_LOW_BALANCE_USDT` (optional alert thresholds)
 - `DODI_RESELLER_API_KEY`

@@ -98,6 +98,9 @@ test('Qamify catalog sync and paid order fulfilment use provider IDs and idempot
       VALUES($1,$2,$3,$4,$5,$6,now(),true,$7,$8)`, [randomUUID(), hash('qamify-payment'), transaction, 999, 'Test Buyer', '1234', 'Test payment', encrypt({ text: 'test' }, encryptionKey)]);
     const claim = await request('claim', { id: created.data.id, transactionId: transaction }, created.data.recovery);
     assert.equal(claim.code, 200, JSON.stringify(claim));
+    const payment = (await request('admin-list', undefined, process.env.COMMERCE_ADMIN_KEY)).data.payments.find((row) => row.transaction_id === transaction);
+    assert.ok(payment);
+    assert.equal((await request('admin-approve', { orderId: created.data.id, paymentId: payment.id, confirmed: true }, process.env.COMMERCE_ADMIN_KEY)).code, 200);
     const status = await request('status', undefined, created.data.recovery, created.data.id);
     assert.equal(status.data.status, 'delivered', JSON.stringify(status));
     assert.equal(status.data.product, 'Qamify Test Backup 1 Month');
@@ -131,6 +134,9 @@ test('Qamify catalog sync and paid order fulfilment use provider IDs and idempot
     await database.query(`INSERT INTO commerce_payments(id,event_hash,transaction_id,amount,payer_name,source_last4,received_at,verified,subject,encrypted_body)
       VALUES($1,$2,$3,$4,$5,$6,now(),true,$7,$8)`, [randomUUID(), hash('qamify-email-payment'), emailTransaction, 999, 'Email Buyer', '1234', 'Email payment', encrypt({ text: 'test' }, encryptionKey)]);
     assert.equal((await request('claim', { id: emailOrder.data.id, transactionId: emailTransaction }, emailOrder.data.recovery)).code, 200);
+    const emailPayment = (await request('admin-list', undefined, process.env.COMMERCE_ADMIN_KEY)).data.payments.find((row) => row.transaction_id === emailTransaction);
+    assert.ok(emailPayment);
+    assert.equal((await request('admin-approve', { orderId: emailOrder.data.id, paymentId: emailPayment.id, confirmed: true }, process.env.COMMERCE_ADMIN_KEY)).code, 200);
     const emailCall = calls.findLast((call) => call.url.endsWith('/v1/orders') && JSON.parse(call.init.body).product_id === 44);
     assert.equal(JSON.parse(emailCall.init.body).email, 'buyer@example.com');
     const emailStatus = await request('status', undefined, emailOrder.data.recovery, emailOrder.data.id);
@@ -142,7 +148,10 @@ test('Qamify catalog sync and paid order fulfilment use provider IDs and idempot
       VALUES($1,$2,$3,$4,$5,$6,now(),true,$7,$8)`, [randomUUID(), hash('qamify-failing-payment'), failingTransaction, 1125, 'Failing Buyer', '1234', 'Failing payment', encrypt({ text: 'test' }, encryptionKey)]);
     const failedClaim = await request('claim', { id: failingOrder.data.id, transactionId: failingTransaction }, failingOrder.data.recovery);
     assert.equal(failedClaim.code, 200, JSON.stringify(failedClaim));
-    assert.equal(failedClaim.data.status, 'cancelled');
+    assert.equal(failedClaim.data.status, 'review');
+    const failingPayment = (await request('admin-list', undefined, process.env.COMMERCE_ADMIN_KEY)).data.payments.find((row) => row.transaction_id === failingTransaction);
+    assert.ok(failingPayment);
+    assert.equal((await request('admin-approve', { orderId: failingOrder.data.id, paymentId: failingPayment.id, confirmed: true }, process.env.COMMERCE_ADMIN_KEY)).code, 200);
     const failedStatus = await request('status', undefined, failingOrder.data.recovery, failingOrder.data.id);
     assert.equal(failedStatus.data.status, 'cancelled', JSON.stringify(failedStatus));
     assert.equal(failedStatus.data.supplierStatus, 'cancelled_after_3_supplier_failures');

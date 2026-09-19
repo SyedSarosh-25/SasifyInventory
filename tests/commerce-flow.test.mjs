@@ -22,6 +22,8 @@ test('ChatGPT Plus local inventory supports checkout, verification, delivery and
     NAYAPAY_SENDER: 'service@nayapay.com',
     NAYAPAY_RECEIVER_MARKER: 'Syed Adeen Sarosh',
     NAYAPAY_INBOUND_TOKEN: 'inbound-test-token',
+    TELEGRAM_CHAT_ID: 'telegram-test-chat',
+    TELEGRAM_WEBHOOK_SECRET: 'telegram-test-secret',
   };
   Object.assign(process.env, env);
   let tail = Promise.resolve();
@@ -41,6 +43,42 @@ test('ChatGPT Plus local inventory supports checkout, verification, delivery and
     const res = { statusCode: 200, setHeader(name, value) { headers[String(name).toLowerCase()] = value; }, end(text) { result = { code: this.statusCode, data: JSON.parse(text), headers }; } };
     await handler(req, res);
     return result;
+  }
+  async function approveWithTelegram(orderId, transactionId) {
+    const payment = (await request('admin-list', undefined, env.COMMERCE_ADMIN_KEY)).data.payments.find(
+      (row) => row.transaction_id === transactionId,
+    );
+    assert.ok(payment, `payment ${transactionId} should be available for approval`);
+    return request(
+      'telegram-webhook',
+      {
+        callback_query: {
+          id: `callback-${orderId}`,
+          data: `approve:${orderId}`,
+          message: { chat: { id: env.TELEGRAM_CHAT_ID }, message_id: 1 },
+        },
+      },
+      '',
+      '',
+      '',
+      { 'x-telegram-bot-api-secret-token': env.TELEGRAM_WEBHOOK_SECRET },
+    );
+  }
+  async function rejectWithTelegram(orderId) {
+    return request(
+      'telegram-webhook',
+      {
+        callback_query: {
+          id: `callback-reject-${orderId}`,
+          data: `reject:${orderId}`,
+          message: { chat: { id: env.TELEGRAM_CHAT_ID }, message_id: 1 },
+        },
+      },
+      '',
+      '',
+      '',
+      { 'x-telegram-bot-api-secret-token': env.TELEGRAM_WEBHOOK_SECRET },
+    );
   }
   try {
     assert.equal((await request('admin-import', { productId: 'p013', accounts: 'claude@test.invalid|test-pass|test-2fa', purchaseCost: 1000 }, 'wrong')).code, 401);
@@ -109,6 +147,7 @@ test('ChatGPT Plus local inventory supports checkout, verification, delivery and
     const payload = { subject: 'You got Rs. 3,499 from Bank Alfalah-0388 🎉', text: 'Amount Received\nRs. 3,499\nTransaction ID\nTMICFBPK100926055571425207\nSource Acc. Number\n****0388\nDestination Acc. Title\nSyed Adeen Sarosh', from: 'NayaPay <service@nayapay.com>', date: new Date().toISOString(), sentAt: String(Date.now()), messageId: 'integration-test', secret: env.NAYAPAY_WEBHOOK_SECRET };
     payload.signature = signature(payload, env.NAYAPAY_SIGNING_KEY);
     assert.equal((await request('email-webhook', payload)).code, 200);
+    assert.equal((await approveWithTelegram(order.id, 'TMICFBPK100926055571425207')).code, 200);
     const status = await request('status', undefined, order.recovery, order.id);
     assert.equal(status.data.status, 'delivered', JSON.stringify(status));
     assert.equal(status.data.credentials.password, 'test-pass');
@@ -140,6 +179,7 @@ test('ChatGPT Plus local inventory supports checkout, verification, delivery and
     };
     htmlPayload.signature = signature(htmlPayload, env.NAYAPAY_SIGNING_KEY);
     assert.equal((await request('email-webhook', htmlPayload)).code, 200);
+    assert.equal((await approveWithTelegram(htmlOrder.data.id, htmlTransaction)).code, 200);
     const htmlStatus = await request('status', undefined, htmlOrder.data.recovery, htmlOrder.data.id);
     assert.equal(htmlStatus.data.status, 'delivered', JSON.stringify(htmlStatus));
     assert.equal(htmlStatus.data.paymentMethod, 'bank');
@@ -153,7 +193,7 @@ test('ChatGPT Plus local inventory supports checkout, verification, delivery and
     await request('admin-import', { productId: 'p093', accounts: 'admin-cancel@test.invalid|cancel-pass|cancel-2fa', purchaseCost: 1000 }, env.COMMERCE_ADMIN_KEY);
     const adminPending = await request('create', { productId: 'p093', couponCode: 'CANCEL10' });
     assert.equal(adminPending.code, 200, JSON.stringify(adminPending));
-    assert.equal((await request('admin-cancel', { orderId: adminPending.data.id, confirmed: true }, env.COMMERCE_ADMIN_KEY)).code, 200);
+    assert.equal((await rejectWithTelegram(adminPending.data.id)).code, 200);
     const afterAdminCancel = (await request('admin-list', undefined, env.COMMERCE_ADMIN_KEY)).data.coupons.find((coupon) => coupon.code_display === 'CANCEL10');
     assert.equal(afterAdminCancel.used_count, 0);
     await request('admin-import', { productId: 'p093', accounts: 'manual@test.invalid|manual-pass|manual-2fa', purchaseCost: 1000 }, env.COMMERCE_ADMIN_KEY);
@@ -221,6 +261,7 @@ test('ChatGPT Plus local inventory supports checkout, verification, delivery and
     };
     uniquePayload.signature = signature(uniquePayload, env.NAYAPAY_SIGNING_KEY);
     assert.equal((await request('email-webhook', uniquePayload)).code, 200);
+    assert.equal((await approveWithTelegram(secondUnique.data.id, uniqueTransaction)).code, 200);
     const uniqueStatus = await request('status', undefined, secondUnique.data.recovery, secondUnique.data.id);
     assert.equal(uniqueStatus.data.status, 'delivered', JSON.stringify(uniqueStatus));
     assert.ok(uniqueStatus.data.credentials.email);
@@ -287,6 +328,7 @@ test('ChatGPT Plus local inventory supports checkout, verification, delivery and
     };
     custPayload.signature = signature(custPayload, env.NAYAPAY_SIGNING_KEY);
     assert.equal((await request('email-webhook', custPayload)).code, 200);
+    assert.equal((await approveWithTelegram(custOrder.data.id, custTransaction)).code, 200);
     assert.equal((await request('status', undefined, custOrder.data.recovery, custOrder.data.id)).data.status, 'delivered');
     const commissionDashboard = await request('admin-list', undefined, env.COMMERCE_ADMIN_KEY);
     const custSummary = commissionDashboard.data.commissionSummary.find((item) => item.code === 'CUST');
@@ -311,9 +353,10 @@ test('ChatGPT Plus local inventory supports checkout, verification, delivery and
     };
     delayedBankPayload.signature = signature(delayedBankPayload, env.NAYAPAY_SIGNING_KEY);
     assert.equal((await request('email-webhook', delayedBankPayload)).code, 200);
+    assert.equal((await approveWithTelegram(delayedBankOrder.data.id, delayedBankTransaction)).code, 200);
     assert.equal((await request('status', undefined, delayedBankOrder.data.recovery, delayedBankOrder.data.id)).data.status, 'delivered');
     const delayedBankPayment = (await request('admin-list', undefined, env.COMMERCE_ADMIN_KEY)).data.payments.find((row) => row.transaction_id === delayedBankTransaction);
-    assert.equal(delayedBankPayment.verification_reason, 'verified_and_delivered');
+    assert.equal(delayedBankPayment.verification_reason, 'manually_approved');
 
     const lateBankOrder = await request('create', { productId: 'p093', paymentMethod: 'bank' });
     await database.query("UPDATE commerce_orders SET created_at=now()-interval '31 minutes',expires_at=now()-interval '1 minute' WHERE id=$1", [lateBankOrder.data.id]);
