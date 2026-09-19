@@ -28,6 +28,23 @@ const duplicateSupplierNames = new Set(
     .filter((name, index, names) => names.indexOf(name) !== index),
 );
 
+const duplicateSupplierTitles = new Set(
+  supplierSeoProducts
+    .map((product) => compactProductTitle(product.name))
+    .filter((title, index, titles) => titles.indexOf(title) !== index),
+);
+
+const duplicateSupplierDescriptions = new Set(
+  supplierSeoProducts
+    .map((product) =>
+      trimSeoText(
+        `${product.name}: ${formatPkr(product.price)} in Pakistan. Check stock, warranty and delivery before ordering online.`,
+        SEO_DESCRIPTION_LIMIT,
+      ),
+    )
+    .filter((description, index, descriptions) => descriptions.indexOf(description) !== index),
+);
+
 function trimSeoText(value: string, limit: number) {
   const normalized = value.replace(/\s+/g, ' ').trim();
   if (normalized.length <= limit) return normalized;
@@ -211,17 +228,20 @@ export function productData(product: Product) {
 }
 
 export function supplierProductTitle(product: SupplierSeoProduct) {
-  const disambiguator = duplicateSupplierNames.has(product.name)
+  const baseTitle = compactProductTitle(product.name);
+  const disambiguator = duplicateSupplierNames.has(product.name) || duplicateSupplierTitles.has(baseTitle)
     ? product.slug.slice(-6)
     : undefined;
-  return compactProductTitle(product.name, disambiguator);
+  return disambiguator ? compactProductTitle(product.name, disambiguator) : baseTitle;
 }
 
 export function supplierProductDescription(product: SupplierSeoProduct) {
-  return trimSeoText(
-    `${product.name}: ${formatPkr(product.price)} in Pakistan. Check stock, warranty and delivery before ordering online.`,
-    SEO_DESCRIPTION_LIMIT,
-  );
+  const base = `${product.name}: ${formatPkr(product.price)} in Pakistan. Check stock, warranty and delivery before ordering online.`;
+  if (!duplicateSupplierDescriptions.has(trimSeoText(base, SEO_DESCRIPTION_LIMIT))) {
+    return trimSeoText(base, SEO_DESCRIPTION_LIMIT);
+  }
+  const suffix = `Listing ${product.slug.slice(-6)}`;
+  return `${trimSeoText(base, SEO_DESCRIPTION_LIMIT - suffix.length - 3)} · ${suffix}`;
 }
 
 export function supplierProductQuestions(product: SupplierSeoProduct) {
@@ -296,7 +316,6 @@ export function sitemapEntries() {
     '/inventory',
     '/about',
     '/buying-guide',
-    '/request-tool',
     '/scammers',
     '/warranty',
     '/refunds',

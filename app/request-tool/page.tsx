@@ -9,6 +9,7 @@ const description = 'Request a digital tool, plan or access type from Sasify Sol
 export const metadata: Metadata = {
   title,
   description,
+  robots: { index: false, follow: false },
   alternates: { canonical: `${siteOrigin}/request-tool` },
   openGraph: { title, description, url: `${siteOrigin}/request-tool`, images: [`${siteOrigin}/sasify-logo.png`] },
   twitter: { card: 'summary', title, description, images: [`${siteOrigin}/sasify-logo.png`] },

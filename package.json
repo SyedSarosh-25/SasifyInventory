@@ -10,6 +10,7 @@
     "build": "vinext build",
     "build:static": "node scripts/build-static.mjs",
     "test": "npm run build:static && node --test tests/*.test.mjs",
+    "indexnow": "node scripts/submit-indexnow.mjs",
     "deploy:prod": "npm run build:static && node scripts/package-commerce.mjs && vercel deploy --prebuilt --prod",
     "start": "wrangler dev --config dist/server/wrangler.json",
     "lint": "oxlint",
