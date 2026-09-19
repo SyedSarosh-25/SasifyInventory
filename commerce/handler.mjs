@@ -412,7 +412,10 @@ async function registerTelegramWebhook() {
     });
     const result = await response.json().catch(() => ({}));
     if (!response.ok || !result.ok)
-      throw fail(502, 'Telegram rejected the webhook registration.');
+      throw fail(
+        502,
+        `Telegram rejected the webhook registration: ${String(result.description || response.status)}`,
+      );
     return { ok: true, webhook: result.result === true };
   } catch (error) {
     if (error?.status) throw error;
