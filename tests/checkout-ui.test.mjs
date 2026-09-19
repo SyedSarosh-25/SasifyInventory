@@ -40,6 +40,14 @@ test('checkout uses provider-neutral payment verification language', () => {
   assert.doesNotMatch(checkoutSource, /Postmark receipt/);
 });
 
+test('admin payment inbox shows receipts from all receiver accounts by default', () => {
+  assert.match(
+    checkoutSource,
+    /const \[paymentReceiverFilter, setPaymentReceiverFilter\] = useState\('all'\)/,
+  );
+  assert.match(checkoutSource, /paymentReceiverFilter === 'all'/);
+});
+
 test('private-account delivery guide is hidden for shared accounts', () => {
   assert.match(checkoutSource, /!order\.sharedSlot\s*&&\s*<section className="account-delivery-guide"/);
 });

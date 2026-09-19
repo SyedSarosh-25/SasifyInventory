@@ -1237,7 +1237,9 @@ export function CommerceAdmin() {
     [newCouponDiscount, setNewCouponDiscount] = useState('10'),
     [newCouponMaxUses, setNewCouponMaxUses] = useState('10');
   const [paymentFilter, setPaymentFilter] = useState('all');
-  const [paymentReceiverFilter, setPaymentReceiverFilter] = useState('active');
+  // Keep the inbox inclusive by default so newly forwarded Gmail receipts
+  // are visible even when they belong to a non-active payment receiver.
+  const [paymentReceiverFilter, setPaymentReceiverFilter] = useState('all');
   const seenOrderIds = useRef<Set<string>>(new Set());
   const seenSupplierAlertIds = useRef<Set<string>>(new Set());
   useEffect(() => {
