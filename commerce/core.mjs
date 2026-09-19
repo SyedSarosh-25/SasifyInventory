@@ -80,6 +80,13 @@ export function normalizeTransaction(value) {
   if (!/^[A-Z0-9-]{6,80}$/.test(result)) throw new Error('Enter the complete transaction ID from your receipt.');
   return result;
 }
+
+export function paymentAmountMatchesOrder(paymentAmount, orderAmount) {
+  const paid = Number(paymentAmount);
+  const required = Number(orderAmount);
+  if (!Number.isSafeInteger(paid) || !Number.isSafeInteger(required)) return false;
+  return paid === required || (required % 100 !== 0 && paid === required + 1);
+}
 export function receiptText(payload) {
   return payload.html ? convert(String(payload.html), { wordwrap:false, selectors:[{selector:'a',options:{ignoreHref:true}},{selector:'img',format:'skip'},{selector:'td',format:'block',options:{leadingLineBreaks:1,trailingLineBreaks:1}}] }) : String(payload.text || '').trim();
 }

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { randomBytes } from 'node:crypto';
-import { encrypt,decrypt,parseEmail,parseInventory,normalizeTransaction,same,totpCode } from '../commerce/core.mjs';
+import { encrypt,decrypt,parseEmail,parseInventory,normalizeTransaction,paymentAmountMatchesOrder,same,totpCode } from '../commerce/core.mjs';
 import { normalizeQamifyProduct, qamifyDelivery, qamifyOrderId } from '../commerce/qamify.mjs';
 import { providerDescription } from '../commerce/description.mjs';
 test('credentials are authenticated ciphertext and wrong keys cannot decrypt',()=>{
@@ -9,6 +9,15 @@ test('credentials are authenticated ciphertext and wrong keys cannot decrypt',()
   const ciphertext=encrypt(credentials,key);
   assert(!ciphertext.includes(credentials.password));assert.deepEqual(decrypt(ciphertext,key),credentials);
   assert.throws(()=>decrypt(ciphertext,randomBytes(32).toString('hex')));
+});
+test('payment matching allows only one extra rupee for non-round prices',()=>{
+  assert.equal(paymentAmountMatchesOrder(499,499),true);
+  assert.equal(paymentAmountMatchesOrder(500,499),true);
+  assert.equal(paymentAmountMatchesOrder(501,499),false);
+  assert.equal(paymentAmountMatchesOrder(1500,1499),true);
+  assert.equal(paymentAmountMatchesOrder(600,599),true);
+  assert.equal(paymentAmountMatchesOrder(500,500),true);
+  assert.equal(paymentAmountMatchesOrder(501,500),false);
 });
 test('TOTP codes support raw Base32 and otpauth URI secrets without exposing the seed',()=>{
   const secret='GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ';

@@ -10,6 +10,7 @@ import {
   parseEmail,
   parseInventory,
   normalizeTransaction,
+  paymentAmountMatchesOrder,
   receiptText,
 } from './core.mjs';
 import {
@@ -379,6 +380,7 @@ async function notifyTelegram(message) {
 function paymentVerifiedMessage({ orderId, amount, transactionId, receiverTitle }) {
   return `Payment verified after I paid\nOrder: ${String(orderId || '').slice(0, 8)}\nAmount: PKR ${Number(amount || 0).toLocaleString()}\nTransaction: ${String(transactionId || 'matched').slice(0, 80)}${receiverTitle ? `\nReceiver: ${String(receiverTitle).slice(0, 100)}` : ''}`;
 }
+
 function supplierIssueMessage(log) {
   if (!log) return '';
   const status = log.responseStatus ? `HTTP ${log.responseStatus}` : 'No HTTP response';
@@ -1909,7 +1911,7 @@ async function fulfill(
     throw fail(409, 'Order needs manual review; reservation has expired.');
   if (
     payment.order_id ||
-    payment.amount !== order.amount ||
+    !paymentAmountMatchesOrder(payment.amount, order.amount) ||
     !payment.transaction_id ||
     payment.transaction_id !== order.transaction_id
   )
@@ -2180,7 +2182,8 @@ async function findVerifiedPaymentForOrder(db, order) {
     ? (
         await db.query(
           `SELECT id,transaction_id FROM commerce_payments
-           WHERE verified=true AND order_id IS NULL AND amount=$2
+           WHERE verified=true AND order_id IS NULL
+             AND (amount=$2 OR (MOD($2,100)<>0 AND amount=$2+1))
              AND (receiver_id=$3 OR receiver_id IS NULL)
              AND (transaction_id=$1 OR (length($1)>=8 AND right(transaction_id,length($1))=$1))
            ORDER BY (transaction_id=$1) DESC,created_at DESC LIMIT 2`,
@@ -2190,7 +2193,8 @@ async function findVerifiedPaymentForOrder(db, order) {
     : (
         await db.query(
           `SELECT id,transaction_id FROM commerce_payments
-           WHERE verified=true AND order_id IS NULL AND amount=$1
+           WHERE verified=true AND order_id IS NULL
+             AND (amount=$1 OR (MOD($1,100)<>0 AND amount=$1+1))
              AND (receiver_id=$4 OR receiver_id IS NULL)
              AND received_at>=($2::timestamptz) AND received_at<=($3::timestamptz)
            ORDER BY received_at ASC LIMIT 2`,
@@ -2204,7 +2208,8 @@ async function hasVerifiedPaymentForOrder(db, order) {
     ? (
         await db.query(
           `SELECT 1 FROM commerce_payments
-           WHERE verified=true AND order_id IS NULL AND amount=$2
+           WHERE verified=true AND order_id IS NULL
+             AND (amount=$2 OR (MOD($2,100)<>0 AND amount=$2+1))
              AND (receiver_id=$3 OR receiver_id IS NULL)
              AND (transaction_id=$1 OR (length($1)>=8 AND right(transaction_id,length($1))=$1))
            LIMIT 1`,
@@ -2214,7 +2219,8 @@ async function hasVerifiedPaymentForOrder(db, order) {
     : (
         await db.query(
           `SELECT 1 FROM commerce_payments
-           WHERE verified=true AND order_id IS NULL AND amount=$1
+           WHERE verified=true AND order_id IS NULL
+             AND (amount=$1 OR (MOD($1,100)<>0 AND amount=$1+1))
              AND (receiver_id=$4 OR receiver_id IS NULL)
              AND received_at>=($2::timestamptz) AND received_at<=($3::timestamptz)
            LIMIT 1`,
@@ -2357,7 +2363,7 @@ async function attachPaymentForManualApproval(db, orderId, paymentId) {
   if (!order || !payment) throw fail(404, 'Order or payment not found.');
   if (payment.order_id && payment.order_id !== order.id)
     throw fail(409, 'This payment is already attached to another order.');
-  if (Number(payment.amount) !== Number(order.amount))
+  if (!paymentAmountMatchesOrder(payment.amount, order.amount))
     throw fail(409, 'The selected payment amount does not match this order.');
   if (!payment.transaction_id)
     throw fail(
@@ -3214,7 +3220,8 @@ export function createHandler(
             ? (
                 await db.query(
                   `SELECT id,transaction_id FROM commerce_payments
-            WHERE verified=true AND order_id IS NULL AND amount=$2
+            WHERE verified=true AND order_id IS NULL
+            AND (amount=$2 OR (MOD($2,100)<>0 AND amount=$2+1))
             AND (receiver_id=$3 OR receiver_id IS NULL)
             AND (transaction_id=$1 OR (length($1)>=8 AND right(transaction_id,length($1))=$1))
             ORDER BY (transaction_id=$1) DESC,created_at DESC LIMIT 2`,
@@ -3224,7 +3231,8 @@ export function createHandler(
             : (
                 await db.query(
                   `SELECT id,transaction_id FROM commerce_payments
-            WHERE verified=true AND order_id IS NULL AND amount=$1
+            WHERE verified=true AND order_id IS NULL
+              AND (amount=$1 OR (MOD($1,100)<>0 AND amount=$1+1))
               AND (receiver_id=$4 OR receiver_id IS NULL)
               AND received_at>=($2::timestamptz) AND received_at<=($3::timestamptz)
             ORDER BY received_at ASC LIMIT 2`,
@@ -3524,7 +3532,8 @@ export function createHandler(
             await db.query(
           `SELECT id FROM commerce_orders
           WHERE status IN ('pending','review') AND payment_submitted_at IS NOT NULL
-            AND amount=$2 AND $3::timestamptz>=created_at AND $3::timestamptz<=expires_at
+            AND (amount=$2 OR (MOD($2-1,100)<>0 AND amount=$2-1))
+            AND $3::timestamptz>=created_at AND $3::timestamptz<=expires_at
           AND (receiver_id=$4 OR receiver_id IS NULL)
           AND (transaction_id IS NULL OR transaction_id=$1 OR (length(transaction_id)>=8 AND right($1,length(transaction_id))=transaction_id))`,
               [parsed.transaction, parsed.amount, parsed.received, paymentReceiver?.id || 'primary'],
@@ -3541,7 +3550,8 @@ export function createHandler(
               await db.query(
                 `SELECT id FROM commerce_orders
                  WHERE status IN ('pending','review','expired') AND payment_submitted_at IS NOT NULL
-                   AND amount=$1 AND $2::timestamptz>=created_at AND $2::timestamptz>expires_at
+                   AND (amount=$1 OR (MOD($1-1,100)<>0 AND amount=$1-1))
+                   AND $2::timestamptz>=created_at AND $2::timestamptz>expires_at
                    AND (receiver_id=$3 OR receiver_id IS NULL)
                  ORDER BY created_at DESC LIMIT 1`,
                 [parsed.amount, parsed.received, paymentReceiver?.id || 'primary'],
