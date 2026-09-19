@@ -57,8 +57,8 @@ function trimSeoText(value: string, limit: number) {
 function compactProductTitle(name: string, disambiguator?: string) {
   const detail = disambiguator ? ` · ${disambiguator}` : '';
   const availableNameLength = Math.max(18, SEO_TITLE_LIMIT - titleSuffix.length - detail.length - 1);
-  const compactName = trimSeoText(`${name}${detail}`, availableNameLength);
-  return `${compactName} ${titleSuffix}`;
+  const compactName = trimSeoText(name, availableNameLength);
+  return `${compactName}${detail} ${titleSuffix}`;
 }
 
 export function productTitle(product: Product) {

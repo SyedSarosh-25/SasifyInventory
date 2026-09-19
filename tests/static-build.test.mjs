@@ -11,6 +11,8 @@ import {
   productTitle,
   robotsText,
   sitemapXml,
+  supplierProductDescription,
+  supplierProductTitle,
 } from '../app/seo.ts';
 import { productHref } from '../app/product-utils.ts';
 import { guidePlans, guideQuestions } from '../app/buying-guide-content.ts';
@@ -127,6 +129,19 @@ test('homepage, inventory and every product have populated static HTML', async (
     );
     assert.ok(html.includes(product.name));
     assert.ok(html.includes(product.price.toLocaleString('en-PK')));
+  }
+});
+
+test('supplier product metadata remains unique after title truncation', () => {
+  const titles = new Set();
+  const descriptions = new Set();
+  for (const product of supplierSeoProducts) {
+    const title = supplierProductTitle(product);
+    const description = supplierProductDescription(product);
+    assert.ok(!titles.has(title), `Duplicate supplier title: ${title}`);
+    assert.ok(!descriptions.has(description), `Duplicate supplier description: ${description}`);
+    titles.add(title);
+    descriptions.add(description);
   }
 });
 
