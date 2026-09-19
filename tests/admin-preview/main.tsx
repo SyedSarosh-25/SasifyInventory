@@ -38,7 +38,13 @@ const dashboard = {
     missing_costs: null,
   },
   autoVerify: true,
-  profitUnlocked: false,
+  profitUnlocked: true,
+  dailyFinancials: Array.from({ length: 30 }, (_, index) => ({
+    date: new Date(Date.now() - (29 - index) * 86400000).toISOString().slice(0, 10),
+    revenue: 1800 + ((index * 1739) % 14000),
+    profit: index === 24 ? -1200 : 500 + ((index * 631) % 6000),
+    missingCosts: 0,
+  })),
   orders,
   payments,
   inventory: [

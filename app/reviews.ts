@@ -11,8 +11,26 @@ export type CustomerReview = {
 };
 
 // Read directly from the Google Maps listing with automatic translation switched off.
-export const reviewsVerifiedAt = '2026-09-02';
+export const reviewsVerifiedAt = '2026-09-19';
 export const reviews: CustomerReview[] = [
+  {
+    name: 'Haider Ali',
+    quote: 'I had a great experience! They were very helpful, kind, and professional. Everything was handled smoothly, and I really appreciate their excellent service.',
+    language: 'en', rating: 5, excerpt: true,
+    sourceUrl: 'https://www.google.com/maps/place/Sasify+Solutions/',
+    profileUrl: 'https://www.google.com/maps/place/Sasify+Solutions/',
+    photoPath: '',
+    photoUrl: '',
+  },
+  {
+    name: 'Aliza Maryam (BSE233020)',
+    quote: 'This is my first experience with Satisfy Digital solutions. My experience has been excellent. The team is very trustworthy and professional.',
+    language: 'en', rating: 5, excerpt: true,
+    sourceUrl: 'https://www.google.com/maps/place/Sasify+Solutions/',
+    profileUrl: 'https://www.google.com/maps/place/Sasify+Solutions/',
+    photoPath: '',
+    photoUrl: '',
+  },
   {
     name: 'Pak Tv',
     photoPath: '/reviews/google-102685183417402336435.png',
@@ -48,23 +66,5 @@ export const reviews: CustomerReview[] = [
     sourceUrl: 'https://maps.app.goo.gl/L8FNVVC7gMj6yV2S7',
     profileUrl: 'https://www.google.com/maps/contrib/113729102562578452636/reviews?hl=en',
     photoUrl: 'https://lh3.googleusercontent.com/a-/ALV-UjX0MVfYBE8c_DjDIRDTbRSLAOp4-_LN0TWUPeB1ZVnq6KuAYL2D=w45-h45-p-rp-mo-br100',
-  },
-  {
-    name: 'Asim Ali',
-    photoPath: '/reviews/google-100700733301348018730.png',
-    quote: 'Genuine person and excellent service with affordable price, highly recommended',
-    language: 'en', rating: 5, excerpt: false,
-    sourceUrl: 'https://maps.app.goo.gl/kHYXfjGG18L5fzTN8',
-    profileUrl: 'https://www.google.com/maps/contrib/100700733301348018730/reviews?hl=en',
-    photoUrl: 'https://lh3.googleusercontent.com/a-/ALV-UjUpJF0SWmlb6spUgmACihW7JIcfo3xnuuXFxfF2vLy8JoojBSYp=w45-h45-p-rp-mo-br100',
-  },
-  {
-    name: 'alex',
-    photoPath: '/reviews/google-107068706401332092825.png',
-    quote: 'Very trusted and reliable, delivered exactly what was finalized. Great service, recommended.',
-    language: 'en', rating: 5, excerpt: false,
-    sourceUrl: 'https://maps.app.goo.gl/dA5TxTVttKXLGcqs9',
-    profileUrl: 'https://www.google.com/maps/contrib/107068706401332092825/reviews?hl=en',
-    photoUrl: 'https://lh3.googleusercontent.com/a/ACg8ocJbQLCl_9ZILHmMvWGZSCDcDRLJatzIyWGVaflkRuK-WUSeIg=w45-h45-p-rp-mo-br100',
   },
 ];

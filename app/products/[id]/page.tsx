@@ -59,6 +59,20 @@ function findLocalProduct(routeId: string) {
   return products.find((item) => item.slug === routeId || item.id === routeId);
 }
 
+function PurchaseDisclaimer() {
+  return (
+    <aside className="purchase-disclaimer" role="note">
+      <strong>Please read before purchasing</strong>
+      <p>
+        Please read the complete product description, activation requirements,
+        duration and warranty terms before payment. If an issue arises because
+        the description or requirements were not read or followed, Sasify
+        Solutions cannot be held responsible.
+      </p>
+    </aside>
+  );
+}
+
 export function generateStaticParams() {
   return [
     ...products.map((product) => ({ id: product.slug || product.id })),
@@ -295,6 +309,7 @@ function SupplierSeoProductPage({ product }: { product: SupplierSeoProduct }) {
                 Review the product requirements before payment.
               </span>
             </div>
+            <PurchaseDisclaimer />
             <SupplierLivePurchase
               productId={product.id}
               canonicalKey={product.canonicalKey}
@@ -757,6 +772,7 @@ export default async function ProductPage({ params }: Props) {
                 )}
               </span>
             </div>
+            <PurchaseDisclaimer />
             {!product.contactOnly && (
               <StockBuy
                 productId={product.id === 'p093' ? 'p093-ultra' : product.id}

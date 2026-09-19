@@ -29,3 +29,8 @@ test('shared account checkout can submit HOR for tracking', () => {
     /HOR code applied · Shared-account price unchanged/,
   );
 });
+
+test('checkout shows the purchase disclaimer before payment', () => {
+  assert.match(checkoutSource, /Please read the complete product description/);
+  assert.match(checkoutSource, /cannot be held responsible/);
+});

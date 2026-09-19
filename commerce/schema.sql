@@ -86,6 +86,8 @@ CREATE TABLE IF NOT EXISTS commerce_supplier_products (
  cost_manual boolean NOT NULL DEFAULT false,
  selling_price integer CHECK(selling_price>0),
  enabled boolean NOT NULL DEFAULT false,
+ name_manual boolean NOT NULL DEFAULT false,
+ description_manual boolean NOT NULL DEFAULT false,
  requires_customer_email boolean NOT NULL DEFAULT false,
  first_seen_at timestamptz NOT NULL DEFAULT now(),
  synced_at timestamptz NOT NULL DEFAULT now()
@@ -99,6 +101,8 @@ ALTER TABLE commerce_supplier_products ADD COLUMN IF NOT EXISTS provider_name te
 ALTER TABLE commerce_supplier_products ADD COLUMN IF NOT EXISTS external_product_id text;
 ALTER TABLE commerce_supplier_products ADD COLUMN IF NOT EXISTS canonical_key text;
 ALTER TABLE commerce_supplier_products ADD COLUMN IF NOT EXISTS canonical_manual boolean NOT NULL DEFAULT false;
+ALTER TABLE commerce_supplier_products ADD COLUMN IF NOT EXISTS name_manual boolean NOT NULL DEFAULT false;
+ALTER TABLE commerce_supplier_products ADD COLUMN IF NOT EXISTS description_manual boolean NOT NULL DEFAULT false;
 UPDATE commerce_supplier_products SET external_product_id=id WHERE external_product_id IS NULL;
 UPDATE commerce_supplier_products SET canonical_key=id WHERE canonical_key IS NULL;
 UPDATE commerce_supplier_products SET provider_id='dodi',provider_name='DODI Store' WHERE provider_id='dody';

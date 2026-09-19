@@ -39,7 +39,7 @@ test('sitemap contains only unique canonical pages at the configured domain', ()
       '/inventory',
       '/about',
       '/buying-guide',
-      '/request-tool',
+      '/otp',
       '/scammers',
       '/warranty',
       '/refunds',

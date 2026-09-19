@@ -2,8 +2,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { AdminShell } from './admin-shell';
 import { AdminOperations } from './admin-operations';
+import { AdminDailyChart } from './admin-daily-chart';
 import { AdminRecordControls, useRecordView } from './admin-record-controls';
 import { AdminToolRequests } from './admin-tool-requests';
+import { supplierOfferDecision } from './admin-catalog-status-model';
 import {
   ClipboardList,
   Copy,
@@ -480,6 +482,15 @@ export function Checkout() {
                 </small>
               </label>
             )}
+            <aside className="purchase-disclaimer" role="note">
+              <strong>Please read before purchasing</strong>
+              <p>
+                Please read the complete product description, activation
+                requirements, duration and warranty terms before payment. If an
+                issue arises because the description or requirements were not
+                read or followed, Sasify Solutions cannot be held responsible.
+              </p>
+            </aside>
             <fieldset className="payment-method-picker">
               <legend>How will you send the payment?</legend>
               <label className={paymentMethod === 'wallet' ? 'selected' : ''}>
@@ -904,6 +915,8 @@ function SupplierProductRow({
     costPkr: number;
     enabled: boolean;
     canonicalKey: string;
+    productName: string;
+    productDescription: string;
   }) => Promise<void>;
 }) {
   const [sellingPrice, setSellingPrice] = useState(
@@ -912,6 +925,10 @@ function SupplierProductRow({
   const [costPkr, setCostPkr] = useState(String(item.cost_pkr || ''));
   const [canonicalKey, setCanonicalKey] = useState(
     String(item.canonical_key || ''),
+  );
+  const [productName, setProductName] = useState(String(item.name || ''));
+  const [productDescription, setProductDescription] = useState(
+    String(item.description || ''),
   );
   const [enabled, setEnabled] = useState(Boolean(item.enabled));
   const providerClass = item.provider_id === 'dody' ? 'dodi' : item.provider_id;
@@ -926,6 +943,7 @@ function SupplierProductRow({
           </span>
           <strong>{item.name}</strong>
           <small>{item.external_product_id || item.id}</small>
+          {item.rejectedReason && <small className="supplier-rejected-reason">{item.rejectedReason}</small>}
         </div>
         <span
           className={`${item.supplier_stock > 0 ? 'in-stock' : 'out-stock'} supplier-stock-badge`}
@@ -937,9 +955,32 @@ function SupplierProductRow({
       <p className="supplier-wholesale">
         Wholesale: {item.wholesale_price} {item.currency}
       </p>
+      <div className="supplier-copy-controls">
+        <label>
+          Customer-facing title
+          <input
+            type="text"
+            maxLength={300}
+            value={productName}
+            onChange={(e) => setProductName(e.target.value)}
+          />
+        </label>
+        <label>
+          Customer-facing description
+          <textarea
+            rows={4}
+            maxLength={20000}
+            value={productDescription}
+            onChange={(e) => setProductDescription(e.target.value)}
+          />
+        </label>
+        <small className="supplier-copy-note">
+          Saved copy is shown to customers and is preserved during supplier syncs.
+        </small>
+      </div>
       <div className="supplier-price-controls">
         <label>
-          Cost in PKR
+          Supplier cost in PKR
           <input
             type="number"
             min="0"
@@ -948,8 +989,8 @@ function SupplierProductRow({
             onChange={(e) => setCostPkr(e.target.value)}
           />
         </label>
-        <label>
-          Selling price
+        <label className="supplier-selling-price-field">
+          Your selling price in PKR
           <input
             type="number"
             min="1"
@@ -957,6 +998,11 @@ function SupplierProductRow({
             value={sellingPrice}
             onChange={(e) => setSellingPrice(e.target.value)}
           />
+          <small>
+            {sellingPrice && costPkr
+              ? `Margin: PKR ${(Number(sellingPrice) - Number(costPkr)).toLocaleString('en-PK')}`
+              : 'Enter the price customers should pay.'}
+          </small>
         </label>
         <label>
           Product mapping key
@@ -977,13 +1023,21 @@ function SupplierProductRow({
         </label>
         <button
           className="secondary-button supplier-save-button"
-          disabled={busy || !sellingPrice || costPkr === '' || !canonicalKey}
+          disabled={
+            busy ||
+            !productName.trim() ||
+            !sellingPrice ||
+            costPkr === '' ||
+            !canonicalKey
+          }
           onClick={() =>
             void save({
               sellingPrice: Number(sellingPrice),
               costPkr: Number(costPkr),
               enabled,
               canonicalKey,
+              productName: productName.trim(),
+              productDescription: productDescription.trim(),
             })
           }
         >
@@ -1145,6 +1199,9 @@ export function CommerceAdmin() {
     [supplierProvider, setSupplierProvider] = useState<
       'all' | 'dodi' | 'qamify' | 'mke' | 'piggyai' | 'zoomstore' | 'fatbunny' | 'elitetools'
     >('all'),
+    [supplierStockFilter, setSupplierStockFilter] = useState<
+      'best-price' | 'in-stock' | 'out-of-stock' | 'rejected'
+    >('best-price'),
     [orderFilter, setOrderFilter] = useState<
       'all' | 'delivered' | 'unfulfilled' | 'cancelled'
     >('all'),
@@ -1369,6 +1426,22 @@ export function CommerceAdmin() {
       );
     },
   );
+  const supplierOfferView = supplierOfferDecision((data?.supplierProducts || []) as any);
+  const visibleSupplierProducts = supplierProducts.filter((item: any) => {
+    if (supplierStockFilter === 'best-price') return supplierOfferView.winners.has(item.id);
+    if (supplierStockFilter === 'in-stock') return Number(item.supplier_stock || 0) > 0 && supplierOfferView.winners.has(item.id);
+    if (supplierStockFilter === 'out-of-stock') return Number(item.supplier_stock || 0) <= 0 && supplierOfferView.winners.has(item.id);
+    return supplierOfferView.rejected.has(item.id);
+  }).map((item: any) => {
+    const winnerId = supplierOfferView.winnerByRejectedId.get(item.id);
+    const winner = winnerId
+      ? (data?.supplierProducts || []).find((candidate: any) => candidate.id === winnerId)
+      : null;
+    return winner
+      ? { ...item, rejectedReason: `Higher supplier cost than ${winner.provider_name || 'the selected supplier'} (${winner.name})` }
+      : item;
+  });
+  const supplierRejectedCount = supplierProducts.filter((item: any) => supplierOfferView.rejected.has(item.id)).length;
   const supplierCount = (
     provider:
       | 'all'
@@ -1394,7 +1467,7 @@ export function CommerceAdmin() {
     (provider: any) => provider.lowBalance,
   );
   const inventoryView = useRecordView(filteredInventory, () => '');
-  const supplierView = useRecordView(supplierProducts, () => '');
+  const supplierView = useRecordView(visibleSupplierProducts, () => '');
   const horCommission =
     (data?.commissionSummary || []).find(
       (item: any) => item.code === 'HOR',
@@ -1884,7 +1957,7 @@ export function CommerceAdmin() {
       )}
 
       {tab === 'overview' && (
-        <div className="admin-workspace">
+        <div className="admin-workspace ops-overview">
           <section className="metric-grid">
             <article>
               <span>Recognized sales value</span>
@@ -1931,6 +2004,7 @@ export function CommerceAdmin() {
               cost. Add their costs in Inventory for accurate profit.
             </p>
           )}
+          <AdminDailyChart days={data.dailyFinancials} unlocked={profitVisible} onNavigate={setTab} />
           <AdminOperations orders={data.orders || []} payments={data.payments || []} providers={data.providerStates || []} onNavigate={setTab} />
           <section className="admin-panel">
             <div className="panel-heading">
@@ -2908,6 +2982,32 @@ export function CommerceAdmin() {
                   <span>{supplierCount(value)}</span>
                 </button>
               ))}
+            </div>
+            <div className="supplier-catalog-toolbar">
+              <div className="supplier-catalog-filter-tabs" role="tablist" aria-label="Supplier product stock filters">
+                {(
+                  [
+                    ['best-price', 'Best-price offers', supplierProducts.filter((item: any) => supplierOfferView.winners.has(item.id)).length],
+                    ['in-stock', 'In stock', supplierProducts.filter((item: any) => Number(item.supplier_stock || 0) > 0 && supplierOfferView.winners.has(item.id)).length],
+                    ['out-of-stock', 'Out of stock', supplierProducts.filter((item: any) => Number(item.supplier_stock || 0) <= 0 && supplierOfferView.winners.has(item.id)).length],
+                    ['rejected', 'Rejected duplicates', supplierRejectedCount],
+                  ] as const
+                ).map(([value, label, count]) => (
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={supplierStockFilter === value}
+                    className={supplierStockFilter === value ? 'active' : ''}
+                    key={value}
+                    onClick={() => { setSupplierStockFilter(value); supplierView.setPage(1); }}
+                  >
+                    {label} <span>{count}</span>
+                  </button>
+                ))}
+              </div>
+              <p className="supplier-catalog-note">
+                Best-price offers keep the lowest saved PKR supplier cost for each matching product. Rejected duplicates are retained for review and are not shown in the main view.
+              </p>
             </div>
             <AdminRecordControls view={supplierView} label="supplier products" hideSearch orderLabels={['Catalog order', 'Reverse catalog order']} />
             <div className="supplier-admin-list">

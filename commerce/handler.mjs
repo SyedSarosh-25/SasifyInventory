@@ -215,7 +215,14 @@ function sharedSlotCost(purchaseCost, slot) {
     ? cost - base * (SHARED_CHATGPT_MAX_SLOTS - 1)
     : base;
 }
-function summarizeProfit(deliveredRows, withdrawnRows) {
+function summarizeProfit(deliveredRows, withdrawnRows, now = new Date()) {
+  const dayKey = (date) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Karachi', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(date));
+  const today = dayKey(now);
+  const daily = Array.from({ length: 30 }, (_, index) => ({
+    date: new Date(new Date(`${today}T12:00:00Z`).getTime() - (29 - index) * 86400000).toISOString().slice(0, 10),
+    revenue: 0, profit: 0, missingCosts: 0,
+  }));
+  const dailyByDate = new Map(daily.map((row) => [row.date, row]));
   const monthStart = new Date();
   monthStart.setDate(1);
   monthStart.setHours(0, 0, 0, 0);
@@ -253,6 +260,14 @@ function summarizeProfit(deliveredRows, withdrawnRows) {
       : 0;
     const safeCost = Number.isFinite(Number(cost)) ? Number(cost) : 0;
     const profit = safeIncome - safeCost;
+    if (date && Number.isFinite(new Date(date).getTime())) {
+      const day = dailyByDate.get(dayKey(date));
+      if (day) {
+        day.revenue += netIncome;
+        day.profit += profit;
+        if (safeCost === 0) day.missingCosts++;
+      }
+    }
     summary.income += netIncome;
     summary.gross_income += grossIncome;
     summary.coupon_discounts += couponDiscount;
@@ -303,7 +318,7 @@ function summarizeProfit(deliveredRows, withdrawnRows) {
     for (const key of ['income', 'gross_income', 'coupon_discounts', 'hor_profit_credit', 'cost', 'profit'])
       bucket[key] = Math.round(bucket[key]);
   }
-  return { metrics: summary, breakdown };
+  return { metrics: summary, breakdown, daily: daily.map((day) => ({ ...day, revenue: Math.round(day.revenue), profit: Math.round(day.profit) })) };
 }
 function summarizeCommissions(rows) {
   const summary = {
@@ -1214,6 +1229,12 @@ async function ensureSupplierMediaSchema(db) {
       await db.query(
         'ALTER TABLE commerce_supplier_products ADD COLUMN IF NOT EXISTS first_seen_at timestamptz NOT NULL DEFAULT now()',
       );
+      await db.query(
+        'ALTER TABLE commerce_supplier_products ADD COLUMN IF NOT EXISTS name_manual boolean NOT NULL DEFAULT false',
+      );
+      await db.query(
+        'ALTER TABLE commerce_supplier_products ADD COLUMN IF NOT EXISTS description_manual boolean NOT NULL DEFAULT false',
+      );
       await db.query(`CREATE TABLE IF NOT EXISTS commerce_supplier_catalog_meta (
         id boolean PRIMARY KEY DEFAULT true,
         first_seen_migrated_at timestamptz NOT NULL DEFAULT now()
@@ -1629,7 +1650,9 @@ async function syncSupplierCatalog(db, force = false, keys = {}, onlyProviderId 
         .toUpperCase();
       await db.query(
         `INSERT INTO commerce_supplier_products(id,name,description,delivery_instruction,wholesale_price,currency,supplier_stock,cost_pkr,provider_id,provider_name,external_product_id,canonical_key,logo_url,requires_customer_email,first_seen_at,synced_at)
-        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,now(),now()) ON CONFLICT(id) DO UPDATE SET name=excluded.name,description=excluded.description,
+        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,now(),now()) ON CONFLICT(id) DO UPDATE SET
+        name=CASE WHEN commerce_supplier_products.name_manual THEN commerce_supplier_products.name ELSE excluded.name END,
+        description=CASE WHEN commerce_supplier_products.description_manual THEN commerce_supplier_products.description ELSE excluded.description END,
         delivery_instruction=excluded.delivery_instruction,wholesale_price=excluded.wholesale_price,currency=excluded.currency,supplier_stock=excluded.supplier_stock,
         provider_id=excluded.provider_id,provider_name=excluded.provider_name,external_product_id=excluded.external_product_id,
         canonical_key=CASE WHEN commerce_supplier_products.canonical_manual THEN commerce_supplier_products.canonical_key ELSE excluded.canonical_key END,
@@ -3838,26 +3861,44 @@ export function createHandler(
         const canonicalKey = String(body.canonicalKey || '')
           .trim()
           .toLowerCase();
+        const productName =
+          body.productName === undefined
+            ? null
+            : String(body.productName).trim();
+        const productDescription =
+          body.productDescription === undefined
+            ? null
+            : String(body.productDescription).trim();
         if (
           !supplierId ||
           !Number.isSafeInteger(sellingPrice) ||
           sellingPrice < 1 ||
           !Number.isSafeInteger(costPkr) ||
           costPkr < 0 ||
-          !/^[a-z0-9][a-z0-9:_-]{1,199}$/.test(canonicalKey)
+          !/^[a-z0-9][a-z0-9:_-]{1,199}$/.test(canonicalKey) ||
+          (productName !== null && (!productName || productName.length > 300)) ||
+          (productDescription !== null && productDescription.length > 20000)
         )
           throw fail(
             400,
-            'Enter valid supplier product prices and mapping key.',
+            'Enter valid supplier product prices, mapping key, title and description.',
           );
         const changed = await db.query(
-          'UPDATE commerce_supplier_products SET selling_price=$1,cost_pkr=$2,cost_manual=true,enabled=$3,canonical_key=$4,canonical_manual=true WHERE id=$5 RETURNING id',
+          `UPDATE commerce_supplier_products
+           SET selling_price=$1,cost_pkr=$2,cost_manual=true,enabled=$3,canonical_key=$4,canonical_manual=true,
+               name=COALESCE($6,name),
+               description=COALESCE($7,description),
+               name_manual=CASE WHEN $6 IS NULL THEN name_manual ELSE true END,
+               description_manual=CASE WHEN $7 IS NULL THEN description_manual ELSE true END
+           WHERE id=$5 RETURNING id`,
           [
             sellingPrice,
             costPkr,
             body.enabled === true,
             canonicalKey,
             supplierId,
+            productName,
+            productDescription,
           ],
         );
         if (!changed.rowCount)
@@ -4024,6 +4065,7 @@ export function createHandler(
         output = {
           paymentReceivers: await listPaymentReceivers(db),
           metrics: dashboardMetrics,
+          dailyFinancials: profitSummary.daily.map((day) => profitUnlocked ? day : { date: day.date, revenue: day.revenue, profit: null, missingCosts: null }),
           coupons,
           inventory,
           sharedAccounts: sharedAccountRows.map((row) => ({

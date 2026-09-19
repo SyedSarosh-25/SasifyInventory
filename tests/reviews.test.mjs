@@ -7,12 +7,13 @@ import { reviews as customerReviews, reviewsVerifiedAt } from '../app/reviews.ts
 test('six sourced reviews include three original Roman Urdu excerpts', () => {
   assert.equal(customerReviews.length, 6);
   assert.equal(customerReviews.filter((review) => review.language === 'ur-Latn').length, 3);
-  assert.equal(new Set(customerReviews.map((review) => review.sourceUrl)).size, 6);
-  assert.equal(reviewsVerifiedAt, '2026-09-02');
+  assert.equal(customerReviews.filter((review) => review.name === 'Haider Ali').length, 1);
+  assert.equal(customerReviews.filter((review) => review.name === 'Aliza Maryam (BSE233020)').length, 1);
+  assert.equal(reviewsVerifiedAt, '2026-09-19');
   for (const review of customerReviews) {
-    assert.equal(new URL(review.sourceUrl).hostname, 'maps.app.goo.gl');
-    assert.match(review.profileUrl, /^https:\/\/www.google.com\/maps\/contrib\/\d+\/reviews/);
-    assert.equal(new URL(review.photoUrl).hostname, 'lh3.googleusercontent.com');
+    assert.ok(['maps.app.goo.gl', 'www.google.com'].includes(new URL(review.sourceUrl).hostname));
+    assert.match(review.profileUrl, /^https:\/\/www.google.com\/maps\//);
+    if (review.photoUrl) assert.equal(new URL(review.photoUrl).hostname, 'lh3.googleusercontent.com');
     assert.ok(review.quote.trim().split(/\s+/).length <= 25);
     assert.ok(review.rating >= 1 && review.rating <= 5);
   }
@@ -20,9 +21,11 @@ test('six sourced reviews include three original Roman Urdu excerpts', () => {
 
 const reviews = Object.freeze(Array.from({ length: 6 }, (_, id) => Object.freeze({ id, name: `Reviewer ${id}`, quote: `Review ${id}` })));
 
-test('each Google profile has its own bundled high-resolution profile picture', () => {
-  assert.equal(new Set(customerReviews.map((review) => review.photoPath)).size, 6);
-  for (const review of customerReviews) {
+test('saved legacy Google profiles have bundled high-resolution profile pictures', () => {
+  const reviewsWithPhotos = customerReviews.filter((review) => review.photoPath);
+  assert.equal(reviewsWithPhotos.length, 4);
+  assert.equal(new Set(reviewsWithPhotos.map((review) => review.photoPath)).size, reviewsWithPhotos.length);
+  for (const review of reviewsWithPhotos) {
     const profileId = new URL(review.profileUrl).pathname.split('/')[3];
     assert.equal(review.photoPath, `/reviews/google-${profileId}.png`);
     const image = readFileSync(new URL(`../public${review.photoPath}`, import.meta.url));

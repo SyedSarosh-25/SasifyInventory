@@ -316,6 +316,7 @@ export function sitemapEntries() {
     '/inventory',
     '/about',
     '/buying-guide',
+    '/otp',
     '/scammers',
     '/warranty',
     '/refunds',

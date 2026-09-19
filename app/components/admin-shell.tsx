@@ -47,6 +47,23 @@ export const adminSections = [
 ] as const;
 export type AdminSection = (typeof adminSections)[number][0];
 
+const sectionDescriptions: Record<AdminSection, string> = {
+  overview: 'Your business at a glance. Every order, every day.',
+  orders: 'Track purchases, review order details and manage delivery.',
+  payments: 'Review incoming receipts and their verification status.',
+  paymentAccounts: 'Manage receiving accounts and your active payment destination.',
+  inventory: 'Organize account stock and monitor availability.',
+  supplier: 'Edit product copy, compare costs and set your selling prices.',
+  catalogStatus: 'Review product visibility, availability and supplier matching.',
+  coupons: 'Manage discount codes and their usage limits.',
+  commissions: 'Review commissions and partner earnings.',
+  profit: 'Understand revenue, costs and business performance.',
+  team: 'Manage teammate access to your workspace.',
+  toolRequests: 'Review customer requests and follow up on availability.',
+  blockedUsers: 'Review blocked visitors and manage access restrictions.',
+  scammers: 'Review and manage reported scams.',
+};
+
 // Presentation only: all authorization, polling and mutations remain in CommerceAdmin.
 export function AdminShell({
   tab,
@@ -212,6 +229,7 @@ export function AdminShell({
             disabled={busy}
             onClick={onLogout}
             title="Sign out"
+            aria-label="Sign out"
           >
             <LogOut size={17} />
             <span>Sign out</span>
@@ -223,9 +241,7 @@ export function AdminShell({
               <span className="admin-eyebrow">Sasify operations</span>
               <h1>{tab === 'overview' ? 'Commerce overview' : title}</h1>
               <p>
-                {tab === 'overview'
-                  ? 'Your business at a glance. Every order, every day.'
-                  : 'Manage your workspace with the latest available records.'}
+                {sectionDescriptions[tab]}
               </p>
             </div>
             <span className={`ops-health ${autoVerify ? 'enabled' : ''}`}>

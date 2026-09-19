@@ -9,6 +9,7 @@ import {
   ExternalLink,
   Headphones,
   HeartHandshake,
+  KeyRound,
   Landmark,
   Maximize2,
   RotateCcw,
@@ -446,12 +447,12 @@ function DealProofGallery() {
 export default function Home() {
   const [liveProductCount, setLiveProductCount] = useState(products.length);
   const [liveReviews, setLiveReviews] = useState(fallbackReviews);
-  const [reviewSummary, setReviewSummary] = useState({ averageRating: 5, totalReviewCount: 148 });
+  const [reviewSummary, setReviewSummary] = useState({ averageRating: 5, totalReviewCount: 166 });
   const reviewsTrackRef = useRef<HTMLDivElement>(null);
   const reviewManualPauseUntilRef = useRef(0);
   const reviewInteractingRef = useRef(false);
   const reviews = liveReviews;
-  const reviewCount = reviewSummary.totalReviewCount || 148;
+  const reviewCount = reviewSummary.totalReviewCount || 166;
   const reviewAverage = reviewSummary.averageRating || 5;
 
   useEffect(() => {
@@ -615,6 +616,9 @@ export default function Home() {
               </a>
               <a href="/request-tool" className="secondary-button">
                 Request a tool <ArrowRight className="h-4 w-4" />
+              </a>
+              <a href="/otp" className="secondary-button otp-hero-button">
+                <KeyRound className="h-4 w-4" /> Get OTP
               </a>
             </div>
           </div>
