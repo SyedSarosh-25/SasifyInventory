@@ -2041,6 +2041,40 @@ svg { flex-shrink: 0; }
 .shared-two-factor-locked { margin: 18px 0 0; color: #6b7890; font-size: .88rem; }
 .delivery-instructions { margin-top: 16px; padding: 16px; border-left: 3px solid #285cff; background: #f6f9ff; }
 .delivery-instructions p { margin: 7px 0 0; white-space: pre-wrap; }
+.checkout-page .account-delivery-email { margin-top: 18px; padding: 0; overflow: hidden; border: 1px solid #d6e0ed; border-radius: 14px; background: #fff; color: #20385d; box-shadow: 0 8px 24px rgba(20, 47, 99, .08); }
+.account-email-header { display: flex; align-items: center; gap: 10px; padding: 16px 20px; border-bottom: 1px solid #e5ebf3; background: #f8faff; }
+.account-email-brand { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 9px; color: #fff; background: #4057db; }
+.account-email-header strong, .account-email-header small { display: block; }
+.account-email-header strong { color: #203b68; }
+.account-email-header small { margin-top: 2px; color: #71819a; font-size: 11px; }
+.account-email-status { margin-left: auto; padding: 5px 9px; border-radius: 999px; color: #167454; background: #ddf7eb; font-size: 11px; font-weight: 750; }
+.account-email-meta { display: flex; justify-content: space-between; gap: 16px; padding: 12px 20px; border-bottom: 1px solid #edf1f6; color: #6d7c92; font-size: 12px; }
+.account-email-meta b { color: #405472; }
+.account-email-body { padding: 22px 20px 0; }
+.account-email-body h2 { margin: 0 0 7px; color: #172f63; font-size: 22px; }
+.account-email-body > p { margin: 0 0 16px; color: #526782; font-size: 13px; }
+.account-credential-list { display: grid; gap: 10px; }
+.account-credential-list label { display: grid; gap: 5px; }
+.account-credential-list label > span { color: #526782; font-size: 11px; font-weight: 750; text-transform: uppercase; letter-spacing: .05em; }
+.account-delivery-guide { margin: 22px 20px 20px; padding: 20px 0 0; border: 0; border-top: 1px solid #e1e8f1; border-radius: 0; background: #fff; color: #20385d; }
+.account-delivery-guide-heading { display: flex; align-items: flex-start; gap: 12px; }
+.account-delivery-guide-heading > span { display: grid; place-items: center; width: 34px; height: 34px; flex-shrink: 0; border-radius: 10px; background: #4057db; color: #fff; font-weight: 900; }
+.account-delivery-guide-heading strong { display: block; color: #172f63; font-size: 16px; }
+.account-delivery-guide-heading small { display: block; margin-top: 3px; color: #58708f; }
+.account-delivery-guide h3 { margin: 0 0 5px; color: #263f72; font-size: 13px; font-weight: 750; }
+.account-delivery-guide p { margin: 6px 0; line-height: 1.55; font-size: 13px; }
+.account-delivery-guide a { color: #2858e8; font-weight: 700; text-decoration: underline; }
+.account-step-list { display: grid; gap: 9px; margin-top: 20px; }
+.account-step { display: flex; align-items: flex-start; gap: 12px; padding: 13px 14px; border: 1px solid #e0e7f1; border-radius: 10px; background: #fbfcff; }
+.account-step > span { display: grid; place-items: center; width: 25px; height: 25px; flex-shrink: 0; border-radius: 50%; color: #fff; background: #5262ed; font-size: 12px; font-weight: 800; }
+.account-step p { color: #526782; }
+.account-delivery-warning { margin-top: 17px; padding: 12px 14px; border-left: 3px solid #e79a28; border-radius: 4px; background: #fff8e8; }
+.account-delivery-warning strong { color: #8a5709; font-size: 13px; }
+.account-delivery-warning p { color: #6c5426; }
+.account-email-transfer { margin-top: 18px; padding-top: 17px; border-top: 1px solid #e1e8f1; }
+.account-email-transfer p { color: #526782; }
+.account-delivery-note { margin-top: 17px !important; padding: 12px 14px; border-radius: 9px; background: #f5f7fb; color: #536b89; }
+@media(max-width:600px) { .account-email-header, .account-email-meta, .account-email-body { padding-left: 16px; padding-right: 16px; } .account-email-meta { display: grid; gap: 4px; } .account-delivery-guide { margin-left: 16px; margin-right: 16px; padding: 16px; } .account-delivery-guide-heading strong { font-size: 15px; } }
 .commerce-shell .commerce-check { display: flex; align-items: flex-start; gap: 10px; }
 .commerce-check input { margin-top: 5px; width: 18px; height: 18px; flex-shrink: 0; }
 .commerce-error { padding: 12px; border: 1px solid #efa2a2; background: #fff0f0; color: #972d2d; border-radius: 6px; }

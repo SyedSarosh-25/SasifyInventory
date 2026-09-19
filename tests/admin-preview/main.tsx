@@ -99,6 +99,24 @@ const dashboard = {
   teamCommissions: [],
   teamAccess: { configured: true, email: 'teammate@example.invalid' },
 };
+function DeliveryMockup() {
+  return <main style={{ maxWidth: 760, margin: '40px auto', padding: 20, color: '#20385d', fontFamily: 'Inter, system-ui, sans-serif' }}>
+    <div className="account-delivery-email" style={{ boxShadow: '0 12px 35px #233d7212' }}>
+      <div className="account-email-header"><div className="account-email-brand">✓</div><div><strong>Sasify Solutions</strong><small>Secure account delivery</small></div><span className="account-email-status">Delivered</span></div>
+      <div className="account-email-meta"><span><b>Subject:</b> Your account credentials are ready</span><span>Order #a8f42c1d</span></div>
+      <div className="account-email-body"><h2>Your account is ready</h2><p>Thank you for trusting Sasify Solutions. Your credentials are below. Keep this message private.</p>
+      <div className="account-credential-list">{['Email: customer@example.com', 'Password: ••••••••••••', '2FA Key: DEMO-KEY-ONLY'].map((text) => <label key={text}><span>{text.split(':')[0]}</span><div className="commerce-secret"><code>{text.split(':').slice(1).join(':').trim()}</code><button style={{ width: 'auto', minWidth: 48, whiteSpace: 'nowrap', padding: '4px 8px' }}>Copy</button></div></label>)}</div></div>
+      <section className="account-delivery-guide" style={{ marginTop: 22 }}>
+        <div className="account-delivery-guide-heading"><span>✓</span><div><strong>Complete your account setup</strong><small>Follow these steps to log in and keep your warranty active.</small></div></div>
+        <div className="account-step-list"><div className="account-step"><span>1</span><div><h3>Log in to ChatGPT</h3><p>Open ChatGPT.com and enter the Email and Password shown above.</p></div></div><div className="account-step"><span>2</span><div><h3>Generate your login code</h3><p>When ChatGPT requests a 6-digit Authenticator Code, open <a href="/otp">Sasify OTP</a>, enter your 2FA Key and submit it.</p></div></div><div className="account-step"><span>3</span><div><h3>Finish verification</h3><p>Enter the generated 6-digit code on ChatGPT immediately. The code is time-sensitive.</p></div></div></div>
+        <div className="account-delivery-warning"><strong>Important warranty requirement</strong><p>Transfer the account to your personal email after login. Warranty support is not applicable if the account is not transferred.</p></div>
+        <div className="account-email-transfer"><h3>Transfer to your personal email</h3><p>ChatGPT → Settings → Account → Email Change → enter your personal email → verify the 6-digit code sent to that email.</p></div>
+        <p className="account-delivery-note"><strong>Do not change or remove the account password or 2FA settings.</strong><br />If an issue occurs, contact Sasify Solutions with your order reference.</p>
+      </section>
+    </div>
+  </main>;
+}
+
 // A test-only network boundary: every request terminates here, including mutations.
 window.fetch = async (input, init) => {
   const action = new URL(
@@ -121,6 +139,7 @@ window.fetch = async (input, init) => {
   );
 };
 createRoot(document.getElementById('root')!).render(
+  location.pathname === '/delivery' ? <DeliveryMockup /> :
   <>
     <div
       style={{

@@ -34,3 +34,7 @@ test('checkout shows the purchase disclaimer before payment', () => {
   assert.match(checkoutSource, /Please read the complete product description/);
   assert.match(checkoutSource, /cannot be held responsible/);
 });
+
+test('private-account delivery guide is hidden for shared accounts', () => {
+  assert.match(checkoutSource, /!order\.sharedSlot\s*&&\s*<section className="account-delivery-guide"/);
+});
