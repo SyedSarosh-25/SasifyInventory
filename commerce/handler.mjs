@@ -393,37 +393,6 @@ function telegramWebhookAuthorized(req) {
     secret,
   );
 }
-async function registerTelegramWebhook() {
-  const token = String(process.env.TELEGRAM_BOT_TOKEN || '').trim();
-  const secret = String(process.env.TELEGRAM_WEBHOOK_SECRET || '').trim();
-  if (!token || !secret) throw fail(503, 'Telegram webhook settings are incomplete.');
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 5000);
-  try {
-    const response = await fetch(`https://api.telegram.org/bot${token}/setWebhook`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({
-        url: 'https://www.sasifysolutions.com/api/commerce?action=telegram-webhook',
-        secret_token: secret,
-        allowed_updates: ['callback_query'],
-      }),
-      signal: controller.signal,
-    });
-    const result = await response.json().catch(() => ({}));
-    if (!response.ok || !result.ok)
-      throw fail(
-        502,
-        `Telegram rejected the webhook registration: ${String(result.description || response.status)}`,
-      );
-    return { ok: true, webhook: result.result === true };
-  } catch (error) {
-    if (error?.status) throw error;
-    throw fail(502, 'Telegram webhook registration failed.');
-  } finally {
-    clearTimeout(timeout);
-  }
-}
 function telegramChatAllowed(chatId) {
   const configured = String(process.env.TELEGRAM_CHAT_ID || '').trim();
   return !!configured && same(String(chatId || '').trim(), configured);
@@ -2544,14 +2513,6 @@ export function createHandler(
         throw fail(401, 'Invalid webhook secret.');
       if (action === 'telegram-webhook' && !telegramWebhookAuthorized(req))
         throw fail(401, 'Invalid Telegram webhook secret.');
-      if (
-        action === 'telegram-register-webhook' &&
-        !same(
-          String(req.headers['x-telegram-setup-token'] || '').trim(),
-          String(process.env.TELEGRAM_BOT_TOKEN || '').trim(),
-        )
-      )
-        throw fail(401, 'Invalid Telegram setup token.');
       if (action === 'inbound-email') {
         if (!inboundEmailAuthConfigured())
           throw fail(503, 'Inbound email receiver is not configured.');
@@ -2627,8 +2588,6 @@ export function createHandler(
           'sasify_admin=; HttpOnly; Secure; SameSite=Strict; Path=/api/commerce; Max-Age=0',
         );
         output = { ok: true };
-      } else if (action === 'telegram-register-webhook') {
-        output = await registerTelegramWebhook();
       } else if (action === 'telegram-webhook') {
         const callback = telegramCallbackResponse(body);
         if (!callback) {
