@@ -211,7 +211,7 @@ function SupplierSeoProductPage({ product }: { product: SupplierSeoProduct }) {
                 <p key={paragraph}>{paragraph}</p>
               ))}
               <div className="search-intent-terms">
-                <h3>Related searches in Pakistan</h3>
+                <h3>Related searches and use cases</h3>
                 <ul>
                   {about.searchTerms.map((term) => (
                     <li key={term}>{term}</li>
@@ -425,7 +425,7 @@ export default async function ProductPage({ params }: Props) {
                 <p key={paragraph}>{paragraph}</p>
               ))}
               <div className="search-intent-terms">
-                <h3>Related searches in Pakistan</h3>
+                <h3>Related searches and use cases</h3>
                 <ul>
                   {about.searchTerms.map((term) => (
                     <li key={term}>{term}</li>

@@ -34,7 +34,7 @@ const lines = [
   '',
   `Generated: ${generatedAt}`,
   '',
-  'These are product-specific Pakistan search-intent phrases rendered on product pages. Exact Google search volume is not claimed here; use Google Search Console or Keyword Planner for volume and ranking data.',
+  'These are product-specific global search-intent phrases based on Bing Keyword Research with Country = All and Language = All, combined with relevant Pakistan purchase-intent terms rendered on product pages. Exact Google search volume is not claimed here; use Google Search Console or Keyword Planner for volume and ranking data.',
   '',
   '| Type | Product | Page | Target keyword phrases |',
   '| --- | --- | --- | --- |',

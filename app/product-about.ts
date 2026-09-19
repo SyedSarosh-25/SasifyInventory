@@ -129,6 +129,42 @@ const keywordFamilies = [
   { matches: ['telegram'], terms: ['Telegram members Pakistan', 'Telegram group members Pakistan', 'Telegram buy-sell groups Pakistan', 'buy Telegram members Pakistan', 'Telegram marketing Pakistan', 'Telegram digital product Pakistan'] },
 ];
 
+// Bing Keyword Research was checked with Country = All and Language = All.
+// Keep only relevant brand, product and use-case phrases; exclude free/cracked,
+// download-only, login and unrelated spelling suggestions from the rendered copy.
+const globalKeywordFamilies = [
+  { matches: ['chatgpt'], terms: ['ChatGPT Plus', 'chat gpt plus', 'gpt plus', 'ChatGPT subscription', 'ChatGPT Plus price'] },
+  { matches: ['claude'], terms: ['Claude AI', 'Claude subscription', 'Claude AI writing tool', 'Claude API credits', 'AI assistant'] },
+  { matches: ['cursor'], terms: ['Cursor AI', 'cursor IDE', 'Cursor AI coding', 'Cursor subscription', 'AI coding tool'] },
+  { matches: ['canva'], terms: ['Canva Pro', 'canva professional', 'Canva app', 'Canva Pro subscription', 'Canva Pro price'] },
+  { matches: ['capcut'], terms: ['CapCut Pro', 'cap cut pro', 'CapCut Pro PC', 'CapCut video editor', 'CapCut subscription'] },
+  { matches: ['adobe', 'premiere'], requireAll: true, terms: ['Adobe Premiere Pro', 'Premiere Pro', 'Adobe video editing', 'video editing software', 'Adobe Premiere subscription'] },
+  { matches: ['adobe', 'express'], requireAll: true, terms: ['Adobe Express', 'Adobe Express app', 'Adobe Express design', 'Adobe Express subscription', 'graphic design app'] },
+  { matches: ['figma'], terms: ['Figma Pro', 'Figma design', 'Figma app', 'Figma subscription', 'UI design tool'] },
+  { matches: ['freepik'], terms: ['Freepik Premium', 'Freepik AI', 'Freepik subscription', 'Freepik credits', 'AI image tool'] },
+  { matches: ['elevenlabs'], terms: ['ElevenLabs', 'ElevenLabs AI voice', 'ElevenLabs text to speech', 'ElevenLabs subscription', 'AI voice tool'] },
+  { matches: ['minimax'], terms: ['Minimax AI', 'Minimax AI video', 'Minimax AI voice', 'Minimax credits', 'AI video tool'] },
+  { matches: ['grok'], terms: ['Grok AI', 'SuperGrok', 'Grok subscription', 'Grok Premium', 'AI assistant'] },
+  { matches: ['gemini'], terms: ['Gemini AI', 'Gemini Pro', 'Google Gemini', 'Gemini subscription', 'AI assistant'] },
+  { matches: ['perplexity'], terms: ['Perplexity AI', 'Perplexity Pro', 'Perplexity subscription', 'AI research tool', 'AI search'] },
+  { matches: ['krea'], terms: ['Krea AI', 'krea', 'Krea AI image', 'Krea AI subscription', 'AI image tool'] },
+  { matches: ['runway'], terms: ['Runway AI', 'Runway ML', 'Runway AI video', 'Runway AI video generator', 'AI video tool'] },
+  { matches: ['microsoft', 'office 365', 'ms office', 'office'], terms: ['Microsoft 365', 'Office 365', 'Microsoft 365 Copilot', 'Microsoft Office', 'productivity software'] },
+  { matches: ['notion'], terms: ['Notion', 'Notion AI', 'Notion app', 'Notion Business', 'productivity app'] },
+  { matches: ['quillbot'], terms: ['QuillBot', 'paraphrase generator', 'rewriter', 'AI writing tool', 'writing assistant'] },
+  { matches: ['youtube'], terms: ['YouTube Premium', 'YouTube subscription', 'ad-free YouTube', 'streaming subscription', 'YouTube videos'] },
+  { matches: ['prime video'], terms: ['Amazon Prime Video', 'Prime Video', 'Amazon streaming', 'streaming subscription', 'movies and series streaming'] },
+  { matches: ['apple music'], terms: ['Apple Music', 'Apple Music subscription', 'music streaming', 'music subscription', 'Apple Music account'] },
+  { matches: ['hostinger'], terms: ['Hostinger VPS', 'Hostinger hosting', 'web hosting', 'VPS hosting', 'website hosting'] },
+  { matches: ['zoom'], terms: ['Zoom Pro', 'Zoom meeting', 'video meeting tool', 'Zoom subscription', 'online meetings'] },
+  { matches: ['linkedin'], terms: ['LinkedIn Premium', 'LinkedIn Career', 'LinkedIn subscription', 'professional networking', 'job search tool'] },
+  { matches: ['jetbrains'], terms: ['JetBrains', 'JetBrains student pack', 'coding tools', 'developer software', 'IDE subscription'] },
+  { matches: ['replit'], terms: ['Replit', 'Replit Core', 'online coding tool', 'AI coding tool', 'Replit subscription'] },
+  { matches: ['ilovepdf'], terms: ['iLovePDF', 'iLovePDF Premium', 'PDF editor', 'PDF tool', 'PDF converter'] },
+  { matches: ['duolingo'], terms: ['Duolingo', 'Super Duolingo', 'language learning app', 'Duolingo subscription', 'online language learning'] },
+  { matches: ['vpn'], terms: ['VPN subscription', 'VPN service', 'VPN app', 'private browsing', 'secure Wi-Fi'] },
+];
+
 function listingKeywordModifiers(input: AboutInput, term: string) {
   const source = `${input.name} ${input.duration || ''}`.toLowerCase();
   const modifiers: string[] = [];
@@ -157,6 +193,11 @@ function searchIntentPhrases(input: AboutInput, kind: string) {
       ? matches.every((match) => brandText.includes(match))
       : matches.some((match) => brandText.includes(match)),
   );
+  const globalFamily = globalKeywordFamilies.find(({ matches, requireAll }) =>
+    requireAll
+      ? matches.every((match) => brandText.includes(match))
+      : matches.some((match) => brandText.includes(match)),
+  );
   const descriptor = kind === 'subscription' ? 'subscription' : kind === 'service' ? 'service' : 'digital product';
   const base = family?.terms || [
     `${term} price in Pakistan`,
@@ -164,7 +205,7 @@ function searchIntentPhrases(input: AboutInput, kind: string) {
     `${term} ${descriptor} Pakistan`,
     `${term} account Pakistan`,
   ];
-  return [...new Set([...base, ...listingKeywordModifiers(input, term)])].slice(0, 8);
+  return [...new Set([...(globalFamily?.terms || []), ...base, ...listingKeywordModifiers(input, term)])].slice(0, 8);
 }
 
 function productKind(input: AboutInput) {
@@ -224,7 +265,7 @@ function capabilityProfile(input: AboutInput) {
     };
   }
 
-  if (hasAny(brandText, ['canva', 'capcut', 'figma', 'adobe', 'freepik', 'leonardo', 'kling', 'heygen', 'veo', 'krea', 'flux', 'minimax', 'xingtu', 'meitu', 'elevenlabs'])) {
+  if (hasAny(brandText, ['canva', 'capcut', 'figma', 'adobe', 'freepik', 'leonardo', 'kling', 'heygen', 'veo', 'runway', 'krea', 'flux', 'minimax', 'xingtu', 'meitu', 'elevenlabs'])) {
     return {
       audience: 'designers, editors, marketers, social media creators and agencies',
       purpose:
@@ -335,7 +376,7 @@ function buildProductAbout(input: AboutInput): ProductAbout {
         `This section explains the real-world use case of ${input.name} so you can decide whether this tool, subscription, account or service matches what you searched for.${customerEmail}`,
       ),
       cleanSentence(
-        `For Pakistan search intent, this page is also written for customers comparing ${searchPhrases.slice(0, -1).join(', ')} and ${searchPhrases.at(-1)} before buying online in PKR.`,
+        `For global search intent, this page covers people comparing ${searchPhrases.slice(0, -1).join(', ')} and ${searchPhrases.at(-1)} before buying online; Pakistan pricing and checkout details are shown where relevant.`,
       ),
     ],
     searchTerms: searchPhrases,
