@@ -116,6 +116,7 @@ test('ChatGPT Plus local inventory supports checkout, verification, delivery and
     const profitUnlock = await request('admin-profit-unlock', { password: 'HOR' }, env.COMMERCE_ADMIN_KEY);
     assert.equal(profitUnlock.code, 200);
     const adminSnapshot = (await request('admin-list', undefined, env.COMMERCE_ADMIN_KEY, '', '', { 'x-profit-token': profitUnlock.data.token })).data;
+    assert.ok(adminSnapshot.payments.some((row) => row.transaction_id === 'TMICFBPK100926055571425207'));
     const metrics = adminSnapshot.metrics;
     assert.equal(metrics.income, 3499);
     assert.equal(metrics.cost, 1000);
