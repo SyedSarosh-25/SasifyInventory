@@ -4171,7 +4171,7 @@ export function createHandler(
           })),
           scamReports: (
             await db.query(
-              'SELECT id,name,description,amount_pkr,identifiers,payment_methods,status,created_at,reviewed_at,jsonb_array_length(evidence) AS evidence_count FROM commerce_scam_reports ORDER BY created_at DESC LIMIT 200',
+              "SELECT id,name,description,amount_pkr,identifiers,payment_methods,status,created_at,reviewed_at,jsonb_array_length(evidence) AS evidence_count FROM commerce_scam_reports WHERE status <> 'rejected' ORDER BY created_at DESC LIMIT 200",
             )
           ).rows,
           toolRequests: (
