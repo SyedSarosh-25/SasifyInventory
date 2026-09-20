@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { normalizeInboundEmail, authenticateInboundEmail } from '../commerce/inbound-email.mjs';
+import { parseEmail, parseReceiptDate } from '../commerce/core.mjs';
 import { generateKeyPairSync } from 'node:crypto';
 import { dkimSign } from 'mailauth/lib/dkim/sign.js';
 
@@ -36,6 +37,62 @@ test('uses Message-ID header when provider omits its message id field', () => {
   });
 
   assert.equal(result.messageId, '<header-id@example.invalid>');
+});
+
+test('accepts Postmark payloads without RawEmail only with NayaPay DKIM and DMARC evidence', async () => {
+  const payload = {
+    FromFull: { Name: 'NayaPay', Email: 'service@nayapay.com' },
+    ToFull: [{ Email: 'inbound@example.invalid' }],
+    Subject: 'You got Rs. 49 from Syed Adeen Sarosh 🎉',
+    TextBody: 'Amount Received\\nRs. 49\\nTransaction ID\\nTMICFBPK200926056115494298',
+    MessageID: 'postmark-message',
+    Headers: [
+      {
+        Name: 'Authentication-Results',
+        Value: 'mx.google.com; dkim=pass header.i=@nayapay.com header.s=default; dmarc=pass (p=REJECT)',
+      },
+      {
+        Name: 'DKIM-Signature',
+        Value: 'v=1; a=rsa-sha256; d=nayapay.com; s=default; h=Date:From:Reply-To:To:Subject; bh=test; b=test',
+      },
+    ],
+  };
+  const result = await authenticateInboundEmail(payload, 'service@nayapay.com');
+  assert.equal(result.authenticated, true, JSON.stringify(result));
+  assert.equal(result.reason, 'postmark_dkim_evidence');
+  assert.equal(result.email.messageId, 'postmark-message');
+});
+
+test('accepts the short NayaPay template only when the authenticated recipient matches the payment mailbox', () => {
+  const email = {
+    subject: 'You got Rs. 2,999 from Abdullah Razzaq 🎉',
+    text: 'Abdullah Razzaq\nabdullahrazzaq@nayapay\nAmount Received\nRs. 2,999\nTransaction ID\n6AAFDF74A149A1203690949',
+    from: 'NayaPay <service@nayapay.com>',
+    to: 'seemab3455@gmail.com',
+    date: new Date().toISOString(),
+  };
+  const config = {
+    enabled: true,
+    sender: 'service@nayapay.com',
+    receiver: 'LAIBA SEEMAB AHMAD',
+    receiverMailbox: 'seemab3455@gmail.com',
+  };
+  assert.equal(parseEmail(email, config).verified, true);
+  assert.equal(
+    parseEmail({ ...email, to: 'attacker@example.invalid' }, config).reason,
+    'destination_or_recipient_mismatch',
+  );
+});
+
+test('interprets a NayaPay Date header without a timezone as Pakistan time', () => {
+  assert.equal(
+    parseReceiptDate('20 Sep 2026, 06:29 PM').toISOString(),
+    '2026-09-20T13:29:00.000Z',
+  );
+  assert.equal(
+    parseReceiptDate('Sun, 20 Sep 2026 18:29:00 +0000').toISOString(),
+    '2026-09-20T18:29:00.000Z',
+  );
 });
 
 test('rejects inbound payloads without a subject or body', () => {

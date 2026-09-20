@@ -4,7 +4,7 @@ import { readFile } from 'node:fs/promises';
 import { randomBytes } from 'node:crypto';
 import { PGlite } from '@electric-sql/pglite';
 import { createHandler } from '../commerce/handler.mjs';
-import { hash, signature } from '../commerce/core.mjs';
+import { hash } from '../commerce/core.mjs';
 
 test('ChatGPT Plus local inventory supports checkout, verification, delivery and cancellation', async () => {
   const database = new PGlite();
@@ -16,11 +16,9 @@ test('ChatGPT Plus local inventory supports checkout, verification, delivery and
     COMMERCE_ADMIN_EMAIL: 'admin@test.invalid',
     COMMERCE_ADMIN_PASSWORD_HASH: hash('test-password'),
     PAYMENT_ACCOUNT_TITLE: 'Syed Adeen Sarosh',
-    NAYAPAY_WEBHOOK_SECRET: 'test-secret',
-    NAYAPAY_SIGNING_KEY: randomBytes(32).toString('hex'),
     NAYAPAY_AUTO_VERIFY: 'true',
     NAYAPAY_SENDER: 'service@nayapay.com',
-    NAYAPAY_RECEIVER_MARKER: 'Syed Adeen Sarosh',
+    PAYMENT_RECEIVER_EMAIL: 'inbound@example.invalid',
     NAYAPAY_INBOUND_TOKEN: 'inbound-test-token',
     NAYAPAY_INBOUND_BASIC_USER: 'postmark-user',
     NAYAPAY_INBOUND_BASIC_PASSWORD: 'postmark-password',
@@ -56,6 +54,29 @@ test('ChatGPT Plus local inventory supports checkout, verification, delivery and
     const res = { statusCode: 200, setHeader(name, value) { headers[String(name).toLowerCase()] = value; }, end(text) { result = { code: this.statusCode, data: JSON.parse(text), headers }; } };
     await handler(req, res);
     return result;
+  }
+  const postmarkAuth = `Basic ${Buffer.from(`${env.NAYAPAY_INBOUND_BASIC_USER}:${env.NAYAPAY_INBOUND_BASIC_PASSWORD}`).toString('base64')}`;
+  const postmarkPayload = ({ subject, text = '', html = '', date = new Date().toISOString(), messageId }) => ({
+    FromFull: { Name: 'NayaPay', Email: 'service@nayapay.com' },
+    ToFull: [{ Email: env.PAYMENT_RECEIVER_EMAIL }],
+    Subject: subject,
+    TextBody: text,
+    HtmlBody: html,
+    Date: date,
+    MessageID: messageId,
+    Headers: [
+      {
+        Name: 'Authentication-Results',
+        Value: 'mx.google.com; dkim=pass header.i=@nayapay.com header.s=default; dmarc=pass (p=REJECT)',
+      },
+      {
+        Name: 'DKIM-Signature',
+        Value: 'v=1; a=rsa-sha256; d=nayapay.com; s=default; h=Date:From:Reply-To:To:Subject; bh=test; b=test',
+      },
+    ],
+  });
+  async function inbound(receipt) {
+    return request('inbound-email', postmarkPayload(receipt), '', '', '', { authorization: postmarkAuth });
   }
   async function approveWithTelegram(orderId, transactionId) {
     const payment = (await request('admin-list', undefined, env.COMMERCE_ADMIN_KEY)).data.payments.find(
@@ -157,30 +178,29 @@ test('ChatGPT Plus local inventory supports checkout, verification, delivery and
     const order = created.data;
     const claim = await request('claim', { id: order.id, transactionId: 'TMICFBPK100926055571425207' }, order.recovery);
     assert.equal(claim.code, 200, JSON.stringify(claim));
-    const payload = { subject: 'You got Rs. 3,499 from Bank Alfalah-0388 🎉', text: 'Amount Received\nRs. 3,499\nTransaction ID\nTMICFBPK100926055571425207\nSource Acc. Number\n****0388\nDestination Acc. Title\nSyed Adeen Sarosh', from: 'NayaPay <service@nayapay.com>', date: new Date().toISOString(), sentAt: String(Date.now()), messageId: 'integration-test', secret: env.NAYAPAY_WEBHOOK_SECRET };
-    payload.signature = signature(payload, env.NAYAPAY_SIGNING_KEY);
-    assert.equal((await request('email-webhook', payload)).code, 200);
-    assert.equal((await approveWithTelegram(order.id, 'TMICFBPK100926055571425207')).code, 200);
+    const payload = { subject: 'You got Rs. 3,499 from Bank Alfalah-0388 🎉', text: 'Amount Received\nRs. 3,499\nTransaction ID\nTMICFBPK100926055571425207\nSource Acc. Number\n****0388\nDestination Acc. Title\nSyed Adeen Sarosh', date: new Date().toISOString(), messageId: 'integration-test' };
+    assert.equal((await inbound(payload)).code, 200);
+    const autoStatus = await request('status', undefined, order.recovery, order.id);
+    assert.equal(autoStatus.data.status, 'delivered', JSON.stringify(autoStatus));
+    const autoPayment = (await request('admin-list', undefined, env.COMMERCE_ADMIN_KEY)).data.payments.find(
+      (payment) => payment.transaction_id === 'TMICFBPK100926055571425207',
+    );
+    assert.equal(autoPayment.verification_reason, 'verified_and_delivered');
     const status = await request('status', undefined, order.recovery, order.id);
     assert.equal(status.data.status, 'delivered', JSON.stringify(status));
     assert.equal(status.data.credentials.password, 'test-pass');
     assert.ok(status.data.paymentSubmittedAt);
-    const postmarkPayload = {
-      FromFull: { Name: 'NayaPay', Email: 'service@nayapay.com' },
-      ToFull: [{ Email: 'inbound@example.invalid' }],
-      Subject: 'You got Rs. 1 from Postmark Test',
-      TextBody: 'Amount Received\nRs. 1\nTransaction ID\nPOSTMARK-NO-RAW',
-      MessageID: '<postmark-no-raw@example.invalid>',
+    const postmarkTestReceipt = {
+      subject: 'You got Rs. 1 from Postmark Test',
+      text: 'Amount Received\nRs. 1\nTransaction ID\nPOSTMARK-NO-RAW\nSource Acc. Number\n****0388',
+      messageId: '<postmark-no-raw@example.invalid>',
     };
-    const postmarkAuth = `Basic ${Buffer.from(`${env.NAYAPAY_INBOUND_BASIC_USER}:${env.NAYAPAY_INBOUND_BASIC_PASSWORD}`).toString('base64')}`;
-    assert.equal(
-      (await request('email-webhook', postmarkPayload, '', '', '', { authorization: postmarkAuth })).code,
-      200,
-    );
+    assert.equal((await inbound(postmarkTestReceipt)).code, 200);
     const postmarkPayment = (await request('admin-list', undefined, env.COMMERCE_ADMIN_KEY)).data.payments.find(
-      (payment) => payment.subject === postmarkPayload.Subject,
+      (payment) => payment.subject === postmarkTestReceipt.subject,
     );
-    assert.equal(postmarkPayment.verification_reason, 'missing_original_email');
+    assert.equal(postmarkPayment.verification_reason, 'verified_no_eligible_order');
+
     const profitUnlock = await request('admin-profit-unlock', { password: 'HOR' }, env.COMMERCE_ADMIN_KEY);
     assert.equal(profitUnlock.code, 200);
     const adminSnapshot = (await request('admin-list', undefined, env.COMMERCE_ADMIN_KEY, '', '', { 'x-profit-token': profitUnlock.data.token })).data;
@@ -192,6 +212,20 @@ test('ChatGPT Plus local inventory supports checkout, verification, delivery and
     assert.equal(adminSnapshot.teamCommissions.ratePkr, 50);
     assert.equal(adminSnapshot.teamCommissions.orders.length, 0);
     assert.equal(adminSnapshot.teamCommissions.totalPkr, 0);
+    await request('admin-import', { productId: 'p093', accounts: 'receipt-first@test.invalid|receipt-pass|receipt-2fa', purchaseCost: 1000 }, env.COMMERCE_ADMIN_KEY);
+    const receiptFirstOrder = await request('create', { productId: 'p093' });
+    assert.equal(receiptFirstOrder.code, 200, JSON.stringify(receiptFirstOrder));
+    const receiptFirstTransaction = 'RECEIPT-FIRST-100926055571425208';
+    assert.equal(
+      (await inbound({
+        subject: `You got Rs. ${receiptFirstOrder.data.amount.toLocaleString()} from Bank Alfalah-0388 🎉`,
+        text: `Amount Received\nRs. ${receiptFirstOrder.data.amount.toLocaleString()}\nTransaction ID\n${receiptFirstTransaction}\nSource Acc. Number\n****0388`,
+        messageId: 'receipt-before-claim',
+      })).code,
+      200,
+    );
+    const receiptFirstStatus = await request('status', undefined, receiptFirstOrder.data.recovery, receiptFirstOrder.data.id);
+    assert.equal(receiptFirstStatus.data.status, 'delivered', JSON.stringify(receiptFirstStatus));
     const htmlOrder = await request('create', { productId: 'p093', paymentMethod: 'bank' });
     assert.equal(htmlOrder.code, 200, JSON.stringify(htmlOrder));
     const htmlTransaction = 'ABPAPKKA140926150945051530';
@@ -199,16 +233,11 @@ test('ChatGPT Plus local inventory supports checkout, verification, delivery and
     const htmlPayload = {
       subject: 'You got Rs. 3,499 from Zain Ali 🎉',
       text: '',
-      html: '<table><tr><td>Amount Received</td><td>Rs. 3,499</td></tr><tr><td>Service Fee (Incl. Tax)</td><td>Rs. 0</td></tr><tr><td>Total Amount</td><td>Rs. 3,499</td></tr><tr><td>Transaction ID</td><td>ABPAPKKA140926150945051530</td></tr><tr><td>Source Acc. Title</td><td>Zain Ali</td></tr><tr><td>Source Bank</td><td>Allied Bank</td></tr><tr><td>Raast ID / IBAN</td><td>••••0015</td></tr><tr><td>Destination Acc. Title</td><td>Syed Adeen Sarosh</td></tr><tr><td>Channel</td><td>Raast</td></tr></table>',
-      from: 'NayaPay <service@nayapay.com>',
+      html: '<table><tr><td>Amount Received</td><td>Rs. 3,499</td></tr><tr><td>Service Fee (Incl. Tax)</td><td>Rs. 0</td></tr><tr><td>Total Amount</td><td>Rs. 3,499</td></tr><tr><td>Transaction ID</td><td>ABPAPKKA140926150945051530</td></tr><tr><td>Source Acc. Title</td><td>Zain Ali</td></tr><tr><td>Source Bank</td><td>Allied Bank</td></tr><tr><td>Raast ID / IBAN</td><td>••••0015</td></tr><tr><td>Channel</td><td>Raast</td></tr></table>',
       date: new Date().toISOString(),
-      sentAt: String(Date.now()),
       messageId: 'html-integration-test',
-      secret: env.NAYAPAY_WEBHOOK_SECRET,
     };
-    htmlPayload.signature = signature(htmlPayload, env.NAYAPAY_SIGNING_KEY);
-    assert.equal((await request('email-webhook', htmlPayload)).code, 200);
-    assert.equal((await approveWithTelegram(htmlOrder.data.id, htmlTransaction)).code, 200);
+    assert.equal((await inbound(htmlPayload)).code, 200);
     const htmlStatus = await request('status', undefined, htmlOrder.data.recovery, htmlOrder.data.id);
     assert.equal(htmlStatus.data.status, 'delivered', JSON.stringify(htmlStatus));
     assert.equal(htmlStatus.data.paymentMethod, 'bank');
@@ -239,9 +268,9 @@ test('ChatGPT Plus local inventory supports checkout, verification, delivery and
     assert.equal(withdrawal.code, 200, JSON.stringify(withdrawal));
     const withdrawalMetrics = (await request('admin-list', undefined, env.COMMERCE_ADMIN_KEY, '', '', { 'x-profit-token': profitUnlock.data.token })).data.metrics;
     assert.equal(withdrawalMetrics.admin_withdrawals, 1);
-    assert.equal(withdrawalMetrics.income, 13996);
-    assert.equal(withdrawalMetrics.cost, 4000);
-    assert.equal(withdrawalMetrics.profit, 9996);
+    assert.equal(withdrawalMetrics.income, 17495);
+    assert.equal(withdrawalMetrics.cost, 5000);
+    assert.equal(withdrawalMetrics.profit, 12495);
 
     await request('admin-import', { productId: 'p093', accounts: 'unique-one@test.invalid|unique-pass|unique-2fa\nunique-two@test.invalid|unique-pass|unique-2fa', purchaseCost: 1000 }, env.COMMERCE_ADMIN_KEY);
     const firstUnique = await request('create', { productId: 'p093' });
@@ -265,14 +294,10 @@ test('ChatGPT Plus local inventory supports checkout, verification, delivery and
     const latePayload = {
       subject: `You got PKR ${fakeUnpaid.data.amount.toLocaleString()} from Bank Alfalah-0388 🎉`,
       text: `Amount Received\nPKR ${fakeUnpaid.data.amount.toLocaleString()}\nTransaction ID\n${lateTransaction}\nSource Acc. Number\n****0388\nDestination Acc. Title\nSyed Adeen Sarosh`,
-      from: 'NayaPay <service@nayapay.com>',
       date: new Date().toISOString(),
-      sentAt: String(Date.now()),
       messageId: 'late-after-verification-window',
-      secret: env.NAYAPAY_WEBHOOK_SECRET,
     };
-    latePayload.signature = signature(latePayload, env.NAYAPAY_SIGNING_KEY);
-    assert.equal((await request('email-webhook', latePayload)).code, 200);
+    assert.equal((await inbound(latePayload)).code, 200);
     const lateDashboard = await request('admin-list', undefined, env.COMMERCE_ADMIN_KEY);
     const latePayment = lateDashboard.data.payments.find((payment) => payment.transaction_id === lateTransaction);
     assert.ok(latePayment);
@@ -282,14 +307,10 @@ test('ChatGPT Plus local inventory supports checkout, verification, delivery and
     const uniquePayload = {
       subject: `You got Rs. ${secondUnique.data.amount.toLocaleString()} from Bank Alfalah-0388 🎉`,
       text: `Amount Received\nRs. ${secondUnique.data.amount.toLocaleString()}\nTransaction ID\n${uniqueTransaction}\nSource Acc. Number\n****0388\nDestination Acc. Title\nSyed Adeen Sarosh`,
-      from: 'NayaPay <service@nayapay.com>',
       date: new Date().toISOString(),
-      sentAt: String(Date.now()),
       messageId: 'unique-payment-test',
-      secret: env.NAYAPAY_WEBHOOK_SECRET,
     };
-    uniquePayload.signature = signature(uniquePayload, env.NAYAPAY_SIGNING_KEY);
-    assert.equal((await request('email-webhook', uniquePayload)).code, 200);
+    assert.equal((await inbound(uniquePayload)).code, 200);
     assert.equal((await approveWithTelegram(secondUnique.data.id, uniqueTransaction)).code, 200);
     const uniqueStatus = await request('status', undefined, secondUnique.data.recovery, secondUnique.data.id);
     assert.equal(uniqueStatus.data.status, 'delivered', JSON.stringify(uniqueStatus));
@@ -309,14 +330,10 @@ test('ChatGPT Plus local inventory supports checkout, verification, delivery and
       const manualPayload = {
         subject: `You got Rs. ${manualPaymentOrder.data.amount.toLocaleString()} from Bank Alfalah-0388 🎉`,
         text: `Amount Received\nRs. ${manualPaymentOrder.data.amount.toLocaleString()}\nTransaction ID\n${manualTransaction}\nSource Acc. Number\n****0388\nDestination Acc. Title\nSyed Adeen Sarosh`,
-        from: 'NayaPay <service@nayapay.com>',
         date: new Date().toISOString(),
-        sentAt: String(Date.now()),
         messageId: 'manual-payment-test',
-        secret: env.NAYAPAY_WEBHOOK_SECRET,
       };
-      manualPayload.signature = signature(manualPayload, env.NAYAPAY_SIGNING_KEY);
-      assert.equal((await request('email-webhook', manualPayload)).code, 200);
+      assert.equal((await inbound(manualPayload)).code, 200);
       const manualDashboard = await request('admin-list', undefined, env.COMMERCE_ADMIN_KEY);
       const manualPayment = manualDashboard.data.payments.find((payment) => payment.transaction_id === manualTransaction);
       assert.ok(manualPayment);
@@ -326,6 +343,9 @@ test('ChatGPT Plus local inventory supports checkout, verification, delivery and
         confirmed: true,
       }, env.COMMERCE_ADMIN_KEY);
       assert.equal(approved.code, 200, JSON.stringify(approved));
+      const approvedPayment = (await request('admin-list', undefined, env.COMMERCE_ADMIN_KEY)).data.payments.find((payment) => payment.transaction_id === manualTransaction);
+      assert.equal(approvedPayment.verification_reason, 'manually_approved');
+      assert.equal(approvedPayment.verification_reason_before_manual, 'automatic_verification_disabled');
       assert.equal((await request('status', undefined, manualPaymentOrder.data.recovery, manualPaymentOrder.data.id)).data.status, 'delivered');
     } finally {
       process.env.NAYAPAY_AUTO_VERIFY = autoVerify;
@@ -349,14 +369,10 @@ test('ChatGPT Plus local inventory supports checkout, verification, delivery and
     const custPayload = {
       subject: `You got Rs. ${custOrder.data.amount.toLocaleString()} from Bank Alfalah-0388 🎉`,
       text: `Amount Received\nRs. ${custOrder.data.amount.toLocaleString()}\nTransaction ID\n${custTransaction}\nSource Acc. Number\n****0388\nDestination Acc. Title\nSyed Adeen Sarosh`,
-      from: 'NayaPay <service@nayapay.com>',
       date: new Date().toISOString(),
-      sentAt: String(Date.now()),
       messageId: 'cust-payment-test',
-      secret: env.NAYAPAY_WEBHOOK_SECRET,
     };
-    custPayload.signature = signature(custPayload, env.NAYAPAY_SIGNING_KEY);
-    assert.equal((await request('email-webhook', custPayload)).code, 200);
+    assert.equal((await inbound(custPayload)).code, 200);
     assert.equal((await approveWithTelegram(custOrder.data.id, custTransaction)).code, 200);
     assert.equal((await request('status', undefined, custOrder.data.recovery, custOrder.data.id)).data.status, 'delivered');
     const commissionDashboard = await request('admin-list', undefined, env.COMMERCE_ADMIN_KEY);
@@ -374,18 +390,14 @@ test('ChatGPT Plus local inventory supports checkout, verification, delivery and
     const delayedBankPayload = {
       subject: `You got PKR ${delayedBankOrder.data.amount.toLocaleString()} from Meezan Bank`,
       text: `Amount Received\nPKR ${delayedBankOrder.data.amount.toLocaleString()}\nTransaction ID\n${delayedBankTransaction}\nRaast ID / IBAN\nPK36MEZN0000123456789012\nDestination Acc. Title\nSYED ADEEN SAROSH`,
-      from: 'NayaPay <service@nayapay.com>',
       date: new Date().toISOString(),
-      sentAt: String(Date.now()),
       messageId: 'delayed-bank-payment-test',
-      secret: env.NAYAPAY_WEBHOOK_SECRET,
     };
-    delayedBankPayload.signature = signature(delayedBankPayload, env.NAYAPAY_SIGNING_KEY);
-    assert.equal((await request('email-webhook', delayedBankPayload)).code, 200);
+    assert.equal((await inbound(delayedBankPayload)).code, 200);
     assert.equal((await approveWithTelegram(delayedBankOrder.data.id, delayedBankTransaction)).code, 200);
     assert.equal((await request('status', undefined, delayedBankOrder.data.recovery, delayedBankOrder.data.id)).data.status, 'delivered');
     const delayedBankPayment = (await request('admin-list', undefined, env.COMMERCE_ADMIN_KEY)).data.payments.find((row) => row.transaction_id === delayedBankTransaction);
-    assert.equal(delayedBankPayment.verification_reason, 'manually_approved');
+    assert.equal(delayedBankPayment.verification_reason, 'verified_and_delivered');
 
     const lateBankOrder = await request('create', { productId: 'p093', paymentMethod: 'bank' });
     await database.query("UPDATE commerce_orders SET created_at=now()-interval '31 minutes',expires_at=now()-interval '1 minute' WHERE id=$1", [lateBankOrder.data.id]);
@@ -396,11 +408,9 @@ test('ChatGPT Plus local inventory supports checkout, verification, delivery and
       subject: `You got PKR ${lateBankOrder.data.amount.toLocaleString()} from Meezan Bank`,
       text: `Amount Received\nPKR ${lateBankOrder.data.amount.toLocaleString()}\nTransaction ID\n${lateBankTransaction}\nRaast ID / IBAN\nPK36MEZN0000123456789012\nDestination Acc. Title\nSYED ADEEN SAROSH`,
       date: new Date().toISOString(),
-      sentAt: String(Date.now()),
       messageId: 'late-bank-payment-test',
     };
-    lateBankPayload.signature = signature(lateBankPayload, env.NAYAPAY_SIGNING_KEY);
-    assert.equal((await request('email-webhook', lateBankPayload)).code, 200);
+    assert.equal((await inbound(lateBankPayload)).code, 200);
     const lateBankStatus = await request('status', undefined, lateBankOrder.data.recovery, lateBankOrder.data.id);
     assert.equal(lateBankStatus.data.status, 'expired');
     const lateBankPayment = (await request('admin-list', undefined, env.COMMERCE_ADMIN_KEY)).data.payments.find((row) => row.transaction_id === lateBankTransaction);

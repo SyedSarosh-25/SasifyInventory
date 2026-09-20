@@ -34,7 +34,7 @@ Public routes include the homepage, inventory, product details, About, buying gu
 
 ## Commerce and admin
 
-- Customers create orders, receive NayaPay instructions, submit a transaction reference and receive inventory only after payment verification/approval.
+- Customers create orders, receive NayaPay instructions, submit a transaction reference and receive inventory automatically after a trusted payment match; Telegram/admin approval is reserved for fallback review.
 - Local credentials are reserved transactionally and encrypted at rest with AES-256-GCM.
 - The admin panel supports secure login, session restoration, Apple Pay inventory imports, stock withdrawal, orders, payments, supplier products, financial summaries, supplier alerts and scam reports. Its live dashboard polls for new orders and supplier issues.
 - Admin authentication uses a normalized email, password hash, signed eight-hour token and host-only Secure/HttpOnly/SameSite=Strict cookie.

@@ -165,12 +165,20 @@ CREATE INDEX IF NOT EXISTS commerce_two_factor_challenges_expiry ON commerce_two
 CREATE TABLE IF NOT EXISTS commerce_payments (
  id uuid PRIMARY KEY, event_hash text NOT NULL UNIQUE, transaction_id text UNIQUE,
  amount integer, payer_name text, source_last4 text, received_at timestamptz, verified boolean NOT NULL DEFAULT false,
- verification_reason text NOT NULL DEFAULT 'not_evaluated',
+ verification_reason text NOT NULL DEFAULT 'not_evaluated', verification_reason_before_manual text,
+ fulfillment_error_code text, fulfillment_error_message text, fulfillment_error_stage text, fulfillment_error_at timestamptz,
+ manual_approval_source text,
  subject text NOT NULL, encrypted_body text NOT NULL, source_message_id text,
  order_id uuid UNIQUE REFERENCES commerce_orders(id), created_at timestamptz NOT NULL DEFAULT now()
 );
 ALTER TABLE commerce_payments ADD COLUMN IF NOT EXISTS source_message_id text;
 ALTER TABLE commerce_payments ADD COLUMN IF NOT EXISTS verification_reason text NOT NULL DEFAULT 'not_evaluated';
+ALTER TABLE commerce_payments ADD COLUMN IF NOT EXISTS verification_reason_before_manual text;
+ALTER TABLE commerce_payments ADD COLUMN IF NOT EXISTS fulfillment_error_code text;
+ALTER TABLE commerce_payments ADD COLUMN IF NOT EXISTS fulfillment_error_message text;
+ALTER TABLE commerce_payments ADD COLUMN IF NOT EXISTS fulfillment_error_stage text;
+ALTER TABLE commerce_payments ADD COLUMN IF NOT EXISTS fulfillment_error_at timestamptz;
+ALTER TABLE commerce_payments ADD COLUMN IF NOT EXISTS manual_approval_source text;
 ALTER TABLE commerce_orders ADD COLUMN IF NOT EXISTS receiver_id text;
 ALTER TABLE commerce_payments ADD COLUMN IF NOT EXISTS receiver_id text;
 CREATE TABLE IF NOT EXISTS commerce_payment_receivers (
@@ -186,7 +194,8 @@ CREATE TABLE IF NOT EXISTS commerce_payment_receiver_state (
 );
 CREATE UNIQUE INDEX IF NOT EXISTS commerce_payments_source_message_id ON commerce_payments(source_message_id) WHERE source_message_id IS NOT NULL;
 CREATE TABLE IF NOT EXISTS commerce_limits (key text PRIMARY KEY, window_start timestamptz NOT NULL DEFAULT now(), hits integer NOT NULL DEFAULT 1);
-CREATE TABLE IF NOT EXISTS commerce_audit (id bigserial PRIMARY KEY, action text NOT NULL, object_id text, created_at timestamptz NOT NULL DEFAULT now());
+CREATE TABLE IF NOT EXISTS commerce_audit (id bigserial PRIMARY KEY, action text NOT NULL, object_id text, details jsonb, created_at timestamptz NOT NULL DEFAULT now());
+ALTER TABLE commerce_audit ADD COLUMN IF NOT EXISTS details jsonb;
 CREATE TABLE IF NOT EXISTS commerce_team_users (
  id boolean PRIMARY KEY DEFAULT true CHECK(id),
  email text NOT NULL,

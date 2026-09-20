@@ -1517,7 +1517,7 @@ export function CommerceAdmin() {
     paymentReceivers.find((receiver: any) => receiver.id === receiverId)?.label || receiverId || 'Unknown account';
   const paymentNeedsReview = (row: any) =>
     !row.verified ||
-    ['verified_no_eligible_order', 'verified_after_order_window', 'verified_multiple_eligible_orders'].includes(
+    ['verified_no_eligible_order', 'verified_after_order_window', 'verified_multiple_eligible_orders', 'verified_auto_delivery_failed'].includes(
       String(row.verification_reason || ''),
     );
   const paymentRows = (data?.payments || []).filter((row: any) => {
@@ -3582,6 +3582,17 @@ export function CommerceAdmin() {
                             : 'No reference captured'}
                         </small>
                         <small>{verificationReason(row.verification_reason)}</small>
+                        {row.verification_reason_before_manual && (
+                          <small>
+                            Before manual approval: {verificationReason(row.verification_reason_before_manual)}
+                          </small>
+                        )}
+                        {row.fulfillment_error_code && (
+                          <small>
+                            Auto-delivery error: {row.fulfillment_error_code}
+                            {row.fulfillment_error_message ? ` — ${row.fulfillment_error_message}` : ''}
+                          </small>
+                        )}
                       </td>
                       <td>{row.order_id?.slice(0, 8) || 'Unassigned'}</td>
                       <td>

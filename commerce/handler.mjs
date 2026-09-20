@@ -3,7 +3,6 @@ import { createHmac, randomBytes, randomUUID } from 'node:crypto';
 import {
   hash,
   same,
-  signature,
   encrypt,
   decrypt,
   totpCode,
@@ -79,6 +78,50 @@ import {
 import catalog from './catalog.json' with { type: 'json' };
 
 const fail = (status, message) => Object.assign(new Error(message), { status });
+const TELEGRAM_APPROVAL_REASONS = new Set(['verified_auto_delivery_failed']);
+function errorDetail(error) {
+  const code = String(
+    error?.code || (error?.status ? `http_${error.status}` : '') || error?.name || 'delivery_failed',
+  ).slice(0, 120);
+  const message = String(error?.message || 'Automatic credential delivery failed')
+    .replace(/(?:bearer|basic)\s+\S+/gi, '[redacted]')
+    .replace(/(?:token|password|secret|api[_-]?key)\s*[:=]\s*\S+/gi, '$1=[redacted]')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 500);
+  return { code, message };
+}
+async function recordAutoDeliveryFailure(db, paymentId, error, stage) {
+  const detail = errorDetail(error);
+  await db.query(
+    `UPDATE commerce_payments
+     SET verification_reason='verified_auto_delivery_failed',
+         fulfillment_error_code=$2,fulfillment_error_message=$3,
+         fulfillment_error_stage=$4,fulfillment_error_at=now()
+     WHERE id=$1`,
+    [paymentId, detail.code, detail.message, String(stage || 'fulfillment').slice(0, 80)],
+  );
+  await db.query(
+    `INSERT INTO commerce_audit(action,object_id,details)
+     VALUES('auto_delivery_failed',$1,$2::jsonb)`,
+    [paymentId, JSON.stringify({ code: detail.code, message: detail.message, stage })],
+  );
+  return detail;
+}
+async function recordManualApprovalContext(db, paymentId, source) {
+  await db.query(
+    `UPDATE commerce_payments
+     SET verification_reason_before_manual=COALESCE(verification_reason_before_manual,verification_reason),
+         manual_approval_source=$2
+     WHERE id=$1`,
+    [paymentId, String(source || 'admin').slice(0, 40)],
+  );
+  await db.query(
+    `INSERT INTO commerce_audit(action,object_id,details)
+     VALUES('manual_payment_approval',$1,$2::jsonb)`,
+    [paymentId, JSON.stringify({ source })],
+  );
+}
 const TEAM_COUPON_CODE = 'HOR';
 const TEAM_COUPON_ENABLED = false;
 const CUSTOMER_COUPON_CODE = 'CUST';
@@ -153,18 +196,6 @@ function inboundEmailAuthConfigured() {
     !!String(process.env.NAYAPAY_INBOUND_TOKEN || '').trim() ||
     (!!String(process.env.NAYAPAY_INBOUND_BASIC_USER || '').trim() &&
       !!String(process.env.NAYAPAY_INBOUND_BASIC_PASSWORD || ''))
-  );
-}
-function isPostmarkInboundPayload(payload) {
-  return (
-    !!payload &&
-    typeof payload === 'object' &&
-    !Array.isArray(payload) &&
-    (typeof payload.RawEmail === 'string' ||
-      !!payload.FromFull ||
-      typeof payload.TextBody === 'string' ||
-      typeof payload.HtmlBody === 'string' ||
-      typeof payload.MessageID === 'string')
   );
 }
 function inboundEmailAuthorized(req) {
@@ -418,6 +449,8 @@ function telegramOrderMessage({
   status = 'pending payment',
   transactionId = '',
   paymentState = '',
+  autoDelivered = false,
+  approvalAvailable = false,
 }) {
   const lines = [
     'New Sasify order',
@@ -429,7 +462,14 @@ function telegramOrderMessage({
   ];
   if (transactionId) lines.push(`Transaction: ${String(transactionId).slice(0, 80)}`);
   if (paymentState) lines.push(`Payment evidence: ${String(paymentState).slice(0, 120)}`);
-  lines.push('', 'Approve delivers the reserved credentials. Reject cancels the order without delivery.');
+  lines.push(
+    '',
+    approvalAvailable
+      ? 'The authenticated receipt could not be fulfilled automatically. Approve only after confirming the receipt and order.'
+      : autoDelivered
+        ? 'Payment was verified automatically and credentials were delivered. Telegram was not required.'
+        : 'No action is needed yet. Waiting for the authenticated payment receipt.',
+  );
   return lines.join('\n');
 }
 function telegramApprovalKeyboard(orderId) {
@@ -439,6 +479,17 @@ function telegramApprovalKeyboard(orderId) {
       { text: 'Reject', callback_data: `reject:${orderId}` },
     ]],
   };
+}
+function telegramPaymentReviewMessage({ amount, transactionId, reason, orderId = '' }) {
+  return [
+    'Payment needs manual review',
+    orderId ? `Order: ${String(orderId).slice(0, 8)}` : null,
+    `Amount: PKR ${Number(amount || 0).toLocaleString()}`,
+    `Transaction: ${String(transactionId || 'not captured').slice(0, 80)}`,
+    `Reason: ${String(reason || 'no eligible order').replaceAll('_', ' ')}`,
+    '',
+    'The receipt was authenticated, but it was not assigned to exactly one active order. Review it in the admin payments panel.',
+  ].filter(Boolean).join('\n');
 }
 function telegramCallbackResponse(update) {
   const callback = update?.callback_query;
@@ -782,6 +833,28 @@ async function ensurePaymentWorkflowSchema(db) {
       await db.query(
         "ALTER TABLE commerce_payments ADD COLUMN IF NOT EXISTS verification_reason text NOT NULL DEFAULT 'not_evaluated'",
       );
+      await db.query(
+        'ALTER TABLE commerce_payments ADD COLUMN IF NOT EXISTS verification_reason_before_manual text',
+      );
+      await db.query(
+        'ALTER TABLE commerce_payments ADD COLUMN IF NOT EXISTS fulfillment_error_code text',
+      );
+      await db.query(
+        'ALTER TABLE commerce_payments ADD COLUMN IF NOT EXISTS fulfillment_error_message text',
+      );
+      await db.query(
+        'ALTER TABLE commerce_payments ADD COLUMN IF NOT EXISTS fulfillment_error_stage text',
+      );
+      await db.query(
+        'ALTER TABLE commerce_payments ADD COLUMN IF NOT EXISTS fulfillment_error_at timestamptz',
+      );
+      await db.query(
+        'ALTER TABLE commerce_payments ADD COLUMN IF NOT EXISTS manual_approval_source text',
+      );
+      await db.query(
+        'CREATE TABLE IF NOT EXISTS commerce_audit (id bigserial PRIMARY KEY, action text NOT NULL, object_id text, details jsonb, created_at timestamptz NOT NULL DEFAULT now())',
+      );
+      await db.query('ALTER TABLE commerce_audit ADD COLUMN IF NOT EXISTS details jsonb');
       await db.query(`CREATE TABLE IF NOT EXISTS commerce_payment_receivers (
         id text PRIMARY KEY,
         label text NOT NULL,
@@ -2465,8 +2538,6 @@ export function createHandler(
       db = await pool.connect();
       let body = req.body || {};
       if (typeof body === 'string') body = JSON.parse(body);
-      const postmarkInbound =
-        action === 'email-webhook' && isPostmarkInboundPayload(body);
       if (
         JSON.stringify(body).length >
         (action === 'scam-submit'
@@ -2521,13 +2592,7 @@ export function createHandler(
         !team
       )
         throw fail(401, 'Your team session is invalid or has expired.');
-      if (
-        action === 'email-webhook' &&
-        !postmarkInbound &&
-        !same(body.secret, process.env.NAYAPAY_WEBHOOK_SECRET)
-      )
-        throw fail(401, 'Invalid webhook secret.');
-      if (postmarkInbound || action === 'inbound-email') {
+      if (action === 'inbound-email') {
         if (!inboundEmailAuthConfigured())
           throw fail(503, 'Inbound email receiver is not configured.');
         if (!inboundEmailAuthorized(req))
@@ -2569,7 +2634,7 @@ export function createHandler(
       await db.query('BEGIN');
       await ensureDefaultCoupon(db);
       const supplierApiKeys = await readSupplierApiKeys(db, key);
-      await expire(db, !['email-webhook', 'inbound-email'].includes(action));
+      await expire(db, action !== 'inbound-email');
       let output;
       const telegramMessages = [];
       const telegramCallbacks = [];
@@ -2637,6 +2702,9 @@ export function createHandler(
                 : null;
               if (!payment)
                 throw fail(409, 'The customer has not submitted payment evidence yet.');
+              if (!payment.verified || !TELEGRAM_APPROVAL_REASONS.has(payment.verification_reason))
+                throw fail(409, 'Telegram approval is available only for an authenticated automatic-delivery fallback.');
+              await recordManualApprovalContext(db, payment.id, 'telegram');
               await attachPaymentForManualApproval(db, order.id, payment.id);
               await fulfill(
                 db,
@@ -3277,7 +3345,6 @@ export function createHandler(
               amount: paymentAmount,
               paymentMethod: selectedPaymentMethod,
             }),
-            reply_markup: telegramApprovalKeyboard(id),
           });
         res.setHeader(
           'Set-Cookie',
@@ -3364,7 +3431,7 @@ export function createHandler(
           const matchingPayments = transaction
             ? (
                 await db.query(
-                  `SELECT id,transaction_id FROM commerce_payments
+                  `SELECT id,transaction_id,verified FROM commerce_payments
             WHERE verified=true AND order_id IS NULL
             AND (amount=$2 OR (MOD($2,100)<>0 AND amount=$2+1))
             AND (receiver_id=$3 OR receiver_id IS NULL)
@@ -3441,24 +3508,78 @@ export function createHandler(
                   [order.supplier_product_id || order.product_id],
                 )
               ).rows[0]?.name || order.product_id;
-            telegramMessages.push({
-              text: telegramOrderMessage({
-                orderId: id,
-                productName,
-                amount: order.amount,
-                paymentMethod: order.payment_method,
-                status: 'awaiting approval',
-                transactionId: payment.transaction_id,
-                paymentState: payment.verified ? 'verified receipt' : 'customer-submitted reference',
-              }),
-              reply_markup: telegramApprovalKeyboard(id),
-            });
-            output = { ok: true, status: 'review' };
+            let automaticallyDelivered = false;
+            if (payment.verified) {
+              try {
+                const fulfillment = await fulfill(
+                  db,
+                  id,
+                  payment.id,
+                  false,
+                  captureSupplierExchange,
+                  supplierApiKeys,
+                );
+                if (fulfillment?.cancelled)
+                  await recordAutoDeliveryFailure(
+                    db,
+                    payment.id,
+                    {
+                      code: fulfillment.reason || 'fulfillment_cancelled',
+                      message: 'Supplier fulfilment was cancelled after repeated failures.',
+                    },
+                    'claim',
+                  );
+                automaticallyDelivered = !fulfillment?.cancelled;
+                telegramMessages.push({
+                  text: telegramOrderMessage({
+                    orderId: id,
+                    productName,
+                    amount: order.amount,
+                    paymentMethod: order.payment_method,
+                    status: fulfillment?.cancelled ? 'auto-delivery failed' : 'auto-delivered',
+                    transactionId: payment.transaction_id,
+                    paymentState: fulfillment?.cancelled
+                      ? 'verified receipt; supplier fulfillment failed'
+                      : 'verified receipt',
+                    autoDelivered: !fulfillment?.cancelled,
+                  }),
+                });
+              } catch (error) {
+                console.error('auto-delivery-error', error.code || error.name || 'delivery_failed', error.message || '');
+                await recordAutoDeliveryFailure(db, payment.id, error, 'claim');
+                telegramMessages.push({
+                  text: telegramOrderMessage({
+                    orderId: id,
+                    productName,
+                  amount: order.amount,
+                  paymentMethod: order.payment_method,
+                  status: 'auto-delivery failed — manual review',
+                  transactionId: payment.transaction_id,
+                  paymentState: 'verified receipt; delivery fallback required',
+                  approvalAvailable: true,
+                }),
+                  reply_markup: telegramApprovalKeyboard(id),
+                });
+              }
+            } else {
+              telegramMessages.push({
+                text: telegramPaymentReviewMessage({
+                  orderId: id,
+                  amount: order.amount,
+                  transactionId: payment.transaction_id,
+                  reason: 'customer_claim_unverified',
+                }),
+              });
+            }
+            output = {
+              ok: true,
+              status: automaticallyDelivered ? 'delivered' : 'review',
+            };
           }
         } else {
-          // Payment evidence is never delivered automatically. A status poll
-          // can expose review state, but only the Telegram approval action may
-          // call fulfill() and release credentials.
+          // Trusted receipts are fulfilled in the inbound/claim paths. A status
+          // poll only exposes the result; Telegram remains the fallback for
+          // unmatched receipts or delivery failures.
           const orderProduct =
             catalog.find((p) => p.id === order.product_id)?.name ||
             (
@@ -3547,30 +3668,17 @@ export function createHandler(
             }
           }
         }
-      } else if (action === 'email-webhook' || action === 'inbound-email') {
-        const inbound =
-          action === 'inbound-email' || postmarkInbound
-            ? await authenticateInboundEmail(body, process.env.NAYAPAY_SENDER)
-            : null;
-        const email = inbound ? inbound.email : body;
+      } else if (action === 'inbound-email') {
+        const inbound = await authenticateInboundEmail(body, process.env.NAYAPAY_SENDER);
+        const email = inbound.email;
         if (!email.subject || (typeof email.text !== 'string' && typeof email.html !== 'string'))
           throw fail(400, 'Subject and email body required.');
-        const signatureValid =
-          inbound
-            ? inboundEmailAuthorized(req) && inbound.authenticated
-            : !!process.env.NAYAPAY_SIGNING_KEY &&
-              same(
-                signature(email, process.env.NAYAPAY_SIGNING_KEY),
-                email.signature,
-              ) &&
-              Math.abs(Date.now() - Number(email.sentAt)) < 300000;
+        const signatureValid = inboundEmailAuthorized(req) && inbound.authenticated;
         const parsed = parseEmail(email, {
           enabled: signatureValid && process.env.NAYAPAY_AUTO_VERIFY === 'true',
           sender: process.env.NAYAPAY_SENDER,
-          receiver:
-            paymentReceiver?.receiver_marker ||
-            process.env.NAYAPAY_RECEIVER_MARKER,
-          receiverMailbox: process.env.NAYAPAY_RECEIVER_EMAIL,
+          receiver: paymentReceiver?.receiver_marker,
+          receiverMailbox: process.env.PAYMENT_RECEIVER_EMAIL,
         });
         const verificationReason = parsed.verified
           ? 'verified'
@@ -3580,7 +3688,7 @@ export function createHandler(
               ? 'automatic_verification_disabled'
               : parsed.reason || 'receipt_format_not_recognized';
         const eventHash = hash(
-          `${signatureValid ? (action === 'inbound-email' ? 'forwarded' : 'signed') : 'untrusted'}|${email.messageId || ''}|${email.subject}|${email.text}|${email.html || ''}`,
+          `${signatureValid ? 'postmark' : 'untrusted'}|${email.messageId || ''}|${email.subject}|${email.text}|${email.html || ''}`,
         );
         const sourceMessageId =
           String(email.messageId || '')
@@ -3615,11 +3723,28 @@ export function createHandler(
             paymentReceiver?.id || 'primary',
           ],
         );
-        // A trusted retry can validate a previously recorded, unused receipt. Message IDs also deduplicate forwarded and Apps Script deliveries.
+        // A trusted retry can validate a previously recorded, unused receipt.
+        // Message IDs deduplicate forwarded deliveries, while transaction IDs
+        // merge an earlier receipt record with the newer Postmark record.
+        // Prefer the transaction match first so an older row cannot collide
+        // with the unique transaction_id constraint during the upgrade.
+        if (!inserted.rowCount && parsed.verified)
+          inserted = await db.query(
+            `UPDATE commerce_payments SET source_last4=$2,verified=true,verification_reason='verified',encrypted_body=$3,receiver_id=$5
+        WHERE transaction_id=$1 AND order_id IS NULL AND verified=false AND amount=$4 RETURNING id`,
+            [
+              parsed.transaction,
+              parsed.sourceLast4,
+              encryptedBody,
+              parsed.amount,
+              paymentReceiver?.id || 'primary',
+            ],
+          );
         if (!inserted.rowCount && parsed.verified)
           inserted = await db.query(
             `UPDATE commerce_payments SET transaction_id=$1,source_last4=$2,verified=true,verification_reason='verified',encrypted_body=$3,receiver_id=$7
-        WHERE (event_hash=$4 OR ($5::text IS NOT NULL AND source_message_id=$5::text)) AND order_id IS NULL AND verified=false AND amount=$6 AND (transaction_id IS NULL OR transaction_id=$1) RETURNING id`,
+        WHERE (event_hash=$4 OR ($5::text IS NOT NULL AND source_message_id=$5::text)) AND order_id IS NULL AND verified=false AND amount=$6 AND transaction_id IS NULL
+          AND NOT EXISTS (SELECT 1 FROM commerce_payments existing WHERE existing.transaction_id=$1) RETURNING id`,
             [
               parsed.transaction,
               parsed.sourceLast4,
@@ -3633,12 +3758,13 @@ export function createHandler(
         if (inserted.rowCount && parsed.verified) {
           const orders = (
             await db.query(
-          `SELECT id FROM commerce_orders
-          WHERE status IN ('pending','review') AND payment_submitted_at IS NOT NULL
+          `SELECT id,product_id,payment_method,supplier_product_id,amount FROM commerce_orders
+          WHERE status IN ('pending','review')
             AND (amount=$2 OR (MOD($2-1,100)<>0 AND amount=$2-1))
             AND $3::timestamptz>=created_at AND $3::timestamptz<=expires_at
           AND (receiver_id=$4 OR receiver_id IS NULL)
-          AND (transaction_id IS NULL OR transaction_id=$1 OR (length(transaction_id)>=8 AND right($1,length(transaction_id))=transaction_id))`,
+          AND (transaction_id IS NULL OR transaction_id=$1 OR (length(transaction_id)>=8 AND right($1,length(transaction_id))=transaction_id))
+          AND (payment_submitted_at IS NOT NULL OR transaction_id IS NULL OR transaction_id=$1)`,
               [parsed.transaction, parsed.amount, parsed.received, paymentReceiver?.id || 'primary'],
             )
           ).rows;
@@ -3652,12 +3778,13 @@ export function createHandler(
             const lateOrder = (
               await db.query(
                 `SELECT id FROM commerce_orders
-                 WHERE status IN ('pending','review','expired') AND payment_submitted_at IS NOT NULL
+                 WHERE status IN ('pending','review','expired')
                    AND (amount=$1 OR (MOD($1-1,100)<>0 AND amount=$1-1))
                    AND $2::timestamptz>=created_at AND $2::timestamptz>expires_at
                    AND (receiver_id=$3 OR receiver_id IS NULL)
+                   AND (payment_submitted_at IS NOT NULL OR transaction_id IS NULL OR transaction_id=$4)
                  ORDER BY created_at DESC LIMIT 1`,
-                [parsed.amount, parsed.received, paymentReceiver?.id || 'primary'],
+                [parsed.amount, parsed.received, paymentReceiver?.id || 'primary', parsed.transaction],
               )
             ).rows[0];
             if (lateOrder) matchReason = 'verified_after_order_window';
@@ -3668,8 +3795,8 @@ export function createHandler(
           );
           if (orders.length === 1) {
             await db.query(
-              'UPDATE commerce_orders SET transaction_id=$1 WHERE id=$2',
-              [parsed.transaction, orders[0].id],
+              'UPDATE commerce_orders SET transaction_id=$1,payment_submitted_at=COALESCE(payment_submitted_at,$2) WHERE id=$3',
+              [parsed.transaction, parsed.received, orders[0].id],
             );
             await db.query(
               "UPDATE commerce_orders SET status=CASE WHEN status='expired' THEN 'expired' ELSE 'review' END WHERE id=$1",
@@ -3683,17 +3810,63 @@ export function createHandler(
                   [orders[0].supplier_product_id || orders[0].product_id],
                 )
               ).rows[0]?.name || orders[0].product_id;
+            try {
+              const fulfillment = await fulfill(
+                db,
+                orders[0].id,
+                inserted.rows[0].id,
+                false,
+                captureSupplierExchange,
+                supplierApiKeys,
+              );
+              if (fulfillment?.cancelled)
+                await recordAutoDeliveryFailure(
+                  db,
+                  inserted.rows[0].id,
+                  {
+                    code: fulfillment.reason || 'fulfillment_cancelled',
+                    message: 'Supplier fulfilment was cancelled after repeated failures.',
+                  },
+                  'inbound-email',
+                );
+              telegramMessages.push({
+                text: telegramOrderMessage({
+                  orderId: orders[0].id,
+                  productName: orderProduct,
+                  amount: parsed.amount,
+                  paymentMethod: orders[0].payment_method,
+                  status: fulfillment?.cancelled ? 'auto-delivery failed' : 'auto-delivered',
+                  transactionId: parsed.transaction,
+                  paymentState: fulfillment?.cancelled
+                    ? 'verified receipt; supplier fulfillment failed'
+                    : 'verified receipt',
+                  autoDelivered: !fulfillment?.cancelled,
+                }),
+              });
+            } catch (error) {
+              console.error('auto-delivery-error', error.code || error.name || 'delivery_failed', error.message || '');
+              await recordAutoDeliveryFailure(db, inserted.rows[0].id, error, 'inbound-email');
+              telegramMessages.push({
+                text: telegramOrderMessage({
+                  orderId: orders[0].id,
+                  productName: orderProduct,
+                  amount: parsed.amount,
+                  paymentMethod: orders[0].payment_method,
+                  status: 'auto-delivery failed — manual review',
+                  transactionId: parsed.transaction,
+                  paymentState: 'verified receipt; delivery fallback required',
+                  approvalAvailable: true,
+                }),
+                reply_markup: telegramApprovalKeyboard(orders[0].id),
+              });
+            }
+          } else {
             telegramMessages.push({
-              text: telegramOrderMessage({
-                orderId: orders[0].id,
-                productName: orderProduct,
+              text: telegramPaymentReviewMessage({
                 amount: parsed.amount,
-                paymentMethod: orders[0].payment_method,
-                status: 'awaiting approval',
                 transactionId: parsed.transaction,
-                paymentState: 'verified receipt',
+                reason: matchReason,
               }),
-              reply_markup: telegramApprovalKeyboard(orders[0].id),
             });
           }
         }
@@ -4253,7 +4426,7 @@ export function createHandler(
           ).rows,
           payments: (
             await db.query(
-              'SELECT id,amount,subject,transaction_id,payer_name,source_last4,verified,verification_reason,order_id,receiver_id,received_at,created_at FROM commerce_payments ORDER BY created_at DESC LIMIT 500',
+              'SELECT id,amount,subject,transaction_id,payer_name,source_last4,verified,verification_reason,verification_reason_before_manual,fulfillment_error_code,fulfillment_error_message,fulfillment_error_stage,fulfillment_error_at,manual_approval_source,order_id,receiver_id,received_at,created_at FROM commerce_payments ORDER BY created_at DESC LIMIT 500',
             )
           ).rows,
           stock: (
@@ -4475,6 +4648,7 @@ export function createHandler(
           body.confirmed !== true
         )
           throw fail(400, 'Select an order and payment, then confirm the receipt and exact amount.');
+        await recordManualApprovalContext(db, body.paymentId, 'admin');
         await attachPaymentForManualApproval(db, body.orderId, body.paymentId);
         const fulfillment = await fulfill(
           db,

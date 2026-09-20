@@ -2,9 +2,6 @@ import { createHash, createHmac, createCipheriv, createDecipheriv, randomBytes, 
 import { convert } from 'html-to-text';
 
 export const hash = (value) => createHash('sha256').update(value).digest('hex');
-export function signature(payload, key) {
-  return createHmac('sha256', key).update(JSON.stringify([payload.messageId,payload.date,payload.from,payload.subject,payload.text,payload.sentAt,payload.html || '',payload.to || ''])).digest('hex');
-}
 export const same = (a, b) => typeof a === 'string' && typeof b === 'string' && a.length > 0 && timingSafeEqual(Buffer.from(hash(a)), Buffer.from(hash(b)));
 export function encrypt(value, key) {
   const iv = randomBytes(12), cipher = createCipheriv('aes-256-gcm', Buffer.from(key, 'hex'), iv);
@@ -81,6 +78,19 @@ export function normalizeTransaction(value) {
   return result;
 }
 
+// Postmark forwards the original Date header. NayaPay receipts may omit an
+// explicit timezone even though the displayed receipt time is Pakistan time.
+// Vercel runtimes use UTC, so relying on new Date(value) would shift such a
+// receipt by five hours and incorrectly mark it as after the order window.
+export function parseReceiptDate(value, fallbackOffset = '+0500') {
+  const raw = String(value || '').trim();
+  if (!raw) return new Date(NaN);
+  const hasTimezone =
+    /(?:[zZ]|[+-]\d{2}:?\d{2})(?:\s*\([^)]*\))?$/.test(raw) ||
+    /\b(?:UTC|GMT)\b/i.test(raw);
+  return new Date(hasTimezone ? raw : `${raw} ${fallbackOffset}`);
+}
+
 export function paymentAmountMatchesOrder(paymentAmount, orderAmount) {
   const paid = Number(paymentAmount);
   const required = Number(orderAmount);
@@ -109,15 +119,15 @@ export function parseEmail(payload, config = {}) {
   const unique = [...new Set(refs.map((r) => r[1].toUpperCase()))];
   const transaction = unique.length === 1 ? unique[0] : null;
   const sender = String(payload.from || '').match(/<([^>]+)>/)?.[1] || String(payload.from || '');
-  const received = new Date(payload.date || '');
+  const received = parseReceiptDate(payload.date);
   const recent = Number.isFinite(received.getTime()) && received <= new Date(Date.now() + 60000) && received > new Date(Date.now() - 7 * 86400000);
   const recipient = String(payload.to || '').trim().toLowerCase();
-  const walletReceiver = !!walletId && !!config.receiverMailbox && (recipient === config.receiverMailbox.toLowerCase() || recipient.match(/<([^>]+)>/)?.[1] === config.receiverMailbox.toLowerCase());
+  const recipientMatches = !!config.receiverMailbox && (recipient === config.receiverMailbox.toLowerCase() || recipient.match(/<([^>]+)>/)?.[1] === config.receiverMailbox.toLowerCase());
   const destinationMatches = !!config.receiver && normalizedReceiptName(destination) === normalizedReceiptName(config.receiver);
   // Email parsing alone is not authority to release stock. Enable only after validating the real receipt format.
   const reason = config.enabled !== true ? 'automatic_verification_disabled'
     : !config.sender || sender.toLowerCase() !== config.sender.toLowerCase() ? 'sender_mismatch'
-      : !(destinationMatches || (!destination && walletReceiver)) ? 'destination_or_recipient_mismatch'
+    : !(destinationMatches || (!destination && recipientMatches)) ? 'destination_or_recipient_mismatch'
         : bodyAmount !== amount ? 'body_and_subject_amount_mismatch'
           : !transaction ? 'transaction_missing_or_ambiguous'
             : !recent ? 'receipt_date_outside_window'

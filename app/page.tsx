@@ -36,8 +36,8 @@ import { favicon } from './product-utils';
 const lowestPrice = Math.min(...products.filter((p) => !p.contactOnly).map((p) => p.sellingPricePkr));
 const googleReviewsUrl =
   'https://www.google.com/maps/place/Sasify+Digital+Solutions/@33.5298115,73.1663875,16z/data=!4m18!1m9!3m8!1s0x38dfed9bda8bf345:0xb57a60ba54b9be1e!2sSasify+Digital+Solutions!8m2!3d33.5298115!4d73.1663875!9m1!1b1!16s%2Fg%2F11yzclp9ps!3m7!1s0x38dfed9bda8bf345:0xb57a60ba54b9be1e!8m2!3d33.5298115!4d73.1663875!9m1!1b1!16s%2Fg%2F11yzclp9ps!18m1!1e1?entry=ttu';
-const heroTitleLead = 'Your one-stop destination';
-const heroTitleAccent = 'for all digital needs';
+const heroTitleLead = 'Digital Tools &';
+const heroTitleAccent = 'Subscriptions';
 const dealProofs = Array.from({ length: 21 }, (_, index) => {
   const proofNumber = String(index + 1).padStart(2, '0');
   return {
@@ -86,56 +86,10 @@ const paymentMethods = [
 ];
 
 function HeroTypingTitle() {
-  const [typedLength, setTypedLength] = useState(0);
-  const totalLength = heroTitleLead.length + heroTitleAccent.length;
-
-  useEffect(() => {
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-      setTypedLength(totalLength);
-      return;
-    }
-
-    let currentLength = 0;
-    let timer: ReturnType<typeof setTimeout>;
-    const typeNextCharacter = () => {
-      currentLength += 1;
-      setTypedLength(currentLength);
-      if (currentLength >= totalLength) return;
-      const delay = currentLength === heroTitleLead.length ? 320 : 46;
-      timer = setTimeout(typeNextCharacter, delay);
-    };
-
-    timer = setTimeout(typeNextCharacter, 220);
-    return () => clearTimeout(timer);
-  }, [totalLength]);
-
-  const leadLength = Math.min(typedLength, heroTitleLead.length);
-  const accentLength = Math.max(0, typedLength - heroTitleLead.length);
-  const cursorOnLead = typedLength <= heroTitleLead.length;
-
   return (
     <h1>
-      <span className="hero-title-accessible">
-        {heroTitleLead} {heroTitleAccent}
-      </span>
-      <span className="hero-typing-shell" aria-hidden="true">
-        <span className="hero-title-measure">
-          <span className="hero-title-line">{heroTitleLead}</span>
-          <span className="hero-title-line hero-title-line-accent">{heroTitleAccent}</span>
-        </span>
-        <span className="hero-title-live">
-          <span className="hero-title-line">
-            {heroTitleLead.slice(0, leadLength)}
-            {cursorOnLead && <span className="hero-title-caret" />}
-          </span>
-          <span className="hero-title-line hero-title-line-accent">
-            <span className="hero-title-text-accent">
-              {heroTitleAccent.slice(0, accentLength)}
-            </span>
-            {!cursorOnLead && <span className="hero-title-caret" />}
-          </span>
-        </span>
-      </span>
+      <span className="hero-title-line">{heroTitleLead}</span>
+      <span className="hero-title-line hero-title-line-accent hero-title-text-accent">{heroTitleAccent}</span>
     </h1>
   );
 }
@@ -600,12 +554,12 @@ export default function Home() {
           <div className="hero-copy">
             <span className="hero-kicker">
               <ShieldCheck className="h-4 w-4" />
-              Trusted digital marketplace
+              <span className="hero-kicker-desktop">Pakistan&apos;s 1st fully automated digital store</span>
+              <span className="hero-kicker-mobile">Pakistan&apos;s 1st automated digital store</span>
             </span>
             <HeroTypingTitle />
             <p>
-              Explore AI, coding, design, productivity and SaaS tools in Pakistan.
-              Compare PKR prices, plan durations and access types, then buy online with automatic delivery after payment verification.
+              Shop AI tools, digital subscriptions, and online services in Pakistan with automated delivery—search, select, pay online, and get instant digital access.
             </p>
 
             <HeroProductSearch />
@@ -658,7 +612,7 @@ export default function Home() {
           <div className="featured-heading">
             <div>
               <span className="section-kicker">Sasify Solutions Inventory</span>
-              <h2 id="featured-title">Top 10 products</h2>
+              <h2 id="featured-title">Top 8 products</h2>
             </div>
           </div>
           <TopSupplierProducts />

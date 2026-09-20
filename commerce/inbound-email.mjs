@@ -34,11 +34,51 @@ function listAddresses(value) {
 }
 
 function headerValue(headers, name) {
-  if (!Array.isArray(headers)) return '';
+  return headerValues(headers, name)[0] || '';
+}
+
+function headerValues(headers, name) {
+  if (!Array.isArray(headers)) return [];
   const wanted = name.toLowerCase();
-  return headers.find((header) => stringValue(header?.Name || header?.name).toLowerCase() === wanted)?.Value
-    || headers.find((header) => stringValue(header?.Name || header?.name).toLowerCase() === wanted)?.value
-    || '';
+  return headers
+    .filter((header) => stringValue(header?.Name || header?.name).toLowerCase() === wanted)
+    .map((header) => header?.Value || header?.value)
+    .map(stringValue)
+    .filter(Boolean);
+}
+
+function escapeRegExp(value) {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+// Postmark can omit RawEmail even when its raw-email option is enabled. In
+// that case, accept only a provider-authenticated payload that still carries
+// the original NayaPay DKIM/DMARC results. HTTP Basic Auth protects the
+// payload transport; these checks keep arbitrary authenticated JSON from
+// being treated as a receipt.
+function authenticatePostmarkPayload(payload, sender, fallback) {
+  const expected = stringValue(sender).toLowerCase();
+  const from = stringValue(payload?.FromFull?.Email || payload?.fromFull?.Email || payload?.From || payload?.from)
+    .match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i)?.[0]
+    ?.toLowerCase() || '';
+  const domain = expected.split('@')[1] || '';
+  if (!expected || !domain || from !== expected) return null;
+
+  const authResults = [
+    ...headerValues(payload.Headers || payload.headers, 'authentication-results'),
+    ...headerValues(payload.Headers || payload.headers, 'arc-authentication-results'),
+  ].join(' ');
+  const dkimSignatures = headerValues(payload.Headers || payload.headers, 'dkim-signature').join(' ');
+  const domainPattern = escapeRegExp(domain);
+  const dkimPassed = new RegExp(`\\bdkim=pass\\b[^;\\r\\n]*\\bheader\\.i=@${domainPattern}\\b`, 'i').test(authResults);
+  const dmarcPassed = /\bdmarc=pass\b/i.test(authResults);
+  const signedHeaders = dkimSignatures.match(/(?:^|;)\s*h=([^;]+)/i)?.[1].toLowerCase() || '';
+  const signsReceiptHeaders = ['date', 'from', 'to', 'subject'].every((name) =>
+    new RegExp(`(?:^|[\\s:])${name}(?:\\s|:|$)`, 'i').test(signedHeaders),
+  );
+  const signsExpectedDomain = new RegExp(`(?:^|;)\\s*d=${domainPattern}\\s*(?:;|$)`, 'i').test(dkimSignatures);
+  if (!dkimPassed || !dmarcPassed || !signsReceiptHeaders || !signsExpectedDomain) return null;
+  return { email: fallback, authenticated: true, reason: 'postmark_dkim_evidence' };
 }
 
 export function normalizeInboundEmail(payload) {
@@ -54,12 +94,16 @@ export function normalizeInboundEmail(payload) {
   return { subject, text, html, from, to, date, messageId };
 }
 
-// Verify the original MIME, then parse that same content. Webhook JSON fields
-// and Authentication-Results headers alone are not proof of a bank receipt.
+// Verify the original MIME when Postmark provides it. Some Postmark streams
+// omit RawEmail even with raw-email forwarding enabled, so the fallback above
+// requires Postmark Basic Auth plus preserved NayaPay DKIM/DMARC evidence.
 export async function authenticateInboundEmail(payload, sender, options = {}) {
   const fallback = normalizeInboundEmail(payload);
   const raw = payload.RawEmail;
-  if (typeof raw !== 'string' || !raw) return { email: fallback, authenticated: false, reason: 'missing_original_email' };
+  if (typeof raw !== 'string' || !raw) {
+    return authenticatePostmarkPayload(payload, sender, fallback)
+      || { email: fallback, authenticated: false, reason: 'missing_original_email' };
+  }
   if (Buffer.byteLength(raw) > 1000000) throw Object.assign(new Error('Original email too large.'), { status: 413 });
   const [{ dkimVerify }, { simpleParser }] = await Promise.all([
     import('mailauth/lib/dkim/verify.js'), import('mailparser'),
@@ -109,9 +153,13 @@ export async function authenticateInboundEmail(payload, sender, options = {}) {
   if (parsed.from?.value?.length !== 1 || parsed.from.value[0].address?.toLowerCase() !== expected) {
     return { email: fallback, authenticated: false, reason: 'unexpected_original_sender' };
   }
+  const originalDate = parsed.headerLines?.find((line) => String(line.key || '').toLowerCase() === 'date')?.line
+    ?.replace(/^\s*date\s*:\s*/i, '')
+    .trim();
   const email = normalizeInboundEmail({
     from: parsed.from.text, to: parsed.to?.text || '', subject: parsed.subject,
-    text: parsed.text || '', html: parsed.html || '', date: parsed.date?.toISOString() || '', messageId: parsed.messageId,
+    text: parsed.text || '', html: parsed.html || '',
+    date: originalDate || parsed.date?.toISOString() || '', messageId: parsed.messageId,
   });
   return { email, authenticated: true, reason: 'original_dkim_verified' };
 }

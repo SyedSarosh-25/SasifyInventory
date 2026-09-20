@@ -129,10 +129,6 @@ await writeFile(
           src: '/api/nayapay/inbound-email',
           dest: '/api/commerce?action=inbound-email',
         },
-        {
-          src: '/api/nayapay/email-webhook',
-          dest: '/api/commerce?action=email-webhook',
-        },
         { src: '/api/commerce', dest: '/api/commerce' },
         {
           src: '/(checkout|orders-admin|team)',

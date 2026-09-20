@@ -104,7 +104,6 @@ test('shared ChatGPT inventory rotates four slots and allocates profit per slot'
     assert.equal(claim.code, 200, JSON.stringify(claim));
     const payment = (await request('admin-list', undefined, env.COMMERCE_ADMIN_KEY)).data.payments.find((row) => row.transaction_id === transaction);
     assert.ok(payment);
-    assert.equal((await request('admin-approve', { orderId: created.data.id, paymentId: payment.id, confirmed: true }, env.COMMERCE_ADMIN_KEY)).code, 200);
     const status = await request('status', undefined, created.data.recovery, created.data.id);
     assert.equal(status.data.status, 'delivered', JSON.stringify(status));
     assert.equal(status.data.credentials.password, 'test-pass');

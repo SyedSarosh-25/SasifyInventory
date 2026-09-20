@@ -100,7 +100,6 @@ test('Qamify catalog sync and paid order fulfilment use provider IDs and idempot
     assert.equal(claim.code, 200, JSON.stringify(claim));
     const payment = (await request('admin-list', undefined, process.env.COMMERCE_ADMIN_KEY)).data.payments.find((row) => row.transaction_id === transaction);
     assert.ok(payment);
-    assert.equal((await request('admin-approve', { orderId: created.data.id, paymentId: payment.id, confirmed: true }, process.env.COMMERCE_ADMIN_KEY)).code, 200);
     const status = await request('status', undefined, created.data.recovery, created.data.id);
     assert.equal(status.data.status, 'delivered', JSON.stringify(status));
     assert.equal(status.data.product, 'Qamify Test Backup 1 Month');
@@ -136,7 +135,6 @@ test('Qamify catalog sync and paid order fulfilment use provider IDs and idempot
     assert.equal((await request('claim', { id: emailOrder.data.id, transactionId: emailTransaction }, emailOrder.data.recovery)).code, 200);
     const emailPayment = (await request('admin-list', undefined, process.env.COMMERCE_ADMIN_KEY)).data.payments.find((row) => row.transaction_id === emailTransaction);
     assert.ok(emailPayment);
-    assert.equal((await request('admin-approve', { orderId: emailOrder.data.id, paymentId: emailPayment.id, confirmed: true }, process.env.COMMERCE_ADMIN_KEY)).code, 200);
     const emailCall = calls.findLast((call) => call.url.endsWith('/v1/orders') && JSON.parse(call.init.body).product_id === 44);
     assert.equal(JSON.parse(emailCall.init.body).email, 'buyer@example.com');
     const emailStatus = await request('status', undefined, emailOrder.data.recovery, emailOrder.data.id);
@@ -151,7 +149,9 @@ test('Qamify catalog sync and paid order fulfilment use provider IDs and idempot
     assert.equal(failedClaim.data.status, 'review');
     const failingPayment = (await request('admin-list', undefined, process.env.COMMERCE_ADMIN_KEY)).data.payments.find((row) => row.transaction_id === failingTransaction);
     assert.ok(failingPayment);
-    assert.equal((await request('admin-approve', { orderId: failingOrder.data.id, paymentId: failingPayment.id, confirmed: true }, process.env.COMMERCE_ADMIN_KEY)).code, 200);
+    assert.equal(failingPayment.verification_reason, 'verified_auto_delivery_failed');
+    assert.equal(failingPayment.fulfillment_error_code, 'supplier_failed_three_times');
+    assert.equal(failingPayment.fulfillment_error_stage, 'claim');
     const failedStatus = await request('status', undefined, failingOrder.data.recovery, failingOrder.data.id);
     assert.equal(failedStatus.data.status, 'cancelled', JSON.stringify(failedStatus));
     assert.equal(failedStatus.data.supplierStatus, 'cancelled_after_3_supplier_failures');

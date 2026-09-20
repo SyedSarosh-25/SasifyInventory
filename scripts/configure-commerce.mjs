@@ -8,8 +8,36 @@ const privateDir = path.join(os.homedir(), '.codex', 'sasify-commerce');
 await mkdir(privateDir,{recursive:true});
 const secretsPath = path.join(privateDir,'secrets.json');
 let secrets;
-try { secrets=JSON.parse(await readFile(secretsPath,'utf8')); } catch(e) { if(e.code!=='ENOENT') throw e; secrets={COMMERCE_ADMIN_KEY:randomBytes(32).toString('hex'),COMMERCE_ENCRYPTION_KEY:randomBytes(32).toString('hex'),NAYAPAY_SIGNING_KEY:randomBytes(32).toString('hex')};await writeFile(secretsPath,JSON.stringify(secrets,null,2),{mode:0o600}); }
-const values={...secrets,NAYAPAY_WEBHOOK_SECRET:'Sarosh',PAYMENT_ACCOUNT_TITLE:'Syed Adeen Sarosh',NAYAPAY_SENDER:'service@nayapay.com',NAYAPAY_RECEIVER_MARKER:'Syed Adeen Sarosh',NAYAPAY_AUTO_VERIFY:'true'};
+try { secrets=JSON.parse(await readFile(secretsPath,'utf8')); } catch(e) { if(e.code!=='ENOENT') throw e; secrets={COMMERCE_ADMIN_KEY:randomBytes(32).toString('hex'),COMMERCE_ENCRYPTION_KEY:randomBytes(32).toString('hex')};await writeFile(secretsPath,JSON.stringify(secrets,null,2),{mode:0o600}); }
+const localEnv = {};
+try {
+  const text = await readFile(path.join(process.cwd(), '.env.postmark-temp'), 'utf8');
+  for (const line of text.split(/\r?\n/)) {
+    const match = line.match(/^\s*([A-Z][A-Z0-9_]*)\s*=\s*(.*)\s*$/);
+    if (!match) continue;
+    localEnv[match[1]] = match[2].replace(/^(['"])(.*)\1$/, '$2');
+  }
+} catch (error) {
+  if (error.code !== 'ENOENT') throw error;
+}
+const configured = (name) => String(secrets[name] || process.env[name] || localEnv[name] || '').trim();
+const required = (name) => {
+  const value = configured(name);
+  if (!value) throw new Error(`Missing ${name}. Set it in the private secrets file, the environment, or .env.postmark-temp.`);
+  return value;
+};
+const values={
+  COMMERCE_ADMIN_KEY:secrets.COMMERCE_ADMIN_KEY,
+  COMMERCE_ENCRYPTION_KEY:secrets.COMMERCE_ENCRYPTION_KEY,
+  PAYMENT_ACCOUNT_TITLE:configured('PAYMENT_ACCOUNT_TITLE') || 'Syed Adeen Sarosh',
+  PAYMENT_ACCOUNT_NUMBER:required('PAYMENT_ACCOUNT_NUMBER'),
+  PAYMENT_RECEIVER_EMAIL:required('PAYMENT_RECEIVER_EMAIL'),
+  NAYAPAY_INBOUND_BASIC_USER:required('NAYAPAY_INBOUND_BASIC_USER'),
+  NAYAPAY_INBOUND_BASIC_PASSWORD:required('NAYAPAY_INBOUND_BASIC_PASSWORD'),
+  NAYAPAY_SENDER:configured('NAYAPAY_SENDER') || 'service@nayapay.com',
+  NAYAPAY_AUTO_VERIFY:'true',
+};
+if (configured('NAYAPAY_INBOUND_TOKEN')) values.NAYAPAY_INBOUND_TOKEN = configured('NAYAPAY_INBOUND_TOKEN');
 const cache=path.join(os.homedir(),'AppData/Local/npm-cache/_npx');
 let cli;
 for(const entry of await readdir(cache)) {
@@ -22,6 +50,6 @@ for(const [name,value] of Object.entries(values)) {
   if(result.status!==0) throw new Error(`Could not configure ${name}; inspect Vercel settings.`);
   console.log(`${name}: configured`);
 }
-const instructions=`Sasify order admin: https://www.sasifysolutions.com/orders-admin\nAdmin access key: ${secrets.COMMERCE_ADMIN_KEY}\n\nGoogle Apps Script > Project Settings > Script Properties:\nWEBHOOK_SECRET = Sarosh\nNAYAPAY_SENDER = service@nayapay.com\nNAYAPAY_SIGNING_KEY = ${secrets.NAYAPAY_SIGNING_KEY}\n\nUse commerce/nayapay-apps-script.gs. Run installPaymentTrigger once and authorize Gmail access. Never share the admin key with customers.\n`;
+const instructions=`Sasify order admin: https://www.sasifysolutions.com/orders-admin\nAdmin access key: ${secrets.COMMERCE_ADMIN_KEY}\n\nPostmark inbound endpoint: https://www.sasifysolutions.com/api/nayapay/inbound-email\nConfigure Postmark HTTP Basic Auth with the production inbound credentials. Required names: PAYMENT_RECEIVER_EMAIL, NAYAPAY_INBOUND_BASIC_USER and NAYAPAY_INBOUND_BASIC_PASSWORD. Never share the admin key with customers.\n`;
 await writeFile(path.join(privateDir,'setup.txt'),instructions,{mode:0o600});
 console.log(`Private setup details: ${path.join(privateDir,'setup.txt')}`);
