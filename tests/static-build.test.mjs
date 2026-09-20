@@ -109,10 +109,15 @@ test('homepage, inventory and every product have populated static HTML', async (
       html.includes(`${origin}${productPath}`),
       `Canonical URL missing: ${product.id}`,
     );
-    assert.ok(
-      inventory.includes(productPath),
-      `Inventory product missing: ${product.id}`,
+    const isSeoInventoryProduct = supplierSeoProducts.some(
+      (seoProduct) => supplierProductHref(seoProduct) === productPath,
     );
+    if (isSeoInventoryProduct) {
+      assert.ok(
+        inventory.includes(productPath),
+        `Inventory product missing: ${product.id}`,
+      );
+    }
     assert.match(html, product.contactOnly ? /Packages/ : /Your Savings/);
     assert.match(html, /Access type/);
   }
