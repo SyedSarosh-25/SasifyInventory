@@ -9,7 +9,7 @@ await mkdir(privateDir,{recursive:true});
 const secretsPath = path.join(privateDir,'secrets.json');
 let secrets;
 try { secrets=JSON.parse(await readFile(secretsPath,'utf8')); } catch(e) { if(e.code!=='ENOENT') throw e; secrets={COMMERCE_ADMIN_KEY:randomBytes(32).toString('hex'),COMMERCE_ENCRYPTION_KEY:randomBytes(32).toString('hex'),NAYAPAY_SIGNING_KEY:randomBytes(32).toString('hex')};await writeFile(secretsPath,JSON.stringify(secrets,null,2),{mode:0o600}); }
-const values={...secrets,NAYAPAY_WEBHOOK_SECRET:'Sarosh',PAYMENT_ACCOUNT_TITLE:'Syed Adeen Sarosh',NAYAPAY_SENDER:'service@nayapay.com',NAYAPAY_RECEIVER_MARKER:'Syed Adeen Sarosh',NAYAPAY_AUTO_VERIFY:'false'};
+const values={...secrets,NAYAPAY_WEBHOOK_SECRET:'Sarosh',PAYMENT_ACCOUNT_TITLE:'Syed Adeen Sarosh',NAYAPAY_SENDER:'service@nayapay.com',NAYAPAY_RECEIVER_MARKER:'Syed Adeen Sarosh',NAYAPAY_AUTO_VERIFY:'true'};
 const cache=path.join(os.homedir(),'AppData/Local/npm-cache/_npx');
 let cli;
 for(const entry of await readdir(cache)) {

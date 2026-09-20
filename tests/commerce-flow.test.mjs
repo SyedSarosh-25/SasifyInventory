@@ -22,6 +22,8 @@ test('ChatGPT Plus local inventory supports checkout, verification, delivery and
     NAYAPAY_SENDER: 'service@nayapay.com',
     NAYAPAY_RECEIVER_MARKER: 'Syed Adeen Sarosh',
     NAYAPAY_INBOUND_TOKEN: 'inbound-test-token',
+    NAYAPAY_INBOUND_BASIC_USER: 'postmark-user',
+    NAYAPAY_INBOUND_BASIC_PASSWORD: 'postmark-password',
     TELEGRAM_CHAT_ID: 'telegram-test-chat',
     TELEGRAM_WEBHOOK_SECRET: 'telegram-test-secret',
   };
@@ -39,7 +41,18 @@ test('ChatGPT Plus local inventory supports checkout, verification, delivery and
   async function request(action, body, token = '', id = '', cookie = '', extraHeaders = {}) {
     let result;
     const headers = {};
-    const req = { method: body ? 'POST' : 'GET', query: { action, id }, url: '/api/commerce', headers: { ...extraHeaders, authorization: token ? `Bearer ${token}` : '', cookie }, body, socket: { remoteAddress: randomBytes(4).toString('hex') } };
+    const req = {
+      method: body ? 'POST' : 'GET',
+      query: { action, id },
+      url: '/api/commerce',
+      headers: {
+        authorization: token ? `Bearer ${token}` : '',
+        ...extraHeaders,
+        cookie,
+      },
+      body,
+      socket: { remoteAddress: randomBytes(4).toString('hex') },
+    };
     const res = { statusCode: 200, setHeader(name, value) { headers[String(name).toLowerCase()] = value; }, end(text) { result = { code: this.statusCode, data: JSON.parse(text), headers }; } };
     await handler(req, res);
     return result;
@@ -152,6 +165,22 @@ test('ChatGPT Plus local inventory supports checkout, verification, delivery and
     assert.equal(status.data.status, 'delivered', JSON.stringify(status));
     assert.equal(status.data.credentials.password, 'test-pass');
     assert.ok(status.data.paymentSubmittedAt);
+    const postmarkPayload = {
+      FromFull: { Name: 'NayaPay', Email: 'service@nayapay.com' },
+      ToFull: [{ Email: 'inbound@example.invalid' }],
+      Subject: 'You got Rs. 1 from Postmark Test',
+      TextBody: 'Amount Received\nRs. 1\nTransaction ID\nPOSTMARK-NO-RAW',
+      MessageID: '<postmark-no-raw@example.invalid>',
+    };
+    const postmarkAuth = `Basic ${Buffer.from(`${env.NAYAPAY_INBOUND_BASIC_USER}:${env.NAYAPAY_INBOUND_BASIC_PASSWORD}`).toString('base64')}`;
+    assert.equal(
+      (await request('email-webhook', postmarkPayload, '', '', '', { authorization: postmarkAuth })).code,
+      200,
+    );
+    const postmarkPayment = (await request('admin-list', undefined, env.COMMERCE_ADMIN_KEY)).data.payments.find(
+      (payment) => payment.subject === postmarkPayload.Subject,
+    );
+    assert.equal(postmarkPayment.verification_reason, 'missing_original_email');
     const profitUnlock = await request('admin-profit-unlock', { password: 'HOR' }, env.COMMERCE_ADMIN_KEY);
     assert.equal(profitUnlock.code, 200);
     const adminSnapshot = (await request('admin-list', undefined, env.COMMERCE_ADMIN_KEY, '', '', { 'x-profit-token': profitUnlock.data.token })).data;

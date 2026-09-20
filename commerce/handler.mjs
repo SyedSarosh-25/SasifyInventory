@@ -155,11 +155,24 @@ function inboundEmailAuthConfigured() {
       !!String(process.env.NAYAPAY_INBOUND_BASIC_PASSWORD || ''))
   );
 }
+function isPostmarkInboundPayload(payload) {
+  return (
+    !!payload &&
+    typeof payload === 'object' &&
+    !Array.isArray(payload) &&
+    (typeof payload.RawEmail === 'string' ||
+      !!payload.FromFull ||
+      typeof payload.TextBody === 'string' ||
+      typeof payload.HtmlBody === 'string' ||
+      typeof payload.MessageID === 'string')
+  );
+}
 function inboundEmailAuthorized(req) {
   const token = String(process.env.NAYAPAY_INBOUND_TOKEN || '').trim();
   const providedToken = String(
     req.headers['x-nayapay-inbound-token'] ||
       req.headers['x-inbound-webhook-token'] ||
+      req.headers['x-postmark-server-token'] ||
       '',
   ).trim();
   if (token && same(providedToken, token)) return true;
@@ -2452,6 +2465,8 @@ export function createHandler(
       db = await pool.connect();
       let body = req.body || {};
       if (typeof body === 'string') body = JSON.parse(body);
+      const postmarkInbound =
+        action === 'email-webhook' && isPostmarkInboundPayload(body);
       if (
         JSON.stringify(body).length >
         (action === 'scam-submit'
@@ -2508,17 +2523,18 @@ export function createHandler(
         throw fail(401, 'Your team session is invalid or has expired.');
       if (
         action === 'email-webhook' &&
+        !postmarkInbound &&
         !same(body.secret, process.env.NAYAPAY_WEBHOOK_SECRET)
       )
         throw fail(401, 'Invalid webhook secret.');
-      if (action === 'telegram-webhook' && !telegramWebhookAuthorized(req))
-        throw fail(401, 'Invalid Telegram webhook secret.');
-      if (action === 'inbound-email') {
+      if (postmarkInbound || action === 'inbound-email') {
         if (!inboundEmailAuthConfigured())
           throw fail(503, 'Inbound email receiver is not configured.');
         if (!inboundEmailAuthorized(req))
           throw fail(401, 'Invalid inbound email authentication.');
       }
+      if (action === 'telegram-webhook' && !telegramWebhookAuthorized(req))
+        throw fail(401, 'Invalid Telegram webhook secret.');
       if (
         [
           'stock',
@@ -3533,14 +3549,14 @@ export function createHandler(
         }
       } else if (action === 'email-webhook' || action === 'inbound-email') {
         const inbound =
-          action === 'inbound-email'
+          action === 'inbound-email' || postmarkInbound
             ? await authenticateInboundEmail(body, process.env.NAYAPAY_SENDER)
             : null;
         const email = inbound ? inbound.email : body;
         if (!email.subject || (typeof email.text !== 'string' && typeof email.html !== 'string'))
           throw fail(400, 'Subject and email body required.');
         const signatureValid =
-          action === 'inbound-email'
+          inbound
             ? inboundEmailAuthorized(req) && inbound.authenticated
             : !!process.env.NAYAPAY_SIGNING_KEY &&
               same(

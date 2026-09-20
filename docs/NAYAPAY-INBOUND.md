@@ -22,6 +22,16 @@ windows and fulfilment.
    duplicate payment events. The backend also deduplicates messages and
    transaction IDs.
 
+For a Postmark inbound stream, point the webhook at
+`https://www.sasifysolutions.com/api/nayapay/inbound-email`. The existing
+`/api/nayapay/email-webhook` route also accepts Postmark-shaped payloads for
+backward compatibility, but they must use the same inbound authentication.
+Enable `RawEmailEnabled` in Postmark so the backend can verify the original
+NayaPay DKIM signature. Configure Postmark HTTP Basic Auth, or send the
+configured `NAYAPAY_INBOUND_TOKEN` as the `x-nayapay-inbound-token` header.
+Postmark does not provide the Apps Script HMAC signature, so it must not use
+the Apps Script `WEBHOOK_SECRET`/`NAYAPAY_SIGNING_KEY` contract.
+
 The script does not approve a payment itself. A receipt is delivered only when
 the backend verification rules pass.
 
