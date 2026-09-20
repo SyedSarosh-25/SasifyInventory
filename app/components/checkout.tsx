@@ -697,7 +697,7 @@ export function Checkout() {
               <div>
                 <strong>Payment verification pending</strong>
                 <p>
-                  We are checking for a verified payment receipt. Keep this
+                  We are checking for your payment receipt. Keep this
                   page open; the order will cancel automatically in{' '}
                   {verificationSecondsLeft} second
                   {verificationSecondsLeft === 1 ? '' : 's'} if no payment is found.

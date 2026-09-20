@@ -36,7 +36,8 @@ test('checkout shows the purchase disclaimer before payment', () => {
 });
 
 test('checkout uses provider-neutral payment verification language', () => {
-  assert.match(checkoutSource, /verified payment receipt/);
+  assert.match(checkoutSource, /We are checking for your payment receipt/);
+  assert.doesNotMatch(checkoutSource, /We are checking for a verified payment receipt/);
   assert.doesNotMatch(checkoutSource, /Postmark receipt/);
 });
 
