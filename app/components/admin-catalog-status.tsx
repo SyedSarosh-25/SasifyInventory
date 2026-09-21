@@ -1,39 +1,18 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import { ArrowRight, ChevronDown, CircleCheck, CircleDashed, Layers3, Save, Search, TriangleAlert } from 'lucide-react';
 import {
-  ArrowRight,
-  CircleCheck,
-  CircleDashed,
-  Search,
-  Sparkles,
-  TriangleAlert,
-} from 'lucide-react';
-import {
-  supplierCatalogStatus,
-  supplierStatusLabel,
+  supplierCatalogGroups,
+  type SupplierCatalogGroup,
   type SupplierCatalogStatusProduct,
 } from './admin-catalog-status-model';
 
 const statusConfig = {
-  live: {
-    title: 'Live and ready',
-    description: 'Supplier has stock, a selling price is set, and the listing is enabled on the website.',
-    icon: CircleCheck,
-    className: 'catalog-status-live',
-  },
-  'available-not-live': {
-    title: 'New supplier products',
-    description: 'Supplier has stock, but pricing or the website-enabled setting still needs to be completed.',
-    icon: Sparkles,
-    className: 'catalog-status-new',
-  },
-  'published-unavailable': {
-    title: 'Published but unavailable',
-    description: 'A selling price exists, but the supplier currently reports no stock.',
-    icon: TriangleAlert,
-    className: 'catalog-status-unavailable',
-  },
+  listed: { title: 'Listed on website', description: 'A priced, enabled and in-stock offer is ready for customers.', icon: CircleCheck, className: 'catalog-status-live' },
+  unlisted: { title: 'Not listed yet', description: 'These groups need a selling price, enabled offer, or available supplier stock.', icon: TriangleAlert, className: 'catalog-status-new' },
+  unique: { title: 'Unique products', description: 'Only one supplier currently provides these products.', icon: CircleDashed, className: 'catalog-status-unavailable' },
+  duplicates: { title: 'Duplicate supplier offers', description: 'Multiple supplier rows represent the same product and can share one customer price.', icon: Layers3, className: 'catalog-status-duplicate' },
 } as const;
 
 function money(value: unknown) {
@@ -43,67 +22,102 @@ function money(value: unknown) {
     : 'Price not set';
 }
 
-function StatusList({
-  status,
-  products,
+function GroupRow({
+  group,
   onManage,
-  id,
+  onSaveGroupPrice,
+  busy,
 }: {
-  status: keyof typeof statusConfig;
-  products: SupplierCatalogStatusProduct[];
-  onManage: (product: SupplierCatalogStatusProduct) => void;
-  id: string;
+  group: SupplierCatalogGroup;
+  onManage?: (product: SupplierCatalogStatusProduct) => void;
+  onSaveGroupPrice?: (group: SupplierCatalogGroup, price: number) => Promise<void>;
+  busy?: boolean;
 }) {
-  const config = statusConfig[status];
-  const Icon = config.icon;
+  const [price, setPrice] = useState(group.groupSellingPrice ? String(group.groupSellingPrice) : '');
+  const [priceError, setPriceError] = useState('');
+  const Icon = group.listed ? CircleCheck : TriangleAlert;
   return (
-    <section id={id} className={`admin-panel catalog-status-section ${config.className}`} role="tabpanel" aria-labelledby={`${id}-tab`}>
-      <div className="panel-heading catalog-status-section-heading">
-        <div>
-          <span className="admin-eyebrow"><Icon size={15} /> {supplierStatusLabel(status)}</span>
-          <h2>{config.title}</h2>
-          <p>{config.description}</p>
+    <article className="catalog-group-row">
+      <div className="catalog-group-heading">
+        <div className="catalog-status-product">
+          <strong>{group.name}</strong>
+          <small>{group.products.length} supplier offer{group.products.length === 1 ? '' : 's'} · {group.providerNames.join(', ')}</small>
         </div>
-        <strong className="catalog-status-count">{products.length}</strong>
+        <span className={`catalog-group-badge ${group.listed ? 'is-listed' : 'is-unlisted'}`}><Icon size={14} /> {group.listed ? 'Listed' : 'Not listed'}</span>
       </div>
-      {products.length ? (
-        <div className="catalog-status-list">
-          {products.map((product) => (
-            <article className="catalog-status-row" key={product.id}>
-              <div className="catalog-status-product">
-                <strong>{product.name}</strong>
-                <small>{product.provider_name || product.provider_id || 'Supplier'} · {product.external_product_id || product.id}</small>
+      <div className="catalog-group-facts">
+        <span><b>Total stock</b>{group.totalStock.toLocaleString('en-PK')}</span>
+        <span><b>Lowest supplier cost</b>{money(group.cheapestCost)}</span>
+        <span><b>Storefront winner</b>{group.winner?.provider_name || 'Needs setup'}</span>
+        <span><b>Customer price</b>{group.groupSellingPrice ? money(group.groupSellingPrice) : 'Mixed / not set'}</span>
+      </div>
+      <div className="catalog-group-price-editor">
+        <label>
+          Set customer price for all offers in this group
+          <input
+            type="number"
+            min="1"
+            step="1"
+            value={price}
+            placeholder="e.g. 2499"
+            onChange={(event) => { setPrice(event.target.value); setPriceError(''); }}
+          />
+        </label>
+        <button
+          type="button"
+          className="secondary-button compact"
+          disabled={busy || !onSaveGroupPrice}
+          onClick={() => {
+            const value = Number(price);
+            if (!Number.isSafeInteger(value) || value < 1) {
+              setPriceError('Enter a whole PKR amount greater than zero.');
+              return;
+            }
+            setPriceError('');
+            void onSaveGroupPrice?.(group, value);
+          }}
+        >
+          <Save size={15} /> Save group price
+        </button>
+        {priceError && <small className="catalog-group-error">{priceError}</small>}
+      </div>
+      <details className="catalog-group-offers">
+        <summary><ChevronDown size={15} /> View supplier offers and fallback order</summary>
+        <div className="catalog-group-offer-list">
+          {group.products
+            .slice()
+            .sort((left, right) => Number(left.cost_pkr ?? Number.POSITIVE_INFINITY) - Number(right.cost_pkr ?? Number.POSITIVE_INFINITY))
+            .map((product) => (
+              <div className={`catalog-group-offer ${group.winner?.id === product.id ? 'is-winner' : ''}`} key={product.id}>
+                <div>
+                  <strong>{product.provider_name || product.provider_id || 'Supplier'}</strong>
+                  <small>{product.name} · {product.external_product_id || product.id}</small>
+                </div>
+                <span>{Number(product.supplier_stock || 0).toLocaleString('en-PK')} in stock</span>
+                <span>{money(product.cost_pkr)} cost</span>
+                <span>{product.enabled === true ? 'Enabled' : 'Disabled'} · {money(product.selling_price)}</span>
+                {onManage && <button type="button" className="secondary-button compact" onClick={() => onManage(product)}>Edit <ArrowRight size={14} /></button>}
               </div>
-              <div className="catalog-status-facts">
-                <span><b>Supplier stock</b>{Number(product.supplier_stock || 0).toLocaleString('en-PK')}</span>
-                <span><b>Selling price</b>{money(product.selling_price)}</span>
-                <span><b>Website</b>{product.enabled === true ? 'Enabled' : 'Not enabled'}</span>
-              </div>
-              <button type="button" className="secondary-button compact" onClick={() => onManage(product)}>
-                Manage <ArrowRight size={15} />
-              </button>
-            </article>
-          ))}
+            ))}
         </div>
-      ) : (
-        <div className="catalog-status-empty">
-          <CircleDashed size={18} />
-          <span>No products in this group right now.</span>
-        </div>
-      )}
-    </section>
+      </details>
+    </article>
   );
 }
 
 export function AdminCatalogStatus({
   products,
   onManage,
+  onSaveGroupPrice,
+  busy,
 }: {
   products: SupplierCatalogStatusProduct[];
-  onManage: (product: SupplierCatalogStatusProduct) => void;
+  onManage?: (product: SupplierCatalogStatusProduct) => void;
+  onSaveGroupPrice?: (group: SupplierCatalogGroup, price: number) => Promise<void>;
+  busy?: boolean;
 }) {
   const [query, setQuery] = useState('');
-  const [activeStatus, setActiveStatus] = useState<keyof typeof statusConfig>('live');
+  const [activeStatus, setActiveStatus] = useState<keyof typeof statusConfig>('listed');
   const grouped = useMemo(() => {
     const normalized = query.trim().toLowerCase();
     const matching = products.filter((product) =>
@@ -112,21 +126,25 @@ export function AdminCatalogStatus({
         .toLowerCase()
         .includes(normalized),
     );
+    const groups = supplierCatalogGroups(matching);
     return {
-      live: matching.filter((product) => supplierCatalogStatus(product) === 'live'),
-      'available-not-live': matching.filter((product) => supplierCatalogStatus(product) === 'available-not-live'),
-      'published-unavailable': matching.filter((product) => supplierCatalogStatus(product) === 'published-unavailable'),
-      unconfigured: matching.filter((product) => supplierCatalogStatus(product) === 'unconfigured'),
+      listed: groups.filter((group) => group.listed),
+      unlisted: groups.filter((group) => !group.listed),
+      unique: groups.filter((group) => group.unique),
+      duplicates: groups.filter((group) => !group.unique),
     };
   }, [products, query]);
+  const activeGroups = grouped[activeStatus];
+  const activeConfig = statusConfig[activeStatus];
+  const ActiveIcon = activeConfig.icon;
 
   return (
     <div className="admin-workspace catalog-status-workspace">
       <section className="admin-panel catalog-status-intro">
         <div>
-          <span className="admin-eyebrow">Supplier versus storefront</span>
-          <h2>Catalog status</h2>
-          <p>See what is ready to sell, what needs your pricing decision, and what lost supplier stock after being published.</p>
+          <span className="admin-eyebrow"><Layers3 size={15} /> Supplier catalogue groups</span>
+          <h2>Manage one product instead of ten duplicate rows</h2>
+          <p>Equivalent supplier offers are grouped together. Set one customer price for the whole group; the cheapest available supplier remains the storefront winner and the others stay available as fallbacks.</p>
         </div>
         <label className="catalog-status-search">
           <Search size={17} />
@@ -135,11 +153,11 @@ export function AdminCatalogStatus({
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             placeholder="Search product or supplier…"
-            aria-label="Search catalog status"
+            aria-label="Search grouped supplier catalogue"
           />
         </label>
       </section>
-      <div className="catalog-status-summary" role="tablist" aria-label="Catalog status lists">
+      <div className="catalog-status-summary catalog-group-summary" role="tablist" aria-label="Grouped supplier catalogue filters">
         {(Object.keys(statusConfig) as Array<keyof typeof statusConfig>).map((status) => (
           <button
             type="button"
@@ -156,17 +174,25 @@ export function AdminCatalogStatus({
           </button>
         ))}
       </div>
-      <StatusList
-        status={activeStatus}
-        products={grouped[activeStatus]}
-        onManage={onManage}
-        id={`catalog-status-${activeStatus}`}
-      />
-      {grouped.unconfigured.length > 0 && (
-        <p className="catalog-status-note">
-          {grouped.unconfigured.length} supplier record(s) have no stock and no selling price, so they are kept out of the three action groups above.
-        </p>
-      )}
+      <section className={`admin-panel catalog-status-section ${activeConfig.className}`}>
+        <div className="panel-heading catalog-status-section-heading">
+          <div>
+            <span className="admin-eyebrow"><ActiveIcon size={15} /> {activeConfig.title}</span>
+            <h2>{activeConfig.title}</h2>
+            <p>{activeConfig.description}</p>
+          </div>
+          <strong className="catalog-status-count">{activeGroups.length}</strong>
+        </div>
+        {activeGroups.length ? (
+          <div className="catalog-group-list">
+            {activeGroups.map((group) => (
+              <GroupRow key={group.key} group={group} onManage={onManage} onSaveGroupPrice={onSaveGroupPrice} busy={busy} />
+            ))}
+          </div>
+        ) : (
+          <div className="catalog-status-empty"><CircleDashed size={18} /><span>No product groups match this filter.</span></div>
+        )}
+      </section>
     </div>
   );
 }

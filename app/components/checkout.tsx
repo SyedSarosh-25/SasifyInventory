@@ -5,7 +5,8 @@ import { AdminOperations } from './admin-operations';
 import { AdminDailyChart } from './admin-daily-chart';
 import { AdminRecordControls, useRecordView } from './admin-record-controls';
 import { AdminToolRequests } from './admin-tool-requests';
-import { supplierOfferDecision } from './admin-catalog-status-model';
+import { AdminCatalogStatus } from './admin-catalog-status';
+import { supplierOfferDecision, type SupplierCatalogGroup } from './admin-catalog-status-model';
 import {
   ClipboardList,
   Copy,
@@ -1382,6 +1383,16 @@ export function CommerceAdmin() {
       remove
         ? `${provider.providerName} key removed.`
         : `${provider.providerName} key saved and ${result.synced || 0} products synced.`,
+    );
+    await refresh();
+  };
+  const saveSupplierGroupPrice = async (group: SupplierCatalogGroup, sellingPrice: number) => {
+    const result = await api('admin-supplier-group-update', key, {
+      productIds: group.products.map((product) => product.id),
+      sellingPrice,
+    });
+    setNotice(
+      `${group.name} price saved for ${result.updated || group.products.length} supplier offer${result.updated === 1 ? '' : 's'}.`,
     );
     await refresh();
   };
@@ -2971,6 +2982,15 @@ export function CommerceAdmin() {
                 </button>
               </div>
             </div>
+            <AdminCatalogStatus
+              products={supplierProducts as any}
+              busy={busy}
+              onSaveGroupPrice={(group, sellingPrice) =>
+                run(() => saveSupplierGroupPrice(group, sellingPrice))
+              }
+            />
+            <details className="supplier-raw-offers">
+              <summary>Advanced: edit individual supplier offers</summary>
             <div
               className="supplier-provider-tabs"
               role="tablist"
@@ -3068,6 +3088,7 @@ export function CommerceAdmin() {
                 yet. Select Sync providers to refresh its catalog.
               </p>
             )}
+            </details>
           </section>
         </div>
       )}

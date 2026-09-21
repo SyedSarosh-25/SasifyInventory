@@ -4224,6 +4224,40 @@ export function createHandler(
           [supplierId],
         );
         output = { ok: true };
+      } else if (action === 'admin-supplier-group-update') {
+        const productIds = [
+          ...new Set(
+            (Array.isArray(body.productIds) ? body.productIds : [])
+              .map((value) => String(value || '').trim())
+              .filter((value) => value && value.length <= 300),
+          ),
+        ];
+        const sellingPrice = Number(body.sellingPrice);
+        if (
+          !productIds.length ||
+          productIds.length > 500 ||
+          !Number.isSafeInteger(sellingPrice) ||
+          sellingPrice < 1
+        )
+          throw fail(400, 'Select a valid supplier group and enter a whole PKR selling price.');
+        const changed = await db.query(
+          `UPDATE commerce_supplier_products
+           SET selling_price=$1
+           WHERE id=ANY($2::text[])
+           RETURNING id`,
+          [sellingPrice, productIds],
+        );
+        if (!changed.rowCount)
+          throw fail(404, 'Supplier group not found. Sync products first.');
+        await db.query(
+          "INSERT INTO commerce_audit(action,object_id) VALUES('supplier_group_price_update',$1)",
+          [hash(productIds.join('|')).slice(0, 32)],
+        );
+        output = {
+          ok: true,
+          updated: changed.rowCount,
+          missing: productIds.length - changed.rowCount,
+        };
       } else if (action === 'admin-scam-report') {
         if (!idOk(req.query?.id || body.id))
           throw fail(400, 'Invalid report ID.');

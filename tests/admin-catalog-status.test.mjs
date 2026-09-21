@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { duplicateSupplierIds, supplierCatalogStatus, supplierOfferDecision } from '../app/components/admin-catalog-status-model.ts';
+import { duplicateSupplierIds, supplierCatalogGroups, supplierCatalogStatus, supplierOfferDecision } from '../app/components/admin-catalog-status-model.ts';
 
 const product = (overrides = {}) => ({
   id: 'supplier:1',
@@ -61,4 +61,25 @@ test('different durations remain separate supplier products', () => {
     product({ id: 'twelve-month', name: 'Hicksfield 12 Months' }),
   ]);
   assert.deepEqual([...ids], []);
+});
+
+test('grouped supplier catalogue exposes one price target and the cheapest live winner', () => {
+  const groups = supplierCatalogGroups([
+    product({ id: 'dodi:chatgpt', name: 'ChatGPT Plus 1 Month', cost_pkr: 900, selling_price: 1999 }),
+    product({ id: 'mke:chatgpt', name: 'ChatGPT Plus 30D full warranty', cost_pkr: 700, selling_price: 1999 }),
+  ]);
+  assert.equal(groups.length, 1);
+  assert.equal(groups[0].listed, true);
+  assert.equal(groups[0].unique, false);
+  assert.equal(groups[0].winner?.id, 'mke:chatgpt');
+  assert.equal(groups[0].groupSellingPrice, 1999);
+});
+
+test('group is not listed when stock exists but no offer is enabled and priced', () => {
+  const groups = supplierCatalogGroups([
+    product({ id: 'mke:setup', name: 'Setup Product 1 Month', selling_price: null, enabled: false }),
+  ]);
+  assert.equal(groups[0].listed, false);
+  assert.equal(groups[0].inStock, true);
+  assert.equal(groups[0].unique, true);
 });

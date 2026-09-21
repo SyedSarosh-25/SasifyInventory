@@ -156,6 +156,67 @@ export function supplierOfferDecision(products: SupplierCatalogStatusProduct[]) 
   return { winners, rejected, winnerByRejectedId };
 }
 
+export type SupplierCatalogGroup = {
+  key: string;
+  name: string;
+  products: SupplierCatalogStatusProduct[];
+  winner: SupplierCatalogStatusProduct | null;
+  listed: boolean;
+  inStock: boolean;
+  unique: boolean;
+  totalStock: number;
+  providerNames: string[];
+  cheapestCost: number | null;
+  groupSellingPrice: number | null;
+};
+
+function lowestCostProduct(products: SupplierCatalogStatusProduct[]) {
+  return [...products].sort((left, right) => {
+    const leftCost = Number(left.cost_pkr ?? Number.POSITIVE_INFINITY);
+    const rightCost = Number(right.cost_pkr ?? Number.POSITIVE_INFINITY);
+    return leftCost - rightCost || left.id.localeCompare(right.id);
+  })[0] || null;
+}
+
+/**
+ * Creates the admin-facing product groups. A group is considered listed only
+ * when an enabled, priced and in-stock supplier offer can actually appear in
+ * the storefront. The winner follows the same lowest-cost/in-stock rule used
+ * by the customer catalogue.
+ */
+export function supplierCatalogGroups(products: SupplierCatalogStatusProduct[]): SupplierCatalogGroup[] {
+  return supplierOfferGroups(products).map((group) => {
+    const inStock = group.filter(hasSupplierStock);
+    const storefrontCandidates = group.filter(
+      (product) => hasSupplierStock(product) && hasSellingPrice(product) && product.enabled === true,
+    );
+    const winner = lowestCostProduct(storefrontCandidates);
+    const referenceProducts = inStock.length ? inStock : group;
+    const costs = referenceProducts
+      .map((product) => Number(product.cost_pkr))
+      .filter((value) => Number.isFinite(value) && value >= 0);
+    const prices = group
+      .map((product) => Number(product.selling_price))
+      .filter((value) => Number.isFinite(value) && value > 0);
+    const distinctPrices = [...new Set(prices)];
+    const canonicalKey = String(group[0]?.canonical_key || '').trim().toLowerCase();
+    const nameKey = supplierDuplicateKey(group[0] || { name: '' });
+    return {
+      key: canonicalKey ? `canonical:${canonicalKey}` : `name:${nameKey}`,
+      name: winner?.name || group[0]?.name || 'Unnamed product',
+      products: group,
+      winner,
+      listed: Boolean(winner),
+      inStock: inStock.length > 0,
+      unique: group.length === 1,
+      totalStock: group.reduce((total, product) => total + Math.max(0, Number(product.supplier_stock || 0)), 0),
+      providerNames: [...new Set(group.map((product) => product.provider_name || product.provider_id || 'Supplier'))],
+      cheapestCost: costs.length ? Math.min(...costs) : null,
+      groupSellingPrice: distinctPrices.length === 1 ? distinctPrices[0] : null,
+    };
+  });
+}
+
 export function duplicateSupplierIds(products: SupplierCatalogStatusProduct[]) {
   return new Set(
     supplierOfferGroups(products)
