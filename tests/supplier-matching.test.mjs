@@ -31,3 +31,17 @@ test('supplier matching groups every CapCut access label by duration', () => {
     supplierProductKey('Capcut Pro 6M (FW)'),
   );
 });
+
+test('supplier matching merges equivalent Grok Heavy names before choosing a cost winner', () => {
+  const heavyNames = [
+    'CDK Heavy Grok 1M',
+    'Grok Heavy for 1 month',
+    'CDK Supper Grok Heavy 1 month',
+    'SuperGrok Heavy 30 days',
+  ];
+  assert.equal(new Set(heavyNames.map(supplierProductKey)).size, 1);
+  assert.notEqual(
+    supplierProductKey('CDK SUPER GROK 1 month'),
+    supplierProductKey('CDK Heavy Grok 1 month'),
+  );
+});

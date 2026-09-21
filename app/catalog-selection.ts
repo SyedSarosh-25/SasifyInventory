@@ -56,6 +56,7 @@ export type FixedTopProductSpec = {
   source: 'local' | 'supplier';
   id?: string;
   canonicalKey?: string;
+  canonicalAliases?: string[];
   displayName: string;
   displayPricePkr?: number;
   displayOriginalPricePkr?: number;
@@ -79,7 +80,8 @@ export const fixedTopProductSpecs: FixedTopProductSpec[] = [
   },
   {
     source: 'supplier',
-    canonicalKey: 'auto:cdk-grok-heavy-supper-duration-1m',
+    canonicalKey: 'auto:grok-heavy-duration-1m',
+    canonicalAliases: ['auto:cdk-grok-heavy-supper-duration-1m'],
     displayName: 'SuperGrok Heavy · 30 Days',
     displayPricePkr: 1999,
     displayOriginalPricePkr: 60000,
@@ -103,7 +105,8 @@ export function selectFixedTopProducts(catalog: LiveCatalogProduct[]) {
     const product = catalog.find((candidate) => {
       if (candidate.source !== spec.source) return false;
       if (spec.id && candidate.id === spec.id) return true;
-      return Boolean(spec.canonicalKey && (candidate.canonical_key === spec.canonicalKey || candidate.id === spec.canonicalKey));
+      const keys = [spec.canonicalKey, ...(spec.canonicalAliases || [])].filter(Boolean);
+      return keys.some((key) => candidate.canonical_key === key || candidate.id === key);
     });
     if (!product) return [];
     const localProduct = spec.source === 'local' && spec.id

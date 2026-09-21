@@ -1,5 +1,5 @@
 const duplicateNoise = new Set([
-  'a', 'an', 'the', 'for', 'full', 'has', 'included', 'no', 'not', 'with',
+  'a', 'an', 'the', 'cdk', 'comes', 'for', 'full', 'has', 'included', 'no', 'not', 'supper', 'with',
   'without', 'warranty', 'nw', 'fw', 'preorder', 'pre',
 ]);
 const durationUnit = /^(d|day|days|m|mo|month|months|y|year|years|w|week|weeks)$/;
@@ -29,7 +29,11 @@ export function supplierProductKey(name) {
     .replace(/[^a-z0-9]+/g, ' ')
     .trim()
     .split(/\s+/)
-    .filter(Boolean);
+    .filter(Boolean)
+    .flatMap((token) => {
+      if (token === 'supergrok' || token === 'suppergrok') return ['super', 'grok'];
+      return [token];
+    });
   const identity = [];
   const isCapCut = tokens.includes('capcut');
   let duration = '';
@@ -58,9 +62,15 @@ export function supplierProductKey(name) {
     if (duplicateNoise.has(token)) continue;
     identity.push(token);
   }
+  let normalizedTokens = [...new Set(identity)];
+  // Suppliers use both "Grok Heavy" and "SuperGrok Heavy" for this same
+  // Heavy-month offer. Keep SuperGrok distinct for non-Heavy plans.
+  if (normalizedTokens.includes('grok') && normalizedTokens.includes('heavy')) {
+    normalizedTokens = normalizedTokens.filter((token) => token !== 'super');
+  }
   const normalizedIdentity = isCapCut
     ? 'capcut'
-    : [...new Set(identity)].sort().join('-');
+    : normalizedTokens.sort().join('-');
   if (!normalizedIdentity) return null;
   return `auto:${normalizedIdentity}${duration ? `-${duration}` : ''}`.slice(0, 200);
 }

@@ -78,7 +78,13 @@ export function Catalog({ initialQuery = '' }: { initialQuery?: string }) {
     const liveByKey = new Map(
       liveSupplierProducts.map((product) => [product.canonical_key || product.id, product]),
     );
-    return seoInventory.map((product) => {
+    // The generated catalogue is a crawlable fallback. Once the live stock
+    // response arrives, use its grouped canonical keys as the source of truth
+    // so stale SEO entries cannot reintroduce rejected supplier duplicates.
+    const sourceInventory = liveSupplierProducts.length
+      ? seoInventory.filter((product) => liveByKey.has(product.canonical_key || product.id))
+      : seoInventory;
+    return sourceInventory.map((product) => {
       const live = liveByKey.get(product.canonical_key || product.id);
       if (!live) return product;
       return {
