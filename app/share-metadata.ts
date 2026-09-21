@@ -1,6 +1,6 @@
 import { siteOrigin } from './site-config';
 
-export const shareImageUrl = `${siteOrigin}/opengraph-image`;
+export const shareImageUrl = `${siteOrigin}/opengraph-image.png`;
 
 export function shareImage(alt: string) {
   return [{
@@ -13,7 +13,7 @@ export function shareImage(alt: string) {
 }
 
 export function productShareImageUrl(routeId: string) {
-  return `${siteOrigin}/products/${encodeURIComponent(routeId)}/opengraph-image`;
+  return `${siteOrigin}/product-og/${encodeURIComponent(routeId)}.png`;
 }
 
 export function productShareImage(routeId: string, alt: string) {

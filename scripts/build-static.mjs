@@ -33,6 +33,14 @@ const result = spawnSync(process.execPath, [path.resolve(path.dirname(packagePat
 if (result.error) throw result.error;
 if (result.status !== 0) process.exit(result.status ?? 1);
 
+const shareImages = spawnSync(process.execPath, [path.join(root, 'scripts', 'generate-share-images.mjs')], {
+  cwd: root,
+  env,
+  stdio: 'inherit',
+});
+if (shareImages.error) throw shareImages.error;
+if (shareImages.status !== 0) process.exit(shareImages.status ?? 1);
+
 // Only replace this project's generated upload folder, never a linked directory.
 if (path.dirname(out) !== root || path.basename(out) !== 'out') throw new Error('Invalid output directory.');
 const previous = await lstat(out).catch((error) => {
