@@ -3,11 +3,15 @@ import path from 'node:path';
 import sharp from 'sharp';
 import { products } from '../app/products.ts';
 import { supplierSeoProducts } from '../app/supplier-seo.ts';
-import { supplierMonogram } from '../app/supplier-product-utils.ts';
+import { supplierLogo, supplierMonogram } from '../app/supplier-product-utils.ts';
+import { originalPricePkr, productLogo, savingsPkr } from '../app/product-utils.ts';
+import { productAbout, supplierProductAbout } from '../app/product-about.ts';
+import { supplierOriginalPriceComparison, supplierSavingsPkr } from '../app/supplier-price-utils.ts';
 
 const root = process.cwd();
 const outputRoot = path.join(root, 'dist', 'client');
 const logoDataUri = `data:image/png;base64,${(await readFile(path.join(root, 'public', 'sasify-logo.png'))).toString('base64')}`;
+const productLogoCache = new Map();
 
 function escapeXml(value) {
   return String(value)
@@ -44,20 +48,68 @@ function textLines(lines, x, y, lineHeight, attributes) {
     .join('')}</text>`;
 }
 
-function formatPrice(value) {
-  if (!Number.isFinite(Number(value)) || Number(value) <= 0) return 'Shop online in Pakistan';
-  return `PKR ${new Intl.NumberFormat('en-PK', { maximumFractionDigits: 0 }).format(Number(value))}`;
+function formatAmount(value, fallback = 'Price may vary') {
+  if (!Number.isFinite(Number(value))) return fallback;
+  return `PKR ${new Intl.NumberFormat('en-PK', { maximumFractionDigits: 0 }).format(Math.round(Number(value)))}`;
 }
 
-function shareSvg({ name, category, price, monogram }) {
+function formatPrice(value) {
+  return Number.isFinite(Number(value)) && Number(value) > 0
+    ? formatAmount(value)
+    : 'Shop online in Pakistan';
+}
+
+function shortProductDescription(product, supplier = false) {
+  const about = supplier ? supplierProductAbout(product) : productAbout(product);
+  const firstParagraph = about.paragraphs[0] || '';
+  const purpose = firstParagraph.match(/It is mainly used for (.+?)(?:\. The listed access period|\.$|$)/i)?.[1];
+  return String(purpose || firstParagraph)
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+async function remoteLogoDataUri(url) {
+  if (!url) return null;
+  if (productLogoCache.has(url)) return productLogoCache.get(url);
+  try {
+    const response = await fetch(url, { signal: AbortSignal.timeout(5000) });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const contentType = response.headers.get('content-type') || 'image/png';
+    const dataUri = `data:${contentType};base64,${Buffer.from(await response.arrayBuffer()).toString('base64')}`;
+    productLogoCache.set(url, dataUri);
+    return dataUri;
+  } catch {
+    productLogoCache.set(url, null);
+    return null;
+  }
+}
+
+function shareSvg({ name, category, price, originalPrice, savings, description, monogram, productLogoDataUri }) {
   const titleLines = wrapText(name, name.length > 55 ? 32 : 38, 3);
   const titleSize = name.length > 55 ? 42 : name.length > 38 ? 50 : 58;
   const titleLineHeight = Math.round(titleSize * 1.08);
   const titleY = 236;
   const titleBottom = titleY + (titleLines.length - 1) * titleLineHeight + titleSize;
   const descriptionY = titleBottom + 48;
-  const descriptionLines = wrapText('Buy online in Pakistan with automated delivery after payment verification.', 43, 2);
-  const priceY = descriptionY + (descriptionLines.length - 1) * 36 + 92;
+  const descriptionLines = wrapText(
+    description || 'Buy online in Pakistan with automated delivery after payment verification.',
+    47,
+    titleLines.length > 2 ? 1 : 2,
+  );
+  // Keep the three price rows above the footer even when a long product name
+  // takes three title lines.
+  const priceY = Math.min(descriptionY + (descriptionLines.length - 1) * 36 + 92, 470);
+  const hasPriceBreakdown = originalPrice !== undefined || savings !== undefined;
+  const priceBlock = hasPriceBreakdown
+    ? `<line x1="72" y1="${priceY - 34}" x2="704" y2="${priceY - 34}" stroke="#c9d8ff" stroke-width="2"/>
+  <text x="72" y="${priceY}" fill="#50617f" font-family="Arial, sans-serif" font-size="22">Original price</text>
+  <text x="270" y="${priceY}" fill="#50617f" font-family="Arial, sans-serif" font-size="28" font-weight="700">${escapeXml(originalPrice || 'Price may vary')}</text>
+  <text x="72" y="${priceY + 38}" fill="#50617f" font-family="Arial, sans-serif" font-size="22">Our price</text>
+  <text x="270" y="${priceY + 38}" fill="#285cff" font-family="Arial, sans-serif" font-size="34" font-weight="800">${escapeXml(price)}</text>
+  <text x="72" y="${priceY + 76}" fill="#08795f" font-family="Arial, sans-serif" font-size="22" font-weight="700">Your savings</text>
+  <text x="270" y="${priceY + 76}" fill="#08795f" font-family="Arial, sans-serif" font-size="28" font-weight="800">${escapeXml(savings || 'Price may vary')}</text>`
+    : `<text x="72" y="${priceY}" fill="#50617f" font-family="Arial, sans-serif" font-size="22">Our price</text>
+  <text x="184" y="${priceY}" fill="#285cff" font-family="Arial, sans-serif" font-size="40" font-weight="800">${escapeXml(price)}</text>`;
 
   return `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
   <defs>
@@ -73,11 +125,10 @@ function shareSvg({ name, category, price, monogram }) {
   <text x="72" y="176" fill="#285cff" font-family="Arial, sans-serif" font-size="22" font-weight="800" letter-spacing="2">${escapeXml(String(category).toUpperCase())}</text>
   ${textLines(titleLines, 72, titleY, titleLineHeight, `fill="#09102a" font-family="Arial, sans-serif" font-size="${titleSize}" font-weight="800"`)}
   ${textLines(descriptionLines, 72, descriptionY, 36, 'fill="#50617f" font-family="Arial, sans-serif" font-size="29"')}
-  <text x="72" y="${priceY}" fill="#50617f" font-family="Arial, sans-serif" font-size="22">Our price</text>
-  <text x="184" y="${priceY}" fill="#285cff" font-family="Arial, sans-serif" font-size="40" font-weight="800">${escapeXml(price)}</text>
+  ${priceBlock}
   <rect x="870" y="187" width="300" height="300" rx="38" fill="#ffffff" stroke="#c9d8ff" stroke-width="2" filter="url(#shadow)"/>
-  <rect x="930" y="247" width="180" height="180" rx="28" fill="url(#tile)"/>
-  <text x="1020" y="361" text-anchor="middle" fill="#ffffff" font-family="Arial, sans-serif" font-size="72" font-weight="800">${escapeXml(monogram)}</text>
+  <rect x="930" y="247" width="180" height="180" rx="28" fill="${productLogoDataUri ? '#ffffff' : 'url(#tile)'}" stroke="${productLogoDataUri ? '#d4def7' : 'none'}" stroke-width="2"/>
+  ${productLogoDataUri ? `<image href="${productLogoDataUri}" x="970" y="287" width="100" height="100" preserveAspectRatio="xMidYMid meet"/>` : `<text x="1020" y="361" text-anchor="middle" fill="#ffffff" font-family="Arial, sans-serif" font-size="72" font-weight="800">${escapeXml(monogram)}</text>`}
   <text x="72" y="586" fill="#50617f" font-family="Arial, sans-serif" font-size="22" font-weight="700">Search · Select · Pay · Get credentials</text>
   <text x="1128" y="586" text-anchor="end" fill="#50617f" font-family="Arial, sans-serif" font-size="22" font-weight="700">AI tools · Subscriptions · Services</text>
 </svg>`;
@@ -98,25 +149,44 @@ await writeImage('opengraph-image.png', shareSvg({
 
 const allProducts = new Map();
 for (const product of products) {
+  const originalPrice = originalPricePkr(product);
   allProducts.set(product.slug || product.id, {
     slug: product.slug || product.id,
     name: product.name,
     category: product.category || 'Digital tools and subscriptions',
     price: formatPrice(product.sellingPricePkr),
+    description: shortProductDescription(product),
+    originalPrice: originalPrice === null ? 'Price may vary' : formatAmount(originalPrice),
+    savings: savingsPkr(product) === null ? 'Price may vary' : formatAmount(savingsPkr(product)),
   });
 }
 for (const product of supplierSeoProducts) {
+  const comparison = supplierOriginalPriceComparison(product);
+  const savings = supplierSavingsPkr(product);
   allProducts.set(product.slug, {
     slug: product.slug,
     name: product.name,
     category: product.category || 'Digital tools and subscriptions',
     price: formatPrice(product.price),
+    description: shortProductDescription(product, true),
+    originalPrice: comparison === null ? 'Price may vary' : formatAmount(comparison.totalPkr),
+    savings: savings === null ? 'Price may vary' : formatAmount(savings),
   });
 }
 
-await Promise.all([...allProducts.values()].map((product) => writeImage(
-  path.join('product-og', `${product.slug}.png`),
-  shareSvg({ ...product, monogram: supplierMonogram(product.name) }),
-)));
+await Promise.all([...allProducts.values()].map(async (product) => {
+  const localProduct = products.find((item) => (item.slug || item.id) === product.slug);
+  const supplierProduct = supplierSeoProducts.find((item) => item.slug === product.slug);
+  const logoUrl = localProduct
+    ? productLogo(localProduct)
+    : supplierProduct
+      ? supplierLogo(supplierProduct.name, supplierProduct.logoUrl)
+      : '';
+  const productLogoDataUri = await remoteLogoDataUri(logoUrl);
+  return writeImage(
+    path.join('product-og', `${product.slug}.png`),
+    shareSvg({ ...product, monogram: supplierMonogram(product.name), productLogoDataUri }),
+  );
+}));
 
 console.log(`Generated ${allProducts.size + 1} static share images with the real Sasify logo.`);

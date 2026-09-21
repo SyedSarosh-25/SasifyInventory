@@ -7,12 +7,13 @@ import {
   selectRandomTopProducts,
 } from '../catalog-selection';
 import { products as localProducts, type Product } from '../products';
-import { productHref } from '../product-utils';
+import { originalPricePkr, productHref, savingsPkr } from '../product-utils';
 import { ProductLogo } from './product-logo';
 import { Money } from './currency';
 import { supplierLogo, supplierMonogram } from '../supplier-product-utils';
 import { cacheSupplierCatalog } from '../supplier-catalog-cache';
 import { supplierProductHref } from '../supplier-seo-utils';
+import { supplierOriginalPriceComparison, supplierSavingsPkr } from '../supplier-price-utils';
 
 type SupplierProduct = {
   id: string;
@@ -46,10 +47,19 @@ export function SupplierFeaturedCard({ product }: { product: FeaturedProduct }) 
   );
   const displayAvailable = product.displayAvailable ?? product.available;
   const category = product.category || inferSupplierCategory(product.name, product.description);
-  const originalPrice = product.localProduct?.originalPricePkr;
-  const savings = originalPrice && originalPrice > product.price
-    ? originalPrice - product.price
+  const comparison = product.source === 'supplier'
+    ? supplierOriginalPriceComparison(product)
     : null;
+  const originalPrice = product.source === 'supplier'
+    ? comparison?.totalPkr ?? null
+    : product.localProduct
+      ? originalPricePkr(product.localProduct)
+      : null;
+  const savings = product.source === 'supplier'
+    ? supplierSavingsPkr(product)
+    : product.localProduct
+      ? savingsPkr(product.localProduct)
+      : null;
   const description = String(product.description || '')
     .split(/\n+/)
     .map((line) => line.replace(/^[^\p{L}\p{N}]+/u, '').trim())
@@ -87,19 +97,24 @@ export function SupplierFeaturedCard({ product }: { product: FeaturedProduct }) 
         <span>{displayAvailable.toLocaleString('en-PK')} available</span>
       </div>
       <div className="featured-price-block">
-        {originalPrice ? (
+        {originalPrice !== null ? (
           <div className="featured-original-price">
             <span>Original price</span>
             <del><Money amount={originalPrice} /></del>
           </div>
         ) : (
-          <div className="featured-original-price featured-price-placeholder">Price for this listing</div>
+          <div className="featured-original-price featured-price-placeholder">
+            <span>Original price</span>
+            <strong>Price may vary</strong>
+          </div>
         )}
         <div className="featured-our-price">
           <span><Tag className="h-3 w-3" /> Our price</span>
           <strong><Money amount={product.price} /></strong>
         </div>
-        {savings ? <div className="featured-savings">Your savings <strong><Money amount={savings} /></strong></div> : null}
+        {savings !== null ? <div className="featured-savings">Your savings <strong><Money amount={savings} /></strong></div> : (
+          <div className="featured-savings featured-savings-muted">Your savings <strong>Price may vary</strong></div>
+        )}
       </div>
       <div className="featured-card-actions">
         <span className="featured-details-button">View details</span>

@@ -750,6 +750,7 @@ svg { flex-shrink: 0; }
 .featured-our-price strong { color: #2863ff; font-size: 1.25rem; line-height: 1.1; }
 .featured-savings { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 10px; padding: 7px 9px; border-radius: 8px; background: #eaf8f1; color: #175942; font-size: .68rem; font-weight: 800; }
 .featured-savings strong { font-size: .8rem; }
+.featured-savings-muted { background: #f4f6fb; color: #62708b; }
 .featured-card-actions { display: grid; grid-template-columns: 1fr 1.08fr; gap: 8px; margin-top: 14px; }
 .featured-details-button, .featured-buy-button { display: inline-flex; min-height: 34px; align-items: center; justify-content: center; gap: 5px; border-radius: 8px; font-size: .7rem; font-weight: 850; }
 .featured-details-button { border: 1px solid #2863ff; color: #2863ff; }

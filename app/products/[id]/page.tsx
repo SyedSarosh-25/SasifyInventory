@@ -53,6 +53,7 @@ import {
   whatsappLink,
 } from '../../product-utils';
 import { productShareImage, productShareImageUrl } from '../../share-metadata';
+import { supplierOriginalPriceComparison, supplierSavingsPkr } from '../../supplier-price-utils';
 
 type Props = { params: Promise<{ id: string }> };
 
@@ -129,6 +130,8 @@ function SupplierSeoProductPage({ product }: { product: SupplierSeoProduct }) {
   const questions = supplierProductQuestions(product);
   const about = supplierProductAbout(product);
   const logo = supplierLogo(product.name, product.logoUrl);
+  const comparison = supplierOriginalPriceComparison(product);
+  const savings = supplierSavingsPkr(product);
   const descriptionBlocks = product.description
     .split(/\n{2,}/)
     .map((block) => block.trim())
@@ -237,6 +240,31 @@ function SupplierSeoProductPage({ product }: { product: SupplierSeoProduct }) {
             </section>
 
             <section className="description-section">
+              <h2>Price comparison</h2>
+              <p>
+                Our price is <strong><Money amount={product.price} /></strong>.
+                {comparison ? (
+                  <> The official plan reference for the listed duration is{' '}
+                    <strong><Money amount={comparison.totalPkr} /></strong>.{' '}
+                    {comparison.note}</>
+                ) : (
+                  <> The official equivalent depends on the exact edition, region,
+                  billing term or access arrangement, so the original price may vary.</>
+                )}
+              </p>
+              {comparison && savings !== null ? (
+                <p className="supplier-price-saving">
+                  Estimated savings against that reference: <strong><Money amount={savings} /></strong>.
+                </p>
+              ) : null}
+              {comparison ? (
+                <a href={comparison.sourceUrl} target="_blank" rel="noreferrer" className="price-source">
+                  {comparison.sourceLabel} <ExternalLink className="h-3.5 w-3.5" />
+                </a>
+              ) : null}
+            </section>
+
+            <section className="description-section">
               <h2>Payment &amp; delivery</h2>
               <p>
                 The listed Sasify price is{' '}
@@ -282,6 +310,10 @@ function SupplierSeoProductPage({ product }: { product: SupplierSeoProduct }) {
               <h2>{product.name}</h2>
             </div>
             <dl className="detail-prices">
+              <div>
+                <dt>Original price</dt>
+                <dd>{comparison ? <Money amount={comparison.totalPkr} /> : 'Price may vary'}</dd>
+              </div>
               <div className="selling-price">
                 <dt>
                   <Tag className="h-4 w-4" /> Our price
@@ -289,6 +321,10 @@ function SupplierSeoProductPage({ product }: { product: SupplierSeoProduct }) {
                 <dd>
                   <Money amount={product.price} />
                 </dd>
+              </div>
+              <div>
+                <dt>Your savings</dt>
+                <dd>{savings !== null ? <Money amount={savings} /> : 'Price may vary'}</dd>
               </div>
               <div>
                 <dt>Availability</dt>

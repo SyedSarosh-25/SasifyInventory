@@ -89,8 +89,8 @@ const catalogProducts: Product[] = [
     duration: '1 Month',
     vendor: 'Zoom Store / Alternate Supplier',
     sellingPricePkr: 24999,
-    originalPrice: 'PKR 35,000 per seat/month',
-    originalPricePkr: 35000,
+    originalPrice: 'PKR 35,625 per seat/month (US$125 official monthly reference)',
+    originalPricePkr: 35625,
     publishedAt: '2026-09-10T12:56:41+05:00',
     sourceUrl: 'https://claude.com/pricing',
     description:
@@ -109,8 +109,8 @@ const catalogProducts: Product[] = [
     duration: '1 Month',
     vendor: 'Zoom Store / Alternate Supplier',
     sellingPricePkr: 5199,
-    originalPrice: 'PKR 7,500 per seat/month',
-    originalPricePkr: 7500,
+    originalPrice: 'PKR 7,125 per seat/month (US$25 official monthly reference)',
+    originalPricePkr: 7125,
     publishedAt: '2026-09-10T12:56:41+05:00',
     sourceUrl: 'https://claude.com/pricing',
     description:

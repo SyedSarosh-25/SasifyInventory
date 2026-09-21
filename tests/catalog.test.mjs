@@ -3,6 +3,7 @@ import test from 'node:test';
 import { products } from '../app/products.ts';
 import { accessTypeLabel, has25DayWarranty, isAnnualPlan, originalPriceComparison, originalPricePkr, planMonths, productHref, productLogo, savingsPkr, warrantyDays, whatsappLink } from '../app/product-utils.ts';
 import { featuredProducts, filterProducts, heroProducts, heroSupplierShortcuts, orbitTools, selectHeroSupplierShortcut, selectRandomTopProducts, supplierEquivalentProductName } from '../app/catalog-selection.ts';
+import { supplierOriginalPriceComparison, supplierSavingsPkr } from '../app/supplier-price-utils.ts';
 
 test('every inventory variant has a unique detail URL', () => {
   assert.equal(new Set(products.map(productHref)).size, products.length);
@@ -69,9 +70,40 @@ test('25-day warranty is scoped to one-month ChatGPT, other plans cover their fu
 });
 
 test('savings subtract our price from the listed original with the fixed USD rate', () => {
-  assert.equal(savingsPkr(products.find((p) => p.id === 'p013')), 2301);
-  assert.equal(savingsPkr(products.find((p) => p.id === 'p012')), 10001);
+  assert.equal(savingsPkr(products.find((p) => p.id === 'p013')), 1926);
+  assert.equal(savingsPkr(products.find((p) => p.id === 'p012')), 10626);
   assert.equal(savingsPkr(products.find((p) => p.id === 'p100')), 33500);
+});
+
+test('supplier comparisons use official plan references and the complete duration', () => {
+  const gemini = {
+    name: 'Gemini AI Pro 18 Month',
+    description: 'Google AI Pro plan',
+    price: 2499,
+  };
+  assert.equal(supplierOriginalPriceComparison(gemini).totalPkr, 102548.7);
+  assert.equal(supplierSavingsPkr(gemini), 100049.7);
+
+  const spotify = supplierOriginalPriceComparison({
+    name: 'Spotify Premium 1 Year full warranty',
+  });
+  assert.equal(spotify.totalPkr, 4548);
+  assert.equal(spotify.period, 'month');
+
+  assert.equal(supplierOriginalPriceComparison({
+    name: 'Coursera Premium 12 Month Plan',
+    description: 'Includes a Gemini 3 Month promotional mention.',
+  }), null);
+});
+
+test('supplier comparisons do not invent a retail price for Office Professional Plus keys', () => {
+  const office = {
+    name: 'Microsoft Office 2024 Pro key, 10 years warranty, 1 year guarantee',
+    description: 'Official 2024 Pro Plus key for 1 Windows computer permanently',
+    price: 1499,
+  };
+  assert.equal(supplierOriginalPriceComparison(office), null);
+  assert.equal(supplierSavingsPkr(office), null);
 });
 
 test('ChatGPT Plus warranty uses the current listing terms', () => {
