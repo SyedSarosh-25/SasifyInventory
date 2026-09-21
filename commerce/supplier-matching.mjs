@@ -58,7 +58,9 @@ export function supplierProductKey(name) {
     if (duplicateNoise.has(token)) continue;
     identity.push(token);
   }
-  const normalizedIdentity = [...new Set(identity)].sort().join('-');
+  const normalizedIdentity = isCapCut
+    ? 'capcut'
+    : [...new Set(identity)].sort().join('-');
   if (!normalizedIdentity) return null;
   return `auto:${normalizedIdentity}${duration ? `-${duration}` : ''}`.slice(0, 200);
 }

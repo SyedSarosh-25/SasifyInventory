@@ -13,10 +13,14 @@ test('supplier matching merges equivalent CapCut duration labels', () => {
   );
 });
 
-test('supplier matching keeps distinct CapCut access and credit offers separate', () => {
-  assert.notEqual(
+test('supplier matching groups every CapCut access label by duration', () => {
+  assert.equal(
     supplierProductKey('CapCut Pro 1 Month'),
     supplierProductKey('CapCut Pro Team 1 Month 1200 Credits'),
+  );
+  assert.equal(
+    supplierProductKey('CapCut Pro 30D full warranty'),
+    supplierProductKey('CapCut Pro Team 30D full warranty'),
   );
   assert.equal(
     supplierProductKey('CapCut Pro one month'),
