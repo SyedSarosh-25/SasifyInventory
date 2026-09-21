@@ -1140,14 +1140,14 @@ function automaticProductKey(name) {
 async function refreshAutomaticSupplierKeys(db) {
   const rows = (
     await db.query(
-      'SELECT id,name,canonical_key FROM commerce_supplier_products WHERE canonical_manual=false',
+      "SELECT id,name,canonical_key FROM commerce_supplier_products WHERE canonical_manual=false OR canonical_key LIKE 'auto:%'",
     )
   ).rows;
   for (const row of rows) {
     const key = automaticProductKey(row.name);
     if (!key || key === row.canonical_key) continue;
     await db.query(
-      'UPDATE commerce_supplier_products SET canonical_key=$1 WHERE id=$2 AND canonical_manual=false',
+      "UPDATE commerce_supplier_products SET canonical_key=$1 WHERE id=$2 AND (canonical_manual=false OR canonical_key LIKE 'auto:%')",
       [key, row.id],
     );
   }
