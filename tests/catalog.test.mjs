@@ -16,7 +16,7 @@ test('every inventory variant has a unique detail URL', () => {
 
 test('Claude Team prices and seat types match the requested offers', () => {
   assert.equal(products.find((p) => p.name === 'Claude Team Plan Standard')?.sellingPricePkr, 5199);
-  assert.equal(products.find((p) => p.name === 'Claude Team Plan Premium')?.sellingPricePkr, 2499);
+  assert.equal(products.find((p) => p.name === 'Claude Team Plan Premium')?.sellingPricePkr, 24999);
   for (const id of ['p012', 'p013']) {
     const product = products.find((p) => p.id === id);
     assert.equal(product.duration, '1 Month');
@@ -71,7 +71,7 @@ test('25-day warranty is scoped to one-month ChatGPT, other plans cover their fu
 
 test('savings subtract our price from the listed original with the fixed USD rate', () => {
   assert.equal(savingsPkr(products.find((p) => p.id === 'p013')), 2301);
-  assert.equal(savingsPkr(products.find((p) => p.id === 'p012')), 5001);
+  assert.equal(savingsPkr(products.find((p) => p.id === 'p012')), 10626);
   assert.equal(savingsPkr(products.find((p) => p.id === 'p100')), 25488);
 });
 
@@ -272,7 +272,7 @@ test('homepage Top 8 stays fixed and applies the curated merchandising values', 
     'Figma Pro · 2 Years',
     'Hostinger Unlimited · 12 Months',
   ]);
-  assert.deepEqual(selected.map((product) => product.display_price), [3499, 999, 5199, 2499, 999, 1999, 6999, 4500]);
+  assert.deepEqual(selected.map((product) => product.display_price), [3499, 999, 5199, 24999, 999, 19999, 6999, 4500]);
   assert.deepEqual(selected.map((product) => product.display_original_price), [undefined, undefined, undefined, undefined, 5600, 60000, 109440, undefined]);
 });
 

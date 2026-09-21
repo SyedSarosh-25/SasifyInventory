@@ -88,9 +88,9 @@ const catalogProducts: Product[] = [
     name: 'Claude Team Plan Premium',
     duration: '1 Month',
     vendor: 'Zoom Store / Alternate Supplier',
-    sellingPricePkr: 2499,
-    originalPrice: 'PKR 7,500 per seat/month',
-    originalPricePkr: 7500,
+    sellingPricePkr: 24999,
+    originalPrice: 'PKR 35,625 per seat/month (US$125 official monthly reference)',
+    originalPricePkr: 35625,
     publishedAt: '2026-09-10T12:56:41+05:00',
     sourceUrl: 'https://claude.com/pricing',
     description:

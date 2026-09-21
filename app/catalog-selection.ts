@@ -83,7 +83,7 @@ export const fixedTopProductSpecs: FixedTopProductSpec[] = [
     canonicalKey: 'auto:grok-heavy-duration-1m',
     canonicalAliases: ['auto:cdk-grok-heavy-supper-duration-1m'],
     displayName: 'SuperGrok Heavy · 30 Days',
-    displayPricePkr: 1999,
+    displayPricePkr: 19999,
     displayOriginalPricePkr: 60000,
   },
   {
