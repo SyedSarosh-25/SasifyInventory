@@ -1137,6 +1137,21 @@ function automaticCostPkr(price, currency) {
 function automaticProductKey(name) {
   return supplierProductKey(name);
 }
+async function refreshAutomaticSupplierKeys(db) {
+  const rows = (
+    await db.query(
+      'SELECT id,name,canonical_key FROM commerce_supplier_products WHERE canonical_manual=false',
+    )
+  ).rows;
+  for (const row of rows) {
+    const key = automaticProductKey(row.name);
+    if (!key || key === row.canonical_key) continue;
+    await db.query(
+      'UPDATE commerce_supplier_products SET canonical_key=$1 WHERE id=$2 AND canonical_manual=false',
+      [key, row.id],
+    );
+  }
+}
 const localInventoryProductIds = (productId) =>
   productId === 'p093' ? ['p093', 'p093-ultra'] : [productId];
 const RETIRED_LOCAL_PRODUCT_IDS = ['p093-momo'];
@@ -2988,6 +3003,7 @@ export function createHandler(
           };
         }
       } else if (action === 'stock') {
+        await refreshAutomaticSupplierKeys(db);
         const counts = (
           await db.query(
             "SELECT i.product_id,count(*)::int AS available FROM commerce_inventory i WHERE i.state='available' AND NOT EXISTS (SELECT 1 FROM commerce_shared_accounts sa WHERE sa.inventory_id=i.id) GROUP BY i.product_id",
