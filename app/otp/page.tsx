@@ -4,6 +4,7 @@ import { StructuredData } from '../components/structured-data';
 import { TotpGenerator } from '../components/totp-generator';
 import { breadcrumbData, faqData } from '../seo';
 import { siteOrigin } from '../site-config';
+import { shareImage, shareImageUrl } from '../share-metadata';
 
 const title = 'Get OTP | 2FA Authenticator Code Generator | Sasify Solutions';
 const description = 'Generate a six-digit 2FA authenticator code from your digital account setup key. A private, browser-only TOTP OTP generator from Sasify Solutions.';
@@ -13,8 +14,8 @@ export const metadata: Metadata = {
   title,
   description,
   alternates: { canonical: `${siteOrigin}${path}` },
-  openGraph: { title, description, url: `${siteOrigin}${path}`, images: [`${siteOrigin}/sasify-logo.png`] },
-  twitter: { card: 'summary', title, description, images: [`${siteOrigin}/sasify-logo.png`] },
+  openGraph: { title, description, url: `${siteOrigin}${path}`, images: shareImage(title) },
+  twitter: { card: 'summary_large_image', title, description, images: [shareImageUrl] },
 };
 
 const questions = [

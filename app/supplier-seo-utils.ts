@@ -38,10 +38,10 @@ export function supplierProductHref(product: SupplierSlugInput) {
 }
 
 /**
- * Live supplier stock can change after the static SEO build. Use the
- * dynamic detail page for those records so a newly added supplier product
- * never points at a route that has not been prerendered yet.
+ * Compatibility helper for older callers. Supplier product links now use
+ * the canonical SEO route everywhere so navigation stays consistent with
+ * Full Inventory.
  */
-export function liveSupplierProductHref(product: { id?: string | null }) {
-  return `/supplier-product?product=${encodeURIComponent(String(product.id || ''))}`;
+export function liveSupplierProductHref(product: SupplierSlugInput) {
+  return supplierProductHref(product);
 }

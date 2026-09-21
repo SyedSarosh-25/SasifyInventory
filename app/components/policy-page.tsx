@@ -6,6 +6,7 @@ import { siteOrigin } from '../site-config';
 import { whatsappLink } from '../product-utils';
 import { SiteFooter, SiteHeader } from './site-chrome';
 import { StructuredData } from './structured-data';
+import { shareImage, shareImageUrl } from '../share-metadata';
 
 export const policyLinks = [
   { href: '/warranty', label: 'Warranty' },
@@ -20,8 +21,8 @@ export function policyMetadata(title: string, description: string, path: string)
   return {
     title: fullTitle, description,
     alternates: { canonical: url },
-    openGraph: { title: fullTitle, description, url, images: [`${siteOrigin}/sasify-logo.png`] },
-    twitter: { card: 'summary', title: fullTitle, description, images: [`${siteOrigin}/sasify-logo.png`] },
+    openGraph: { title: fullTitle, description, url, images: shareImage(fullTitle) },
+    twitter: { card: 'summary_large_image', title: fullTitle, description, images: [shareImageUrl] },
   };
 }
 

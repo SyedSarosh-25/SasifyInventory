@@ -4,14 +4,15 @@ import { StructuredData } from '../components/structured-data';
 import { breadcrumbData } from '../seo';
 import { founderProfile, siteOrigin, socials } from '../site-config';
 import { whatsappLink } from '../product-utils';
+import { shareImage, shareImageUrl } from '../share-metadata';
 
 const title = 'About Sasify Solutions | Founder, Contact & Online Ordering';
 const description = 'Meet Sasify Solutions, founded by Syed Sarosh. Explore digital tools in Pakistan, online checkout, automatic delivery and post-purchase WhatsApp support.';
 export const metadata: Metadata = {
   title, description,
   alternates: { canonical: `${siteOrigin}/about` },
-  openGraph: { title, description, url: `${siteOrigin}/about`, images: [`${siteOrigin}/sasify-logo.png`] },
-  twitter: { card: 'summary', title, description, images: [`${siteOrigin}/sasify-logo.png`] },
+  openGraph: { title, description, url: `${siteOrigin}/about`, images: shareImage(title) },
+  twitter: { card: 'summary_large_image', title, description, images: [shareImageUrl] },
 };
 
 export default function AboutPage() {

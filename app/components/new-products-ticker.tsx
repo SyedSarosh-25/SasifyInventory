@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { products as localProducts, type Product } from '../products';
 import { productHref } from '../product-utils';
 import { supplierLogo, supplierMonogram } from '../supplier-product-utils';
-import { liveSupplierProductHref } from '../supplier-seo-utils';
+import { supplierProductHref } from '../supplier-seo-utils';
 import { Money } from './currency';
 import { ProductLogo } from './product-logo';
 
@@ -16,6 +16,7 @@ type NewProduct = {
   available: number;
   source: 'local' | 'supplier';
   logoUrl?: string;
+  canonical_key?: string;
   firstSeenAt?: string;
   publishedAt?: string;
   localProduct?: Product;
@@ -28,6 +29,7 @@ type StockProduct = {
   available: number;
   source?: 'local' | 'supplier';
   logo_url?: string;
+  canonical_key?: string;
   firstSeenAt?: string;
   publishedAt?: string;
 };
@@ -42,8 +44,10 @@ function TickerItem({ product, duplicate = false }: { product: NewProduct; dupli
   const supplier = product.source === 'supplier';
   const logo = supplier ? supplierLogo(product.name, product.logoUrl) : '';
   const href = supplier
-    ? liveSupplierProductHref({
+    ? supplierProductHref({
       id: product.id,
+      name: product.name,
+      canonical_key: product.canonical_key,
     })
     : productHref(product.localProduct!);
 
@@ -115,10 +119,12 @@ export function NewProductsTicker() {
           available: product.available,
           source: 'supplier',
           logoUrl: product.logo_url,
+          canonical_key: product.canonical_key,
           firstSeenAt: product.firstSeenAt,
         };
       })
-      .filter((product): product is NewProduct => Boolean(product) && productDate(product) > 0)
+      .filter((product): product is NewProduct => product !== null)
+      .filter((product) => productDate(product) > 0)
       .sort((left, right) => productDate(right) - productDate(left))
       .slice(0, 8);
   }, [stock]);

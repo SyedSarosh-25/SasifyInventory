@@ -8,6 +8,7 @@ import { SiteTelemetry } from './components/site-telemetry';
 import { MotionSystem } from './components/motion-system';
 import { AdminShortcut } from './components/admin-shortcut';
 import { organizationData } from './seo';
+import { shareImage, shareImageUrl } from './share-metadata';
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -55,14 +56,14 @@ export const metadata: Metadata = {
     url: `${siteOrigin}/`,
     siteName: 'Sasify Solutions',
     locale: 'en_PK',
-    images: [{ url: '/sasify-logo.png', width: 200, height: 200 }],
+    images: shareImage(siteTitle),
     type: 'website',
   },
   twitter: {
     card: 'summary_large_image',
     title: siteTitle,
     description: siteDescription,
-    images: ['/sasify-logo.png'],
+    images: [shareImageUrl],
   },
 };
 

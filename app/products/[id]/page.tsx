@@ -52,6 +52,7 @@ import {
   warrantyDays,
   whatsappLink,
 } from '../../product-utils';
+import { productShareImage, productShareImageUrl } from '../../share-metadata';
 
 type Props = { params: Promise<{ id: string }> };
 
@@ -88,8 +89,6 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     if (supplierProduct) {
       const title = supplierProductTitle(supplierProduct);
       const description = supplierProductDescription(supplierProduct);
-      const logo = supplierLogo(supplierProduct.name, supplierProduct.logoUrl);
-      const images = logo ? [{ url: logo, alt: supplierProduct.name }] : [];
       return {
         title,
         description,
@@ -100,9 +99,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
           title,
           description,
           url: `${siteOrigin}${supplierProductHref(supplierProduct)}`,
-          images,
+          images: productShareImage(id, title),
         },
-        twitter: { card: 'summary', title, description, images },
+        twitter: { card: 'summary_large_image', title, description, images: [productShareImageUrl(id)] },
       };
     }
     return {
@@ -112,8 +111,6 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   }
   const title = productTitle(product);
   const description = productDescription(product);
-  const logo = productLogo(product);
-  const images = logo ? [{ url: logo, alt: product.name }] : [];
   return {
     title,
     description,
@@ -122,9 +119,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       title,
       description,
       url: `${siteOrigin}${productHref(product)}`,
-      images,
+      images: productShareImage(id, title),
     },
-    twitter: { card: 'summary', title, description, images },
+    twitter: { card: 'summary_large_image', title, description, images: [productShareImageUrl(id)] },
   };
 }
 

@@ -4,6 +4,7 @@ import { ScamReports } from '../components/scam-reports';
 import { StructuredData } from '../components/structured-data';
 import { breadcrumbData } from '../seo';
 import { siteOrigin } from '../site-config';
+import { shareImage, shareImageUrl } from '../share-metadata';
 
 const title = 'Scam Reports | Sasify Solutions';
 const description =
@@ -17,13 +18,13 @@ export const metadata: Metadata = {
     title,
     description,
     url: `${siteOrigin}/scammers`,
-    images: [`${siteOrigin}/sasify-logo.png`],
+    images: shareImage(title),
   },
   twitter: {
-    card: 'summary',
+    card: 'summary_large_image',
     title,
     description,
-    images: [`${siteOrigin}/sasify-logo.png`],
+    images: [shareImageUrl],
   },
 };
 

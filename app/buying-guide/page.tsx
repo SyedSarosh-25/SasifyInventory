@@ -8,14 +8,15 @@ import { StructuredData } from '../components/structured-data';
 import { accessTypeLabel, isAnnualPlan, productHref } from '../product-utils';
 import { breadcrumbData, faqData } from '../seo';
 import { siteOrigin } from '../site-config';
+import { shareImage, shareImageUrl } from '../share-metadata';
 
 const title = 'Digital Tool Buying Guide | Prices, Access & Warranty | Sasify Solutions';
 const description = 'Compare Sasify Claude Team and Hostinger packages in Pakistan. Check listed prices, access details, one-time yearly payments and warranty terms.';
 export const metadata: Metadata = {
   title, description,
   alternates: { canonical: `${siteOrigin}/buying-guide` },
-  openGraph: { title, description, url: `${siteOrigin}/buying-guide`, images: [`${siteOrigin}/sasify-logo.png`] },
-  twitter: { card: 'summary', title, description, images: [`${siteOrigin}/sasify-logo.png`] },
+  openGraph: { title, description, url: `${siteOrigin}/buying-guide`, images: shareImage(title) },
+  twitter: { card: 'summary_large_image', title, description, images: [shareImageUrl] },
 };
 
 export default function BuyingGuidePage() {

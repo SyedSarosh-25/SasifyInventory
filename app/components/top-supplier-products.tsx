@@ -12,7 +12,7 @@ import { ProductLogo } from './product-logo';
 import { Money } from './currency';
 import { supplierLogo, supplierMonogram } from '../supplier-product-utils';
 import { cacheSupplierCatalog } from '../supplier-catalog-cache';
-import { liveSupplierProductHref } from '../supplier-seo-utils';
+import { supplierProductHref } from '../supplier-seo-utils';
 
 type SupplierProduct = {
   id: string;
@@ -41,7 +41,7 @@ export function SupplierFeaturedCard({ product }: { product: FeaturedProduct }) 
       : '';
   const href = product.href || (
     product.source === 'supplier'
-      ? liveSupplierProductHref(product)
+      ? supplierProductHref(product)
       : productHref(product.localProduct!)
   );
   const displayAvailable = product.displayAvailable ?? product.available;
