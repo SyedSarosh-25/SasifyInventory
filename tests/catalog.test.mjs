@@ -96,14 +96,60 @@ test('supplier comparisons use official plan references and the complete duratio
   }), null);
 });
 
-test('supplier comparisons do not invent a retail price for Office Professional Plus keys', () => {
+test('supplier comparisons use Pakistan references for known Office, Perplexity and credit offers', () => {
   const office = {
     name: 'Microsoft Office 2024 Pro key, 10 years warranty, 1 year guarantee',
     description: 'Official 2024 Pro Plus key for 1 Windows computer permanently',
     price: 1499,
   };
-  assert.equal(supplierOriginalPriceComparison(office), null);
-  assert.equal(supplierSavingsPkr(office), null);
+  assert.equal(supplierOriginalPriceComparison(office).totalPkr, 39599);
+  assert.equal(supplierSavingsPkr(office), 38100);
+
+  const perplexity = {
+    name: 'CDK Perplexity Pro (iOS) 1 month - full warranty',
+    price: 3999,
+  };
+  assert.equal(supplierOriginalPriceComparison(perplexity).totalPkr, 5700);
+  assert.equal(supplierSavingsPkr(perplexity), 1701);
+
+  const annualPerplexity = {
+    name: 'CDK Perplexity Pro 1-Year',
+    price: 14999,
+  };
+  assert.equal(supplierOriginalPriceComparison(annualPerplexity).totalPkr, 57000);
+  assert.equal(supplierSavingsPkr(annualPerplexity), 42001);
+
+  const elevenLabs = {
+    name: 'ElevenLabs Redeem 300K Cre full warranty',
+    price: 2499,
+  };
+  assert.equal(supplierOriginalPriceComparison(elevenLabs).totalPkr, 20520);
+  assert.equal(supplierSavingsPkr(elevenLabs), 18021);
+
+  const minimax = supplierOriginalPriceComparison({
+    name: 'Minimax Redeem 1M Credit',
+    price: 4999,
+  });
+  assert.equal(minimax.totalPkr, 8550);
+  assert.equal(supplierSavingsPkr({ name: 'Minimax Redeem 1M Credit', price: 4999 }), 3551);
+});
+
+test('supplier comparisons cover the remaining standard subscription offers', () => {
+  assert.equal(supplierOriginalPriceComparison({ name: 'Figma Pro 1 year full warranty' }).totalPkr, 54720);
+  assert.equal(supplierOriginalPriceComparison({ name: 'Linkedin CAREER 3 MONTH' }).totalPkr, 34191.45);
+  assert.equal(supplierOriginalPriceComparison({ name: 'LinkedIn Sales Navigator Core – 2 Months' }).totalPkr, 68394.3);
+  assert.equal(supplierOriginalPriceComparison({ name: 'Zoom Pro 1Y full warranty' }).totalPkr, 48427.2);
+  assert.equal(supplierOriginalPriceComparison({ name: 'Zoom Pro 28 Days full warranty' }).totalPkr, 4842.15);
+  assert.equal(supplierOriginalPriceComparison({ name: 'Replit Core 1 Year' }).totalPkr, 61560);
+  assert.equal(supplierOriginalPriceComparison({ name: 'Quillbot Premium 1m' }).totalPkr, 5685.75);
+  assert.equal(supplierOriginalPriceComparison({ name: 'Framer Basic Plan 12 Month' }).totalPkr, 34200);
+  assert.equal(supplierOriginalPriceComparison({ name: '🟠Headspace Premium – 4 Months' }).totalPkr, 14808.6);
+  assert.equal(supplierOriginalPriceComparison({ name: 'Adobe Express Premium 12 months' }).totalPkr, 34165.8);
+  assert.equal(supplierOriginalPriceComparison({ name: 'Apple Music 5M' }).totalPkr, 17085.75);
+  assert.equal(supplierOriginalPriceComparison({ name: 'iLovePdf Premium 1Y' }).totalPkr, 17100);
+  assert.equal(supplierOriginalPriceComparison({ name: 'CDK SUPER GROK 1 month' }).totalPkr, 8550);
+  assert.equal(supplierOriginalPriceComparison({ name: 'Notion Business 3 Month' }).totalPkr, 17100);
+  assert.equal(supplierOriginalPriceComparison({ name: 'SUNO PRO 1 MONTH' }).totalPkr, 2850);
 });
 
 test('ChatGPT Plus warranty uses the current listing terms', () => {
