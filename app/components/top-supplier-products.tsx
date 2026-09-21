@@ -4,16 +4,16 @@ import { ArrowRight, CalendarDays, Check, Tag, Users } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import {
   inferSupplierCategory,
-  selectRandomTopProducts,
+  selectFixedTopProducts,
 } from '../catalog-selection';
 import { products as localProducts, type Product } from '../products';
-import { originalPricePkr, productHref, savingsPkr } from '../product-utils';
+import { originalPricePkr, productHref } from '../product-utils';
 import { ProductLogo } from './product-logo';
 import { Money } from './currency';
 import { supplierLogo, supplierMonogram } from '../supplier-product-utils';
 import { cacheSupplierCatalog } from '../supplier-catalog-cache';
 import { supplierProductHref } from '../supplier-seo-utils';
-import { supplierOriginalPriceComparison, supplierSavingsPkr } from '../supplier-price-utils';
+import { supplierOriginalPriceComparison } from '../supplier-price-utils';
 
 type SupplierProduct = {
   id: string;
@@ -25,6 +25,9 @@ type SupplierProduct = {
   source?: 'local' | 'supplier';
   canonical_key?: string;
   provider_name?: string;
+  display_name?: string;
+  display_price?: number;
+  display_original_price?: number;
 };
 
 export type FeaturedProduct = SupplierProduct & {
@@ -46,20 +49,21 @@ export function SupplierFeaturedCard({ product }: { product: FeaturedProduct }) 
       : productHref(product.localProduct!)
   );
   const displayAvailable = product.displayAvailable ?? product.available;
+  const displayName = product.display_name || product.name;
   const category = product.category || inferSupplierCategory(product.name, product.description);
   const comparison = product.source === 'supplier'
     ? supplierOriginalPriceComparison(product)
     : null;
-  const originalPrice = product.source === 'supplier'
-    ? comparison?.totalPkr ?? null
-    : product.localProduct
-      ? originalPricePkr(product.localProduct)
-      : null;
-  const savings = product.source === 'supplier'
-    ? supplierSavingsPkr(product)
-    : product.localProduct
-      ? savingsPkr(product.localProduct)
-      : null;
+  const salePrice = product.display_price ?? product.price;
+  const originalPrice = product.display_original_price
+    ?? (product.source === 'supplier'
+      ? comparison?.totalPkr ?? null
+      : product.localProduct
+        ? originalPricePkr(product.localProduct)
+        : null);
+  const savings = originalPrice === null
+    ? null
+    : Math.round((originalPrice - salePrice) * 100) / 100;
   const description = String(product.description || '')
     .split(/\n+/)
     .map((line) => line.replace(/^[^\p{L}\p{N}]+/u, '').trim())
@@ -73,7 +77,7 @@ export function SupplierFeaturedCard({ product }: { product: FeaturedProduct }) 
           ) : logo ? (
             <img
               src={logo}
-              alt={`${product.name} logo`}
+              alt={`${displayName} logo`}
               width={128}
               height={128}
               loading="lazy"
@@ -81,14 +85,14 @@ export function SupplierFeaturedCard({ product }: { product: FeaturedProduct }) 
             />
           ) : (
             <span className="product-monogram" aria-label={product.name}>
-              {supplierMonogram(product.name)}
+              {supplierMonogram(displayName)}
             </span>
           )}
         </div>
         <span className="featured-stock-badge"><Check className="h-3 w-3" /> In stock</span>
       </div>
       <div className="featured-copy">
-        <h3>{product.name}</h3>
+        <h3>{displayName}</h3>
         <p>{description}</p>
       </div>
       <div className="featured-badges">
@@ -110,7 +114,7 @@ export function SupplierFeaturedCard({ product }: { product: FeaturedProduct }) 
         )}
         <div className="featured-our-price">
           <span><Tag className="h-3 w-3" /> Our price</span>
-          <strong><Money amount={product.price} /></strong>
+          <strong><Money amount={salePrice} /></strong>
         </div>
         {savings !== null ? <div className="featured-savings">Your savings <strong><Money amount={savings} /></strong></div> : (
           <div className="featured-savings featured-savings-muted">Your savings <strong>Price may vary</strong></div>
@@ -138,7 +142,7 @@ export function TopSupplierProducts() {
       .then((data) => {
         cacheSupplierCatalog(data.products || []);
         if (active) {
-          const selected = selectRandomTopProducts(data.products || []);
+          const selected = selectFixedTopProducts(data.products || []);
           setProducts(
             selected.map((product) => ({
               ...product,
@@ -176,7 +180,7 @@ export function TopSupplierProducts() {
           canonical_key: product.canonicalKey,
           provider_name: product.providerName,
         }));
-        setProducts(selectRandomTopProducts([...previewProducts, ...supplierPreviewProducts], () => 0).map((product) => ({
+        setProducts(selectFixedTopProducts([...previewProducts, ...supplierPreviewProducts]).map((product) => ({
           ...product,
           source: product.source === 'local' ? 'local' as const : 'supplier' as const,
           localProduct: product.source === 'local'

@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { products } from '../app/products.ts';
 import { accessTypeLabel, has25DayWarranty, isAnnualPlan, originalPriceComparison, originalPricePkr, planMonths, productHref, productLogo, savingsPkr, warrantyDays, whatsappLink } from '../app/product-utils.ts';
-import { featuredProducts, filterProducts, heroProducts, heroSupplierShortcuts, orbitTools, selectHeroSupplierShortcut, selectRandomTopProducts, supplierEquivalentProductName } from '../app/catalog-selection.ts';
+import { featuredProducts, filterProducts, fixedTopProductSpecs, heroProducts, heroSupplierShortcuts, orbitTools, selectFixedTopProducts, selectHeroSupplierShortcut, selectRandomTopProducts, supplierEquivalentProductName } from '../app/catalog-selection.ts';
 import { supplierOriginalPriceComparison, supplierSavingsPkr } from '../app/supplier-price-utils.ts';
 
 test('every inventory variant has a unique detail URL', () => {
@@ -16,7 +16,7 @@ test('every inventory variant has a unique detail URL', () => {
 
 test('Claude Team prices and seat types match the requested offers', () => {
   assert.equal(products.find((p) => p.name === 'Claude Team Plan Standard')?.sellingPricePkr, 5199);
-  assert.equal(products.find((p) => p.name === 'Claude Team Plan Premium')?.sellingPricePkr, 24999);
+  assert.equal(products.find((p) => p.name === 'Claude Team Plan Premium')?.sellingPricePkr, 2499);
   for (const id of ['p012', 'p013']) {
     const product = products.find((p) => p.id === id);
     assert.equal(product.duration, '1 Month');
@@ -70,9 +70,9 @@ test('25-day warranty is scoped to one-month ChatGPT, other plans cover their fu
 });
 
 test('savings subtract our price from the listed original with the fixed USD rate', () => {
-  assert.equal(savingsPkr(products.find((p) => p.id === 'p013')), 1926);
-  assert.equal(savingsPkr(products.find((p) => p.id === 'p012')), 10626);
-  assert.equal(savingsPkr(products.find((p) => p.id === 'p100')), 33500);
+  assert.equal(savingsPkr(products.find((p) => p.id === 'p013')), 2301);
+  assert.equal(savingsPkr(products.find((p) => p.id === 'p012')), 5001);
+  assert.equal(savingsPkr(products.find((p) => p.id === 'p100')), 25488);
 });
 
 test('supplier comparisons use official plan references and the complete duration', () => {
@@ -214,6 +214,66 @@ test('savings preserve zero and negative differences and match all available ref
 test('landing selection has exactly ten distinct products with the requested first five', () => {
   assert.equal(featuredProducts.length, 4);
   assert.deepEqual(featuredProducts.map((product) => product.id), ['p013', 'p012', 'p100', 'p101']);
+});
+
+test('homepage Top 8 stays fixed and applies the curated merchandising values', () => {
+  assert.equal(fixedTopProductSpecs.length, 8);
+  const catalog = [
+    ...products.map((product) => ({
+      id: product.id,
+      name: product.name,
+      price: product.sellingPricePkr,
+      available: 1,
+      source: 'local',
+    })),
+    {
+      id: 'auto:capcut-duration-1m',
+      canonical_key: 'auto:capcut-duration-1m',
+      name: 'Capcut Pro Team 1 Month 1200 Credits',
+      price: 999,
+      available: 6,
+      source: 'supplier',
+    },
+    {
+      id: 'auto:cdk-grok-heavy-supper-duration-1m',
+      canonical_key: 'auto:cdk-grok-heavy-supper-duration-1m',
+      name: 'CDK Supper Grok Heavy 1 month',
+      price: 19999,
+      available: 6,
+      source: 'supplier',
+    },
+    {
+      id: 'auto:education-figma-plan-pro-duration-2y',
+      canonical_key: 'auto:education-figma-plan-pro-duration-2y',
+      name: 'Figma Pro Education Plan 2 Year',
+      price: 4999,
+      available: 2,
+      source: 'supplier',
+    },
+  ];
+  const selected = selectFixedTopProducts(catalog);
+  assert.deepEqual(selected.map((product) => product.id), [
+    'p093',
+    'p093-shared',
+    'p013',
+    'p012',
+    'auto:capcut-duration-1m',
+    'auto:cdk-grok-heavy-supper-duration-1m',
+    'auto:education-figma-plan-pro-duration-2y',
+    'p100',
+  ]);
+  assert.deepEqual(selected.map((product) => product.display_name), [
+    'ChatGPT Plus · Private Account',
+    'ChatGPT Plus · Shared Account',
+    'Claude Team Plan Standard',
+    'Claude Team Plan Premium',
+    'CapCut Pro · 1 Month',
+    'SuperGrok Heavy · 30 Days',
+    'Figma Pro · 2 Years',
+    'Hostinger Unlimited · 12 Months',
+  ]);
+  assert.deepEqual(selected.map((product) => product.display_price), [3499, 999, 5199, 2499, 999, 1999, 6999, 4500]);
+  assert.deepEqual(selected.map((product) => product.display_original_price), [undefined, undefined, undefined, undefined, 5600, 60000, 109440, undefined]);
 });
 
 test('homepage top ten keeps ChatGPT available and randomizes the remaining live stock', () => {

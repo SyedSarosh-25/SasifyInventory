@@ -47,7 +47,81 @@ export type LiveCatalogProduct = {
   source?: 'local' | 'supplier';
   canonical_key?: string;
   provider_name?: string;
+  display_name?: string;
+  display_price?: number;
+  display_original_price?: number;
 };
+
+export type FixedTopProductSpec = {
+  source: 'local' | 'supplier';
+  id?: string;
+  canonicalKey?: string;
+  displayName: string;
+  displayPricePkr?: number;
+  displayOriginalPricePkr?: number;
+};
+
+/**
+ * The homepage Top 8 is a curated merchandising block. Keep this order
+ * stable so supplier catalogue refreshes cannot reshuffle the storefront.
+ */
+export const fixedTopProductSpecs: FixedTopProductSpec[] = [
+  { source: 'local', id: 'p093', displayName: 'ChatGPT Plus · Private Account' },
+  { source: 'local', id: 'p093-shared', displayName: 'ChatGPT Plus · Shared Account' },
+  { source: 'local', id: 'p013', displayName: 'Claude Team Plan Standard' },
+  { source: 'local', id: 'p012', displayName: 'Claude Team Plan Premium' },
+  {
+    source: 'supplier',
+    canonicalKey: 'auto:capcut-duration-1m',
+    displayName: 'CapCut Pro · 1 Month',
+    displayPricePkr: 999,
+    displayOriginalPricePkr: 5600,
+  },
+  {
+    source: 'supplier',
+    canonicalKey: 'auto:cdk-grok-heavy-supper-duration-1m',
+    displayName: 'SuperGrok Heavy · 30 Days',
+    displayPricePkr: 1999,
+    displayOriginalPricePkr: 60000,
+  },
+  {
+    source: 'supplier',
+    canonicalKey: 'auto:education-figma-plan-pro-duration-2y',
+    displayName: 'Figma Pro · 2 Years',
+    displayPricePkr: 6999,
+    displayOriginalPricePkr: 109440,
+  },
+  {
+    source: 'local',
+    id: 'p100',
+    displayName: 'Hostinger Unlimited · 12 Months',
+  },
+];
+
+export function selectFixedTopProducts(catalog: LiveCatalogProduct[]) {
+  return fixedTopProductSpecs.flatMap((spec) => {
+    const product = catalog.find((candidate) => {
+      if (candidate.source !== spec.source) return false;
+      if (spec.id && candidate.id === spec.id) return true;
+      return Boolean(spec.canonicalKey && (candidate.canonical_key === spec.canonicalKey || candidate.id === spec.canonicalKey));
+    });
+    if (!product) return [];
+    const localProduct = spec.source === 'local' && spec.id
+      ? products.find((candidate) => candidate.id === spec.id)
+      : undefined;
+    return [{
+      ...product,
+      ...(localProduct ? {
+        name: localProduct.name,
+        description: localProduct.description,
+        price: localProduct.sellingPricePkr,
+      } : {}),
+      display_name: spec.displayName,
+      display_price: spec.displayPricePkr ?? localProduct?.sellingPricePkr,
+      display_original_price: spec.displayOriginalPricePkr,
+    }];
+  });
+}
 
 export const heroSupplierShortcuts = [
   {
