@@ -2954,7 +2954,7 @@ export function CommerceAdmin() {
                         )
                         .join(', ');
                       setNotice(
-                        `${result.synced} products synced${summary ? ` (${summary})` : ''}.`,
+                        `${result.synced} products synced${summary ? ` (${summary})` : ''}.${result.seoRebuild?.triggered ? ' SEO catalog rebuild started.' : result.seoRebuild?.configured ? ' SEO catalog rebuild could not be started.' : ' SEO catalog rebuild hook is not configured.'}`,
                       );
                       await refresh();
                     })

@@ -19,6 +19,7 @@ test('Qamify catalog sync and paid order fulfilment use provider IDs and idempot
     COMMERCE_ADMIN_EMAIL: process.env.COMMERCE_ADMIN_EMAIL,
     COMMERCE_ADMIN_PASSWORD_HASH: process.env.COMMERCE_ADMIN_PASSWORD_HASH,
     PAYMENT_ACCOUNT_TITLE: process.env.PAYMENT_ACCOUNT_TITLE,
+    SUPPLIER_SEO_DEPLOY_HOOK_URL: process.env.SUPPLIER_SEO_DEPLOY_HOOK_URL,
   };
   const encryptionKey = randomBytes(32).toString('hex');
   Object.assign(process.env, {
@@ -29,6 +30,7 @@ test('Qamify catalog sync and paid order fulfilment use provider IDs and idempot
     COMMERCE_ADMIN_EMAIL: 'admin@test.invalid',
     COMMERCE_ADMIN_PASSWORD_HASH: hash('test-password'),
     PAYMENT_ACCOUNT_TITLE: 'Test Receiver',
+    SUPPLIER_SEO_DEPLOY_HOOK_URL: 'https://hooks.example.test/supplier-seo-rebuild',
   });
   delete process.env.DODI_RESELLER_API_KEY;
 
@@ -36,6 +38,7 @@ test('Qamify catalog sync and paid order fulfilment use provider IDs and idempot
   globalThis.fetch = async (url, init = {}) => {
     const requestUrl = typeof url === 'string' ? url : url instanceof URL ? url.href : url.url;
     calls.push({ url: requestUrl, init });
+    if (requestUrl === process.env.SUPPLIER_SEO_DEPLOY_HOOK_URL) return new Response('', { status: 202 });
     if (requestUrl.endsWith('/v1/products')) return new Response(JSON.stringify({ products: [
       { id: 42, name: 'Qamify Test Backup 1 Month NW', unit_price: '2.50', currency: 'USD', stock: 3, description: 'Instant test item. Non warranty' },
       { id: 43, name: 'Qamify Test Cheapest 1 Month NW', unit_price: '1.50', currency: 'USD', stock: 2, description: 'Instant test item. Non warranty' },
@@ -70,6 +73,7 @@ test('Qamify catalog sync and paid order fulfilment use provider IDs and idempot
     assert.equal(synced.code, 200, JSON.stringify(synced));
     assert.deepEqual(synced.data.providers.map((provider) => provider.providerId), ['qamify']);
     assert.equal(synced.data.synced, 4);
+    assert.deepEqual(synced.data.seoRebuild, { configured: true, triggered: true, status: 202 });
     assert.equal((await request('admin-supplier-update', { productId: 'qamify:42', sellingPrice: 999, costPkr: 700, enabled: true, canonicalKey:'test-product' }, process.env.COMMERCE_ADMIN_KEY)).code, 200);
     assert.equal((await request('admin-supplier-update', { productId: 'qamify:43', sellingPrice: 999, costPkr: 500, enabled: true, canonicalKey:'test-product' }, process.env.COMMERCE_ADMIN_KEY)).code, 200);
     assert.equal((await request('admin-supplier-update', { productId: 'qamify:44', sellingPrice: 999, costPkr: 700, enabled: true, canonicalKey:'email-product' }, process.env.COMMERCE_ADMIN_KEY)).code, 200);

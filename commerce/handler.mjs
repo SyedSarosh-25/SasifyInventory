@@ -1848,6 +1848,28 @@ async function syncSupplierCatalog(db, force = false, keys = {}, onlyProviderId 
   }
   return results;
 }
+async function triggerSupplierSeoRebuild(db) {
+  const hook = String(process.env.SUPPLIER_SEO_DEPLOY_HOOK_URL || '').trim();
+  if (!hook) return { configured: false, triggered: false };
+  try {
+    const response = await fetch(hook, { method: 'POST' });
+    const triggered = response.ok;
+    await db.query(
+      "INSERT INTO commerce_audit(action,object_id) VALUES($1,$2)",
+      [
+        triggered ? 'supplier_seo_rebuild_triggered' : 'supplier_seo_rebuild_failed',
+        String(response.status),
+      ],
+    );
+    return { configured: true, triggered, status: response.status };
+  } catch {
+    await db.query(
+      "INSERT INTO commerce_audit(action,object_id) VALUES('supplier_seo_rebuild_failed',$1)",
+      ['network_error'],
+    );
+    return { configured: true, triggered: false, status: null };
+  }
+}
 async function expire(db, includeReview = true) {
   const pendingVerification = (
     await db.query(
@@ -4100,6 +4122,7 @@ export function createHandler(
             [providerId],
           );
           let synced = 0;
+          let seoRebuild;
           if (body.sync === true) {
             const providers = await syncSupplierCatalog(
               db,
@@ -4111,6 +4134,7 @@ export function createHandler(
               (sum, provider) => sum + provider.synced,
               0,
             );
+            seoRebuild = await triggerSupplierSeoRebuild(db);
           }
           output = {
             ok: true,
@@ -4119,6 +4143,7 @@ export function createHandler(
             configured: true,
             source: 'admin',
             synced,
+            ...(body.sync === true ? { seoRebuild } : {}),
           };
         }
       } else if (action === 'admin-supplier-sync') {
@@ -4129,11 +4154,12 @@ export function createHandler(
           (sum, provider) => sum + provider.synced,
           0,
         );
+        const seoRebuild = await triggerSupplierSeoRebuild(db);
         await db.query(
           "INSERT INTO commerce_audit(action,object_id) VALUES('supplier_sync',$1)",
           [String(synced)],
         );
-        output = { ok: true, synced, providers };
+        output = { ok: true, synced, providers, seoRebuild };
       } else if (action === 'admin-supplier-update') {
         const supplierId = String(body.productId || '');
         const sellingPrice = Number(body.sellingPrice),
