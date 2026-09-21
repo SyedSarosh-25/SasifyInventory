@@ -41,6 +41,7 @@ for (const name of [
   'supplier-api-log.mjs',
   'description.mjs',
   'product-display.mjs',
+  'supplier-matching.mjs',
   'provider-media.mjs',
   'qamify.mjs',
   'mke.mjs',
