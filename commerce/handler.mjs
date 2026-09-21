@@ -71,6 +71,7 @@ import {
 } from './scam-reports.mjs';
 import { normalizeToolRequest } from './tool-requests.mjs';
 import { customerProduct, customerProductName, customerProductText } from './product-display.mjs';
+import { supplierProductKey } from './supplier-matching.mjs';
 import {
   DEFAULT_REVIEWS_URL,
   fetchGoogleReviews,
@@ -1134,14 +1135,7 @@ function automaticCostPkr(price, currency) {
   return null;
 }
 function automaticProductKey(name) {
-  const normalized = String(name || '')
-    .normalize('NFKD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, 180);
-  return normalized ? `auto:${normalized}` : null;
+  return supplierProductKey(name);
 }
 const localInventoryProductIds = (productId) =>
   productId === 'p093' ? ['p093', 'p093-ultra'] : [productId];
