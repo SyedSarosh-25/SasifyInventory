@@ -182,7 +182,6 @@ function listingKeywordModifiers(input: AboutInput, term: string) {
 }
 
 function searchIntentPhrases(input: AboutInput, kind: string) {
-  const blob = `${input.name} ${input.category || ''} ${input.description || ''}`.toLowerCase();
   // Match families from the listing name only. Category labels can be broad
   // (for example, a Telegram product may sit under a VPN category) and should
   // not inject unrelated commercial keywords into the page.
@@ -205,7 +204,10 @@ function searchIntentPhrases(input: AboutInput, kind: string) {
     `${term} ${descriptor} Pakistan`,
     `${term} account Pakistan`,
   ];
-  return [...new Set([...(globalFamily?.terms || []), ...base, ...listingKeywordModifiers(input, term)])].slice(0, 8);
+  // Keep the product-specific, location-qualified phrases first. The global
+  // research terms are useful supporting language, but placing them first can
+  // push the high-intent Pakistan phrases out of the rendered SEO section.
+  return [...new Set([...base, ...(globalFamily?.terms || []), ...listingKeywordModifiers(input, term)])].slice(0, 8);
 }
 
 function productKind(input: AboutInput) {

@@ -71,6 +71,16 @@ export function productDescription(product: Product) {
       `${product.name}: KVM1, KVM2, KVM4 and KVM8 packages. Contact Sasify Solutions on WhatsApp for pricing and purchase.`,
       SEO_DESCRIPTION_LIMIT,
     );
+  if (product.id === 'p093-shared')
+    return trimSeoText(
+      `Buy ChatGPT Plus shared account in Pakistan for ${formatPkr(product.sellingPricePkr)} per month. Shared access with automatic delivery after payment verification.`,
+      SEO_DESCRIPTION_LIMIT,
+    );
+  if (product.id === 'p093')
+    return trimSeoText(
+      `Buy ChatGPT Plus in Pakistan for ${formatPkr(product.sellingPricePkr)} per month. Compare account options, warranty and instant online delivery.`,
+      SEO_DESCRIPTION_LIMIT,
+    );
   const duration = product.duration === '-' ? 'this package' : product.duration;
   return trimSeoText(
     `${product.name}: ${formatPkr(product.sellingPricePkr)} for ${duration} in Pakistan. Review access, warranty and availability before ordering online.`,
@@ -95,12 +105,30 @@ export function productQuestions(product: Product) {
           'Warranty terms are specific to the selected package. Sasify Solutions support is available on WhatsApp for availability, activation and plan questions.',
       },
     ];
+  if (product.id === 'p093-shared')
+    return [
+      {
+        question: 'What is the ChatGPT Plus shared account price in Pakistan?',
+        answer:
+          `Sasify Solutions lists a one-month ChatGPT Plus shared account at ${formatPkr(product.sellingPricePkr)} in Pakistan. Review the shared-access terms before ordering.`,
+      },
+      {
+        question: 'How does a ChatGPT Plus shared account work?',
+        answer:
+          'The account is shared by up to four members with shared usage. Your activity may be visible to other members, and access is delivered after payment verification.',
+      },
+      {
+        question: 'How can I buy a ChatGPT Plus shared account in Pakistan?',
+        answer:
+          'Choose the ChatGPT Plus shared account listing, review its duration and shared-use terms, then complete the Sasify Solutions online checkout.',
+      },
+    ];
   if (product.id === 'p093' && product.variants?.length)
     return [
       {
         question: 'What is the ChatGPT Plus account price in Pakistan?',
         answer:
-          'Sasify Solutions offers a one-month Ultra Stable ChatGPT Plus account paid through Apple Pay for PKR 3,499. Confirm the current availability before ordering.',
+          'Sasify Solutions offers a one-month Ultra Stable ChatGPT Plus account paid through Apple Pay for PKR 3,499. To buy ChatGPT Plus in Pakistan, choose the available account option and confirm current stock before ordering.',
       },
       {
         question: `What warranty comes with ${product.name}?`,
