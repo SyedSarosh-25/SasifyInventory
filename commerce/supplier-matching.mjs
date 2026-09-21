@@ -31,6 +31,7 @@ export function supplierProductKey(name) {
     .split(/\s+/)
     .filter(Boolean);
   const identity = [];
+  const isCapCut = tokens.includes('capcut');
   let duration = '';
   for (let index = 0; index < tokens.length; index += 1) {
     const token = tokens[index];
@@ -53,6 +54,7 @@ export function supplierProductKey(name) {
       continue;
     }
     if (durationUnit.test(token) && (/^\d+$/.test(tokens[index - 1] || '') || durationWords.has(tokens[index - 1] || ''))) continue;
+    if (isCapCut && token === 'pro') continue;
     if (duplicateNoise.has(token)) continue;
     identity.push(token);
   }

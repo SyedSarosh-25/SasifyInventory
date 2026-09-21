@@ -22,4 +22,8 @@ test('supplier matching keeps distinct CapCut access and credit offers separate'
     supplierProductKey('CapCut Pro one month'),
     supplierProductKey('Pro Capcut 1M with warranty'),
   );
+  assert.equal(
+    supplierProductKey('CAPCUT 6 MONTHS full warranty'),
+    supplierProductKey('Capcut Pro 6M (FW)'),
+  );
 });
