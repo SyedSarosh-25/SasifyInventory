@@ -7,7 +7,7 @@ import {
   supplierLogPayload,
 } from './supplier-api-log.mjs';
 
-const endpoint = 'https://elite-tools-store.up.railway.app/api';
+const endpoint = 'https://elitetoolz.up.railway.app/api/reseller';
 const envName = 'ELITE_TOOLS_API_KEY';
 
 function configured(apiKey) {
@@ -163,7 +163,7 @@ export async function createEliteToolsOrder({
   apiKey,
 }) {
   return request(
-    '/order',
+    '/buy',
     {
       method: 'POST',
       headers: { 'Idempotency-Key': idempotencyKey },

@@ -35,9 +35,9 @@ test('Elite Tools Store adapter sends the API key and camel-case order body', as
   const calls = [];
   globalThis.fetch = async (url, init = {}) => {
     calls.push({ url, init });
-    const body = url.endsWith('/products')
+    const body = url.endsWith('/reseller/products')
       ? { ok: true, products: [] }
-      : url.endsWith('/balance')
+      : url.endsWith('/reseller/balance')
         ? { ok: true, balance: 0.1 }
         : { ok: true, order: { orderId: 'elite-order-1', delivery: ['test-code'] } };
     return new Response(JSON.stringify(body), {
@@ -57,6 +57,9 @@ test('Elite Tools Store adapter sends the API key and camel-case order body', as
     assert.equal(calls[0].init.headers['X-API-Key'], 'test-key');
     assert.equal(calls[1].init.headers['X-API-Key'], 'test-key');
     assert.equal(calls[2].init.headers['X-API-Key'], 'test-key');
+    assert.equal(calls[0].url, 'https://elitetoolz.up.railway.app/api/reseller/products');
+    assert.equal(calls[1].url, 'https://elitetoolz.up.railway.app/api/reseller/balance');
+    assert.equal(calls[2].url, 'https://elitetoolz.up.railway.app/api/reseller/buy');
     assert.deepEqual(JSON.parse(calls[2].init.body), {
       productId: '87549554',
       quantity: 1,
