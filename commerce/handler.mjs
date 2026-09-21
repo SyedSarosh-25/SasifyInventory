@@ -14,6 +14,7 @@ import {
 } from './core.mjs';
 import {
   createSupplierOrder,
+  fetchSupplierBalance,
   fetchSupplierProducts,
   normalizeSupplierProduct,
   supplierDelivery,
@@ -1233,10 +1234,12 @@ function supplierProviders(keys = {}) {
       async catalog() {
         const result = await fetchSupplierProducts(keys.dodi);
         return {
-          ...result,
           currency: 'USDT',
           products: result.products.map(normalizeSupplierProduct),
         };
+      },
+      async balance() {
+        return { balance: await fetchSupplierBalance(keys.dodi), currency: 'USDT' };
       },
     },
     {
@@ -1244,16 +1247,16 @@ function supplierProviders(keys = {}) {
       name: 'Qamify',
       configured: !!(keys.qamify || process.env.QAMIFY_API_KEY),
       async catalog() {
-        const [products, state] = await Promise.all([
-          fetchQamifyProducts(keys.qamify),
-          fetchQamifyBalance(keys.qamify),
-        ]);
+        const products = await fetchQamifyProducts(keys.qamify);
         return {
-          ...state,
+          currency: 'USD',
           products: products
-            .map((product) => normalizeQamifyProduct(product, state.currency))
+            .map((product) => normalizeQamifyProduct(product, 'USD'))
             .filter(Boolean),
         };
+      },
+      async balance() {
+        return fetchQamifyBalance(keys.qamify);
       },
     },
     {
@@ -1261,16 +1264,14 @@ function supplierProviders(keys = {}) {
       name: 'MKE Shop',
       configured: !!(keys.mke || process.env.MKE_API_KEY),
       async catalog() {
-        const [products, state] = await Promise.all([
-          fetchMkeProducts(keys.mke),
-          fetchMkeBalance(keys.mke),
-        ]);
+        const products = await fetchMkeProducts(keys.mke);
         return {
-          ...state,
-          products: products
-            .map((product) => normalizeMkeProduct(product, state.currency))
-            .filter(Boolean),
+          currency: 'USD',
+          products: products.map((product) => normalizeMkeProduct(product, 'USD')).filter(Boolean),
         };
+      },
+      async balance() {
+        return fetchMkeBalance(keys.mke);
       },
     },
     {
@@ -1279,19 +1280,9 @@ function supplierProviders(keys = {}) {
       configured: !!(keys.fatbunny || process.env.FATBUNNY_API_KEY),
       async catalog() {
         const products = await fetchPiggyAiProducts('FATBUNNY_API_KEY', keys.fatbunny);
-        let state = { balance: null, currency: 'USD' };
-        try {
-          state = await fetchPiggyAiBalance('FATBUNNY_API_KEY', keys.fatbunny);
-        } catch (error) {
-          console.error(
-            'fat-bunny-balance-error',
-            error.status || error.name,
-            error.code || '',
-          );
-        }
         const normalized = products
           .map((product) =>
-            normalizePiggyAiProduct(product, state.currency, 'fatbunny'),
+            normalizePiggyAiProduct(product, 'USD', 'fatbunny'),
           )
           .filter(Boolean);
         console.error(
@@ -1299,7 +1290,10 @@ function supplierProviders(keys = {}) {
           products.length,
           normalized.length,
         );
-        return { ...state, products: normalized };
+        return { currency: 'USD', products: normalized };
+      },
+      async balance() {
+        return fetchPiggyAiBalance('FATBUNNY_API_KEY', keys.fatbunny);
       },
     },
     {
@@ -1308,24 +1302,17 @@ function supplierProviders(keys = {}) {
       configured: !!(keys.piggyai || process.env.PIGGYAI_API_KEY),
       async catalog() {
         const products = await fetchPiggyAiProducts('PIGGYAI_API_KEY', keys.piggyai);
-        let state = { balance: null, currency: 'USD' };
-        try {
-          state = await fetchPiggyAiBalance('PIGGYAI_API_KEY', keys.piggyai);
-        } catch (error) {
-          console.error(
-            'piggyai-balance-error',
-            error.status || error.name,
-            error.code || '',
-          );
-        }
         return {
-          ...state,
+          currency: 'USD',
           products: products
             .map((product) =>
-              normalizePiggyAiProduct(product, state.currency, 'piggyai'),
+              normalizePiggyAiProduct(product, 'USD', 'piggyai'),
             )
             .filter(Boolean),
         };
+      },
+      async balance() {
+        return fetchPiggyAiBalance('PIGGYAI_API_KEY', keys.piggyai);
       },
     },
     {
@@ -1333,18 +1320,16 @@ function supplierProviders(keys = {}) {
       name: 'Zoom Store',
       configured: !!(keys.zoomstore || process.env.ZOOMSTORE_API_KEY),
       async catalog() {
-        const [products, state] = await Promise.all([
-          fetchZoomStoreProducts(keys.zoomstore),
-          fetchZoomStoreBalance(keys.zoomstore),
-        ]);
+        const products = await fetchZoomStoreProducts(keys.zoomstore);
         return {
-          ...state,
+          currency: 'USD',
           products: products
-            .map((product) =>
-              normalizeZoomStoreProduct(product, state.currency),
-            )
+            .map((product) => normalizeZoomStoreProduct(product, 'USD'))
             .filter(Boolean),
         };
+      },
+      async balance() {
+        return fetchZoomStoreBalance(keys.zoomstore);
       },
     },
     {
@@ -1352,16 +1337,16 @@ function supplierProviders(keys = {}) {
       name: 'Elite Tools Store',
       configured: !!(keys.elitetools || process.env.ELITE_TOOLS_API_KEY),
       async catalog() {
-        const [products, state] = await Promise.all([
-          fetchEliteToolsProducts(keys.elitetools),
-          fetchEliteToolsBalance(keys.elitetools),
-        ]);
+        const products = await fetchEliteToolsProducts(keys.elitetools);
         return {
-          ...state,
+          currency: 'USD',
           products: products
-            .map((product) => normalizeEliteToolsProduct(product, state.currency))
+            .map((product) => normalizeEliteToolsProduct(product, 'USD'))
             .filter(Boolean),
         };
+      },
+      async balance() {
+        return fetchEliteToolsBalance(keys.elitetools);
       },
     },
   ];
@@ -1778,7 +1763,34 @@ async function syncSupplierCatalog(db, force = false, keys = {}, onlyProviderId 
       ).rows[0]?.fresh;
       if (fresh) continue;
     }
+    const previousState = (
+      await db.query(
+        'SELECT balance,currency FROM commerce_provider_state WHERE provider_id=$1',
+        [provider.id],
+      )
+    ).rows[0];
     const synced = await provider.catalog();
+    let balanceState;
+    let balanceError = null;
+    try {
+      balanceState = await provider.balance();
+    } catch (error) {
+      balanceError = error;
+      console.error(
+        'supplier-balance-sync-error',
+        provider.id,
+        error.status || error.name || 'error',
+        error.code || '',
+      );
+    }
+    const balance = balanceState
+      ? balanceState.balance ?? null
+      : previousState?.balance ?? null;
+    const currency = String(
+      balanceState?.currency || synced.currency || previousState?.currency || '',
+    )
+      .slice(0, 12)
+      .toUpperCase() || null;
     let accepted = 0;
     for (const product of synced.products) {
       const wholesale = Number(product.wholesale_price),
@@ -1841,18 +1853,20 @@ async function syncSupplierCatalog(db, force = false, keys = {}, onlyProviderId 
       [
         provider.id,
         provider.name,
-        Number.isFinite(Number(synced.balance)) ? Number(synced.balance) : null,
-        String(synced.currency || '')
-          .slice(0, 12)
-          .toUpperCase() || null,
+        Number.isFinite(Number(balance)) ? Number(balance) : null,
+        currency,
       ],
     );
     results.push({
       providerId: provider.id,
       providerName: provider.name,
       synced: accepted,
-      balance: synced.balance ?? null,
-      currency: synced.currency || null,
+      balance,
+      currency,
+      balanceUpdated: !balanceError,
+      ...(balanceError
+        ? { balanceError: String(balanceError.message || 'Balance refresh failed').slice(0, 200) }
+        : {}),
     });
   }
   return results;

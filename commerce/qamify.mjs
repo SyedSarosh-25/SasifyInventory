@@ -119,13 +119,34 @@ export async function createQamifyOrder({ productId, quantity = 1, idempotencyKe
 }
 
 export function qamifyDelivery(data) {
-  const order = data.order || data.data || data;
-  const raw = order.items ?? order.keys ?? order.delivery ?? order.credentials ?? order.result;
+  const containers = [
+    data,
+    data?.data,
+    data?.order,
+    data?.data?.order,
+  ].filter((container, index, all) => container && all.indexOf(container) === index);
+  const deliveryFields = ['delivery', 'items', 'keys', 'credentials', 'result', 'content'];
+  let raw;
+  for (const container of containers) {
+    for (const field of deliveryFields) {
+      const value = container[field];
+      if (value !== undefined && value !== null && value !== '') {
+        raw = value;
+        break;
+      }
+    }
+    if (raw !== undefined) break;
+  }
   if (raw === undefined || raw === null || raw === '') throw Object.assign(new Error('Qamify order completed without delivery data.'), { status: 503 });
-  return { content: typeof raw === 'string' ? raw : JSON.stringify(raw, null, 2), instructions: order.instructions || '' };
+  const instructions = containers.map((container) => container.instructions).find((value) => value !== undefined && value !== null && value !== '') || '';
+  return { content: typeof raw === 'string' ? raw : JSON.stringify(raw, null, 2), instructions: String(instructions) };
 }
 
 export function qamifyOrderId(data, fallback) {
-  const order = data.order || data.data || data;
-  return String(order.code || order.order_code || order.id || fallback);
+  const containers = [data?.order, data?.data?.order, data?.data, data].filter((container, index, all) => container && all.indexOf(container) === index);
+  for (const container of containers) {
+    const orderId = container.orderCode || container.code || container.order_code || container.id;
+    if (orderId !== undefined && orderId !== null && orderId !== '') return String(orderId);
+  }
+  return String(fallback);
 }

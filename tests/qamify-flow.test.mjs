@@ -50,8 +50,12 @@ test('Qamify catalog sync and paid order fulfilment use provider IDs and idempot
       const body = JSON.parse(init.body);
       if (body.product_id === 43) return new Response(JSON.stringify({ ok:false,error:{ code:'out_of_stock',message:'No stock' } }), { status: 409 });
       if (body.product_id === 45) return new Response(JSON.stringify({ ok:false,error:{ code:'supplier_unavailable',message:'Supplier temporarily unavailable' } }), { status: 503 });
-      const code = body.product_id === 44 ? 'RA-EMAIL-ORDER' : 'RA-TEST-ORDER';
-      return new Response(JSON.stringify({ order: { code, items: ['test-license'], instructions: 'Redeem once.\nNo warranty after activation.' } }), { status: 200 });
+      const orderCode = body.product_id === 44 ? 'RA-EMAIL-ORDER' : 'RA-TEST-ORDER';
+      return new Response(JSON.stringify({
+        order: { status: 'completed', orderCode, productType: 'account' },
+        success: true,
+        delivery: ['test-license'],
+      }), { status: 200 });
     }
     return new Response(JSON.stringify({ error: 'Unexpected test URL' }), { status: 404 });
   };
@@ -73,6 +77,22 @@ test('Qamify catalog sync and paid order fulfilment use provider IDs and idempot
     assert.equal(synced.code, 200, JSON.stringify(synced));
     assert.deepEqual(synced.data.providers.map((provider) => provider.providerId), ['qamify']);
     assert.equal(synced.data.synced, 4);
+    assert.deepEqual(
+      synced.data.providers.find((provider) => provider.providerId === 'qamify'),
+      {
+        providerId: 'qamify',
+        providerName: 'Qamify',
+        synced: 4,
+        balance: 25,
+        currency: 'USD',
+        balanceUpdated: true,
+      },
+    );
+    const syncedBalance = (await database.query(
+      "SELECT balance,currency FROM commerce_provider_state WHERE provider_id='qamify'",
+    )).rows[0];
+    assert.equal(Number(syncedBalance.balance), 25);
+    assert.equal(syncedBalance.currency, 'USD');
     assert.deepEqual(synced.data.seoRebuild, { configured: true, triggered: true, status: 202 });
     assert.equal((await request('admin-supplier-update', { productId: 'qamify:42', sellingPrice: 999, costPkr: 700, enabled: true, canonicalKey:'test-product' }, process.env.COMMERCE_ADMIN_KEY)).code, 200);
     assert.equal((await request('admin-supplier-update', { productId: 'qamify:43', sellingPrice: 999, costPkr: 500, enabled: true, canonicalKey:'test-product' }, process.env.COMMERCE_ADMIN_KEY)).code, 200);
@@ -107,7 +127,7 @@ test('Qamify catalog sync and paid order fulfilment use provider IDs and idempot
     const status = await request('status', undefined, created.data.recovery, created.data.id);
     assert.equal(status.data.status, 'delivered', JSON.stringify(status));
     assert.equal(status.data.product, 'Qamify Test Backup 1 Month');
-    assert.deepEqual(status.data.delivery, { content: '[\n  "test-license"\n]', instructions: 'Redeem once.' });
+    assert.deepEqual(status.data.delivery, { content: '[\n  "test-license"\n]', instructions: '' });
 
     const orderCalls = calls.filter((call) => call.url.endsWith('/v1/orders'));
     assert.equal(orderCalls.length, 2);
@@ -125,7 +145,7 @@ test('Qamify catalog sync and paid order fulfilment use provider IDs and idempot
     assert.equal(logs.some((log) => log.response_status === 200), true);
     assert.equal(logs.every((log) => !('Authorization' in log.request_headers)), true);
     const successfulLog = logs.find((log) => log.response_status === 200);
-    assert.equal(successfulLog.response_body.order.items, '[REDACTED]');
+    assert.equal(successfulLog.response_body.delivery, '[REDACTED]');
     const missingEmail = await request('create', { productId: 'email-product' });
     assert.equal(missingEmail.code, 400, JSON.stringify(missingEmail));
     const emailOrder = await request('create', {

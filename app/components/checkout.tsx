@@ -2961,7 +2961,7 @@ export function CommerceAdmin() {
                       const summary = (result.providers || [])
                         .map(
                           (provider: any) =>
-                            `${provider.providerName}: ${provider.synced}`,
+                            `${provider.providerName}: ${provider.synced} products, balance ${provider.balance ?? '—'} ${provider.currency || ''}${provider.balanceUpdated ? '' : ' (last known balance)'}`,
                         )
                         .join(', ');
                       setNotice(
