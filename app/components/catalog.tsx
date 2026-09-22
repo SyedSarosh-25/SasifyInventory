@@ -2,6 +2,11 @@
 
 import { Filter, Search, X } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
+import {
+  isChatGptPlusProduct,
+  supplierEquivalentProductName,
+} from '../catalog-selection';
+import { products as localProducts } from '../products';
 import { supplierProductHref, supplierSeoProducts } from '../supplier-seo';
 import { cacheSupplierCatalog } from '../supplier-catalog-cache';
 import { CategoryNavigation } from './category-navigation';
@@ -47,7 +52,7 @@ function matchesQuery(product: FeaturedProduct, query: string) {
 export function Catalog({ initialQuery = '' }: { initialQuery?: string }) {
   const [query, setQuery] = useState(initialQuery);
   const [activeCategory, setActiveCategory] = useState('All');
-  const [liveSupplierProducts, setLiveSupplierProducts] = useState<LiveSupplierProduct[]>([]);
+  const [liveCatalogProducts, setLiveCatalogProducts] = useState<LiveSupplierProduct[]>([]);
 
   useEffect(() => {
     const syncQuery = () => setQuery(new URLSearchParams(window.location.search).get('q') ?? initialQuery);
@@ -63,7 +68,7 @@ export function Catalog({ initialQuery = '' }: { initialQuery?: string }) {
       .then((data) => {
         const products = (data as { products?: LiveSupplierProduct[] }).products || [];
         cacheSupplierCatalog(products);
-        if (active) setLiveSupplierProducts(products.filter((product) => product.source !== 'local'));
+        if (active) setLiveCatalogProducts(products);
       })
       .catch(() => {})
       .finally(() => {
@@ -75,6 +80,12 @@ export function Catalog({ initialQuery = '' }: { initialQuery?: string }) {
   }, []);
 
   const inventory = useMemo(() => {
+    const liveSupplierProducts = liveCatalogProducts.filter((product) => product.source !== 'local');
+    const liveLocalProducts = new Map(
+      liveCatalogProducts
+        .filter((product) => product.source === 'local')
+        .map((product) => [product.id, product]),
+    );
     const liveByKey = new Map(
       liveSupplierProducts.map((product) => [product.canonical_key || product.id, product]),
     );
@@ -84,7 +95,7 @@ export function Catalog({ initialQuery = '' }: { initialQuery?: string }) {
     const sourceInventory = liveSupplierProducts.length
       ? seoInventory.filter((product) => liveByKey.has(product.canonical_key || product.id))
       : seoInventory;
-    return sourceInventory.map((product) => {
+    const supplierInventory = sourceInventory.map((product) => {
       const live = liveByKey.get(product.canonical_key || product.id);
       if (!live) return product;
       return {
@@ -96,7 +107,32 @@ export function Catalog({ initialQuery = '' }: { initialQuery?: string }) {
         logo_url: live.logo_url || product.logo_url,
       };
     });
-  }, [liveSupplierProducts]);
+    const localInventory: FeaturedProduct[] = localProducts.map((product) => {
+      const live = liveLocalProducts.get(product.id);
+      return {
+        id: product.id,
+        name: product.name,
+        description: product.description,
+        price: product.sellingPricePkr,
+        available: Number.isFinite(Number(live?.available))
+          ? Number(live?.available)
+          : product.contactOnly
+            ? 0
+            : 1,
+        source: 'local',
+        category: product.category,
+        localProduct: product,
+      };
+    });
+    const visibleSupplierInventory = supplierInventory.filter(
+      (product) =>
+        !isChatGptPlusProduct(product.name) &&
+        !localInventory.some((localProduct) =>
+          supplierEquivalentProductName(localProduct.name, product.name),
+        ),
+    );
+    return [...localInventory, ...visibleSupplierInventory];
+  }, [liveCatalogProducts]);
 
   const categories = useMemo(
     () => ['All', ...new Set(inventory.map((product) => product.category).filter(Boolean) as string[])],

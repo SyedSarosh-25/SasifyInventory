@@ -60,7 +60,9 @@ type Order = {
   paymentSubmittedAt?: string | null;
   createdAt?: string;
   transactionId?: string;
-  paymentMethod?: 'wallet' | 'bank';
+  paymentMethod?: 'wallet' | 'bank' | 'binance' | 'crypto';
+  paymentCurrency?: 'PKR' | 'USDT';
+  paymentAmount?: number;
   paymentWindowMinutes?: number;
   sharedSlot?: number;
   sharedSlotsFilled?: number;
@@ -71,6 +73,13 @@ type Order = {
   credentials?: AccountCredentials;
   delivery?: { content: string; instructions?: string };
 };
+const CRYPTO_NETWORK_FEE_USDT = 0.01;
+function customerPaymentAmount(order: Order) {
+  const amount = Number(order.paymentAmount || 0);
+  return order.paymentMethod === 'crypto' && order.paymentCurrency === 'USDT'
+    ? amount + CRYPTO_NETWORK_FEE_USDT
+    : amount;
+}
 async function api(
   action: string,
   token = '',
@@ -150,7 +159,9 @@ export function Checkout() {
   const twoFactorCodeTimer = useRef<number | null>(null);
   const [couponCode, setCouponCode] = useState('');
   const [customerEmail, setCustomerEmail] = useState('');
-  const [paymentMethod, setPaymentMethod] = useState<'wallet' | 'bank'>('wallet');
+  const [paymentMethod, setPaymentMethod] = useState<
+    'wallet' | 'bank' | 'binance' | 'crypto'
+  >('wallet');
   const [now, setNow] = useState(Date.now());
   const [error, setError] = useState(''),
     [notice, setNotice] = useState(''),
@@ -391,7 +402,9 @@ export function Checkout() {
               ? 'HOR covered the full price. Your account credentials are ready below.'
               : order?.paymentMethod === 'bank'
                 ? 'Your delivery appears here automatically after the signed NayaPay receipt is matched.'
-                : 'Pay here and your account credentials will appear on this screen automatically after verification, usually within one minute. No manual delivery delays.'}
+                : ['binance', 'crypto'].includes(order?.paymentMethod || '')
+                  ? 'Your delivery appears here automatically after the authenticated Binance receipt is matched.'
+                  : 'Pay here and your account credentials will appear on this screen automatically after verification, usually within one minute. No manual delivery delays.'}
           </p>
         </div>
         <span className="instant-badge">Instant</span>
@@ -522,6 +535,34 @@ export function Checkout() {
                   <small>All banks</small>
                 </span>
               </label>
+              <label className={paymentMethod === 'binance' ? 'selected' : ''}>
+                <input
+                  type="radio"
+                  name="payment-method"
+                  value="binance"
+                  checked={paymentMethod === 'binance'}
+                  onChange={() => setPaymentMethod('binance')}
+                />
+                <WalletCards size={21} />
+                <span>
+                  <strong>Binance</strong>
+                  <small>Binance Pay in USDT</small>
+                </span>
+              </label>
+              <label className={paymentMethod === 'crypto' ? 'selected' : ''}>
+                <input
+                  type="radio"
+                  name="payment-method"
+                  value="crypto"
+                  checked={paymentMethod === 'crypto'}
+                  onChange={() => setPaymentMethod('crypto')}
+                />
+                <WalletCards size={21} />
+                <span>
+                  <strong>Crypto deposit</strong>
+                  <small>Send USDT on the displayed network</small>
+                </span>
+              </label>
             </fieldset>
             <label>
               Reseller coupon (optional)
@@ -597,7 +638,11 @@ export function Checkout() {
                   ) : null}
                 </>
               ) : null}
-              <strong>PKR {order.amount.toLocaleString()}</strong>
+              <strong>
+                {order.paymentCurrency === 'USDT'
+                  ? `USDT ${customerPaymentAmount(order).toFixed(2)}`
+                  : `PKR ${order.amount.toLocaleString()}`}
+              </strong>
             </div>
             <span className={`order-state ${order.status}`}>
               {order.status === 'review'
@@ -625,16 +670,38 @@ export function Checkout() {
               <h2>
                 {order.paymentMethod === 'bank'
                   ? 'Pay from your bank account'
-                  : 'Pay with a wallet for automatic instant delivery'}
+                  : ['binance', 'crypto'].includes(order.paymentMethod || '')
+                    ? order.paymentMethod === 'crypto'
+                      ? 'Pay with crypto in USDT'
+                      : 'Pay with Binance Pay in USDT'
+                    : 'Pay with a wallet for automatic instant delivery'}
               </h2>
               <p className="payment-callout">
                 Send exactly{' '}
-                <strong>PKR {order.amount.toLocaleString()}</strong> to the
-                NayaPay account below.
+                <strong>
+                  {order.paymentCurrency === 'USDT'
+                    ? 'USDT ' + customerPaymentAmount(order).toFixed(2)
+                    : 'PKR ' + order.amount.toLocaleString()}
+                </strong>{' '}
+                to the {order.paymentMethod === 'crypto'
+                  ? 'USDT wallet address'
+                  : order.paymentMethod === 'binance'
+                    ? 'Binance Pay account'
+                    : 'NayaPay account'} below.
               </p>
               <p className="payment-source-note">
-                <strong>This number belongs to NayaPay.</strong>{' '}
-                {order.paymentMethod === 'bank'
+                <strong>
+                  {['binance', 'crypto'].includes(order.paymentMethod || '')
+                    ? order.paymentMethod === 'crypto'
+                      ? 'Send from your crypto wallet on the displayed network.'
+                      : 'Send from your Binance account.'
+                    : 'This number belongs to NayaPay.'}
+                </strong>{' '}
+                {order.paymentMethod === 'crypto'
+                  ? `Send via BEP20. The displayed amount includes the USDT ${CRYPTO_NETWORK_FEE_USDT.toFixed(2)} network fee. We expect to receive net USDT ${Number(order.paymentAmount || 0).toFixed(2)} and cover the fee for you.`
+                  : order.paymentMethod === 'binance'
+                    ? 'Use the exact USDT amount shown. The authenticated Binance email must contain one unique transaction reference.'
+                  : order.paymentMethod === 'bank'
                   ? 'Use your bank app and send the exact amount shown. Your reservation remains active for 5 minutes.'
                   : 'Send from Easypaisa, JazzCash, NayaPay, SadaPay or another supported wallet. If you intend to use a bank, cancel this order and select Bank transfer first.'}
               </p>
@@ -651,7 +718,11 @@ export function Checkout() {
               <dl className="commerce-details">
                 <dt>Account title</dt>
                 <dd>{order.payment.title}</dd>
-                <dt>NayaPay number</dt>
+                <dt>{order.paymentMethod === 'crypto'
+                  ? 'USDT wallet address'
+                  : order.paymentMethod === 'binance'
+                    ? 'Binance Pay account'
+                    : 'NayaPay number'}</dt>
                 <dd>
                   <strong>{order.payment.number}</strong>{' '}
                   <button
@@ -744,7 +815,9 @@ export function Checkout() {
                   Keep this page open. It refreshes automatically and{' '}
                   {order.paymentMethod === 'bank'
                     ? 'will deliver after the bank receipt reaches and matches NayaPay.'
-                    : 'normally delivers within one minute.'}
+                    : ['binance', 'crypto'].includes(order.paymentMethod || '')
+                      ? 'will deliver after the authenticated Binance receipt reaches and matches this order.'
+                      : 'normally delivers within one minute.'}
                 </p>
               </div>
             </section>
@@ -1424,6 +1497,13 @@ export function CommerceAdmin() {
     setNotice('');
   };
   const money = (value: any) => `PKR ${Number(value || 0).toLocaleString()}`;
+  const paymentMoney = (row: any) => {
+    const currency = String(row?.currency || 'PKR').toUpperCase();
+    if (currency === 'USDT') {
+      return `USDT ${Number(row?.payment_amount ?? row?.amount ?? 0).toFixed(2)}`;
+    }
+    return `PKR ${Number(row?.amount ?? row?.payment_amount ?? 0).toLocaleString()}`;
+  };
   const verificationReason = (value: unknown) => {
     const text = typeof value === 'string' && value ? value : 'not_evaluated';
     return text.replaceAll('_', ' ').replace(/^./, (letter) => letter.toUpperCase());
@@ -3235,6 +3315,7 @@ export function CommerceAdmin() {
                     <th>Order</th>
                     <th>Product</th>
                     <th>Supplier</th>
+                    <th>Source</th>
                     <th>Sale</th>
                     <th>Cost</th>
                     <th>Profit</th>
@@ -3268,7 +3349,18 @@ export function CommerceAdmin() {
                         )}
                       </td>
                       <td>
+                        <strong>
+                          {row.telegram_chat_id || String(row.ip_address || '').startsWith('telegram:')
+                            ? 'Telegram bot'
+                            : 'Website'}
+                        </strong>
+                        <small>{row.telegram_chat_id ? `Chat ${row.telegram_chat_id}` : 'Web checkout'}</small>
+                      </td>
+                      <td>
                         {money(row.amount)}
+                        {row.payment_currency === 'USDT' && row.payment_amount != null && (
+                          <small>USDT {Number(row.payment_amount).toFixed(2)}</small>
+                        )}
                         {row.coupon_code && <small>{row.coupon_code}</small>}
                         {Number(row.listed_amount) > Number(row.amount) && (
                           <small>Listed {money(row.listed_amount)}</small>
@@ -3287,7 +3379,11 @@ export function CommerceAdmin() {
                         <strong>
                           {row.payment_method === 'bank'
                             ? 'Bank transfer'
-                            : 'Wallet transfer'}
+                            : row.payment_method === 'binance'
+                              ? 'Binance Pay'
+                              : row.payment_method === 'crypto'
+                                ? 'Crypto USDT'
+                                : 'Wallet transfer'}
                         </strong>
                       </td>
                       <td>
@@ -3592,7 +3688,7 @@ export function CommerceAdmin() {
                         <small>{row.id.slice(0, 8)}</small>
                         <small>{paymentReceiverLabel(row.receiver_id)}</small>
                       </td>
-                      <td>{money(row.amount)}</td>
+                      <td>{paymentMoney(row)}</td>
                       <td>
                         <strong>
                           {paymentNeedsReview(row) ? 'Needs review' : 'Verified receipt'}

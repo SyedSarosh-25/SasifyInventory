@@ -81,7 +81,8 @@ const paymentMethods = [
   { name: 'All Pakistani Banks', region: 'Pakistan', logo: null },
   { name: 'NayaPay', region: 'Pakistan', logo: '/payment-methods/nayapay.svg', dark: true },
   { name: 'SadaPay', region: 'Pakistan', logo: '/payment-methods/sadapay.webp' },
-  { name: 'Binance', region: 'International', logo: '/payment-methods/binance.svg' },
+  { name: 'Binance Pay', region: 'International', logo: '/payment-methods/binance.svg' },
+  { name: 'USDT Crypto', region: 'International', logo: '/payment-methods/binance.svg' },
   { name: 'Payoneer', region: 'International', logo: '/payment-methods/payoneer.svg' },
 ];
 

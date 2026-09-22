@@ -13,6 +13,10 @@ import {
   receiptText,
 } from './core.mjs';
 import {
+  parseBinanceCryptoEmail,
+  parseBinanceEmail,
+} from './binance-email.mjs';
+import {
   createSupplierOrder,
   fetchSupplierBalance,
   fetchSupplierProducts,
@@ -71,24 +75,40 @@ import {
   publicScamReportSummary,
 } from './scam-reports.mjs';
 import { normalizeToolRequest } from './tool-requests.mjs';
-import { customerProduct, customerProductName, customerProductText } from './product-display.mjs';
-import { handleSasifyBotUpdate } from './sasify-bot.mjs';
-import { supplierProductKey } from './supplier-matching.mjs';
 import {
-  DEFAULT_REVIEWS_URL,
-  fetchGoogleReviews,
-} from './google-reviews.mjs';
+  customerProduct,
+  customerProductName,
+  customerProductText,
+} from './product-display.mjs';
+import {
+  formatTelegramDelivery,
+  handleSasifyBotUpdate,
+  telegramCall,
+} from './sasify-bot.mjs';
+import {
+  selectLowestSupplierOffers,
+  supplierProductKey,
+} from './supplier-matching.mjs';
+import { DEFAULT_REVIEWS_URL, fetchGoogleReviews } from './google-reviews.mjs';
 import catalog from './catalog.json' with { type: 'json' };
 
 const fail = (status, message) => Object.assign(new Error(message), { status });
 const TELEGRAM_APPROVAL_REASONS = new Set(['verified_auto_delivery_failed']);
 function errorDetail(error) {
   const code = String(
-    error?.code || (error?.status ? `http_${error.status}` : '') || error?.name || 'delivery_failed',
+    error?.code ||
+      (error?.status ? `http_${error.status}` : '') ||
+      error?.name ||
+      'delivery_failed',
   ).slice(0, 120);
-  const message = String(error?.message || 'Automatic credential delivery failed')
+  const message = String(
+    error?.message || 'Automatic credential delivery failed',
+  )
     .replace(/(?:bearer|basic)\s+\S+/gi, '[redacted]')
-    .replace(/(?:token|password|secret|api[_-]?key)\s*[:=]\s*\S+/gi, '$1=[redacted]')
+    .replace(
+      /(?:token|password|secret|api[_-]?key)\s*[:=]\s*\S+/gi,
+      '$1=[redacted]',
+    )
     .replace(/\s+/g, ' ')
     .trim()
     .slice(0, 500);
@@ -102,12 +122,20 @@ async function recordAutoDeliveryFailure(db, paymentId, error, stage) {
          fulfillment_error_code=$2,fulfillment_error_message=$3,
          fulfillment_error_stage=$4,fulfillment_error_at=now()
      WHERE id=$1`,
-    [paymentId, detail.code, detail.message, String(stage || 'fulfillment').slice(0, 80)],
+    [
+      paymentId,
+      detail.code,
+      detail.message,
+      String(stage || 'fulfillment').slice(0, 80),
+    ],
   );
   await db.query(
     `INSERT INTO commerce_audit(action,object_id,details)
      VALUES('auto_delivery_failed',$1,$2::jsonb)`,
-    [paymentId, JSON.stringify({ code: detail.code, message: detail.message, stage })],
+    [
+      paymentId,
+      JSON.stringify({ code: detail.code, message: detail.message, stage }),
+    ],
   );
   return detail;
 }
@@ -132,7 +160,12 @@ const TEAM_COMMISSION_PKR = 50;
 const SUPPLIER_MAX_FAILURES = 3;
 const PROFIT_PASSWORD_HASH =
   process.env.COMMERCE_PROFIT_PASSWORD_HASH || hash(TEAM_COUPON_CODE);
-const PAYMENT_WINDOWS_MINUTES = Object.freeze({ wallet: 5, bank: 30 });
+const PAYMENT_WINDOWS_MINUTES = Object.freeze({
+  wallet: 5,
+  bank: 30,
+  binance: 15,
+  crypto: 30,
+});
 const PAYMENT_VERIFICATION_GRACE_SECONDS = 90;
 const PAYMENT_CLAIM_IP_ALLOWLIST = new Set(
   String(process.env.PAYMENT_CLAIM_IP_ALLOWLIST || '')
@@ -151,10 +184,67 @@ const clientIp = (req) =>
     .trim()
     .slice(0, 128) || 'unknown';
 function paymentMethod(value) {
-  const method = String(value || 'wallet').trim().toLowerCase();
+  const method = String(value || 'wallet')
+    .trim()
+    .toLowerCase();
   if (!Object.hasOwn(PAYMENT_WINDOWS_MINUTES, method))
-    throw fail(400, 'Select wallet payment or bank transfer.');
+    throw fail(400, 'Select wallet payment, bank transfer, Binance Pay, or crypto USDT.');
   return method;
+}
+function paymentMatchesOrder(payment, order) {
+  const orderCurrency = String(order?.payment_currency || 'PKR').toUpperCase();
+  const paymentCurrency = String(payment?.currency || 'PKR').toUpperCase();
+  if (orderCurrency === 'USDT' || paymentCurrency === 'USDT') {
+    const paid = Number(payment?.payment_amount);
+    const required = Number(order?.payment_amount);
+    const routeMatches = !payment?.receiver_id || payment.receiver_id === order?.payment_method;
+    return orderCurrency === 'USDT' && paymentCurrency === 'USDT' && routeMatches &&
+      Number.isFinite(paid) && Number.isFinite(required) && paid === required;
+  }
+  return paymentAmountMatchesOrder(payment?.amount, order?.amount);
+}
+function binanceUsdtPkrRate() {
+  const rate = Number(process.env.BINANCE_USDT_PKR_RATE || '');
+  return Number.isFinite(rate) && rate > 0 ? rate : null;
+}
+const MIN_BINANCE_USDT = 6;
+function binanceReceiver() {
+  const id = String(process.env.BINANCE_RECEIVER_ID || '').trim();
+  if (!id) return null;
+  return {
+    title: String(process.env.BINANCE_RECEIVER_TITLE || 'Binance Pay').trim(),
+    number: id,
+    provider: 'Binance',
+  };
+}
+function cryptoReceiver() {
+  const id = String(process.env.CRYPTO_RECEIVER_ID || '').trim();
+  if (!id) return null;
+  const network = String(process.env.CRYPTO_USDT_NETWORK || '').trim();
+  return {
+    title: [String(process.env.CRYPTO_RECEIVER_TITLE || 'USDT wallet').trim(), network]
+      .filter(Boolean)
+      .join(' · '),
+    number: id,
+    provider: network ? `Crypto · ${network}` : 'Crypto',
+  };
+}
+function paymentQuote(method, amountPkr) {
+  if (!['binance', 'crypto'].includes(method))
+    return { currency: 'PKR', amount: Number(amountPkr) };
+  const rate = binanceUsdtPkrRate();
+  if (!rate || (method === 'binance' ? !binanceReceiver() : !cryptoReceiver()))
+    throw fail(503, `${method === 'crypto' ? 'Crypto' : 'Binance Pay'} payments are not configured yet.`);
+  return {
+    currency: 'USDT',
+    amount: Math.ceil((Number(amountPkr) / rate) * 100) / 100,
+    rate,
+  };
+}
+function paymentReceiverForMethod(method, fallback) {
+  if (method === 'binance') return binanceReceiver();
+  if (method === 'crypto') return cryptoReceiver();
+  return fallback;
 }
 const SUPPLIER_API_ENV = Object.freeze({
   dodi: 'DODI_RESELLER_API_KEY',
@@ -194,30 +284,39 @@ const json = (res, status, body) => {
   res.setHeader('Content-Type', 'application/json');
   res.end(JSON.stringify(body));
 };
-function inboundEmailAuthConfigured() {
-  return (
-    !!String(process.env.NAYAPAY_INBOUND_TOKEN || '').trim() ||
-    (!!String(process.env.NAYAPAY_INBOUND_BASIC_USER || '').trim() &&
-      !!String(process.env.NAYAPAY_INBOUND_BASIC_PASSWORD || ''))
+function inboundAuthPrefixes(provider = 'nayapay') {
+  if (provider === 'auto') return ['BINANCE', 'NAYAPAY'];
+  // The shared Postmark inbound stream can deliver both rails. Keep the
+  // existing NayaPay webhook credential as a compatibility fallback until a
+  // separate Binance credential is deliberately configured.
+  return provider === 'binance' ? ['BINANCE', 'NAYAPAY'] : ['NAYAPAY'];
+}
+function inboundEmailAuthConfigured(provider = 'nayapay') {
+  return inboundAuthPrefixes(provider).some((prefix) =>
+    !!String(process.env[prefix + '_INBOUND_TOKEN'] || '').trim() ||
+    (!!String(process.env[prefix + '_INBOUND_BASIC_USER'] || '').trim() &&
+      !!String(process.env[prefix + '_INBOUND_BASIC_PASSWORD'] || '')),
   );
 }
-function inboundEmailAuthorized(req) {
-  const token = String(process.env.NAYAPAY_INBOUND_TOKEN || '').trim();
+function inboundEmailAuthorized(req, provider = 'nayapay') {
   const providedToken = String(
     req.headers['x-nayapay-inbound-token'] ||
       req.headers['x-inbound-webhook-token'] ||
       req.headers['x-postmark-server-token'] ||
       '',
   ).trim();
-  if (token && same(providedToken, token)) return true;
-  const username = String(process.env.NAYAPAY_INBOUND_BASIC_USER || '').trim();
-  const password = String(process.env.NAYAPAY_INBOUND_BASIC_PASSWORD || '');
   const authorization = String(req.headers.authorization || '');
-  const expected =
-    username && password
-      ? `Basic ${Buffer.from(`${username}:${password}`).toString('base64')}`
-      : '';
-  return !!expected && same(authorization, expected);
+  return inboundAuthPrefixes(provider).some((prefix) => {
+    const token = String(process.env[prefix + '_INBOUND_TOKEN'] || '').trim();
+    if (token && same(providedToken, token)) return true;
+    const username = String(process.env[prefix + '_INBOUND_BASIC_USER'] || '').trim();
+    const password = String(process.env[prefix + '_INBOUND_BASIC_PASSWORD'] || '');
+    const expected =
+      username && password
+        ? `Basic ${Buffer.from(`${username}:${password}`).toString('base64')}`
+        : '';
+    return !!expected && same(authorization, expected);
+  });
 }
 const supplierUsdtRate = () => {
   const rate = Number(process.env.SUPPLIER_USDT_PKR_RATE || 285);
@@ -234,21 +333,26 @@ const supplierUsdRate = () => {
 };
 function supplierBalanceThreshold(currency) {
   const normalized = String(currency || '').toUpperCase();
-  const envName = normalized === 'PKR'
-    ? 'SUPPLIER_LOW_BALANCE_PKR'
-    : normalized === 'USD'
-      ? 'SUPPLIER_LOW_BALANCE_USD'
-      : 'SUPPLIER_LOW_BALANCE_USDT';
+  const envName =
+    normalized === 'PKR'
+      ? 'SUPPLIER_LOW_BALANCE_PKR'
+      : normalized === 'USD'
+        ? 'SUPPLIER_LOW_BALANCE_USD'
+        : 'SUPPLIER_LOW_BALANCE_USDT';
   const fallback = normalized === 'PKR' ? 5000 : 5;
   const configured = Number(process.env[envName]);
   return Number.isFinite(configured) && configured >= 0 ? configured : fallback;
 }
 function supplierBalanceIsLow(balance, currency) {
   const amount = Number(balance);
-  return Number.isFinite(amount) && amount <= supplierBalanceThreshold(currency);
+  return (
+    Number.isFinite(amount) && amount <= supplierBalanceThreshold(currency)
+  );
 }
 function localProductSellingPrice(productId) {
-  const price = Number(catalog.find((product) => product.id === productId)?.price);
+  const price = Number(
+    catalog.find((product) => product.id === productId)?.price,
+  );
   return Number.isSafeInteger(price) && price > 0 ? price : 0;
 }
 const SHARED_CHATGPT_PRODUCT_ID = 'p093-shared';
@@ -264,11 +368,23 @@ function sharedSlotCost(purchaseCost, slot) {
     : base;
 }
 function summarizeProfit(deliveredRows, withdrawnRows, now = new Date()) {
-  const dayKey = (date) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Karachi', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(date));
+  const dayKey = (date) =>
+    new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Karachi',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(new Date(date));
   const today = dayKey(now);
   const daily = Array.from({ length: 30 }, (_, index) => ({
-    date: new Date(new Date(`${today}T12:00:00Z`).getTime() - (29 - index) * 86400000).toISOString().slice(0, 10),
-    revenue: 0, profit: 0, missingCosts: 0,
+    date: new Date(
+      new Date(`${today}T12:00:00Z`).getTime() - (29 - index) * 86400000,
+    )
+      .toISOString()
+      .slice(0, 10),
+    revenue: 0,
+    profit: 0,
+    missingCosts: 0,
   }));
   const dailyByDate = new Map(daily.map((row) => [row.date, row]));
   const monthStart = new Date();
@@ -289,8 +405,24 @@ function summarizeProfit(deliveredRows, withdrawnRows, now = new Date()) {
     missing_costs: 0,
   };
   const breakdown = {
-    local: { income: 0, gross_income: 0, coupon_discounts: 0, hor_profit_credit: 0, cost: 0, profit: 0, orders: 0 },
-    supplier: { income: 0, gross_income: 0, coupon_discounts: 0, hor_profit_credit: 0, cost: 0, profit: 0, orders: 0 },
+    local: {
+      income: 0,
+      gross_income: 0,
+      coupon_discounts: 0,
+      hor_profit_credit: 0,
+      cost: 0,
+      profit: 0,
+      orders: 0,
+    },
+    supplier: {
+      income: 0,
+      gross_income: 0,
+      coupon_discounts: 0,
+      hor_profit_credit: 0,
+      cost: 0,
+      profit: 0,
+      orders: 0,
+    },
   };
   const add = (row, income, cost, source, date, financials = {}) => {
     const safeIncome = Number.isFinite(Number(income)) ? Number(income) : 0;
@@ -337,7 +469,8 @@ function summarizeProfit(deliveredRows, withdrawnRows, now = new Date()) {
     }
   };
   for (const row of deliveredRows) {
-    const isTeamCoupon = String(row.code_display || '').toUpperCase() === TEAM_COUPON_CODE;
+    const isTeamCoupon =
+      String(row.code_display || '').toUpperCase() === TEAM_COUPON_CODE;
     const netIncome = Number(row.amount || 0);
     const recordedCouponDiscount = Number(row.coupon_discount || 0);
     // HOR is an internal team-sales/commission rule, not a customer discount.
@@ -347,26 +480,61 @@ function summarizeProfit(deliveredRows, withdrawnRows, now = new Date()) {
     const couponDiscount = isTeamCoupon ? 0 : recordedCouponDiscount;
     const income = netIncome + (isTeamCoupon ? recordedCouponDiscount : 0);
     const cost = row.shared_account_id
-      ? row.fulfillment_cost_pkr ?? sharedSlotCost(row.purchase_cost, row.shared_slot)
-      : row.purchase_cost ?? row.supplier_cost_pkr ?? 0;
-    add(row, income, cost, row.supplier_product_id ? 'supplier' : 'local', row.delivered_at, {
-      netIncome,
-      grossIncome: netIncome + recordedCouponDiscount,
-      couponDiscount,
-      horProfitCredit: isTeamCoupon ? recordedCouponDiscount : 0,
-    });
+      ? (row.fulfillment_cost_pkr ??
+        sharedSlotCost(row.purchase_cost, row.shared_slot))
+      : (row.purchase_cost ?? row.supplier_cost_pkr ?? 0);
+    add(
+      row,
+      income,
+      cost,
+      row.supplier_product_id ? 'supplier' : 'local',
+      row.delivered_at,
+      {
+        netIncome,
+        grossIncome: netIncome + recordedCouponDiscount,
+        couponDiscount,
+        horProfitCredit: isTeamCoupon ? recordedCouponDiscount : 0,
+      },
+    );
   }
   for (const row of withdrawnRows)
-    add(row, localProductSellingPrice(row.product_id), row.purchase_cost, 'local', row.created_at);
+    add(
+      row,
+      localProductSellingPrice(row.product_id),
+      row.purchase_cost,
+      'local',
+      row.created_at,
+    );
   for (const key of Object.keys(summary)) {
-    if (key === 'active_orders' || key === 'delivered_orders' || key === 'admin_withdrawals' || key === 'missing_costs') continue;
+    if (
+      key === 'active_orders' ||
+      key === 'delivered_orders' ||
+      key === 'admin_withdrawals' ||
+      key === 'missing_costs'
+    )
+      continue;
     summary[key] = Math.round(summary[key]);
   }
   for (const bucket of Object.values(breakdown)) {
-    for (const key of ['income', 'gross_income', 'coupon_discounts', 'hor_profit_credit', 'cost', 'profit'])
+    for (const key of [
+      'income',
+      'gross_income',
+      'coupon_discounts',
+      'hor_profit_credit',
+      'cost',
+      'profit',
+    ])
       bucket[key] = Math.round(bucket[key]);
   }
-  return { metrics: summary, breakdown, daily: daily.map((day) => ({ ...day, revenue: Math.round(day.revenue), profit: Math.round(day.profit) })) };
+  return {
+    metrics: summary,
+    breakdown,
+    daily: daily.map((day) => ({
+      ...day,
+      revenue: Math.round(day.revenue),
+      profit: Math.round(day.profit),
+    })),
+  };
 }
 function summarizeCommissions(rows) {
   const summary = {
@@ -407,17 +575,23 @@ async function telegramRequest(method, payload) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 2500);
   try {
-    const response = await fetch(`https://api.telegram.org/bot${token}/${method}`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(payload),
-      signal: controller.signal,
-    });
+    const response = await fetch(
+      `https://api.telegram.org/bot${token}/${method}`,
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(payload),
+        signal: controller.signal,
+      },
+    );
     if (!response.ok)
       console.error('telegram-notification-error', response.status);
     return response.ok;
   } catch (error) {
-    console.error('telegram-notification-error', error.name || 'request_failed');
+    console.error(
+      'telegram-notification-error',
+      error.name || 'request_failed',
+    );
     return false;
   } finally {
     clearTimeout(timeout);
@@ -433,18 +607,43 @@ async function notifyTelegram(message) {
     ...payload,
   });
 }
+async function notifyPublicTelegram(chatId, message) {
+  const token = String(process.env.SASIFY_BOT_TOKEN || '').trim();
+  const id = String(chatId || '').trim();
+  if (!token || !id || !message) return false;
+  try {
+    await telegramCall(token, 'sendMessage', {
+      chat_id: id,
+      text: message,
+      disable_web_page_preview: true,
+    });
+    return true;
+  } catch (error) {
+    console.error(
+      'public-telegram-delivery-error',
+      error.name || 'request_failed',
+    );
+    return false;
+  }
+}
 function telegramWebhookAuthorized(req) {
   const secret = String(process.env.TELEGRAM_WEBHOOK_SECRET || '').trim();
-  return !!secret && same(
-    String(req.headers['x-telegram-bot-api-secret-token'] || '').trim(),
-    secret,
+  return (
+    !!secret &&
+    same(
+      String(req.headers['x-telegram-bot-api-secret-token'] || '').trim(),
+      secret,
+    )
   );
 }
 function publicTelegramWebhookAuthorized(req) {
   const secret = String(process.env.SASIFY_BOT_WEBHOOK_SECRET || '').trim();
-  return !!secret && same(
-    String(req.headers['x-telegram-bot-api-secret-token'] || '').trim(),
-    secret,
+  return (
+    !!secret &&
+    same(
+      String(req.headers['x-telegram-bot-api-secret-token'] || '').trim(),
+      secret,
+    )
   );
 }
 function telegramChatAllowed(chatId) {
@@ -470,8 +669,10 @@ function telegramOrderMessage({
     `Payment method: ${String(paymentMethod || 'wallet')}`,
     `Status: ${status}`,
   ];
-  if (transactionId) lines.push(`Transaction: ${String(transactionId).slice(0, 80)}`);
-  if (paymentState) lines.push(`Payment evidence: ${String(paymentState).slice(0, 120)}`);
+  if (transactionId)
+    lines.push(`Transaction: ${String(transactionId).slice(0, 80)}`);
+  if (paymentState)
+    lines.push(`Payment evidence: ${String(paymentState).slice(0, 120)}`);
   lines.push(
     '',
     approvalAvailable
@@ -484,13 +685,20 @@ function telegramOrderMessage({
 }
 function telegramApprovalKeyboard(orderId) {
   return {
-    inline_keyboard: [[
-      { text: 'Approve and deliver', callback_data: `approve:${orderId}` },
-      { text: 'Reject', callback_data: `reject:${orderId}` },
-    ]],
+    inline_keyboard: [
+      [
+        { text: 'Approve and deliver', callback_data: `approve:${orderId}` },
+        { text: 'Reject', callback_data: `reject:${orderId}` },
+      ],
+    ],
   };
 }
-function telegramPaymentReviewMessage({ amount, transactionId, reason, orderId = '' }) {
+function telegramPaymentReviewMessage({
+  amount,
+  transactionId,
+  reason,
+  orderId = '',
+}) {
   return [
     'Payment needs manual review',
     orderId ? `Order: ${String(orderId).slice(0, 8)}` : null,
@@ -499,19 +707,29 @@ function telegramPaymentReviewMessage({ amount, transactionId, reason, orderId =
     `Reason: ${String(reason || 'no eligible order').replaceAll('_', ' ')}`,
     '',
     'The receipt was authenticated, but it was not assigned to exactly one active order. Review it in the admin payments panel.',
-  ].filter(Boolean).join('\n');
+  ]
+    .filter(Boolean)
+    .join('\n');
 }
 function telegramCallbackResponse(update) {
   const callback = update?.callback_query;
   const chatId = callback?.message?.chat?.id;
   if (!callback?.id || !telegramChatAllowed(chatId)) return null;
-  const data = String(callback.data || '').match(/^(approve|reject):([a-f0-9-]{36})$/i);
-  return data ? { callback, action: data[1].toLowerCase(), orderId: data[2] } : null;
+  const data = String(callback.data || '').match(
+    /^(approve|reject):([a-f0-9-]{36})$/i,
+  );
+  return data
+    ? { callback, action: data[1].toLowerCase(), orderId: data[2] }
+    : null;
 }
 function supplierIssueMessage(log) {
   if (!log) return '';
-  const status = log.responseStatus ? `HTTP ${log.responseStatus}` : 'No HTTP response';
-  const detail = String(log.errorMessage || '').trim().slice(0, 500);
+  const status = log.responseStatus
+    ? `HTTP ${log.responseStatus}`
+    : 'No HTTP response';
+  const detail = String(log.errorMessage || '')
+    .trim()
+    .slice(0, 500);
   return `Supplier issue\nProvider: ${String(log.providerId || 'unknown').toUpperCase()}\nOperation: ${log.operation || 'purchase'}\nOrder: ${String(log.orderId || '').slice(0, 8) || 'unknown'}\nStatus: ${status}${detail ? `\nDetails: ${detail}` : ''}`;
 }
 function normalizeCouponCode(value) {
@@ -838,10 +1056,43 @@ async function ensurePaymentWorkflowSchema(db) {
         'ALTER TABLE commerce_orders DROP CONSTRAINT IF EXISTS commerce_orders_payment_method_check',
       );
       await db.query(
-        "ALTER TABLE commerce_orders ADD CONSTRAINT commerce_orders_payment_method_check CHECK(payment_method IN ('wallet','bank'))",
+        "ALTER TABLE commerce_orders ADD CONSTRAINT commerce_orders_payment_method_check CHECK(payment_method IN ('wallet','bank','binance','crypto'))",
+      );
+      await db.query(
+        "ALTER TABLE commerce_orders ADD COLUMN IF NOT EXISTS payment_currency text NOT NULL DEFAULT 'PKR'",
+      );
+      await db.query(
+        "ALTER TABLE commerce_orders ADD COLUMN IF NOT EXISTS payment_amount numeric(20,8) NOT NULL DEFAULT 0",
+      );
+      await db.query(
+        'UPDATE commerce_orders SET payment_amount=amount WHERE payment_amount=0 AND amount>0',
+      );
+      await db.query(
+        'ALTER TABLE commerce_orders DROP CONSTRAINT IF EXISTS commerce_orders_payment_currency_check',
+      );
+      await db.query(
+        "ALTER TABLE commerce_orders ADD CONSTRAINT commerce_orders_payment_currency_check CHECK(payment_currency IN ('PKR','USDT'))",
+      );
+      await db.query(
+        'ALTER TABLE commerce_orders DROP CONSTRAINT IF EXISTS commerce_orders_payment_amount_check',
+      );
+      await db.query(
+        'ALTER TABLE commerce_orders ADD CONSTRAINT commerce_orders_payment_amount_check CHECK(payment_amount>=0)',
       );
       await db.query(
         "ALTER TABLE commerce_payments ADD COLUMN IF NOT EXISTS verification_reason text NOT NULL DEFAULT 'not_evaluated'",
+      );
+      await db.query(
+        'ALTER TABLE commerce_payments ADD COLUMN IF NOT EXISTS payment_amount numeric(20,8)',
+      );
+      await db.query(
+        "ALTER TABLE commerce_payments ADD COLUMN IF NOT EXISTS currency text NOT NULL DEFAULT 'PKR'",
+      );
+      await db.query(
+        'ALTER TABLE commerce_payments DROP CONSTRAINT IF EXISTS commerce_payments_currency_check',
+      );
+      await db.query(
+        "ALTER TABLE commerce_payments ADD CONSTRAINT commerce_payments_currency_check CHECK(currency IN ('PKR','USDT'))",
       );
       await db.query(
         'ALTER TABLE commerce_payments ADD COLUMN IF NOT EXISTS verification_reason_before_manual text',
@@ -864,7 +1115,9 @@ async function ensurePaymentWorkflowSchema(db) {
       await db.query(
         'CREATE TABLE IF NOT EXISTS commerce_audit (id bigserial PRIMARY KEY, action text NOT NULL, object_id text, details jsonb, created_at timestamptz NOT NULL DEFAULT now())',
       );
-      await db.query('ALTER TABLE commerce_audit ADD COLUMN IF NOT EXISTS details jsonb');
+      await db.query(
+        'ALTER TABLE commerce_audit ADD COLUMN IF NOT EXISTS details jsonb',
+      );
       await db.query(`CREATE TABLE IF NOT EXISTS commerce_payment_receivers (
         id text PRIMARY KEY,
         label text NOT NULL,
@@ -883,6 +1136,20 @@ async function ensurePaymentWorkflowSchema(db) {
       await db.query(
         'ALTER TABLE commerce_orders ADD COLUMN IF NOT EXISTS receiver_id text',
       );
+      await db.query(
+        'ALTER TABLE commerce_orders ADD COLUMN IF NOT EXISTS telegram_chat_id text',
+      );
+      await db.query(
+        'ALTER TABLE commerce_orders ADD COLUMN IF NOT EXISTS telegram_user_id text',
+      );
+      await db.query(
+        'CREATE INDEX IF NOT EXISTS commerce_orders_telegram_chat ON commerce_orders(telegram_chat_id,created_at DESC)',
+      );
+      await db.query(`CREATE TABLE IF NOT EXISTS commerce_telegram_sessions (
+        chat_id text PRIMARY KEY,
+        state jsonb NOT NULL DEFAULT '{}'::jsonb,
+        updated_at timestamptz NOT NULL DEFAULT now()
+      )`);
       await db.query(
         'ALTER TABLE commerce_payments ADD COLUMN IF NOT EXISTS receiver_id text',
       );
@@ -1024,7 +1291,9 @@ function publicGoogleReview(row) {
 }
 async function syncGoogleReviews(db) {
   const reviews = await fetchGoogleReviews({
-    reviewsUrl: String(process.env.GOOGLE_REVIEWS_URL || DEFAULT_REVIEWS_URL).trim() || DEFAULT_REVIEWS_URL,
+    reviewsUrl:
+      String(process.env.GOOGLE_REVIEWS_URL || DEFAULT_REVIEWS_URL).trim() ||
+      DEFAULT_REVIEWS_URL,
   });
   await db.query('DELETE FROM commerce_google_reviews');
   for (const review of reviews.reviews)
@@ -1088,16 +1357,20 @@ async function readSupplierApiKeys(db, key) {
   return keys;
 }
 function supplierKeyStatus(keys) {
-  return Object.entries(SUPPLIER_PROVIDER_NAMES).map(([providerId, providerName]) => ({
-    providerId,
-    providerName,
-    configured: !!(keys[providerId] || process.env[SUPPLIER_API_ENV[providerId]]),
-    source: keys[providerId]
-      ? 'admin'
-      : process.env[SUPPLIER_API_ENV[providerId]]
-        ? 'environment'
-        : null,
-  }));
+  return Object.entries(SUPPLIER_PROVIDER_NAMES).map(
+    ([providerId, providerName]) => ({
+      providerId,
+      providerName,
+      configured: !!(
+        keys[providerId] || process.env[SUPPLIER_API_ENV[providerId]]
+      ),
+      source: keys[providerId]
+        ? 'admin'
+        : process.env[SUPPLIER_API_ENV[providerId]]
+          ? 'environment'
+          : null,
+    }),
+  );
 }
 async function insertSupplierApiLogs(db, logs) {
   for (const log of logs)
@@ -1247,7 +1520,10 @@ function supplierProviders(keys = {}) {
         };
       },
       async balance() {
-        return { balance: await fetchSupplierBalance(keys.dodi), currency: 'USDT' };
+        return {
+          balance: await fetchSupplierBalance(keys.dodi),
+          currency: 'USDT',
+        };
       },
     },
     {
@@ -1275,7 +1551,9 @@ function supplierProviders(keys = {}) {
         const products = await fetchMkeProducts(keys.mke);
         return {
           currency: 'USD',
-          products: products.map((product) => normalizeMkeProduct(product, 'USD')).filter(Boolean),
+          products: products
+            .map((product) => normalizeMkeProduct(product, 'USD'))
+            .filter(Boolean),
         };
       },
       async balance() {
@@ -1287,11 +1565,12 @@ function supplierProviders(keys = {}) {
       name: 'Fat Bunny Hub',
       configured: !!(keys.fatbunny || process.env.FATBUNNY_API_KEY),
       async catalog() {
-        const products = await fetchPiggyAiProducts('FATBUNNY_API_KEY', keys.fatbunny);
+        const products = await fetchPiggyAiProducts(
+          'FATBUNNY_API_KEY',
+          keys.fatbunny,
+        );
         const normalized = products
-          .map((product) =>
-            normalizePiggyAiProduct(product, 'USD', 'fatbunny'),
-          )
+          .map((product) => normalizePiggyAiProduct(product, 'USD', 'fatbunny'))
           .filter(Boolean);
         console.error(
           'fat-bunny-catalog-count',
@@ -1309,7 +1588,10 @@ function supplierProviders(keys = {}) {
       name: 'PiggyAi',
       configured: !!(keys.piggyai || process.env.PIGGYAI_API_KEY),
       async catalog() {
-        const products = await fetchPiggyAiProducts('PIGGYAI_API_KEY', keys.piggyai);
+        const products = await fetchPiggyAiProducts(
+          'PIGGYAI_API_KEY',
+          keys.piggyai,
+        );
         return {
           currency: 'USD',
           products: products
@@ -1390,11 +1672,10 @@ async function ensureSupplierMediaSchema(db) {
           "UPDATE commerce_supplier_products SET first_seen_at=now()-interval '1 year'",
         );
       }
-    })()
-      .catch((error) => {
-        supplierMediaSchemaReady = null;
-        throw error;
-      });
+    })().catch((error) => {
+      supplierMediaSchemaReady = null;
+      throw error;
+    });
   }
   await supplierMediaSchemaReady;
 }
@@ -1430,8 +1711,12 @@ async function ensureToolRequestSchema(db) {
           CHECK(status IN ('new','contacted','fulfilled','closed')),
         created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now()
       )`);
-      await db.query('CREATE INDEX IF NOT EXISTS commerce_tool_requests_created ON commerce_tool_requests(created_at DESC)');
-      await db.query('CREATE INDEX IF NOT EXISTS commerce_tool_requests_queue ON commerce_tool_requests(status,priority,created_at DESC)');
+      await db.query(
+        'CREATE INDEX IF NOT EXISTS commerce_tool_requests_created ON commerce_tool_requests(created_at DESC)',
+      );
+      await db.query(
+        'CREATE INDEX IF NOT EXISTS commerce_tool_requests_queue ON commerce_tool_requests(status,priority,created_at DESC)',
+      );
     })().catch((error) => {
       toolRequestSchemaReady = null;
       throw error;
@@ -1496,14 +1781,20 @@ function scopedClaims(token, secret, scope) {
       .update(`${scope}:${payload}`)
       .digest('base64url');
     const data = JSON.parse(Buffer.from(payload, 'base64url').toString());
-    if (!same(mac, expected) || Number(data.expiresAt) <= Date.now()) return null;
+    if (!same(mac, expected) || Number(data.expiresAt) <= Date.now())
+      return null;
     return data;
   } catch {
     return null;
   }
 }
 function teamToken(secret, email) {
-  return scopedToken(secret, 'team', { role: 'team', email }, 8 * 60 * 60 * 1000);
+  return scopedToken(
+    secret,
+    'team',
+    { role: 'team', email },
+    8 * 60 * 60 * 1000,
+  );
 }
 function profitViewToken(secret) {
   return scopedToken(secret, 'profit', { role: 'profit' }, 30 * 60 * 1000);
@@ -1663,7 +1954,10 @@ async function reserveSharedAccount(db) {
     )
   ).rows[0];
   if (!shared)
-    throw fail(409, 'Shared ChatGPT accounts are currently sold out. Please contact us on WhatsApp.');
+    throw fail(
+      409,
+      'Shared ChatGPT accounts are currently sold out. Please contact us on WhatsApp.',
+    );
   const slot = Number(shared.slots_filled) + 1;
   await db.query(
     `UPDATE commerce_shared_accounts SET slots_filled=$1,
@@ -1693,7 +1987,10 @@ async function issueSharedTwoFactorCode(db, req, orderId, key) {
   // Bind issuance to the original checkout browser cookie. The customer never
   // receives the cookie value, and a copied order recovery key alone is not enough.
   if (!session || !same(hash(session), order.session_hash))
-    throw fail(403, 'Open this order on the original checkout device to request the code.');
+    throw fail(
+      403,
+      'Open this order on the original checkout device to request the code.',
+    );
   const existing = (
     await db.query(
       'SELECT id,expires_at FROM commerce_two_factor_challenges WHERE order_id=$1',
@@ -1701,13 +1998,19 @@ async function issueSharedTwoFactorCode(db, req, orderId, key) {
     )
   ).rows[0];
   if (existing)
-    throw fail(409, 'The one-time 2FA code has already been issued for this order.');
+    throw fail(
+      409,
+      'The one-time 2FA code has already been issued for this order.',
+    );
   const credentials = decrypt(order.credentials, key);
   let code;
   try {
     code = totpCode(credentials.twoFactor);
   } catch {
-    throw fail(409, 'This account does not have a valid TOTP authenticator secret. Contact support.');
+    throw fail(
+      409,
+      'This account does not have a valid TOTP authenticator secret. Contact support.',
+    );
   }
   const expiresAt = new Date(Date.now() + 30 * 1000);
   await db.query(
@@ -1737,7 +2040,12 @@ async function rate(db, key, max) {
   if (result.rows[0].hits > max)
     throw fail(429, 'Too many requests. Please wait a minute.');
 }
-async function syncSupplierCatalog(db, force = false, keys = {}, onlyProviderId = '') {
+async function syncSupplierCatalog(
+  db,
+  force = false,
+  keys = {},
+  onlyProviderId = '',
+) {
   await db.query(
     "UPDATE commerce_supplier_products SET id='fatbunny:'||external_product_id, provider_id='fatbunny' WHERE provider_id='piggyai' AND provider_name='Fat Bunny Hub'",
   );
@@ -1746,7 +2054,8 @@ async function syncSupplierCatalog(db, force = false, keys = {}, onlyProviderId 
   );
   const results = [];
   for (const provider of supplierProviders(keys).filter(
-    (item) => item.configured && (!onlyProviderId || item.id === onlyProviderId),
+    (item) =>
+      item.configured && (!onlyProviderId || item.id === onlyProviderId),
   )) {
     const lockKey = `supplier-catalog-sync:${provider.id}`;
     const lock = force
@@ -1792,13 +2101,17 @@ async function syncSupplierCatalog(db, force = false, keys = {}, onlyProviderId 
       );
     }
     const balance = balanceState
-      ? balanceState.balance ?? null
-      : previousState?.balance ?? null;
-    const currency = String(
-      balanceState?.currency || synced.currency || previousState?.currency || '',
-    )
-      .slice(0, 12)
-      .toUpperCase() || null;
+      ? (balanceState.balance ?? null)
+      : (previousState?.balance ?? null);
+    const currency =
+      String(
+        balanceState?.currency ||
+          synced.currency ||
+          previousState?.currency ||
+          '',
+      )
+        .slice(0, 12)
+        .toUpperCase() || null;
     let accepted = 0;
     for (const product of synced.products) {
       const wholesale = Number(product.wholesale_price),
@@ -1873,7 +2186,11 @@ async function syncSupplierCatalog(db, force = false, keys = {}, onlyProviderId 
       currency,
       balanceUpdated: !balanceError,
       ...(balanceError
-        ? { balanceError: String(balanceError.message || 'Balance refresh failed').slice(0, 200) }
+        ? {
+            balanceError: String(
+              balanceError.message || 'Balance refresh failed',
+            ).slice(0, 200),
+          }
         : {}),
     });
   }
@@ -1886,9 +2203,11 @@ async function triggerSupplierSeoRebuild(db) {
     const response = await fetch(hook, { method: 'POST' });
     const triggered = response.ok;
     await db.query(
-      "INSERT INTO commerce_audit(action,object_id) VALUES($1,$2)",
+      'INSERT INTO commerce_audit(action,object_id) VALUES($1,$2)',
       [
-        triggered ? 'supplier_seo_rebuild_triggered' : 'supplier_seo_rebuild_failed',
+        triggered
+          ? 'supplier_seo_rebuild_triggered'
+          : 'supplier_seo_rebuild_failed',
         String(response.status),
       ],
     );
@@ -1968,10 +2287,13 @@ async function expire(db, includeReview = true) {
 async function placeSupplierOrder(product, order, onExchange, keys = {}) {
   const requiresCustomerEmail = Boolean(
     product.requires_customer_email ||
-      supplierRequiresCustomerEmail(product, product.provider_id),
+    supplierRequiresCustomerEmail(product, product.provider_id),
   );
   if (requiresCustomerEmail && !order.customer_email)
-    throw fail(409, 'Customer email is required before this supplier order can be processed.');
+    throw fail(
+      409,
+      'Customer email is required before this supplier order can be processed.',
+    );
   if (product.provider_id === 'qamify') {
     if (!/^\d+$/.test(String(product.external_product_id || '')))
       throw fail(503, 'Qamify product ID is invalid.');
@@ -2103,7 +2425,7 @@ async function fulfill(
     throw fail(409, 'Order needs manual review; reservation has expired.');
   if (
     payment.order_id ||
-    !paymentAmountMatchesOrder(payment.amount, order.amount) ||
+    !paymentMatchesOrder(payment, order) ||
     !payment.transaction_id ||
     payment.transaction_id !== order.transaction_id
   )
@@ -2158,11 +2480,16 @@ async function fulfill(
       const candidateLogStart = supplierLogs.length;
       for (let attempt = 1; attempt <= SUPPLIER_MAX_FAILURES; attempt++) {
         try {
-          placed = await placeSupplierOrder(candidate, order, (exchange) => {
-            exchange.orderId = order.id;
-            supplierLogs.push(exchange);
-            onSupplierExchange?.(exchange);
-          }, supplierApiKeys);
+          placed = await placeSupplierOrder(
+            candidate,
+            order,
+            (exchange) => {
+              exchange.orderId = order.id;
+              supplierLogs.push(exchange);
+              onSupplierExchange?.(exchange);
+            },
+            supplierApiKeys,
+          );
           product = candidate;
           break;
         } catch (error) {
@@ -2213,7 +2540,11 @@ async function fulfill(
     await insertSupplierApiLogs(db, supplierLogs);
     await db.query(
       'UPDATE commerce_payments SET order_id=$1,verification_reason=$3 WHERE id=$2',
-      [order.id, payment.id, manual ? 'manually_approved' : 'verified_and_delivered'],
+      [
+        order.id,
+        payment.id,
+        manual ? 'manually_approved' : 'verified_and_delivered',
+      ],
     );
     await db.query(
       "UPDATE commerce_orders SET status='delivered',delivered_at=now(),supplier_product_id=$1,supplier_cost_pkr=$2,fulfillment_cost_pkr=$2,supplier_order_id=$3,supplier_status='delivered',supplier_delivery=$4 WHERE id=$5",
@@ -2256,10 +2587,17 @@ async function fulfill(
       )
     ).rows[0];
     if (!assigned || assigned.shared_status === 'withdrawn')
-      throw fail(409, 'The shared account is unavailable. Contact support for a replacement or refund.');
+      throw fail(
+        409,
+        'The shared account is unavailable. Contact support for a replacement or refund.',
+      );
     await db.query(
       'UPDATE commerce_payments SET order_id=$1,verification_reason=$3 WHERE id=$2',
-      [order.id, payment.id, manual ? 'manually_approved' : 'verified_and_delivered'],
+      [
+        order.id,
+        payment.id,
+        manual ? 'manually_approved' : 'verified_and_delivered',
+      ],
     );
     await db.query(
       `UPDATE commerce_orders SET status='delivered',delivered_at=now(),
@@ -2309,9 +2647,10 @@ async function fulfill(
   let inventoryId = order.inventory_id;
   if (inventoryId) {
     const assigned = (
-      await db.query('SELECT id,state FROM commerce_inventory WHERE id=$1 FOR UPDATE', [
-        inventoryId,
-      ])
+      await db.query(
+        'SELECT id,state FROM commerce_inventory WHERE id=$1 FOR UPDATE',
+        [inventoryId],
+      )
     ).rows[0];
     if (assigned?.state === 'available') {
       await db.query(
@@ -2358,7 +2697,11 @@ async function fulfill(
   if (!changed.rowCount) throw fail(409, 'Reserved stock is unavailable.');
   await db.query(
     'UPDATE commerce_payments SET order_id=$1,verification_reason=$3 WHERE id=$2',
-    [order.id, payment.id, manual ? 'manually_approved' : 'verified_and_delivered'],
+    [
+      order.id,
+      payment.id,
+      manual ? 'manually_approved' : 'verified_and_delivered',
+    ],
   );
   await db.query(
     "UPDATE commerce_orders SET status='delivered',delivered_at=now(),fulfillment_cost_pkr=(SELECT purchase_cost FROM commerce_inventory WHERE id=$1) WHERE id=$2",
@@ -2390,7 +2733,12 @@ async function hasVerifiedPaymentForOrder(db, order) {
              AND (receiver_id=$4 OR receiver_id IS NULL)
              AND received_at>=($2::timestamptz) AND received_at<=($3::timestamptz)
            LIMIT 1`,
-          [order.amount, order.created_at, order.expires_at, order.receiver_id || 'primary'],
+          [
+            order.amount,
+            order.created_at,
+            order.expires_at,
+            order.receiver_id || 'primary',
+          ],
         )
       ).rows;
   return rows.length > 0;
@@ -2427,7 +2775,10 @@ async function manualDeliverLocalOrder(db, orderId, inventoryId, key) {
   ).rows[0];
   if (!order) throw fail(404, 'Order not found.');
   if (!['pending', 'review'].includes(order.status))
-    throw fail(409, 'Only pending or review orders can receive manual delivery.');
+    throw fail(
+      409,
+      'Only pending or review orders can receive manual delivery.',
+    );
   if (order.supplier_product_id)
     throw fail(
       409,
@@ -2444,15 +2795,25 @@ async function manualDeliverLocalOrder(db, orderId, inventoryId, key) {
       )
     ).rows[0];
     if (!assigned || assigned.shared_status === 'withdrawn')
-      throw fail(409, 'The shared account is unavailable. Contact support for a replacement.');
+      throw fail(
+        409,
+        'The shared account is unavailable. Contact support for a replacement.',
+      );
     await db.query(
       `UPDATE commerce_orders SET status='delivered',delivered_at=now(),
         fulfillment_cost_pkr=$1,supplier_status='shared_account_delivered'
        WHERE id=$2`,
       [sharedSlotCost(assigned.purchase_cost, order.shared_slot), order.id],
     );
-    await db.query("INSERT INTO commerce_audit(action,object_id) VALUES('manual_admin_shared_delivery',$1)", [order.id]);
-    return { orderId: order.id, inventoryId: order.inventory_id, credentials: decrypt(assigned.credentials, key) };
+    await db.query(
+      "INSERT INTO commerce_audit(action,object_id) VALUES('manual_admin_shared_delivery',$1)",
+      [order.id],
+    );
+    return {
+      orderId: order.id,
+      inventoryId: order.inventory_id,
+      credentials: decrypt(assigned.credentials, key),
+    };
   }
   const allowedProducts = localInventoryProductIds(order.product_id);
   let item = order.inventory_id
@@ -2504,7 +2865,8 @@ async function manualDeliverLocalOrder(db, orderId, inventoryId, key) {
     "UPDATE commerce_inventory SET state='delivered' WHERE id=$1 AND state='reserved' RETURNING id",
     [item.id],
   );
-  if (!changed.rowCount) throw fail(409, 'Selected credential is no longer available.');
+  if (!changed.rowCount)
+    throw fail(409, 'Selected credential is no longer available.');
   await db.query(
     "UPDATE commerce_orders SET inventory_id=$1,status='delivered',delivered_at=now(),fulfillment_cost_pkr=$2 WHERE id=$3",
     [item.id, item.purchase_cost, order.id],
@@ -2513,7 +2875,11 @@ async function manualDeliverLocalOrder(db, orderId, inventoryId, key) {
     "INSERT INTO commerce_audit(action,object_id) VALUES('manual_admin_delivery',$1)",
     [order.id],
   );
-  return { orderId: order.id, inventoryId: item.id, credentials: decrypt(item.credentials, key) };
+  return {
+    orderId: order.id,
+    inventoryId: item.id,
+    credentials: decrypt(item.credentials, key),
+  };
 }
 async function attachPaymentForManualApproval(db, orderId, paymentId) {
   const order = (
@@ -2529,7 +2895,7 @@ async function attachPaymentForManualApproval(db, orderId, paymentId) {
   if (!order || !payment) throw fail(404, 'Order or payment not found.');
   if (payment.order_id && payment.order_id !== order.id)
     throw fail(409, 'This payment is already attached to another order.');
-  if (!paymentAmountMatchesOrder(payment.amount, order.amount))
+  if (!paymentMatchesOrder(payment, order))
     throw fail(409, 'The selected payment amount does not match this order.');
   if (!payment.transaction_id)
     throw fail(
@@ -2537,12 +2903,410 @@ async function attachPaymentForManualApproval(db, orderId, paymentId) {
       'This receipt has no parsed payment reference. Review the receipt or use manual credential delivery after independent verification.',
     );
   if (order.transaction_id && order.transaction_id !== payment.transaction_id)
-    throw fail(409, 'The selected receipt does not match the order payment evidence.');
+    throw fail(
+      409,
+      'The selected receipt does not match the order payment evidence.',
+    );
   await db.query(
     `UPDATE commerce_orders SET transaction_id=$1,payment_submitted_at=COALESCE(payment_submitted_at,now()),
       status=CASE WHEN status='expired' THEN 'expired' ELSE 'review' END WHERE id=$2`,
     [payment.transaction_id, order.id],
   );
+}
+async function listPublicTelegramProducts(db) {
+  const localRows = (
+    await db.query(
+      `SELECT product_id,COUNT(*)::int AS available
+       FROM commerce_inventory
+       WHERE state='available'
+       GROUP BY product_id`,
+    )
+  ).rows;
+  const localAvailability = new Map(
+    localRows.map((row) => [row.product_id, Number(row.available || 0)]),
+  );
+  const local = catalog.map((product) => ({
+    ...customerProduct(product),
+    available: localAvailability.get(product.id) || 0,
+    source: 'local',
+  }));
+  const supplierRows = (
+    await db.query(
+      `SELECT id,canonical_key,name,description,delivery_instruction,selling_price AS price,
+              supplier_stock AS available,cost_pkr,wholesale_price,provider_name,
+              requires_customer_email
+       FROM commerce_supplier_products
+       WHERE enabled=true AND selling_price IS NOT NULL
+       ORDER BY name LIMIT 5000`,
+    )
+  ).rows;
+  // Keep Telegram's public catalogue aligned with the website stock view:
+  // supplier-side ChatGPT Plus records are alternate fulfilment offers for
+  // the local ChatGPT listings, not additional customer-facing products.
+  // Other ChatGPT products (for example Business or K12) remain visible.
+  const supplier = selectLowestSupplierOffers(supplierRows).filter(
+    (product) => !isChatGptPlusProduct(product.name),
+  );
+  const visibleLocal = local.filter(
+    (product) =>
+      !supplier.some((supplierProduct) =>
+        supplierEquivalentProductName(product.name, supplierProduct.name),
+      ),
+  );
+  return [
+    ...visibleLocal,
+    ...supplier.map((product) => ({
+      ...customerProduct(product),
+      source: 'supplier',
+    })),
+  ];
+}
+async function createTelegramCommerceOrder(db, options, paymentReceiver) {
+  const productId = String(options.productId || '').trim();
+  let product = catalog.find((item) => item.id === productId);
+  let supplierProduct;
+  if (!product) {
+    const requested = (
+      await db.query(
+        'SELECT canonical_key FROM commerce_supplier_products WHERE (id=$1 OR canonical_key=$1) AND enabled=true AND selling_price IS NOT NULL',
+        [productId],
+      )
+    ).rows[0];
+    if (requested)
+      supplierProduct = (
+        await db.query(
+          `SELECT * FROM commerce_supplier_products
+           WHERE canonical_key=$1 AND enabled=true AND selling_price IS NOT NULL
+             AND supplier_stock>0
+           ORDER BY cost_pkr ASC NULLS LAST,wholesale_price ASC,id
+           FOR UPDATE SKIP LOCKED LIMIT 1`,
+          [requested.canonical_key],
+        )
+      ).rows[0];
+    if (supplierProduct)
+      product = {
+        id: supplierProduct.id,
+        name: supplierProduct.name,
+        description: supplierProduct.description,
+        price: supplierProduct.selling_price,
+      };
+  }
+  const selectedPaymentMethod = paymentMethod(
+    options.paymentMethod || 'wallet',
+  );
+  const paymentReceiverForOrder = paymentReceiverForMethod(
+    selectedPaymentMethod,
+    paymentReceiver,
+  );
+  const sharedProduct = isSharedChatGptProduct(product?.id);
+  if (
+    !product ||
+    Number(product.price || 0) <= 0 ||
+    !paymentReceiverForOrder?.title
+  )
+    throw fail(409, 'This product is not available for Telegram purchase yet.');
+  if (
+    ['binance', 'crypto'].includes(selectedPaymentMethod) &&
+    (!binanceUsdtPkrRate() || !paymentReceiverForOrder)
+  )
+    throw fail(503, 'Binance payments are not configured yet.');
+  if (supplierProduct && isChatGptPlusProduct(supplierProduct.name))
+    throw fail(409, 'ChatGPT Plus is sold from local inventory only.');
+  const requiresCustomerEmail = Boolean(
+    supplierProduct &&
+    (supplierProduct.requires_customer_email ||
+      supplierRequiresCustomerEmail(
+        supplierProduct,
+        supplierProduct.provider_id,
+      )),
+  );
+  const customerEmail = requiresCustomerEmail
+    ? (() => {
+        try {
+          return normalizeCustomerEmail(options.customerEmail);
+        } catch (error) {
+          throw fail(400, error.message);
+        }
+      })()
+    : null;
+  if (requiresCustomerEmail && !customerEmail)
+    throw fail(400, 'Email is required for this supplier product.');
+  const sessionHash = hash(`telegram:${options.chatId}`);
+  const existing = await db.query(
+    "SELECT id FROM commerce_orders WHERE session_hash=$1 AND status IN ('pending','review')",
+    [sessionHash],
+  );
+  if (existing.rowCount >= 2)
+    throw fail(409, 'Complete or cancel your existing Telegram orders first.');
+  let item;
+  let sharedAccount;
+  if (supplierProduct) {
+    if (supplierProduct.supplier_stock < 1)
+      throw fail(409, 'Sold out. Please choose another product.');
+  } else if (sharedProduct) {
+    const shared = await reserveSharedAccount(db);
+    item = { id: shared.inventoryId };
+    sharedAccount = { id: shared.id, slot: shared.slot };
+  } else {
+    item = (
+      await db.query(
+        `SELECT i.id FROM commerce_inventory i
+         WHERE i.product_id=ANY($1::text[]) AND i.state='available'
+           AND NOT EXISTS (SELECT 1 FROM commerce_shared_accounts shared WHERE shared.inventory_id=i.id)
+           AND NOT EXISTS (SELECT 1 FROM commerce_orders active WHERE active.inventory_id=i.id AND active.status IN ('pending','review','delivered'))
+         ORDER BY i.created_at FOR UPDATE OF i SKIP LOCKED LIMIT 1`,
+        [localInventoryProductIds(product.id)],
+      )
+    ).rows[0];
+    if (!item) throw fail(409, 'Sold out. Please choose another product.');
+  }
+  const listedAmount = Number(product.price);
+  const paymentAmount = await allocatePaymentAmount(db, listedAmount);
+  const quote = paymentQuote(selectedPaymentMethod, paymentAmount);
+  const id = randomUUID();
+  const recovery = randomBytes(32).toString('hex');
+  if (item && !sharedAccount)
+    await db.query(
+      "UPDATE commerce_inventory SET state='reserved' WHERE id=$1",
+      [item.id],
+    );
+  await db.query(
+    `INSERT INTO commerce_orders(
+       id,product_id,amount,listed_amount,customer_email,recovery_hash,session_hash,
+       inventory_id,supplier_product_id,supplier_cost_pkr,payment_method,payment_currency,payment_amount,receiver_id,
+       shared_account_id,shared_slot,expires_at,ip_address,telegram_chat_id,telegram_user_id
+     ) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,now()+($17 * interval '1 minute'),$18,$19,$20)`,
+    [
+      id,
+      product.id,
+      paymentAmount,
+      listedAmount,
+      customerEmail,
+      hash(recovery),
+      sessionHash,
+      item?.id || null,
+      supplierProduct?.id || null,
+      supplierProduct?.cost_pkr || 0,
+      selectedPaymentMethod,
+      quote.currency,
+      quote.amount,
+      paymentReceiverForOrder?.id || null,
+      sharedAccount?.id || null,
+      sharedAccount?.slot || null,
+      PAYMENT_WINDOWS_MINUTES[selectedPaymentMethod],
+      `telegram:${String(options.chatId).slice(0, 128)}`,
+      String(options.chatId).slice(0, 128),
+      String(options.userId || '').slice(0, 128) || null,
+    ],
+  );
+  return {
+    id,
+    productName: customerProductName(product),
+    amount: paymentAmount,
+    listedAmount,
+    paymentMethod: selectedPaymentMethod,
+    paymentCurrency: quote.currency,
+    paymentAmount: quote.amount,
+    paymentReceiver:
+      ['binance', 'crypto'].includes(selectedPaymentMethod)
+        ? paymentReceiverForOrder
+        : undefined,
+    expiresAt: new Date(
+      Date.now() + PAYMENT_WINDOWS_MINUTES[selectedPaymentMethod] * 60000,
+    ).toISOString(),
+  };
+}
+function telegramStatusLabel(status) {
+  return (
+    {
+      pending: 'Waiting for payment',
+      review: 'Payment received — reviewing',
+      delivered: 'Delivered',
+      expired: 'Expired',
+      cancelled: 'Cancelled',
+    }[status] || String(status || 'Unknown')
+  );
+}
+async function getTelegramOrder(db, orderId, chatId) {
+  const row = (
+    await db.query(
+      `SELECT o.id,o.product_id,o.amount,o.status,o.transaction_id,o.payment_submitted_at,o.created_at,o.expires_at,
+              COALESCE(sp.name,'') AS supplier_product_name
+       FROM commerce_orders o
+       LEFT JOIN commerce_supplier_products sp ON sp.id=o.supplier_product_id
+       WHERE o.id=$1 AND o.telegram_chat_id=$2`,
+      [orderId, String(chatId)],
+    )
+  ).rows[0];
+  if (!row) return null;
+  const productName =
+    row.supplier_product_name ||
+    catalog.find((product) => product.id === row.product_id)?.name ||
+    row.product_id;
+  const statusDetail =
+    row.status === 'delivered'
+      ? 'Credentials have been sent in this Telegram chat.'
+      : row.status === 'review'
+        ? 'Your authenticated receipt is being checked. Delivery will be sent here after approval.'
+        : row.status === 'pending'
+          ? row.payment_submitted_at
+            ? 'Payment was submitted. Waiting for the authenticated receipt to be matched.'
+            : 'No payment has been submitted yet. Choose a payment method, send the exact amount, then tap “I have paid”.'
+          : row.status === 'expired'
+            ? 'This order window has expired. Please create a new order.'
+            : 'Contact support if you need help.';
+  return {
+    ...row,
+    productName,
+    statusLabel: telegramStatusLabel(row.status),
+    statusDetail,
+  };
+}
+async function claimTelegramOrder(db, orderId, chatId) {
+  const order = await getTelegramOrder(db, orderId, chatId);
+  if (!order)
+    throw fail(
+      404,
+      'Order not found or it is not linked to this Telegram account.',
+    );
+  if (!['pending', 'review', 'expired'].includes(order.status))
+    throw fail(409, 'This order is already closed.');
+  await db.query(
+    "UPDATE commerce_orders SET payment_submitted_at=COALESCE(payment_submitted_at,now()),status=CASE WHEN status='expired' THEN 'expired' ELSE 'pending' END WHERE id=$1",
+    [orderId],
+  );
+  return order;
+}
+async function setTelegramPaymentMethod(db, orderId, chatId, method) {
+  const normalized = paymentMethod(method);
+  const order = await getTelegramOrder(db, orderId, chatId);
+  if (!order)
+    throw fail(
+      404,
+      'Order not found or it is not linked to this Telegram account.',
+    );
+  if (!['pending', 'review'].includes(order.status) || order.transaction_id)
+    throw fail(409, 'This order payment method can no longer be changed.');
+  const quote = paymentQuote(normalized, order.amount);
+  if (normalized === 'crypto' && quote.amount < MIN_BINANCE_USDT)
+    throw fail(
+      409,
+      `Crypto USDT payments require at least USDT ${MIN_BINANCE_USDT.toFixed(2)} for this order. Choose Binance Pay, wallet, or bank transfer.`,
+    );
+  await db.query(
+    "UPDATE commerce_orders SET payment_method=$1,payment_currency=$2,payment_amount=$3,receiver_id=$4,expires_at=GREATEST(expires_at,now()+($5 * interval '1 minute')) WHERE id=$6",
+    [
+      normalized,
+      quote.currency,
+      quote.amount,
+      ['binance', 'crypto'].includes(normalized) ? null : order.receiver_id,
+      PAYMENT_WINDOWS_MINUTES[normalized],
+      orderId,
+    ],
+  );
+  return {
+    ...order,
+    paymentMethod: normalized,
+    payment_currency: quote.currency,
+    payment_amount: quote.amount,
+    paymentCurrency: quote.currency,
+    paymentAmount: quote.amount,
+    paymentReceiver: ['binance', 'crypto'].includes(normalized)
+      ? paymentReceiverForMethod(normalized)
+      : undefined,
+  };
+}
+async function listTelegramOrders(db, chatId) {
+  const rows = (
+    await db.query(
+      `SELECT o.id,o.product_id,o.amount,o.status,COALESCE(sp.name,'') AS supplier_product_name
+       FROM commerce_orders o LEFT JOIN commerce_supplier_products sp ON sp.id=o.supplier_product_id
+       WHERE o.telegram_chat_id=$1 ORDER BY o.created_at DESC LIMIT 10`,
+      [String(chatId)],
+    )
+  ).rows;
+  return rows.map((row) => ({
+    ...row,
+    productName:
+      row.supplier_product_name ||
+      catalog.find((product) => product.id === row.product_id)?.name ||
+      row.product_id,
+    statusLabel: telegramStatusLabel(row.status),
+  }));
+}
+async function queueTelegramDelivery(db, orderId, key, queue) {
+  const row = (
+    await db.query(
+      `SELECT o.*,COALESCE(sp.name,o.product_id) AS product_name,sp.delivery_instruction,i.credentials
+       FROM commerce_orders o
+       LEFT JOIN commerce_supplier_products sp ON sp.id=o.supplier_product_id
+       LEFT JOIN commerce_inventory i ON i.id=o.inventory_id
+       WHERE o.id=$1 AND o.status='delivered'`,
+      [orderId],
+    )
+  ).rows[0];
+  if (!row?.telegram_chat_id) return;
+  let credentials = row.credentials ? decrypt(row.credentials, key) : null;
+  if (row.shared_account_id && credentials) {
+    credentials = Object.fromEntries(
+      Object.entries(credentials).filter(([field]) => field !== 'twoFactor'),
+    );
+  }
+  const delivery = row.supplier_delivery
+    ? decrypt(row.supplier_delivery, key)
+    : null;
+  const localInstructions = row.supplier_product_id
+    ? ''
+    : row.shared_account_id
+      ? 'Login with the Email and Password above. Shared-account 2FA is handled through the account support flow. Do not change the password or 2FA settings.'
+      : 'Login with the Email and Password above. If an authenticator code is requested, use the 2FA Key above in your authenticator app. Transfer the account to your personal email after login and do not change the supplied password or 2FA settings.';
+  queue.push({
+    chatId: row.telegram_chat_id,
+    text: formatTelegramDelivery({
+      productName: row.product_name,
+      credentials,
+      delivery,
+      instructions: row.delivery_instruction || localInstructions,
+    }),
+  });
+}
+async function getTelegramSession(db, chatId) {
+  return (
+    (
+      await db.query(
+        'SELECT state FROM commerce_telegram_sessions WHERE chat_id=$1',
+        [String(chatId)],
+      )
+    ).rows[0]?.state || null
+  );
+}
+async function setTelegramSession(db, chatId, state) {
+  await db.query(
+    `INSERT INTO commerce_telegram_sessions(chat_id,state,updated_at)
+     VALUES($1,$2::jsonb,now())
+     ON CONFLICT(chat_id) DO UPDATE SET state=EXCLUDED.state,updated_at=now()`,
+    [String(chatId), JSON.stringify(state || {})],
+  );
+}
+async function clearTelegramSession(db, chatId) {
+  const existing = await getTelegramSession(db, chatId);
+  if (existing?.language) {
+    await db.query(
+      `UPDATE commerce_telegram_sessions SET state=$2::jsonb,updated_at=now() WHERE chat_id=$1`,
+      [String(chatId), JSON.stringify({ language: existing.language })],
+    );
+    return;
+  }
+  await db.query('DELETE FROM commerce_telegram_sessions WHERE chat_id=$1', [
+    String(chatId),
+  ]);
+}
+async function setTelegramLanguage(db, chatId, language) {
+  const existing = (await getTelegramSession(db, chatId)) || {};
+  await setTelegramSession(db, chatId, {
+    ...existing,
+    language: String(language || 'en').trim().toLowerCase(),
+  });
 }
 export function createHandler(
   poolFactory = () =>
@@ -2631,7 +3395,7 @@ export function createHandler(
               ? 4
               : action === 'tool-request'
                 ? 4
-              : 20,
+                : 20,
       );
       if (
         action?.startsWith('admin-') &&
@@ -2646,9 +3410,15 @@ export function createHandler(
       )
         throw fail(401, 'Your team session is invalid or has expired.');
       if (action === 'inbound-email') {
-        if (!inboundEmailAuthConfigured())
+        const requestedInboundProvider =
+          ['binance', 'nayapay', 'auto'].includes(
+            String(req.query?.provider || body.provider || '').toLowerCase(),
+          )
+            ? String(req.query?.provider || body.provider || '').toLowerCase()
+            : 'nayapay';
+        if (!inboundEmailAuthConfigured(requestedInboundProvider))
           throw fail(503, 'Inbound email receiver is not configured.');
-        if (!inboundEmailAuthorized(req))
+        if (!inboundEmailAuthorized(req, requestedInboundProvider))
           throw fail(401, 'Invalid inbound email authentication.');
       }
       if (action === 'telegram-webhook' && !telegramWebhookAuthorized(req))
@@ -2697,6 +3467,7 @@ export function createHandler(
       const telegramMessages = [];
       const telegramCallbacks = [];
       const telegramEdits = [];
+      const publicTelegramMessages = [];
       if (action === 'admin-login') {
         const email = String(body.email || '')
           .trim()
@@ -2759,12 +3530,21 @@ export function createHandler(
                   ).rows[0]
                 : null;
               if (!payment)
-                throw fail(409, 'The customer has not submitted payment evidence yet.');
-              if (!payment.verified || !TELEGRAM_APPROVAL_REASONS.has(payment.verification_reason))
-                throw fail(409, 'Telegram approval is available only for an authenticated automatic-delivery fallback.');
+                throw fail(
+                  409,
+                  'The customer has not submitted payment evidence yet.',
+                );
+              if (
+                !payment.verified ||
+                !TELEGRAM_APPROVAL_REASONS.has(payment.verification_reason)
+              )
+                throw fail(
+                  409,
+                  'Telegram approval is available only for an authenticated automatic-delivery fallback.',
+                );
               await recordManualApprovalContext(db, payment.id, 'telegram');
               await attachPaymentForManualApproval(db, order.id, payment.id);
-              await fulfill(
+              const fulfillment = await fulfill(
                 db,
                 order.id,
                 payment.id,
@@ -2772,7 +3552,16 @@ export function createHandler(
                 captureSupplierExchange,
                 supplierApiKeys,
               );
-              output = { ok: true, status: 'delivered' };
+              if (!fulfillment?.cancelled)
+                await queueTelegramDelivery(
+                  db,
+                  order.id,
+                  key,
+                  publicTelegramMessages,
+                );
+              output = fulfillment?.cancelled
+                ? { ok: true, status: 'cancelled', reason: fulfillment.reason }
+                : { ok: true, status: 'delivered' };
             }
             telegramCallbacks.push({
               id: callback.callback.id,
@@ -2810,7 +3599,10 @@ export function createHandler(
                 [order.transaction_id],
               );
             output = { ok: true, status: 'cancelled' };
-            telegramCallbacks.push({ id: callback.callback.id, text: 'Rejected. No credentials were delivered.' });
+            telegramCallbacks.push({
+              id: callback.callback.id,
+              text: 'Rejected. No credentials were delivered.',
+            });
             telegramEdits.push({
               chatId: callback.callback.message.chat.id,
               messageId: callback.callback.message.message_id,
@@ -2819,7 +3611,41 @@ export function createHandler(
           }
         }
       } else if (action === 'public-telegram-webhook') {
-        output = await handleSasifyBotUpdate(body, catalog.map(customerProduct));
+        output = await handleSasifyBotUpdate(body, {
+          token: process.env.SASIFY_BOT_TOKEN,
+          receiver: paymentReceiver
+            ? { ...paymentReceiver, number: paymentReceiver.account_number }
+            : null,
+          listProducts: () => listPublicTelegramProducts(db),
+          getSession: (chatId) => getTelegramSession(db, chatId),
+          setSession: (chatId, state) => setTelegramSession(db, chatId, state),
+          setLanguage: (chatId, language) =>
+            setTelegramLanguage(db, chatId, language),
+          clearSession: (chatId) => clearTelegramSession(db, chatId),
+          createOrder: async (options) => {
+            const order = await createTelegramCommerceOrder(
+              db,
+              options,
+              paymentReceiver,
+            );
+            telegramMessages.push({
+              text: telegramOrderMessage({
+                orderId: order.id,
+                productName: order.productName,
+                amount: order.amount,
+                paymentMethod: order.paymentMethod,
+              }),
+            });
+            return order;
+          },
+          getOrder: ({ orderId, chatId }) =>
+            getTelegramOrder(db, orderId, chatId),
+          setPaymentMethod: ({ orderId, chatId, method }) =>
+            setTelegramPaymentMethod(db, orderId, chatId, method),
+          claimOrder: ({ orderId, chatId }) =>
+            claimTelegramOrder(db, orderId, chatId),
+          listOrders: (chatId) => listTelegramOrders(db, chatId),
+        });
       } else if (action === 'admin-team-credentials') {
         const teamEmail = String(body.email || '')
           .trim()
@@ -2843,7 +3669,10 @@ export function createHandler(
       } else if (action === 'admin-profit-unlock') {
         if (!same(hash(String(body.password || '')), PROFIT_PASSWORD_HASH))
           throw fail(401, 'Incorrect profit password.');
-        output = { ok: true, token: profitViewToken(process.env.COMMERCE_ADMIN_KEY) };
+        output = {
+          ok: true,
+          token: profitViewToken(process.env.COMMERCE_ADMIN_KEY),
+        };
         await db.query(
           "INSERT INTO commerce_audit(action,object_id) VALUES('profit_unlock',$1)",
           ['admin'],
@@ -2930,18 +3759,21 @@ export function createHandler(
             ...rows.map((row) => ({
               productId: row.product_id,
               productName:
-                catalog.find((product) => product.id === row.product_id)?.name ||
-                row.product_id,
+                catalog.find((product) => product.id === row.product_id)
+                  ?.name || row.product_id,
               available: Number(row.available),
             })),
             ...(Number(sharedRows?.available || 0) > 0
-              ? [{
-                  productId: SHARED_CHATGPT_PRODUCT_ID,
-                  productName:
-                    catalog.find((product) => product.id === SHARED_CHATGPT_PRODUCT_ID)?.name ||
-                    SHARED_CHATGPT_PRODUCT_ID,
-                  available: Number(sharedRows.available),
-                }]
+              ? [
+                  {
+                    productId: SHARED_CHATGPT_PRODUCT_ID,
+                    productName:
+                      catalog.find(
+                        (product) => product.id === SHARED_CHATGPT_PRODUCT_ID,
+                      )?.name || SHARED_CHATGPT_PRODUCT_ID,
+                    available: Number(sharedRows.available),
+                  },
+                ]
               : []),
           ],
         };
@@ -2979,7 +3811,14 @@ export function createHandler(
           await db.query(
             `INSERT INTO commerce_team_withdrawals(id,inventory_id,team_email,commission_code,commission_amount,shared_slot)
              VALUES($1,$2,$3,$4,$5,$6)`,
-            [randomUUID(), sharedItem.id, teamClaims.email, TEAM_COUPON_CODE, TEAM_COMMISSION_PKR, sharedSlot],
+            [
+              randomUUID(),
+              sharedItem.id,
+              teamClaims.email,
+              TEAM_COUPON_CODE,
+              TEAM_COMMISSION_PKR,
+              sharedSlot,
+            ],
           );
           await db.query(
             "INSERT INTO commerce_audit(action,object_id) VALUES('team_shared_slot_pick',$1)",
@@ -2989,10 +3828,14 @@ export function createHandler(
             ok: true,
             productId: SHARED_CHATGPT_PRODUCT_ID,
             productName:
-              catalog.find((product) => product.id === SHARED_CHATGPT_PRODUCT_ID)?.name ||
-              SHARED_CHATGPT_PRODUCT_ID,
+              catalog.find(
+                (product) => product.id === SHARED_CHATGPT_PRODUCT_ID,
+              )?.name || SHARED_CHATGPT_PRODUCT_ID,
             credentials,
-            commission: { code: TEAM_COUPON_CODE, amountPkr: TEAM_COMMISSION_PKR },
+            commission: {
+              code: TEAM_COUPON_CODE,
+              amountPkr: TEAM_COMMISSION_PKR,
+            },
           };
         } else {
           const item = (
@@ -3015,7 +3858,13 @@ export function createHandler(
           await db.query(
             `INSERT INTO commerce_team_withdrawals(id,inventory_id,team_email,commission_code,commission_amount)
              VALUES($1,$2,$3,$4,$5)`,
-            [randomUUID(), item.id, teamClaims.email, TEAM_COUPON_CODE, TEAM_COMMISSION_PKR],
+            [
+              randomUUID(),
+              item.id,
+              teamClaims.email,
+              TEAM_COUPON_CODE,
+              TEAM_COMMISSION_PKR,
+            ],
           );
           await db.query(
             "INSERT INTO commerce_audit(action,object_id) VALUES('team_inventory_pick',$1)",
@@ -3028,7 +3877,10 @@ export function createHandler(
               catalog.find((product) => product.id === item.product_id)?.name ||
               item.product_id,
             credentials,
-            commission: { code: TEAM_COUPON_CODE, amountPkr: TEAM_COMMISSION_PKR },
+            commission: {
+              code: TEAM_COUPON_CODE,
+              amountPkr: TEAM_COMMISSION_PKR,
+            },
           };
         }
       } else if (action === 'stock') {
@@ -3086,24 +3938,28 @@ export function createHandler(
           products: [
             ...localCatalog.map((p) => ({
               ...customerProduct(p),
-                source: 'local',
-                ...(p.publishedAt ? { publishedAt: p.publishedAt } : {}),
-                available:
+              source: 'local',
+              ...(p.publishedAt ? { publishedAt: p.publishedAt } : {}),
+              available:
                 p.id === SHARED_CHATGPT_PRODUCT_ID
                   ? Number(sharedAvailability.available || 0)
                   : p.id === 'p093'
-                   ? counts
-                      .filter((r) =>
-                        ['p093', 'p093-ultra'].includes(r.product_id),
-                      )
-                      .reduce((total, row) => total + row.available, 0)
-                   : counts.find((r) => r.product_id === p.id)?.available || 0,
-               ...(p.id === SHARED_CHATGPT_PRODUCT_ID
-                 ? {
-                     shared_slots_filled: Number(sharedAvailability.slots_filled || 0),
-                     shared_slots_total: Number(sharedAvailability.slots_total || 0),
-                   }
-                 : {}),
+                    ? counts
+                        .filter((r) =>
+                          ['p093', 'p093-ultra'].includes(r.product_id),
+                        )
+                        .reduce((total, row) => total + row.available, 0)
+                    : counts.find((r) => r.product_id === p.id)?.available || 0,
+              ...(p.id === SHARED_CHATGPT_PRODUCT_ID
+                ? {
+                    shared_slots_filled: Number(
+                      sharedAvailability.slots_filled || 0,
+                    ),
+                    shared_slots_total: Number(
+                      sharedAvailability.slots_total || 0,
+                    ),
+                  }
+                : {}),
             })),
             ...supplierProducts.map((p) => ({
               ...customerProduct(p),
@@ -3145,7 +4001,11 @@ export function createHandler(
         try {
           output = await syncGoogleReviews(db);
         } catch (error) {
-          if (String(error?.message || '').startsWith('Google reviews configuration is missing'))
+          if (
+            String(error?.message || '').startsWith(
+              'Google reviews configuration is missing',
+            )
+          )
             throw fail(503, error.message);
           throw error;
         }
@@ -3226,7 +4086,8 @@ export function createHandler(
         };
       } else if (action === 'create') {
         const selectedPaymentMethod = paymentMethod(body.paymentMethod);
-        const paymentWindowMinutes = PAYMENT_WINDOWS_MINUTES[selectedPaymentMethod];
+        const paymentWindowMinutes =
+          PAYMENT_WINDOWS_MINUTES[selectedPaymentMethod];
         let product = catalog.find((p) => p.id === body.productId);
         let supplierProduct;
         if (!product) {
@@ -3244,7 +4105,7 @@ export function createHandler(
                 [requested.canonical_key],
               )
             ).rows[0];
-        if (supplierProduct)
+          if (supplierProduct)
             product = {
               id: supplierProduct.id,
               name: supplierProduct.name,
@@ -3254,13 +4115,26 @@ export function createHandler(
         const sharedProduct = isSharedChatGptProduct(product?.id);
         const requestedCouponCode = normalizeCouponCode(body.couponCode);
         const isRequestedTeamCoupon = requestedCouponCode === TEAM_COUPON_CODE;
-        if (isRequestedTeamCoupon && !TEAM_COUPON_ENABLED && !isSharedChatGptProduct(product?.id))
+        if (
+          isRequestedTeamCoupon &&
+          !TEAM_COUPON_ENABLED &&
+          !isSharedChatGptProduct(product?.id)
+        )
           throw fail(409, 'The HOR coupon is currently disabled.');
-        if (!product || (!paymentReceiver?.title && !isRequestedTeamCoupon))
+        if (
+          !product ||
+          ((!paymentReceiver?.title && !['binance', 'crypto'].includes(selectedPaymentMethod)) &&
+            !isRequestedTeamCoupon)
+        )
           throw fail(
             409,
             'Online purchasing is not available for this product yet.',
           );
+        if (
+          ['binance', 'crypto'].includes(selectedPaymentMethod) &&
+          (!paymentReceiverForMethod(selectedPaymentMethod) || !binanceUsdtPkrRate())
+        )
+          throw fail(503, 'Binance payments are not configured yet.');
         if (supplierProduct && isChatGptPlusProduct(supplierProduct.name))
           throw fail(409, 'ChatGPT Plus is sold from local inventory only.');
         const requiresCustomerEmail = Boolean(
@@ -3299,8 +4173,12 @@ export function createHandler(
         const couponCode = requestedCouponCode;
         const isTeamCoupon = couponCode === TEAM_COUPON_CODE;
         if (couponCode) {
-            const sharedHorCoupon = sharedProduct && isTeamCoupon;
-            if (supplierProduct || (!sharedHorCoupon && (!['p093', 'p093-ultra'].includes(product.id) || sharedProduct)))
+          const sharedHorCoupon = sharedProduct && isTeamCoupon;
+          if (
+            supplierProduct ||
+            (!sharedHorCoupon &&
+              (!['p093', 'p093-ultra'].includes(product.id) || sharedProduct))
+          )
             throw fail(
               409,
               'Reseller coupons are available for ChatGPT Plus only.',
@@ -3350,6 +4228,7 @@ export function createHandler(
         const paymentAmount = isTeamCoupon
           ? listedAmount
           : await allocatePaymentAmount(db, listedAmount);
+        const quote = paymentQuote(selectedPaymentMethod, paymentAmount);
         const commissionCode = coupon?.code_display || null;
         const commissionRate = isTeamCoupon
           ? 0
@@ -3370,8 +4249,8 @@ export function createHandler(
             [coupon.id],
           );
         await db.query(
-          `INSERT INTO commerce_orders(id,product_id,amount,listed_amount,customer_email,recovery_hash,session_hash,inventory_id,supplier_product_id,supplier_cost_pkr,coupon_id,coupon_discount,commission_code,commission_rate,commission_amount,payment_method,receiver_id,shared_account_id,shared_slot,expires_at,ip_address)
-        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,now()+($20 * interval '1 minute'),$21)`,
+          `INSERT INTO commerce_orders(id,product_id,amount,listed_amount,customer_email,recovery_hash,session_hash,inventory_id,supplier_product_id,supplier_cost_pkr,coupon_id,coupon_discount,commission_code,commission_rate,commission_amount,payment_method,payment_currency,payment_amount,receiver_id,shared_account_id,shared_slot,expires_at,ip_address)
+        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,now()+($22 * interval '1 minute'),$23)`,
           [
             id,
             product.id,
@@ -3389,15 +4268,18 @@ export function createHandler(
             commissionRate,
             commissionAmount,
             selectedPaymentMethod,
-            paymentReceiver.id,
+            quote.currency,
+            quote.amount,
+            ['binance', 'crypto'].includes(selectedPaymentMethod)
+              ? null
+              : paymentReceiver.id,
             sharedAccount?.id || null,
             sharedAccount?.slot || null,
             paymentWindowMinutes,
             clientIp(req),
           ],
         );
-        if (isTeamCoupon && paymentAmount === 0)
-          await fulfillFreeOrder(db, id);
+        if (isTeamCoupon && paymentAmount === 0) await fulfillFreeOrder(db, id);
         if (paymentAmount > 0)
           telegramMessages.push({
             text: telegramOrderMessage({
@@ -3423,6 +4305,8 @@ export function createHandler(
           commissionCode,
           commissionAmount,
           paymentMethod: selectedPaymentMethod,
+          paymentCurrency: quote.currency,
+          paymentAmount: quote.amount,
           paymentWindowMinutes,
         };
       } else if (action === 'shared-2fa-code') {
@@ -3433,7 +4317,7 @@ export function createHandler(
         if (!idOk(id)) throw fail(404, 'Order not found.');
         const order = (
           await db.query(
-          `SELECT o.*,c.code_display AS coupon_code,r.title AS receiver_title,r.account_number AS receiver_number
+            `SELECT o.*,c.code_display AS coupon_code,r.title AS receiver_title,r.account_number AS receiver_number
              FROM commerce_orders o
              LEFT JOIN commerce_coupons c ON c.id=o.coupon_id
              LEFT JOIN commerce_payment_receivers r ON r.id=o.receiver_id
@@ -3478,7 +4362,11 @@ export function createHandler(
           const transaction = submittedTransaction
             ? normalizeTransaction(submittedTransaction)
             : null;
-          if (order.transaction_id && transaction && order.transaction_id !== transaction)
+          if (
+            order.transaction_id &&
+            transaction &&
+            order.transaction_id !== transaction
+          )
             throw fail(
               409,
               'A transaction is already submitted. Contact support for a correction.',
@@ -3509,19 +4397,31 @@ export function createHandler(
               AND (receiver_id=$4 OR receiver_id IS NULL)
               AND received_at>=($2::timestamptz) AND received_at<=($3::timestamptz)
             ORDER BY received_at ASC LIMIT 2`,
-                  [order.amount, order.created_at, order.expires_at, order.receiver_id || 'primary'],
+                  [
+                    order.amount,
+                    order.created_at,
+                    order.expires_at,
+                    order.receiver_id || 'primary',
+                  ],
                 )
               ).rows;
-          let payment = matchingPayments.length === 1 ? matchingPayments[0] : null;
+          let payment =
+            matchingPayments.length === 1 ? matchingPayments[0] : null;
           if (!payment && transaction) {
             payment = (
               await db.query(
-                'SELECT id,transaction_id,amount,verified FROM commerce_payments WHERE transaction_id=$1 AND order_id IS NULL FOR UPDATE',
+                 'SELECT id,transaction_id,amount,payment_amount,currency,receiver_id,verified FROM commerce_payments WHERE transaction_id=$1 AND order_id IS NULL FOR UPDATE',
                 [transaction],
               )
             ).rows[0];
-            if (payment && !paymentAmountMatchesOrder(payment.amount, order.amount))
-              throw fail(409, 'This transaction reference belongs to a different amount.');
+            if (
+              payment &&
+              !paymentMatchesOrder(payment, order)
+            )
+              throw fail(
+                409,
+                'This transaction reference belongs to a different amount.',
+              );
             if (!payment) {
               payment = (
                 await db.query(
@@ -3537,7 +4437,11 @@ export function createHandler(
                     transaction,
                     order.amount,
                     encrypt(
-                      { source: 'customer_claim', orderId: id, transactionId: transaction },
+                      {
+                        source: 'customer_claim',
+                        orderId: id,
+                        transactionId: transaction,
+                      },
                       key,
                     ),
                     order.receiver_id || 'primary',
@@ -3568,7 +4472,8 @@ export function createHandler(
                   'SELECT name FROM commerce_supplier_products WHERE id=$1 OR canonical_key=$1 ORDER BY id LIMIT 1',
                   [order.supplier_product_id || order.product_id],
                 )
-              ).rows[0]?.name || order.product_id;
+              ).rows[0]?.name ||
+              order.product_id;
             let automaticallyDelivered = false;
             if (payment.verified) {
               try {
@@ -3586,18 +4491,28 @@ export function createHandler(
                     payment.id,
                     {
                       code: fulfillment.reason || 'fulfillment_cancelled',
-                      message: 'Supplier fulfilment was cancelled after repeated failures.',
+                      message:
+                        'Supplier fulfilment was cancelled after repeated failures.',
                     },
                     'claim',
                   );
                 automaticallyDelivered = !fulfillment?.cancelled;
+                if (!fulfillment?.cancelled)
+                  await queueTelegramDelivery(
+                    db,
+                    id,
+                    key,
+                    publicTelegramMessages,
+                  );
                 telegramMessages.push({
                   text: telegramOrderMessage({
                     orderId: id,
                     productName,
                     amount: order.amount,
                     paymentMethod: order.payment_method,
-                    status: fulfillment?.cancelled ? 'auto-delivery failed' : 'auto-delivered',
+                    status: fulfillment?.cancelled
+                      ? 'auto-delivery failed'
+                      : 'auto-delivered',
                     transactionId: payment.transaction_id,
                     paymentState: fulfillment?.cancelled
                       ? 'verified receipt; supplier fulfillment failed'
@@ -3606,19 +4521,24 @@ export function createHandler(
                   }),
                 });
               } catch (error) {
-                console.error('auto-delivery-error', error.code || error.name || 'delivery_failed', error.message || '');
+                console.error(
+                  'auto-delivery-error',
+                  error.code || error.name || 'delivery_failed',
+                  error.message || '',
+                );
                 await recordAutoDeliveryFailure(db, payment.id, error, 'claim');
                 telegramMessages.push({
                   text: telegramOrderMessage({
                     orderId: id,
                     productName,
-                  amount: order.amount,
-                  paymentMethod: order.payment_method,
-                  status: 'auto-delivery failed — manual review',
-                  transactionId: payment.transaction_id,
-                  paymentState: 'verified receipt; delivery fallback required',
-                  approvalAvailable: true,
-                }),
+                    amount: order.amount,
+                    paymentMethod: order.payment_method,
+                    status: 'auto-delivery failed — manual review',
+                    transactionId: payment.transaction_id,
+                    paymentState:
+                      'verified receipt; delivery fallback required',
+                    approvalAvailable: true,
+                  }),
                   reply_markup: telegramApprovalKeyboard(id),
                 });
               }
@@ -3668,7 +4588,12 @@ export function createHandler(
               : null;
           output = {
             id,
-            product: orderProduct ? customerProductName({ id: order.product_id, name: orderProduct }) : orderProduct,
+            product: orderProduct
+              ? customerProductName({
+                  id: order.product_id,
+                  name: orderProduct,
+                })
+              : orderProduct,
             amount: order.amount,
             listedAmount: Number(order.listed_amount ?? order.amount),
             originalAmount:
@@ -3687,6 +4612,8 @@ export function createHandler(
             createdAt: order.created_at,
             transactionId: order.transaction_id,
             paymentMethod: order.payment_method || 'wallet',
+            paymentCurrency: order.payment_currency || 'PKR',
+            paymentAmount: Number(order.payment_amount || order.amount || 0),
             paymentWindowMinutes:
               PAYMENT_WINDOWS_MINUTES[order.payment_method] ||
               PAYMENT_WINDOWS_MINUTES.wallet,
@@ -3694,7 +4621,9 @@ export function createHandler(
               ? {
                   sharedSlot: Number(order.shared_slot || 0),
                   sharedSlotsFilled: Number(sharedState?.slots_filled || 0),
-                  sharedSlotsTotal: Number(sharedState?.max_slots || SHARED_CHATGPT_MAX_SLOTS),
+                  sharedSlotsTotal: Number(
+                    sharedState?.max_slots || SHARED_CHATGPT_MAX_SLOTS,
+                  ),
                   sharedAccountStatus: sharedState?.status || null,
                 }
               : {}),
@@ -3702,18 +4631,37 @@ export function createHandler(
               ? { twoFactorCodeAvailable: !sharedTwoFactorChallenge }
               : {}),
             payment: {
-              number: order.receiver_number || paymentReceiver?.account_number || '03450485711',
-              provider: 'NayaPay',
-              title: order.receiver_title || paymentReceiver?.title,
+              number:
+                ['binance', 'crypto'].includes(order.payment_method)
+                  ? paymentReceiverForMethod(order.payment_method)?.number ||
+                    'Configured payment destination'
+                  : order.receiver_number ||
+                    paymentReceiver?.account_number ||
+                    '03450485711',
+              provider:
+                order.payment_method === 'crypto'
+                  ? cryptoReceiver()?.provider || 'Crypto'
+                  : order.payment_method === 'binance'
+                    ? 'Binance Pay'
+                  : 'NayaPay',
+              title:
+                ['binance', 'crypto'].includes(order.payment_method)
+                  ? paymentReceiverForMethod(order.payment_method)?.title ||
+                    (order.payment_method === 'crypto'
+                      ? 'USDT wallet'
+                      : 'Binance Pay')
+                  : order.receiver_title || paymentReceiver?.title,
             },
           };
           if (order.status === 'delivered') {
             if (order.supplier_delivery) {
               output.delivery = decrypt(order.supplier_delivery, key);
               if (output.delivery.instructions)
-                output.delivery.instructions = customerProductText(output.delivery.instructions, { id: order.product_id, name: orderProduct });
-            }
-            else {
+                output.delivery.instructions = customerProductText(
+                  output.delivery.instructions,
+                  { id: order.product_id, name: orderProduct },
+                );
+            } else {
               const item = (
                 await db.query(
                   'SELECT credentials FROM commerce_inventory WHERE id=$1',
@@ -3723,33 +4671,97 @@ export function createHandler(
               const credentials = decrypt(item.credentials, key);
               output.credentials = order.shared_account_id
                 ? Object.fromEntries(
-                    Object.entries(credentials).filter(([field]) => field !== 'twoFactor'),
+                    Object.entries(credentials).filter(
+                      ([field]) => field !== 'twoFactor',
+                    ),
                   )
                 : credentials;
             }
           }
         }
       } else if (action === 'inbound-email') {
-        const inbound = await authenticateInboundEmail(body, process.env.NAYAPAY_SENDER);
+        const requestedInboundProvider = String(
+          req.query?.provider || body.provider || '',
+        ).toLowerCase();
+        const subject = String(body.Subject || body.subject || '');
+        const isBinanceSubject =
+          /\[?Binance\]?\s+(?:Payment\s+Receive\s+Successful|USDT\s+Deposit\s+Confirmed)/i.test(
+            subject,
+          );
+        const inboundProvider =
+          requestedInboundProvider === 'binance'
+            ? 'binance'
+            : requestedInboundProvider === 'auto'
+              ? isBinanceSubject
+                ? 'binance'
+                : 'nayapay'
+              : 'nayapay';
+        const isBinance = inboundProvider === 'binance';
+        const isCrypto =
+          isBinance && /\[?Binance\]?\s+USDT\s+Deposit\s+Confirmed/i.test(subject);
+        const inboundSender = isBinance
+          ? process.env.BINANCE_SENDER
+          : process.env.NAYAPAY_SENDER;
+        const inbound = await authenticateInboundEmail(
+          body,
+          inboundSender,
+          isBinance
+            ? {
+                signingDomain: process.env.BINANCE_DKIM_DOMAIN,
+                requireDmarc: true,
+              }
+            : {},
+        );
         const email = inbound.email;
-        if (!email.subject || (typeof email.text !== 'string' && typeof email.html !== 'string'))
+        if (
+          !email.subject ||
+          (typeof email.text !== 'string' && typeof email.html !== 'string')
+        )
           throw fail(400, 'Subject and email body required.');
-        const signatureValid = inboundEmailAuthorized(req) && inbound.authenticated;
-        const parsed = parseEmail(email, {
-          enabled: signatureValid && process.env.NAYAPAY_AUTO_VERIFY === 'true',
-          sender: process.env.NAYAPAY_SENDER,
-          receiver: paymentReceiver?.receiver_marker,
-          receiverMailbox: process.env.PAYMENT_RECEIVER_EMAIL,
-        });
+        const signatureValid =
+          inboundEmailAuthorized(req, inboundProvider) && inbound.authenticated;
+        const autoVerifyEnabled = isBinance
+          ? process.env.BINANCE_AUTO_VERIFY === 'true'
+          : process.env.NAYAPAY_AUTO_VERIFY === 'true';
+        const parsed = isBinance
+          ? (isCrypto ? parseBinanceCryptoEmail : parseBinanceEmail)(email, {
+              enabled: signatureValid && autoVerifyEnabled,
+              sender: inboundSender,
+              receiverMailbox: process.env.BINANCE_RECEIVER_EMAIL,
+              network: process.env.CRYPTO_USDT_NETWORK,
+            })
+          : parseEmail(email, {
+              enabled: signatureValid && autoVerifyEnabled,
+              sender: inboundSender,
+              receiver: paymentReceiver?.receiver_marker,
+              receiverMailbox: process.env.PAYMENT_RECEIVER_EMAIL,
+            });
+        const paymentCurrency = isBinance ? 'USDT' : 'PKR';
+        const paymentAmount = parsed.amount;
+        const storedAmount = isBinance
+          ? Number.isFinite(parsed.amount)
+            ? Math.round(parsed.amount)
+            : null
+          : parsed.amount;
+        const paymentReceiverId = isBinance
+          ? isCrypto
+            ? 'crypto'
+            : 'binance'
+          : paymentReceiver?.id || 'primary';
+        const inboundPaymentMethod = isBinance
+          ? isCrypto
+            ? 'crypto'
+            : 'binance'
+          : null;
         const verificationReason = parsed.verified
           ? 'verified'
           : !signatureValid
             ? inbound?.reason || 'webhook_signature_invalid'
-            : process.env.NAYAPAY_AUTO_VERIFY !== 'true'
+            : !autoVerifyEnabled
               ? 'automatic_verification_disabled'
               : parsed.reason || 'receipt_format_not_recognized';
         const eventHash = hash(
-          `${signatureValid ? 'postmark' : 'untrusted'}|${email.messageId || ''}|${email.subject}|${email.text}|${email.html || ''}`,
+          `${inboundProvider}|${signatureValid ? 'postmark' : 'untrusted'}|${email.messageId || ''}|${email.subject}|${email.text}|${email.html || ''}`,
         );
         const sourceMessageId =
           String(email.messageId || '')
@@ -3766,14 +4778,16 @@ export function createHandler(
           key,
         );
         let inserted = await db.query(
-          `INSERT INTO commerce_payments(id,event_hash,source_message_id,transaction_id,amount,payer_name,source_last4,received_at,verified,verification_reason,subject,encrypted_body,receiver_id)
-        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) ON CONFLICT DO NOTHING RETURNING id`,
+          `INSERT INTO commerce_payments(id,event_hash,source_message_id,transaction_id,amount,payment_amount,currency,payer_name,source_last4,received_at,verified,verification_reason,subject,encrypted_body,receiver_id)
+        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15) ON CONFLICT DO NOTHING RETURNING id`,
           [
             randomUUID(),
             eventHash,
             sourceMessageId,
             signatureValid ? parsed.transaction : null,
-            parsed.amount,
+            storedAmount,
+            paymentAmount,
+            paymentCurrency,
             parsed.payer,
             parsed.sourceLast4,
             parsed.received || null,
@@ -3781,7 +4795,7 @@ export function createHandler(
             verificationReason,
             email.subject.slice(0, 500),
             encryptedBody,
-            paymentReceiver?.id || 'primary',
+            paymentReceiverId,
           ],
         );
         // A trusted retry can validate a previously recorded, unused receipt.
@@ -3791,20 +4805,21 @@ export function createHandler(
         // with the unique transaction_id constraint during the upgrade.
         if (!inserted.rowCount && parsed.verified)
           inserted = await db.query(
-            `UPDATE commerce_payments SET source_last4=$2,verified=true,verification_reason='verified',encrypted_body=$3,receiver_id=$5
-        WHERE transaction_id=$1 AND order_id IS NULL AND verified=false AND amount=$4 RETURNING id`,
+            `UPDATE commerce_payments SET source_last4=$2,payment_amount=$4,currency=$6,verified=true,verification_reason='verified',encrypted_body=$3,receiver_id=$5
+        WHERE transaction_id=$1 AND order_id IS NULL AND verified=false AND COALESCE(payment_amount,amount)=$4 AND currency=$6 RETURNING id`,
             [
               parsed.transaction,
               parsed.sourceLast4,
               encryptedBody,
-              parsed.amount,
-              paymentReceiver?.id || 'primary',
+              paymentAmount,
+              paymentReceiverId,
+              paymentCurrency,
             ],
           );
         if (!inserted.rowCount && parsed.verified)
           inserted = await db.query(
-            `UPDATE commerce_payments SET transaction_id=$1,source_last4=$2,verified=true,verification_reason='verified',encrypted_body=$3,receiver_id=$7
-        WHERE (event_hash=$4 OR ($5::text IS NOT NULL AND source_message_id=$5::text)) AND order_id IS NULL AND verified=false AND amount=$6 AND transaction_id IS NULL
+            `UPDATE commerce_payments SET transaction_id=$1,source_last4=$2,payment_amount=$6,currency=$8,verified=true,verification_reason='verified',encrypted_body=$3,receiver_id=$7
+        WHERE (event_hash=$4 OR ($5::text IS NOT NULL AND source_message_id=$5::text)) AND order_id IS NULL AND verified=false AND COALESCE(payment_amount,amount)=$6 AND currency=$8 AND transaction_id IS NULL
           AND NOT EXISTS (SELECT 1 FROM commerce_payments existing WHERE existing.transaction_id=$1) RETURNING id`,
             [
               parsed.transaction,
@@ -3812,21 +4827,33 @@ export function createHandler(
               encryptedBody,
               eventHash,
               sourceMessageId,
-              parsed.amount,
-              paymentReceiver?.id || 'primary',
+              paymentAmount,
+              paymentReceiverId,
+              paymentCurrency,
             ],
           );
         if (inserted.rowCount && parsed.verified) {
           const orders = (
             await db.query(
-          `SELECT id,product_id,payment_method,supplier_product_id,amount FROM commerce_orders
+              `SELECT id,product_id,payment_method,payment_currency,payment_amount,supplier_product_id,amount,telegram_chat_id FROM commerce_orders
           WHERE status IN ('pending','review')
-            AND (amount=$2 OR (MOD($2-1,100)<>0 AND amount=$2-1))
+            AND (
+              ($5='USDT' AND payment_currency='USDT' AND payment_amount=$2 AND payment_method=$6)
+              OR
+              ($5='PKR' AND COALESCE(payment_currency,'PKR')='PKR' AND (amount=$2 OR (MOD($2-1,100)<>0 AND amount=$2-1)))
+            )
             AND $3::timestamptz>=created_at AND $3::timestamptz<=expires_at
           AND (receiver_id=$4 OR receiver_id IS NULL)
           AND (transaction_id IS NULL OR transaction_id=$1 OR (length(transaction_id)>=8 AND right($1,length(transaction_id))=transaction_id))
           AND (payment_submitted_at IS NOT NULL OR transaction_id IS NULL OR transaction_id=$1)`,
-              [parsed.transaction, parsed.amount, parsed.received, paymentReceiver?.id || 'primary'],
+              [
+                parsed.transaction,
+                parsed.amount,
+                parsed.received,
+                paymentReceiverId,
+                paymentCurrency,
+                inboundPaymentMethod,
+              ],
             )
           ).rows;
           let matchReason =
@@ -3840,12 +4867,23 @@ export function createHandler(
               await db.query(
                 `SELECT id FROM commerce_orders
                  WHERE status IN ('pending','review','expired')
-                   AND (amount=$1 OR (MOD($1-1,100)<>0 AND amount=$1-1))
+                   AND (
+                     ($5='USDT' AND payment_currency='USDT' AND payment_amount=$1 AND payment_method=$6)
+                     OR
+                     ($5='PKR' AND COALESCE(payment_currency,'PKR')='PKR' AND (amount=$1 OR (MOD($1-1,100)<>0 AND amount=$1-1)))
+                   )
                    AND $2::timestamptz>=created_at AND $2::timestamptz>expires_at
                    AND (receiver_id=$3 OR receiver_id IS NULL)
                    AND (payment_submitted_at IS NOT NULL OR transaction_id IS NULL OR transaction_id=$4)
                  ORDER BY created_at DESC LIMIT 1`,
-                [parsed.amount, parsed.received, paymentReceiver?.id || 'primary', parsed.transaction],
+                [
+                  parsed.amount,
+                  parsed.received,
+                  paymentReceiverId,
+                  parsed.transaction,
+                  paymentCurrency,
+                  inboundPaymentMethod,
+                ],
               )
             ).rows[0];
             if (lateOrder) matchReason = 'verified_after_order_window';
@@ -3870,7 +4908,8 @@ export function createHandler(
                   'SELECT name FROM commerce_supplier_products WHERE id=$1 OR canonical_key=$1 ORDER BY id LIMIT 1',
                   [orders[0].supplier_product_id || orders[0].product_id],
                 )
-              ).rows[0]?.name || orders[0].product_id;
+              ).rows[0]?.name ||
+              orders[0].product_id;
             try {
               const fulfillment = await fulfill(
                 db,
@@ -3886,9 +4925,17 @@ export function createHandler(
                   inserted.rows[0].id,
                   {
                     code: fulfillment.reason || 'fulfillment_cancelled',
-                    message: 'Supplier fulfilment was cancelled after repeated failures.',
+                    message:
+                      'Supplier fulfilment was cancelled after repeated failures.',
                   },
                   'inbound-email',
+                );
+              if (!fulfillment?.cancelled)
+                await queueTelegramDelivery(
+                  db,
+                  orders[0].id,
+                  key,
+                  publicTelegramMessages,
                 );
               telegramMessages.push({
                 text: telegramOrderMessage({
@@ -3896,7 +4943,9 @@ export function createHandler(
                   productName: orderProduct,
                   amount: parsed.amount,
                   paymentMethod: orders[0].payment_method,
-                  status: fulfillment?.cancelled ? 'auto-delivery failed' : 'auto-delivered',
+                  status: fulfillment?.cancelled
+                    ? 'auto-delivery failed'
+                    : 'auto-delivered',
                   transactionId: parsed.transaction,
                   paymentState: fulfillment?.cancelled
                     ? 'verified receipt; supplier fulfillment failed'
@@ -3905,8 +4954,17 @@ export function createHandler(
                 }),
               });
             } catch (error) {
-              console.error('auto-delivery-error', error.code || error.name || 'delivery_failed', error.message || '');
-              await recordAutoDeliveryFailure(db, inserted.rows[0].id, error, 'inbound-email');
+              console.error(
+                'auto-delivery-error',
+                error.code || error.name || 'delivery_failed',
+                error.message || '',
+              );
+              await recordAutoDeliveryFailure(
+                db,
+                inserted.rows[0].id,
+                error,
+                'inbound-email',
+              );
               telegramMessages.push({
                 text: telegramOrderMessage({
                   orderId: orders[0].id,
@@ -3983,7 +5041,10 @@ export function createHandler(
         if (!['p093', 'p093-ultra'].includes(item.product_id))
           throw fail(400, 'Only ChatGPT Plus inventory can be shared.');
         if (item.state !== 'available')
-          throw fail(409, 'Only available ChatGPT Plus inventory can be shared.');
+          throw fail(
+            409,
+            'Only available ChatGPT Plus inventory can be shared.',
+          );
         const existing = (
           await db.query(
             'SELECT id FROM commerce_shared_accounts WHERE inventory_id=$1',
@@ -3991,7 +5052,10 @@ export function createHandler(
           )
         ).rows[0];
         if (existing)
-          throw fail(409, 'This account is already assigned to the shared pool.');
+          throw fail(
+            409,
+            'This account is already assigned to the shared pool.',
+          );
         await db.query(
           'INSERT INTO commerce_shared_accounts(id,inventory_id) VALUES($1,$2)',
           [randomUUID(), item.id],
@@ -4000,7 +5064,12 @@ export function createHandler(
           "INSERT INTO commerce_audit(action,object_id) VALUES('shared_account_add',$1)",
           [item.id],
         );
-        output = { ok: true, inventoryId: item.id, slotsFilled: 0, slotsTotal: SHARED_CHATGPT_MAX_SLOTS };
+        output = {
+          ok: true,
+          inventoryId: item.id,
+          slotsFilled: 0,
+          slotsTotal: SHARED_CHATGPT_MAX_SLOTS,
+        };
       } else if (action === 'admin-inventory-pick') {
         if (!idOk(body.inventoryId) || body.confirmed !== true)
           throw fail(400, 'Confirm the inventory withdrawal.');
@@ -4013,8 +5082,18 @@ export function createHandler(
         if (!item) throw fail(404, 'Inventory account not found.');
         if (isRetiredLocalProduct(item.product_id))
           throw fail(410, 'This inventory product has been retired.');
-        if ((await db.query('SELECT 1 FROM commerce_shared_accounts WHERE inventory_id=$1', [item.id])).rowCount)
-          throw fail(409, 'Shared-pool accounts must be managed from the shared-account controls.');
+        if (
+          (
+            await db.query(
+              'SELECT 1 FROM commerce_shared_accounts WHERE inventory_id=$1',
+              [item.id],
+            )
+          ).rowCount
+        )
+          throw fail(
+            409,
+            'Shared-pool accounts must be managed from the shared-account controls.',
+          );
         if (item.state !== 'available')
           throw fail(409, 'Only available inventory can be picked.');
         const credentials = decrypt(item.credentials, key);
@@ -4040,7 +5119,14 @@ export function createHandler(
         if (!item) throw fail(404, 'Inventory account not found.');
         if (isRetiredLocalProduct(item.product_id))
           throw fail(410, 'This inventory product has been retired.');
-        if ((await db.query('SELECT 1 FROM commerce_shared_accounts WHERE inventory_id=$1', [item.id])).rowCount)
+        if (
+          (
+            await db.query(
+              'SELECT 1 FROM commerce_shared_accounts WHERE inventory_id=$1',
+              [item.id],
+            )
+          ).rowCount
+        )
           throw fail(409, 'Shared-pool accounts cannot be edited here.');
         const purchaseCost = Number(body.purchaseCost);
         if (!Number.isSafeInteger(purchaseCost) || purchaseCost < 0)
@@ -4106,8 +5192,18 @@ export function createHandler(
         if (!item) throw fail(404, 'Inventory account not found.');
         if (isRetiredLocalProduct(item.product_id))
           throw fail(410, 'This inventory product has been retired.');
-        if ((await db.query('SELECT 1 FROM commerce_shared_accounts WHERE inventory_id=$1', [item.id])).rowCount)
-          throw fail(409, 'Remove this account from the shared pool before deleting it.');
+        if (
+          (
+            await db.query(
+              'SELECT 1 FROM commerce_shared_accounts WHERE inventory_id=$1',
+              [item.id],
+            )
+          ).rowCount
+        )
+          throw fail(
+            409,
+            'Remove this account from the shared pool before deleting it.',
+          );
         if (!['available', 'quarantined'].includes(item.state))
           throw fail(
             409,
@@ -4124,7 +5220,9 @@ export function createHandler(
         );
         output = { ok: true };
       } else if (action === 'admin-supplier-key') {
-        const providerId = String(body.providerId || '').trim().toLowerCase();
+        const providerId = String(body.providerId || '')
+          .trim()
+          .toLowerCase();
         if (!SUPPLIER_API_ENV[providerId])
           throw fail(400, 'Unsupported supplier provider.');
         const apiKey = String(body.apiKey || '').trim();
@@ -4221,7 +5319,8 @@ export function createHandler(
           !Number.isSafeInteger(costPkr) ||
           costPkr < 0 ||
           !/^[a-z0-9][a-z0-9:_-]{1,199}$/.test(canonicalKey) ||
-          (productName !== null && (!productName || productName.length > 300)) ||
+          (productName !== null &&
+            (!productName || productName.length > 300)) ||
           (productDescription !== null && productDescription.length > 20000)
         )
           throw fail(
@@ -4268,7 +5367,10 @@ export function createHandler(
           !Number.isSafeInteger(sellingPrice) ||
           sellingPrice < 1
         )
-          throw fail(400, 'Select a valid supplier group and enter a whole PKR selling price.');
+          throw fail(
+            400,
+            'Select a valid supplier group and enter a whole PKR selling price.',
+          );
         const changed = await db.query(
           `UPDATE commerce_supplier_products
            SET selling_price=$1
@@ -4356,11 +5458,12 @@ export function createHandler(
             WHERE o.status='delivered'`)
         ).rows;
         const withdrawnProfitRows = (
-          await db.query(`SELECT product_id,purchase_cost,created_at
+          await db.query(
+            `SELECT product_id,purchase_cost,created_at
             FROM commerce_inventory
-            WHERE state='withdrawn' AND product_id <> ALL($1::text[])`, [
-            RETIRED_LOCAL_PRODUCT_IDS,
-          ])
+            WHERE state='withdrawn' AND product_id <> ALL($1::text[])`,
+            [RETIRED_LOCAL_PRODUCT_IDS],
+          )
         ).rows;
         const profitSummary = summarizeProfit(
           deliveredProfitRows,
@@ -4398,11 +5501,12 @@ export function createHandler(
           })),
         ];
         const commissionSummary = summarizeCommissions(commissions);
-        const activeOrders = (
-          await db.query(
-            "SELECT count(*)::int AS count FROM commerce_orders WHERE status IN ('pending','review')",
-          )
-        ).rows[0]?.count || 0;
+        const activeOrders =
+          (
+            await db.query(
+              "SELECT count(*)::int AS count FROM commerce_orders WHERE status IN ('pending','review')",
+            )
+          ).rows[0]?.count || 0;
         profitSummary.metrics.active_orders = Number(activeOrders);
         const dashboardMetrics = { ...profitSummary.metrics };
         if (!profitUnlocked)
@@ -4415,9 +5519,10 @@ export function createHandler(
           ])
             dashboardMetrics[field] = null;
         const profitBreakdown = profitUnlocked
-          ? Object.entries(profitSummary.breakdown).map(
-          ([source, values]) => ({ source, ...values }),
-            )
+          ? Object.entries(profitSummary.breakdown).map(([source, values]) => ({
+              source,
+              ...values,
+            }))
           : [];
         const coupons = (
           await db.query(
@@ -4444,7 +5549,16 @@ export function createHandler(
         output = {
           paymentReceivers: await listPaymentReceivers(db),
           metrics: dashboardMetrics,
-          dailyFinancials: profitSummary.daily.map((day) => profitUnlocked ? day : { date: day.date, revenue: day.revenue, profit: null, missingCosts: null }),
+          dailyFinancials: profitSummary.daily.map((day) =>
+            profitUnlocked
+              ? day
+              : {
+                  date: day.date,
+                  revenue: day.revenue,
+                  profit: null,
+                  missingCosts: null,
+                },
+          ),
           coupons,
           inventory,
           sharedAccounts: sharedAccountRows.map((row) => ({
@@ -4481,7 +5595,10 @@ export function createHandler(
             )
           ).rows.map((provider) => ({
             ...provider,
-            lowBalance: supplierBalanceIsLow(provider.balance, provider.currency),
+            lowBalance: supplierBalanceIsLow(
+              provider.balance,
+              provider.currency,
+            ),
             lowBalanceThreshold: supplierBalanceThreshold(provider.currency),
           })),
           supplierAlerts: (
@@ -4495,7 +5612,7 @@ export function createHandler(
           ).rows,
           orders: (
             await db.query(
-              `SELECT o.id,o.product_id,o.amount,o.listed_amount,o.coupon_discount,o.status,o.transaction_id,o.payer_name,o.ip_address,o.payment_method,
+              `SELECT o.id,o.product_id,o.amount,o.listed_amount,o.coupon_discount,o.status,o.transaction_id,o.payer_name,o.ip_address,o.payment_method,o.payment_currency,o.payment_amount,o.telegram_chat_id,
                  o.payment_submitted_at,o.supplier_order_id,o.supplier_status,c.code_display AS coupon_code,
                  o.shared_account_id,o.shared_slot,
                 sp.provider_name AS supplier_name,sp.name AS supplier_product_name,o.created_at,o.delivered_at,
@@ -4508,11 +5625,9 @@ export function createHandler(
                LEFT JOIN commerce_supplier_products sp ON sp.id=o.supplier_product_id
                ORDER BY o.created_at DESC LIMIT 100`,
             )
-            ).rows.map((row) =>
-              profitUnlocked
-                ? row
-                : { ...row, cost_pkr: null, profit_pkr: null },
-            ),
+          ).rows.map((row) =>
+            profitUnlocked ? row : { ...row, cost_pkr: null, profit_pkr: null },
+          ),
           blockedUsers: (
             await db.query(
               `SELECT a.ip_address,a.attempts,a.last_attempt_at,count(o.id)::int AS order_count
@@ -4525,7 +5640,7 @@ export function createHandler(
           ).rows,
           payments: (
             await db.query(
-              'SELECT id,amount,subject,transaction_id,payer_name,source_last4,verified,verification_reason,verification_reason_before_manual,fulfillment_error_code,fulfillment_error_message,fulfillment_error_stage,fulfillment_error_at,manual_approval_source,order_id,receiver_id,received_at,created_at FROM commerce_payments ORDER BY created_at DESC LIMIT 500',
+              'SELECT id,amount,payment_amount,currency,subject,transaction_id,payer_name,source_last4,verified,verification_reason,verification_reason_before_manual,fulfillment_error_code,fulfillment_error_message,fulfillment_error_stage,fulfillment_error_at,manual_approval_source,order_id,receiver_id,received_at,created_at FROM commerce_payments ORDER BY created_at DESC LIMIT 500',
             )
           ).rows,
           stock: (
@@ -4597,7 +5712,10 @@ export function createHandler(
         )
           throw fail(400, 'Discount must be between 0% and 100%.');
         if (discountPercent === 0 && code !== CUSTOMER_COUPON_CODE)
-          throw fail(400, 'Only CUST can keep the normal price with 0% discount.');
+          throw fail(
+            400,
+            'Only CUST can keep the normal price with 0% discount.',
+          );
         if (discountPercent === 100 && code !== TEAM_COUPON_CODE)
           throw fail(400, 'Only HOR is reserved for free team access.');
         if (!Number.isSafeInteger(maxUses) || maxUses < 1)
@@ -4640,15 +5758,28 @@ export function createHandler(
           discountPercent > 100
         )
           throw fail(400, 'Discount must be between 0% and 100%.');
-        if (current.code_display === TEAM_COUPON_CODE || code === TEAM_COUPON_CODE)
+        if (
+          current.code_display === TEAM_COUPON_CODE ||
+          code === TEAM_COUPON_CODE
+        )
           throw fail(400, 'HOR is disabled and cannot be changed.');
         if (
-          (current.code_display === CUSTOMER_COUPON_CODE || code === CUSTOMER_COUPON_CODE) &&
-          (current.code_display !== CUSTOMER_COUPON_CODE || code !== CUSTOMER_COUPON_CODE || discountPercent !== 0 || body.enabled === false)
+          (current.code_display === CUSTOMER_COUPON_CODE ||
+            code === CUSTOMER_COUPON_CODE) &&
+          (current.code_display !== CUSTOMER_COUPON_CODE ||
+            code !== CUSTOMER_COUPON_CODE ||
+            discountPercent !== 0 ||
+            body.enabled === false)
         )
-          throw fail(400, 'CUST is a reserved commission coupon and cannot be changed.');
+          throw fail(
+            400,
+            'CUST is a reserved commission coupon and cannot be changed.',
+          );
         if (discountPercent === 0 && code !== CUSTOMER_COUPON_CODE)
-          throw fail(400, 'Only CUST can keep the normal price with 0% discount.');
+          throw fail(
+            400,
+            'Only CUST can keep the normal price with 0% discount.',
+          );
         if (discountPercent === 100 && code !== TEAM_COUPON_CODE)
           throw fail(400, 'Only HOR is reserved for free team access.');
         if (
@@ -4746,7 +5877,10 @@ export function createHandler(
           !idOk(body.paymentId) ||
           body.confirmed !== true
         )
-          throw fail(400, 'Select an order and payment, then confirm the receipt and exact amount.');
+          throw fail(
+            400,
+            'Select an order and payment, then confirm the receipt and exact amount.',
+          );
         await recordManualApprovalContext(db, body.paymentId, 'admin');
         await attachPaymentForManualApproval(db, body.orderId, body.paymentId);
         const fulfillment = await fulfill(
@@ -4757,6 +5891,13 @@ export function createHandler(
           captureSupplierExchange,
           supplierApiKeys,
         );
+        if (!fulfillment?.cancelled)
+          await queueTelegramDelivery(
+            db,
+            body.orderId,
+            key,
+            publicTelegramMessages,
+          );
         output = fulfillment?.cancelled
           ? { ok: true, status: 'cancelled', reason: fulfillment.reason }
           : { ok: true };
@@ -4768,6 +5909,12 @@ export function createHandler(
           body.orderId,
           body.inventoryId,
           key,
+        );
+        await queueTelegramDelivery(
+          db,
+          body.orderId,
+          key,
+          publicTelegramMessages,
         );
       } else if (action === 'admin-cancel') {
         if (!idOk(body.orderId) || body.confirmed !== true)
@@ -4797,11 +5944,17 @@ export function createHandler(
         output = { ok: true };
       } else throw fail(404, 'Unknown request.');
       const supplierIssue = supplierLogs.find(
-        (log) => log.errorMessage || !log.responseStatus || Number(log.responseStatus) >= 400,
+        (log) =>
+          log.errorMessage ||
+          !log.responseStatus ||
+          Number(log.responseStatus) >= 400,
       );
-      if (supplierIssue) telegramMessages.push(supplierIssueMessage(supplierIssue));
+      if (supplierIssue)
+        telegramMessages.push(supplierIssueMessage(supplierIssue));
       await db.query('COMMIT');
       for (const message of telegramMessages) await notifyTelegram(message);
+      for (const message of publicTelegramMessages)
+        await notifyPublicTelegram(message.chatId, message.text);
       for (const callback of telegramCallbacks)
         await telegramRequest('answerCallbackQuery', {
           callback_query_id: callback.id,
@@ -4824,21 +5977,28 @@ export function createHandler(
       }
       if (supplierLogs.length)
         await persistSupplierApiLogs(pool, supplierLogs).catch((logError) =>
-          console.error('supplier-api-log-error', logError.code || logError.name, logError.message || ''),
+          console.error(
+            'supplier-api-log-error',
+            logError.code || logError.name,
+            logError.message || '',
+          ),
         );
       const supplierIssue = supplierLogs.find(
-        (log) => log.errorMessage || !log.responseStatus || Number(log.responseStatus) >= 400,
+        (log) =>
+          log.errorMessage ||
+          !log.responseStatus ||
+          Number(log.responseStatus) >= 400,
       );
-      if (supplierIssue) await notifyTelegram(supplierIssueMessage(supplierIssue));
+      if (supplierIssue)
+        await notifyTelegram(supplierIssueMessage(supplierIssue));
       const code = e.status || (e.code === '23505' ? 409 : 503);
-      const errorMessage =
-        e.status
-          ? e.message
-          : e.code === '23505' && e.constraint === 'commerce_inventory_assignment'
-            ? 'That account was just reserved by another checkout. Please retry.'
-            : e.code === '23505'
-              ? 'Duplicate account or payment. Nothing was imported.'
-              : 'Service temporarily unavailable. Please retry or contact support.';
+      const errorMessage = e.status
+        ? e.message
+        : e.code === '23505' && e.constraint === 'commerce_inventory_assignment'
+          ? 'That account was just reserved by another checkout. Please retry.'
+          : e.code === '23505'
+            ? 'Duplicate account or payment. Nothing was imported.'
+            : 'Service temporarily unavailable. Please retry or contact support.';
       json(res, code, {
         error: errorMessage,
       });

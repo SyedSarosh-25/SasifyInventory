@@ -56,12 +56,12 @@ function escapeRegExp(value) {
 // the original NayaPay DKIM/DMARC results. HTTP Basic Auth protects the
 // payload transport; these checks keep arbitrary authenticated JSON from
 // being treated as a receipt.
-function authenticatePostmarkPayload(payload, sender, fallback) {
+function authenticatePostmarkPayload(payload, sender, fallback, options = {}) {
   const expected = stringValue(sender).toLowerCase();
   const from = stringValue(payload?.FromFull?.Email || payload?.fromFull?.Email || payload?.From || payload?.from)
     .match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i)?.[0]
     ?.toLowerCase() || '';
-  const domain = expected.split('@')[1] || '';
+  const domain = String(options.signingDomain || expected.split('@')[1] || '').trim().toLowerCase();
   if (!expected || !domain || from !== expected) return null;
 
   const authResults = [
@@ -101,7 +101,7 @@ export async function authenticateInboundEmail(payload, sender, options = {}) {
   const fallback = normalizeInboundEmail(payload);
   const raw = payload.RawEmail;
   if (typeof raw !== 'string' || !raw) {
-    return authenticatePostmarkPayload(payload, sender, fallback)
+    return authenticatePostmarkPayload(payload, sender, fallback, options)
       || { email: fallback, authenticated: false, reason: 'missing_original_email' };
   }
   if (Buffer.byteLength(raw) > 1000000) throw Object.assign(new Error('Original email too large.'), { status: 413 });
@@ -136,7 +136,14 @@ export async function authenticateInboundEmail(payload, sender, options = {}) {
     return { email: fallback, authenticated: false, reason: 'ambiguous_original_headers' };
   }
   const expected = String(sender || '').trim().toLowerCase();
-  const domain = expected.split('@')[1];
+  const domain = String(options.signingDomain || expected.split('@')[1] || '').trim().toLowerCase();
+  const authenticationResults = headerLines
+    .filter((line) => ['authentication-results', 'arc-authentication-results'].includes(line.key))
+    .map((line) => String(line.line || ''))
+    .join(' ');
+  if (options.requireDmarc && !/\bdmarc=pass\b/i.test(authenticationResults)) {
+    return { email: fallback, authenticated: false, reason: 'original_dmarc_not_verified' };
+  }
   const valid = domain && verification.results.some((result) => {
     const signed = String(result.signingHeaders?.keys || '').toLowerCase().split(':').map((key) => key.trim());
     return result.status?.result === 'pass' && result.signatureTimeValid !== false

@@ -125,6 +125,10 @@ test('original signed MIME is authoritative; forged fields and changed bodies ca
   assert.match(valid.email.text, /TEST12345678/);
   assert.equal((await authenticateInboundEmail({ ...payload, RawEmail: payload.RawEmail.replace('TEST12345678', 'STOLEN999999') }, 'service@nayapay.com', { resolver })).authenticated, false);
   assert.equal((await authenticateInboundEmail({ ...payload, RawEmail: undefined }, 'service@nayapay.com')).authenticated, false);
+  assert.equal(
+    (await authenticateInboundEmail(payload, 'service@nayapay.com', { resolver, requireDmarc: true })).authenticated,
+    false,
+  );
   assert.equal((await authenticateInboundEmail({ ...payload, RawEmail: 'From: Attacker <service@nayapay.com>\r\n' + payload.RawEmail }, 'service@nayapay.com', { resolver })).authenticated, false);
   await assert.rejects(authenticateInboundEmail(payload, 'service@nayapay.com', {
     resolver: async () => { throw Object.assign(new Error('DNS timed out'), { code: 'ETIMEOUT' }); },

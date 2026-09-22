@@ -74,3 +74,69 @@ export function supplierProductKey(name) {
   if (!normalizedIdentity) return null;
   return `auto:${normalizedIdentity}${duration ? `-${duration}` : ''}`.slice(0, 200);
 }
+
+function supplierOfferCost(product) {
+  const cost = Number(product?.cost_pkr);
+  if (Number.isFinite(cost) && cost >= 0) return cost;
+  const wholesale = Number(product?.wholesale_price);
+  return Number.isFinite(wholesale) && wholesale >= 0 ? wholesale : Number.POSITIVE_INFINITY;
+}
+
+function isBetterSupplierOffer(candidate, current) {
+  const candidateInStock = Number(candidate?.supplier_stock ?? candidate?.available) > 0;
+  const currentInStock = Number(current?.supplier_stock ?? current?.available) > 0;
+  if (candidateInStock !== currentInStock) return candidateInStock;
+  const candidateCost = supplierOfferCost(candidate);
+  const currentCost = supplierOfferCost(current);
+  if (candidateCost !== currentCost) return candidateCost < currentCost;
+  return String(candidate?.id || '') < String(current?.id || '');
+}
+
+/**
+ * Keep one supplier offer per equivalent product for customer catalogues.
+ * In-stock offers win first; among those, the lowest supplier cost wins.
+ */
+export function selectLowestSupplierOffers(products = []) {
+  const groups = [];
+  const aliasToGroup = new Map();
+  for (const product of products) {
+    const aliases = [
+      supplierProductKey(product?.name),
+      String(product?.canonical_key || '').trim(),
+    ].filter(Boolean);
+    if (!aliases.length) continue;
+    const matchingGroups = [
+      ...new Set(
+        aliases
+          .map((alias) => aliasToGroup.get(alias))
+          .filter((group) => group !== undefined),
+      ),
+    ];
+    let group;
+    if (!matchingGroups.length) {
+      group = { aliases: new Set(), product: null };
+      groups.push(group);
+    } else {
+      group = matchingGroups[0];
+      for (const other of matchingGroups.slice(1)) {
+        for (const alias of other.aliases) {
+          group.aliases.add(alias);
+          aliasToGroup.set(alias, group);
+        }
+        if (
+          other.product &&
+          (!group.product || isBetterSupplierOffer(other.product, group.product))
+        )
+          group.product = other.product;
+        groups.splice(groups.indexOf(other), 1);
+      }
+    }
+    for (const alias of aliases) {
+      group.aliases.add(alias);
+      aliasToGroup.set(alias, group);
+    }
+    if (!group.product || isBetterSupplierOffer(product, group.product))
+      group.product = product;
+  }
+  return groups.map((group) => group.product).filter(Boolean);
+}

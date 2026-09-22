@@ -35,6 +35,7 @@ for (const entry of await readdir(path.join(root, 'out'), {
 for (const name of [
   'handler.mjs',
   'core.mjs',
+  'binance-email.mjs',
   'inbound-email.mjs',
   'supplier.mjs',
   'supplier-capabilities.mjs',
@@ -129,7 +130,11 @@ await writeFile(
         },
         {
           src: '/api/nayapay/inbound-email',
-          dest: '/api/commerce?action=inbound-email',
+          dest: '/api/commerce?action=inbound-email&provider=auto',
+        },
+        {
+          src: '/api/binance/inbound-email',
+          dest: '/api/commerce?action=inbound-email&provider=binance',
         },
         { src: '/api/commerce', dest: '/api/commerce' },
         {

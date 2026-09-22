@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { supplierProductKey } from '../commerce/supplier-matching.mjs';
+import {
+  selectLowestSupplierOffers,
+  supplierProductKey,
+} from '../commerce/supplier-matching.mjs';
 
 test('supplier matching merges equivalent CapCut duration labels', () => {
   assert.equal(
@@ -44,4 +47,48 @@ test('supplier matching merges equivalent Grok Heavy names before choosing a cos
     supplierProductKey('CDK SUPER GROK 1 month'),
     supplierProductKey('CDK Heavy Grok 1 month'),
   );
+});
+
+test('supplier catalogue keeps the lowest-cost in-stock equivalent offer', () => {
+  const selected = selectLowestSupplierOffers([
+    {
+      id: 'supplier-a',
+      name: 'Adobe Express 1 Month Full Warranty',
+      supplier_stock: 4,
+      cost_pkr: 900,
+    },
+    {
+      id: 'supplier-b',
+      name: 'Adobe Express 1M FW',
+      supplier_stock: 5,
+      cost_pkr: 700,
+    },
+    {
+      id: 'supplier-c',
+      name: 'Adobe Express 1 Month FW',
+      supplier_stock: 0,
+      cost_pkr: 400,
+    },
+  ]);
+  assert.deepEqual(selected.map((product) => product.id), ['supplier-b']);
+});
+
+test('supplier catalogue merges records when either stored key or normalized name matches', () => {
+  const selected = selectLowestSupplierOffers([
+    {
+      id: 'supplier-a',
+      name: 'Adobe Express 1 Month',
+      canonical_key: 'manual-adobe-express-1m',
+      supplier_stock: 3,
+      cost_pkr: 900,
+    },
+    {
+      id: 'supplier-b',
+      name: 'Adobe Express 1 Month Customer Edition',
+      canonical_key: 'manual-adobe-express-1m',
+      supplier_stock: 2,
+      cost_pkr: 700,
+    },
+  ]);
+  assert.deepEqual(selected.map((product) => product.id), ['supplier-b']);
 });
