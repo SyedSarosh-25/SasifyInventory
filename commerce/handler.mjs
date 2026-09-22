@@ -72,6 +72,7 @@ import {
 } from './scam-reports.mjs';
 import { normalizeToolRequest } from './tool-requests.mjs';
 import { customerProduct, customerProductName, customerProductText } from './product-display.mjs';
+import { handleSasifyBotUpdate } from './sasify-bot.mjs';
 import { supplierProductKey } from './supplier-matching.mjs';
 import {
   DEFAULT_REVIEWS_URL,
@@ -434,6 +435,13 @@ async function notifyTelegram(message) {
 }
 function telegramWebhookAuthorized(req) {
   const secret = String(process.env.TELEGRAM_WEBHOOK_SECRET || '').trim();
+  return !!secret && same(
+    String(req.headers['x-telegram-bot-api-secret-token'] || '').trim(),
+    secret,
+  );
+}
+function publicTelegramWebhookAuthorized(req) {
+  const secret = String(process.env.SASIFY_BOT_WEBHOOK_SECRET || '').trim();
   return !!secret && same(
     String(req.headers['x-telegram-bot-api-secret-token'] || '').trim(),
     secret,
@@ -2646,6 +2654,11 @@ export function createHandler(
       if (action === 'telegram-webhook' && !telegramWebhookAuthorized(req))
         throw fail(401, 'Invalid Telegram webhook secret.');
       if (
+        action === 'public-telegram-webhook' &&
+        !publicTelegramWebhookAuthorized(req)
+      )
+        throw fail(401, 'Invalid public Telegram webhook secret.');
+      if (
         [
           'stock',
           'status',
@@ -2805,6 +2818,8 @@ export function createHandler(
             });
           }
         }
+      } else if (action === 'public-telegram-webhook') {
+        output = await handleSasifyBotUpdate(body, catalog.map(customerProduct));
       } else if (action === 'admin-team-credentials') {
         const teamEmail = String(body.email || '')
           .trim()
