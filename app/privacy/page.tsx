@@ -11,6 +11,9 @@ export default function PrivacyPage() {
     <section className="policy-section"><h2>External services</h2>
       <p>Vercel processes anonymized technical page-view and performance data for this website. Product icons may be loaded from Google, and the website links to WhatsApp, social media profiles and provider websites. Those services process information under their own privacy terms. Opening an external link takes you away from this website.</p>
     </section>
+    <section className="policy-section"><h2>Email verification</h2>
+      <p>When you create an account or request a password reset, we use the Google Gmail API to send a verification code or reset message to the email address you provide. Our integration uses Gmail only to send these requested messages; it does not read, search, modify or delete your inbox. Google account data obtained through the Gmail API is used only for this email-sending function and handled in accordance with the Google API Services User Data Policy, including its Limited Use requirements.</p>
+    </section>
     <section className="policy-section"><h2>Your questions and requests</h2>
       <p>Contact +923116185711 on WhatsApp to ask how order information is handled or to request a correction or deletion where applicable.</p>
     </section>

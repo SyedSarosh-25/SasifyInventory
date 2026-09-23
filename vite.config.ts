@@ -1,7 +1,8 @@
 import { sites } from '@openai/sites-vite-plugin';
 import tailwindcss from '@tailwindcss/postcss';
 import vinext from 'vinext';
-import { defineConfig } from 'vite';
+import { defineConfig, loadEnv } from 'vite';
+import { devCommerce } from './scripts/dev-commerce.mjs';
 import hostingConfig from './.openai/hosting.json';
 
 const SITE_CREATOR_PLACEHOLDER_DATABASE_ID =
@@ -47,6 +48,10 @@ export default defineConfig(async () => {
   process.env.WRANGLER_WRITE_LOGS ??= 'false';
   process.env.WRANGLER_LOG_PATH ??= '.wrangler/logs';
   process.env.MINIFLARE_REGISTRY_PATH ??= '.wrangler/registry';
+  const commerceEnv=loadEnv('development',process.cwd(),'');
+  for(const [name,value] of Object.entries(commerceEnv)) {
+    if (/^(DATABASE_URL|COMMERCE_|POSTMARK_|PAYMENT_|NAYAPAY_|BINANCE_|CRYPTO_)/.test(name)) process.env[name]??=value;
+  }
 
   // Wrangler snapshots its log path while the Cloudflare plugin is imported.
   const { cloudflare } = await import('@cloudflare/vite-plugin');
@@ -61,6 +66,7 @@ export default defineConfig(async () => {
       },
     },
     plugins: [
+      devCommerce(),
       vinext(),
       sites(),
       cloudflare({

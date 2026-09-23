@@ -1,0 +1,135 @@
+.site-header .header-account-actions {
+  gap: 12px;
+  flex-shrink: 0;
+}
+.site-header .header-account-actions .currency-toggle {
+  height: 36px;
+  grid-template-columns: repeat(2, 40px);
+  padding: 3px;
+  border: 1px solid #e7eaf0;
+  border-radius: 9px;
+  background: #f3f5f8;
+}
+.site-header .header-account-actions .currency-toggle button {
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.02em;
+  color: #7a8495;
+  transition:
+    background 0.15s,
+    color 0.15s;
+}
+.site-header
+  .header-account-actions
+  .currency-toggle
+  button[aria-pressed='true'] {
+  background: #fff;
+  color: #24334a;
+  box-shadow: 0 1px 3px #15284615;
+}
+.site-header .header-action-divider {
+  height: 20px;
+  width: 1px;
+  background: #e5e9f0;
+  margin: 0 3px;
+}
+.site-header .header-login,
+.site-header .header-signup {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 40px;
+  white-space: nowrap;
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+  line-height: 1;
+  transition:
+    background 0.15s,
+    color 0.15s;
+}
+.site-header .header-login {
+  color: #526078;
+  padding: 0 6px;
+}
+.site-header .header-login:hover {
+  color: #1c3c70;
+}
+.site-header .header-signup {
+  padding: 0 20px;
+  border: 1px solid #203a63;
+  border-radius: 9px;
+  background: #203a63;
+  color: #fff;
+  box-shadow: 0 1px 2px #10234114;
+}
+.site-header .header-signup:hover {
+  background: #152c50;
+  border-color: #152c50;
+}
+.site-header .header-login:focus-visible,
+.site-header .header-signup:focus-visible {
+  outline: 2px solid #466ff0;
+  outline-offset: 4px;
+}
+@media (max-width: 760px) {
+  .site-header .header-account-actions {
+    gap: 8px;
+  }
+  .site-header .header-action-divider {
+    display: none;
+  }
+  .site-header .header-signup {
+    padding: 0 13px;
+  }
+  .site-header .header-login {
+    padding: 0 2px;
+  }
+  .site-header .header-account-actions .currency-toggle {
+    grid-template-columns: repeat(2, 34px);
+  }
+}
+@media (max-width: 420px) {
+  .site-header .header-account-actions {
+    gap: 6px;
+  }
+  .site-header .header-account-actions .currency-toggle {
+    grid-template-columns: repeat(2, 29px);
+    height: 34px;
+    padding: 2px;
+  }
+  .site-header .header-account-actions .currency-toggle button {
+    font-size: 10px;
+  }
+  .site-header .header-login,
+  .site-header .header-signup {
+    font-size: 12px;
+    min-height: 36px;
+  }
+  .site-header .header-signup {
+    padding: 0 10px;
+  }
+}
+@media (max-width: 640px) {
+  .site-header-account .nav-inner {
+    display: flex;
+    min-height: 58px;
+    padding: 7px 18px;
+    gap: 12px;
+  }
+  .site-header-account .nav-links,
+  .site-header-account .new-products-ticker,
+  .site-header-account .currency-toggle,
+  .site-header-account .header-action-divider {
+    display: none;
+  }
+  .site-header-account .nav-actions {
+    margin-left: auto;
+  }
+  .site-header-account-signup .header-signup,
+  .site-header-account-login .header-login,
+  .site-header-account-recovery .header-signup {
+    display: none;
+  }
+}

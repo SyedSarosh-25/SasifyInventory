@@ -1,4 +1,15 @@
 import pg from 'pg';
+import {
+  accountSchema,
+  accountForRequest,
+  requireAccount,
+  accountAuth,
+  creditDeposit,
+  signupVerification,
+  accountPasswordReset,
+  adminAccountStats,
+  applyForReseller,
+} from './accounts.mjs';
 import { createHmac, randomBytes, randomUUID } from 'node:crypto';
 import {
   hash,
@@ -188,7 +199,10 @@ function paymentMethod(value) {
     .trim()
     .toLowerCase();
   if (!Object.hasOwn(PAYMENT_WINDOWS_MINUTES, method))
-    throw fail(400, 'Select wallet payment, bank transfer, Binance Pay, or crypto USDT.');
+    throw fail(
+      400,
+      'Select wallet payment, bank transfer, Binance Pay, or crypto USDT.',
+    );
   return method;
 }
 function paymentMatchesOrder(payment, order) {
@@ -197,9 +211,16 @@ function paymentMatchesOrder(payment, order) {
   if (orderCurrency === 'USDT' || paymentCurrency === 'USDT') {
     const paid = Number(payment?.payment_amount);
     const required = Number(order?.payment_amount);
-    const routeMatches = !payment?.receiver_id || payment.receiver_id === order?.payment_method;
-    return orderCurrency === 'USDT' && paymentCurrency === 'USDT' && routeMatches &&
-      Number.isFinite(paid) && Number.isFinite(required) && paid === required;
+    const routeMatches =
+      !payment?.receiver_id || payment.receiver_id === order?.payment_method;
+    return (
+      orderCurrency === 'USDT' &&
+      paymentCurrency === 'USDT' &&
+      routeMatches &&
+      Number.isFinite(paid) &&
+      Number.isFinite(required) &&
+      paid === required
+    );
   }
   return paymentAmountMatchesOrder(payment?.amount, order?.amount);
 }
@@ -222,7 +243,10 @@ function cryptoReceiver() {
   if (!id) return null;
   const network = String(process.env.CRYPTO_USDT_NETWORK || '').trim();
   return {
-    title: [String(process.env.CRYPTO_RECEIVER_TITLE || 'USDT wallet').trim(), network]
+    title: [
+      String(process.env.CRYPTO_RECEIVER_TITLE || 'USDT wallet').trim(),
+      network,
+    ]
       .filter(Boolean)
       .join(' · '),
     number: id,
@@ -234,7 +258,10 @@ function paymentQuote(method, amountPkr) {
     return { currency: 'PKR', amount: Number(amountPkr) };
   const rate = binanceUsdtPkrRate();
   if (!rate || (method === 'binance' ? !binanceReceiver() : !cryptoReceiver()))
-    throw fail(503, `${method === 'crypto' ? 'Crypto' : 'Binance Pay'} payments are not configured yet.`);
+    throw fail(
+      503,
+      `${method === 'crypto' ? 'Crypto' : 'Binance Pay'} payments are not configured yet.`,
+    );
   return {
     currency: 'USDT',
     amount: Math.ceil((Number(amountPkr) / rate) * 100) / 100,
@@ -292,10 +319,11 @@ function inboundAuthPrefixes(provider = 'nayapay') {
   return provider === 'binance' ? ['BINANCE', 'NAYAPAY'] : ['NAYAPAY'];
 }
 function inboundEmailAuthConfigured(provider = 'nayapay') {
-  return inboundAuthPrefixes(provider).some((prefix) =>
-    !!String(process.env[prefix + '_INBOUND_TOKEN'] || '').trim() ||
-    (!!String(process.env[prefix + '_INBOUND_BASIC_USER'] || '').trim() &&
-      !!String(process.env[prefix + '_INBOUND_BASIC_PASSWORD'] || '')),
+  return inboundAuthPrefixes(provider).some(
+    (prefix) =>
+      !!String(process.env[prefix + '_INBOUND_TOKEN'] || '').trim() ||
+      (!!String(process.env[prefix + '_INBOUND_BASIC_USER'] || '').trim() &&
+        !!String(process.env[prefix + '_INBOUND_BASIC_PASSWORD'] || '')),
   );
 }
 function inboundEmailAuthorized(req, provider = 'nayapay') {
@@ -309,8 +337,12 @@ function inboundEmailAuthorized(req, provider = 'nayapay') {
   return inboundAuthPrefixes(provider).some((prefix) => {
     const token = String(process.env[prefix + '_INBOUND_TOKEN'] || '').trim();
     if (token && same(providedToken, token)) return true;
-    const username = String(process.env[prefix + '_INBOUND_BASIC_USER'] || '').trim();
-    const password = String(process.env[prefix + '_INBOUND_BASIC_PASSWORD'] || '');
+    const username = String(
+      process.env[prefix + '_INBOUND_BASIC_USER'] || '',
+    ).trim();
+    const password = String(
+      process.env[prefix + '_INBOUND_BASIC_PASSWORD'] || '',
+    );
     const expected =
       username && password
         ? `Basic ${Buffer.from(`${username}:${password}`).toString('base64')}`
@@ -1062,7 +1094,7 @@ async function ensurePaymentWorkflowSchema(db) {
         "ALTER TABLE commerce_orders ADD COLUMN IF NOT EXISTS payment_currency text NOT NULL DEFAULT 'PKR'",
       );
       await db.query(
-        "ALTER TABLE commerce_orders ADD COLUMN IF NOT EXISTS payment_amount numeric(20,8) NOT NULL DEFAULT 0",
+        'ALTER TABLE commerce_orders ADD COLUMN IF NOT EXISTS payment_amount numeric(20,8) NOT NULL DEFAULT 0',
       );
       await db.query(
         'UPDATE commerce_orders SET payment_amount=amount WHERE payment_amount=0 AND amount>0',
@@ -2425,6 +2457,7 @@ async function fulfill(
     throw fail(409, 'Order needs manual review; reservation has expired.');
   if (
     payment.order_id ||
+    payment.wallet_deposit_id ||
     !paymentMatchesOrder(payment, order) ||
     !payment.transaction_id ||
     payment.transaction_id !== order.transaction_id
@@ -3107,10 +3140,9 @@ async function createTelegramCommerceOrder(db, options, paymentReceiver) {
     paymentMethod: selectedPaymentMethod,
     paymentCurrency: quote.currency,
     paymentAmount: quote.amount,
-    paymentReceiver:
-      ['binance', 'crypto'].includes(selectedPaymentMethod)
-        ? paymentReceiverForOrder
-        : undefined,
+    paymentReceiver: ['binance', 'crypto'].includes(selectedPaymentMethod)
+      ? paymentReceiverForOrder
+      : undefined,
     expiresAt: new Date(
       Date.now() + PAYMENT_WINDOWS_MINUTES[selectedPaymentMethod] * 60000,
     ).toISOString(),
@@ -3305,7 +3337,9 @@ async function setTelegramLanguage(db, chatId, language) {
   const existing = (await getTelegramSession(db, chatId)) || {};
   await setTelegramSession(db, chatId, {
     ...existing,
-    language: String(language || 'en').trim().toLowerCase(),
+    language: String(language || 'en')
+      .trim()
+      .toLowerCase(),
   });
 }
 export function createHandler(
@@ -3330,8 +3364,9 @@ export function createHandler(
     const key = process.env.COMMERCE_ENCRYPTION_KEY;
     if (!process.env.DATABASE_URL || !/^[a-f0-9]{64}$/i.test(key || ''))
       return json(res, 503, {
-        error:
-          'Online checkout is being prepared. Please contact us on WhatsApp.',
+        error: String(action || '').startsWith('account-')
+          ? 'Account services are not configured in this local preview yet.'
+          : 'Online checkout is being prepared. Please contact us on WhatsApp.',
       });
     if (!['GET', 'POST'].includes(req.method))
       return json(res, 405, { error: 'Method not allowed.' });
@@ -3389,7 +3424,15 @@ export function createHandler(
         ),
         action === 'status'
           ? 60
-          : action === 'admin-login'
+          : [
+                'admin-login',
+                'account-login',
+                'account-signup',
+                'account-send-otp',
+                'account-verify-otp',
+                'account-request-password-reset',
+                'account-reset-password',
+              ].includes(action)
             ? 5
             : action === 'scam-submit'
               ? 4
@@ -3410,12 +3453,15 @@ export function createHandler(
       )
         throw fail(401, 'Your team session is invalid or has expired.');
       if (action === 'inbound-email') {
-        const requestedInboundProvider =
-          ['binance', 'nayapay', 'auto'].includes(
-            String(req.query?.provider || body.provider || '').toLowerCase(),
-          )
-            ? String(req.query?.provider || body.provider || '').toLowerCase()
-            : 'nayapay';
+        const requestedInboundProvider = [
+          'binance',
+          'nayapay',
+          'auto',
+        ].includes(
+          String(req.query?.provider || body.provider || '').toLowerCase(),
+        )
+          ? String(req.query?.provider || body.provider || '').toLowerCase()
+          : 'nayapay';
         if (!inboundEmailAuthConfigured(requestedInboundProvider))
           throw fail(503, 'Inbound email receiver is not configured.');
         if (!inboundEmailAuthorized(req, requestedInboundProvider))
@@ -3440,6 +3486,7 @@ export function createHandler(
           'admin-supplier-logs',
           'admin-scam-report',
           'team-stock',
+          'account-dashboard',
         ].includes(action)
           ? req.method !== 'GET'
           : req.method !== 'POST'
@@ -3459,7 +3506,10 @@ export function createHandler(
       await ensureTeamSchema(db);
       await ensureSharedAccountSchema(db);
       await ensureTwoFactorChallengeSchema(db);
+      for (const statement of accountSchema.split(';').filter((s) => s.trim()))
+        await db.query(statement);
       await db.query('BEGIN');
+      const customerAccount = await accountForRequest(db, req);
       await ensureDefaultCoupon(db);
       const supplierApiKeys = await readSupplierApiKeys(db, key);
       await expire(db, action !== 'inbound-email');
@@ -3468,7 +3518,228 @@ export function createHandler(
       const telegramCallbacks = [];
       const telegramEdits = [];
       const publicTelegramMessages = [];
-      if (action === 'admin-login') {
+      if (
+        ['account-request-password-reset', 'account-reset-password'].includes(
+          action,
+        )
+      ) {
+        output = await accountPasswordReset(
+          db,
+          action,
+          body,
+          String(req.headers.origin || ''),
+        );
+      } else if (['account-send-otp', 'account-verify-otp'].includes(action)) {
+        output = await signupVerification(db, action, body);
+      } else if (
+        ['account-signup', 'account-login', 'account-logout'].includes(action)
+      ) {
+        output = await accountAuth(db, req, res, action, body);
+      } else if (action === 'admin-reseller-review') {
+        if (
+          !idOk(body.accountId) ||
+          !['approved', 'rejected'].includes(body.status)
+        )
+          throw fail(400, 'Select a reseller and a valid review decision.');
+        const account = (
+          await db.query(
+            "SELECT id,email_verified_at,role,reseller_status FROM commerce_accounts WHERE id=$1 AND (reseller_status IN ('pending','approved','rejected')) FOR UPDATE",
+            [body.accountId],
+          )
+        ).rows[0];
+        if (!account) throw fail(404, 'Reseller account not found.');
+        if (body.status === 'approved' && !account.email_verified_at)
+          throw fail(
+            409,
+            'The reseller must verify their email before approval.',
+          );
+        await db.query(
+          'UPDATE commerce_accounts SET role=$1,reseller_status=$2,reseller_reviewed_at=now() WHERE id=$3',
+          [
+            body.status === 'approved' ? 'reseller' : 'customer',
+            body.status,
+            account.id,
+          ],
+        );
+        await db.query(
+          'DELETE FROM commerce_account_sessions WHERE account_id=$1',
+          [account.id],
+        );
+        await db.query(
+          'INSERT INTO commerce_audit(action,object_id) VALUES($1,$2)',
+          [`reseller_${body.status}`, account.id],
+        );
+        output = { ok: true };
+      } else if (action === 'account-apply-reseller') {
+        output = await applyForReseller(db, customerAccount);
+      } else if (action === 'account-dashboard') {
+        const account = requireAccount(customerAccount);
+        const orders = (
+          await db.query(
+            `SELECT o.id,o.product_id,o.amount,o.status,o.created_at,o.payment_method,
+          p.name AS supplier_name FROM commerce_orders o LEFT JOIN commerce_supplier_products p ON p.id=o.supplier_product_id
+          WHERE o.account_id=$1 ORDER BY o.created_at DESC LIMIT 100`,
+            [account.id],
+          )
+        ).rows;
+        output = {
+          account,
+          orders: orders.map((o) => ({
+            ...o,
+            product:
+              catalog.find((p) => p.id === o.product_id)?.name ||
+              o.supplier_name ||
+              o.product_id,
+          })),
+          ledger: (
+            await db.query(
+              'SELECT amount,description,created_at FROM commerce_wallet_ledger WHERE account_id=$1 ORDER BY created_at DESC LIMIT 100',
+              [account.id],
+            )
+          ).rows,
+          deposits: (
+            await db.query(
+              'SELECT * FROM commerce_wallet_deposits WHERE account_id=$1 ORDER BY created_at DESC LIMIT 50',
+              [account.id],
+            )
+          ).rows,
+        };
+      } else if (action === 'account-deposit') {
+        const account = requireAccount(customerAccount);
+        const amount = Number(body.amount);
+        const method = paymentMethod(body.method);
+        if (!Number.isSafeInteger(amount) || amount < 100 || amount > 1000000)
+          throw fail(400, 'Deposit must be between PKR 100 and PKR 1,000,000.');
+        const crypto = ['binance', 'crypto'].includes(method);
+        const paymentAmount = crypto
+          ? Math.ceil((amount / binanceUsdtPkrRate()) * 100) / 100
+          : amount;
+        if (method === 'crypto' && paymentAmount < MIN_BINANCE_USDT)
+          throw fail(
+            400,
+            'Crypto deposits require at least USDT 6. Choose Binance Pay for a smaller deposit.',
+          );
+        const receiver = crypto
+          ? paymentReceiverForMethod(method)
+          : {
+              number: paymentReceiver?.account_number,
+              title: paymentReceiver?.title,
+            };
+        if (!receiver?.number)
+          throw fail(503, 'This payment method is unavailable.');
+        const deposit = (
+          await db.query(
+            `INSERT INTO commerce_wallet_deposits(id,account_id,amount,currency,payment_amount,method,receiver_id)
+          VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
+            [
+              randomUUID(),
+              account.id,
+              amount,
+              crypto ? 'USDT' : 'PKR',
+              paymentAmount,
+              method,
+              crypto ? method : paymentReceiver.id,
+            ],
+          )
+        ).rows[0];
+        output = { deposit, receiver };
+      } else if (action === 'account-deposit-check') {
+        output = await creditDeposit(
+          db,
+          customerAccount,
+          body.id,
+          String(body.reference || '')
+            .trim()
+            .toUpperCase(),
+        );
+      } else if (action === 'account-wallet-pay') {
+        const account = requireAccount(customerAccount);
+        if (!idOk(body.id)) throw fail(400, 'Invalid order.');
+        const order = (
+          await db.query(
+            'SELECT * FROM commerce_orders WHERE id=$1 AND account_id=$2 FOR UPDATE',
+            [body.id, account.id],
+          )
+        ).rows[0];
+        if (!order) throw fail(404, 'Order not found.');
+        if (order.status === 'delivered')
+          output = { ok: true, status: 'delivered' };
+        else {
+          if (
+            order.status !== 'pending' ||
+            order.transaction_id ||
+            order.payment_submitted_at ||
+            new Date(order.expires_at) <= new Date()
+          )
+            throw fail(409, 'This order cannot be paid from your wallet.');
+          const walletDiscount =
+            Number(order.wallet_discount || 0) ||
+            Math.floor(Number(order.amount) * 0.05);
+          const payableAmount = Math.max(
+            0,
+            Number(order.amount) - walletDiscount,
+          );
+          const debited = await db.query(
+            'UPDATE commerce_accounts SET balance=balance-$1 WHERE id=$2 AND balance>=$1 RETURNING id',
+            [payableAmount, account.id],
+          );
+          if (!debited.rows.length)
+            throw fail(409, 'Insufficient wallet balance. Add funds first.');
+          const paymentId = randomUUID(),
+            transaction = `WALLET${randomBytes(16).toString('hex').toUpperCase()}`;
+          await db.query(
+            "UPDATE commerce_orders SET amount=$1::integer,wallet_discount=$2::integer,transaction_id=$3,payment_currency='PKR',payment_amount=$1::numeric,payment_method='wallet',payment_submitted_at=now() WHERE id=$4",
+            [payableAmount, walletDiscount, transaction, order.id],
+          );
+          await db.query(
+            `INSERT INTO commerce_payments(id,event_hash,transaction_id,amount,payment_amount,currency,received_at,verified,subject,encrypted_body)
+            VALUES($1,$2,$3,$4::integer,$4::integer,'PKR',now(),true,'Sasify wallet payment',$5)`,
+            [
+              paymentId,
+              hash(transaction),
+              transaction,
+              payableAmount,
+              encrypt({ accountId: account.id, orderId: order.id }, key),
+            ],
+          );
+          const result = await fulfill(
+            db,
+            order.id,
+            paymentId,
+            false,
+            captureSupplierExchange,
+            supplierApiKeys,
+          );
+          if (result?.cancelled) {
+            await db.query(
+              'UPDATE commerce_accounts SET balance=balance+$1 WHERE id=$2',
+              [payableAmount, account.id],
+            );
+            output = {
+              ok: false,
+              status: 'cancelled',
+              error: 'Supplier could not deliver. Your wallet was not charged.',
+            };
+          } else {
+            await db.query(
+              'INSERT INTO commerce_wallet_ledger(id,account_id,amount,order_id,description) VALUES($1,$2,$3,$4,$5)',
+              [
+                randomUUID(),
+                account.id,
+                -payableAmount,
+                order.id,
+                'Order purchase · 5% wallet discount',
+              ],
+            );
+            output = {
+              ok: true,
+              status: 'delivered',
+              discount: walletDiscount,
+              paid: payableAmount,
+            };
+          }
+        }
+      } else if (action === 'admin-login') {
         const email = String(body.email || '')
           .trim()
           .toLowerCase();
@@ -4123,7 +4394,8 @@ export function createHandler(
           throw fail(409, 'The HOR coupon is currently disabled.');
         if (
           !product ||
-          ((!paymentReceiver?.title && !['binance', 'crypto'].includes(selectedPaymentMethod)) &&
+          (!paymentReceiver?.title &&
+            !['binance', 'crypto'].includes(selectedPaymentMethod) &&
             !isRequestedTeamCoupon)
         )
           throw fail(
@@ -4132,7 +4404,8 @@ export function createHandler(
           );
         if (
           ['binance', 'crypto'].includes(selectedPaymentMethod) &&
-          (!paymentReceiverForMethod(selectedPaymentMethod) || !binanceUsdtPkrRate())
+          (!paymentReceiverForMethod(selectedPaymentMethod) ||
+            !binanceUsdtPkrRate())
         )
           throw fail(503, 'Binance payments are not configured yet.');
         if (supplierProduct && isChatGptPlusProduct(supplierProduct.name))
@@ -4279,6 +4552,11 @@ export function createHandler(
             clientIp(req),
           ],
         );
+        if (customerAccount)
+          await db.query(
+            'UPDATE commerce_orders SET account_id=$1 WHERE id=$2',
+            [customerAccount.id, id],
+          );
         if (isTeamCoupon && paymentAmount === 0) await fulfillFreeOrder(db, id);
         if (paymentAmount > 0)
           telegramMessages.push({
@@ -4325,7 +4603,13 @@ export function createHandler(
             [id],
           )
         ).rows[0];
-        if (!order || !same(hash(bearer(req)), order.recovery_hash))
+        if (
+          !order ||
+          !(
+            same(hash(bearer(req)), order.recovery_hash) ||
+            (customerAccount && order.account_id === customerAccount.id)
+          )
+        )
           throw fail(404, 'Order not found or recovery key is incorrect.');
         if (action === 'cancel') {
           if (order.status !== 'pending' || order.transaction_id)
@@ -4410,14 +4694,11 @@ export function createHandler(
           if (!payment && transaction) {
             payment = (
               await db.query(
-                 'SELECT id,transaction_id,amount,payment_amount,currency,receiver_id,verified FROM commerce_payments WHERE transaction_id=$1 AND order_id IS NULL FOR UPDATE',
+                'SELECT id,transaction_id,amount,payment_amount,currency,receiver_id,verified FROM commerce_payments WHERE transaction_id=$1 AND order_id IS NULL FOR UPDATE',
                 [transaction],
               )
             ).rows[0];
-            if (
-              payment &&
-              !paymentMatchesOrder(payment, order)
-            )
+            if (payment && !paymentMatchesOrder(payment, order))
               throw fail(
                 409,
                 'This transaction reference belongs to a different amount.',
@@ -4631,26 +4912,24 @@ export function createHandler(
               ? { twoFactorCodeAvailable: !sharedTwoFactorChallenge }
               : {}),
             payment: {
-              number:
-                ['binance', 'crypto'].includes(order.payment_method)
-                  ? paymentReceiverForMethod(order.payment_method)?.number ||
-                    'Configured payment destination'
-                  : order.receiver_number ||
-                    paymentReceiver?.account_number ||
-                    '03450485711',
+              number: ['binance', 'crypto'].includes(order.payment_method)
+                ? paymentReceiverForMethod(order.payment_method)?.number ||
+                  'Configured payment destination'
+                : order.receiver_number ||
+                  paymentReceiver?.account_number ||
+                  '03450485711',
               provider:
                 order.payment_method === 'crypto'
                   ? cryptoReceiver()?.provider || 'Crypto'
                   : order.payment_method === 'binance'
                     ? 'Binance Pay'
-                  : 'NayaPay',
-              title:
-                ['binance', 'crypto'].includes(order.payment_method)
-                  ? paymentReceiverForMethod(order.payment_method)?.title ||
-                    (order.payment_method === 'crypto'
-                      ? 'USDT wallet'
-                      : 'Binance Pay')
-                  : order.receiver_title || paymentReceiver?.title,
+                    : 'NayaPay',
+              title: ['binance', 'crypto'].includes(order.payment_method)
+                ? paymentReceiverForMethod(order.payment_method)?.title ||
+                  (order.payment_method === 'crypto'
+                    ? 'USDT wallet'
+                    : 'Binance Pay')
+                : order.receiver_title || paymentReceiver?.title,
             },
           };
           if (order.status === 'delivered') {
@@ -4698,7 +4977,8 @@ export function createHandler(
               : 'nayapay';
         const isBinance = inboundProvider === 'binance';
         const isCrypto =
-          isBinance && /\[?Binance\]?\s+USDT\s+Deposit\s+Confirmed/i.test(subject);
+          isBinance &&
+          /\[?Binance\]?\s+USDT\s+Deposit\s+Confirmed/i.test(subject);
         const inboundSender = isBinance
           ? process.env.BINANCE_SENDER
           : process.env.NAYAPAY_SENDER;
@@ -5548,6 +5828,7 @@ export function createHandler(
         ).rows[0];
         output = {
           paymentReceivers: await listPaymentReceivers(db),
+          accounts: await adminAccountStats(db),
           metrics: dashboardMetrics,
           dailyFinancials: profitSummary.daily.map((day) =>
             profitUnlocked

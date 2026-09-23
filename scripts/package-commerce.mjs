@@ -34,6 +34,7 @@ for (const entry of await readdir(path.join(root, 'out'), {
 }
 for (const name of [
   'handler.mjs',
+  'accounts.mjs',
   'core.mjs',
   'binance-email.mjs',
   'inbound-email.mjs',
@@ -94,6 +95,7 @@ async function dependency(name) {
 }
 await dependency('pg');
 await dependency('html-to-text');
+await dependency('nodemailer');
 await dependency('mailauth');
 await dependency('mailparser');
 const overrides = {};
@@ -138,7 +140,7 @@ await writeFile(
         },
         { src: '/api/commerce', dest: '/api/commerce' },
         {
-          src: '/(checkout|orders-admin|team)',
+          src: '/(checkout|orders-admin|team|account|dashboard|login|signup|forgot-password|reset-password)',
           headers: {
             'Cache-Control': 'no-store',
             'X-Robots-Tag': 'noindex, nofollow',

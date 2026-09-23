@@ -32,6 +32,7 @@ import {
 export const adminSections = [
   ['overview', 'Overview', LayoutDashboard],
   ['orders', 'Orders', ClipboardList],
+  ['customers', 'Registered users', Users],
   ['payments', 'Payments', WalletCards],
   ['paymentAccounts', 'Payment accounts', WalletCards],
   ['inventory', 'Inventory', Package],
@@ -50,6 +51,7 @@ export type AdminSection = (typeof adminSections)[number][0];
 const sectionDescriptions: Record<AdminSection, string> = {
   overview: 'Your business at a glance. Every order, every day.',
   orders: 'Track purchases, review order details and manage delivery.',
+  customers: 'Customer and reseller accounts, wallet balances and purchase activity.',
   payments: 'Review incoming receipts and their verification status.',
   paymentAccounts: 'Manage receiving accounts and your active payment destination.',
   inventory: 'Organize account stock and monitor availability.',

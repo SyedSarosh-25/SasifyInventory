@@ -3,6 +3,8 @@ import { useEffect, useRef, useState } from 'react';
 import { AdminShell } from './admin-shell';
 import { AdminOperations } from './admin-operations';
 import { AdminDailyChart } from './admin-daily-chart';
+import { CheckoutAccount } from './customer-account';
+import { AdminCustomers } from './admin-customers';
 import { AdminRecordControls, useRecordView } from './admin-record-controls';
 import { AdminToolRequests } from './admin-tool-requests';
 import { AdminCatalogStatus } from './admin-catalog-status';
@@ -387,6 +389,7 @@ export function Checkout() {
       <h1>
         {order ? (order.amount === 0 ? 'Your free order' : 'Complete your payment') : 'Buy online'}
       </h1>
+      <CheckoutAccount orderId={order?.status === 'pending' ? id : ''} onPaid={() => { void api('status',key,undefined,id).then(setOrder).catch(e=>setError(e.message)); }} />
       <div className="instant-delivery">
         <span className="instant-icon">
           <Zap size={22} />
@@ -1281,6 +1284,8 @@ export function CommerceAdmin() {
       | 'blockedUsers'
       | 'team'
       | 'toolRequests'
+      | 'customers'
+      | 'catalogStatus'
     >('overview'),
     [inventorySearch, setInventorySearch] = useState(''),
     [supplierSearch, setSupplierSearch] = useState(''),
@@ -2279,6 +2284,7 @@ export function CommerceAdmin() {
           </section>
         </div>
       )}
+      {tab === 'customers' && <AdminCustomers accounts={data.accounts || []} busy={busy} onReview={(accountId,status)=>{void run(async()=>{await api('admin-reseller-review',key,{accountId,status});setNotice(`Reseller ${status}.`);await refresh();});}} />}
       {tab === 'toolRequests' && (
         <AdminToolRequests
           requests={data.toolRequests || []}
