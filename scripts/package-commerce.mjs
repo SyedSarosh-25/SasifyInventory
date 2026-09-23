@@ -125,6 +125,11 @@ await writeFile(
       version: 3,
       overrides,
       routes: [
+        {
+          src: '/account/?$',
+          status: 308,
+          headers: { Location: '/dashboard' },
+        },
         ...productRedirectRoutes,
         {
           src: '/api/google-reviews-sync',
