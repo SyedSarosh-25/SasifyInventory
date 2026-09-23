@@ -254,6 +254,73 @@
   color: #0f172a;
   letter-spacing: -0.02em;
 }
+.ops-shell .admin-customers-table-wrap {
+  max-width: 100%;
+  margin-top: 16px;
+  overflow-x: auto;
+  border: 1px solid #dce4ee;
+  border-radius: 12px;
+  background: #fff;
+  scrollbar-width: thin;
+}
+.ops-shell .admin-customers-table {
+  width: max(100%, 1680px);
+  border-collapse: separate;
+  border-spacing: 0;
+  table-layout: auto;
+  font-size: 13px;
+  line-height: 1.45;
+}
+.ops-shell .admin-customers-table th {
+  position: sticky;
+  z-index: 2;
+  top: 0;
+  padding: 12px 14px;
+  border-bottom: 1px solid #dce4ee;
+  background: #f3f6fb;
+  color: #52647c;
+  font-size: 11px;
+  font-weight: 750;
+  letter-spacing: .045em;
+  text-align: left;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.ops-shell .admin-customers-table td {
+  min-width: 88px;
+  padding: 13px 14px;
+  border-bottom: 1px solid #e8edf4;
+  color: #26364d;
+  text-align: left;
+  vertical-align: top;
+  white-space: nowrap;
+}
+.ops-shell .admin-customers-table th:first-child,
+.ops-shell .admin-customers-table td:first-child {
+  position: sticky;
+  z-index: 1;
+  left: 0;
+  min-width: 235px;
+  max-width: 260px;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  background: #fff;
+}
+.ops-shell .admin-customers-table th:first-child {
+  z-index: 3;
+  background: #f3f6fb;
+}
+.ops-shell .admin-customers-table td:first-child small {
+  color: #718096;
+  font-size: 11px;
+}
+.ops-shell .admin-customers-table tbody tr:hover td { background: #f8faff; }
+.ops-shell .admin-customers-table tbody tr:hover td:first-child { background: #f8faff; }
+.ops-shell .admin-customers-table td:nth-child(5) { min-width: 190px; }
+.ops-shell .admin-customers-table td:nth-child(5) button { margin: 0 6px 6px 0; }
+.ops-shell .admin-customers-table td:nth-child(13),
+.ops-shell .admin-customers-table td:nth-child(14) { min-width: 170px; }
+.ops-shell .admin-customers-table tbody tr:last-child td { border-bottom: 0; }
 .ops-shell .panel-heading {
   margin-bottom: 18px;
 }

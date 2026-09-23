@@ -58,13 +58,16 @@ const { productHref } = await import('../app/product-utils.ts');
 const { robotsText, sitemapXml } = await import('../app/seo.ts');
 const vercelConfigPath = path.join(out, 'vercel.json');
 const vercelConfig = JSON.parse(await readFile(vercelConfigPath, 'utf8'));
-const productRedirects = products
+const productRedirects = [
+  { source: '/account', destination: '/dashboard', permanent: true },
+  ...products
   .map((product) => ({
     source: `/products/${product.id}`,
     destination: productHref(product),
     permanent: true,
   }))
-  .filter((redirect) => redirect.source !== redirect.destination);
+  .filter((redirect) => redirect.source !== redirect.destination),
+];
 if (productRedirects.length) {
   vercelConfig.redirects = [
     ...productRedirects,

@@ -236,6 +236,15 @@ test('Vercel export preserves canonical routes without hiding missing pages', as
   const config = JSON.parse(await read('vercel.json'));
   assert.equal(config.cleanUrls, true);
   assert.equal(config.trailingSlash, false);
+  assert.ok(
+    config.redirects.some(
+      (redirect) =>
+        redirect.source === '/account' &&
+        redirect.destination === '/dashboard' &&
+        redirect.permanent === true,
+    ),
+    'Legacy account URL must redirect to the customer dashboard',
+  );
   for (const product of products) {
     assert.ok(
       config.redirects.some(

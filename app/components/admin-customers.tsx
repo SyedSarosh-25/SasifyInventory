@@ -71,8 +71,8 @@ export function AdminCustomers({
           </select>
         </label>
       </div>
-      <div style={{ overflowX: 'auto' }}>
-        <table>
+      <div className="admin-customers-table-wrap">
+        <table className="admin-customers-table">
           <thead>
             <tr>
               <th>User</th>
