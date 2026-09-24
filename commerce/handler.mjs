@@ -3629,7 +3629,7 @@ export function createHandler(
         account.balance = wallet?.balance ?? account.balance;
         const orders = (
           await db.query(
-            `SELECT o.id,o.product_id,o.amount,o.status,o.created_at,o.payment_method,
+            `SELECT o.id,o.product_id,o.amount,o.listed_amount,o.coupon_discount,o.wallet_discount,o.status,o.created_at,o.payment_method,
           p.name AS supplier_name FROM commerce_orders o LEFT JOIN commerce_supplier_products p ON p.id=o.supplier_product_id
           WHERE o.account_id=$1 ORDER BY o.created_at DESC LIMIT 100`,
             [account.id],
@@ -3639,6 +3639,18 @@ export function createHandler(
           account,
           orders: orders.map((o) => ({
             ...o,
+            savings: (() => {
+              const referencePrice = Number(
+                catalog.find((product) => product.id === o.product_id)
+                  ?.original_price_pkr || 0,
+              );
+              return referencePrice > 0
+                ? Math.max(
+                    0,
+                    referencePrice - Number(o.listed_amount ?? o.amount),
+                  )
+                : 0;
+            })(),
             product:
               catalog.find((p) => p.id === o.product_id)?.name ||
               o.supplier_name ||
@@ -6408,6 +6420,15 @@ export function createHandler(
         if (!changed.rowCount) throw fail(404, 'Requirement not found.');
         await db.query("INSERT INTO commerce_audit(action,object_id,details) VALUES('reseller_requirement_update',$1,$2::jsonb)", [body.requirementId, JSON.stringify({ status })]);
         output = { ok: true, requirement: changed.rows[0] };
+      } else if (action === 'admin-requirement-delete') {
+        if (!idOk(body.requirementId)) throw fail(400, 'Invalid requirement.');
+        await db.query("INSERT INTO commerce_audit(action,object_id) VALUES('reseller_requirement_delete',$1)", [body.requirementId]);
+        const changed = await db.query(
+          'DELETE FROM commerce_reseller_requirements WHERE id=$1 RETURNING id',
+          [body.requirementId],
+        );
+        if (!changed.rowCount) throw fail(404, 'Requirement not found.');
+        output = { ok: true, requirementId: body.requirementId };
       } else if (action === 'admin-tool-request-update') {
         if (!idOk(body.requestId)) throw fail(400, 'Invalid tool request ID.');
         const status = String(body.status || '').trim();

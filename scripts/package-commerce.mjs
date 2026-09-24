@@ -57,7 +57,14 @@ for (const name of [
 ])
   await cp(path.join(root, 'commerce', name), path.join(func, name));
 const catalog = products.flatMap((p) => [
-  { id: p.id, name: p.name, description: p.description, duration: p.duration, price: p.sellingPricePkr },
+  {
+    id: p.id,
+    name: p.name,
+    description: p.description,
+    duration: p.duration,
+    price: p.sellingPricePkr,
+    original_price_pkr: p.originalPricePkr ?? null,
+  },
   ...(p.variants || [])
     .filter((v) => v.id)
     .map((v) => ({
@@ -65,6 +72,7 @@ const catalog = products.flatMap((p) => [
       name: `${p.name} · ${v.name}`,
       duration: v.duration,
       price: v.sellingPricePkr,
+      original_price_pkr: v.originalPricePkr ?? null,
     })),
 ]);
 await writeFile(

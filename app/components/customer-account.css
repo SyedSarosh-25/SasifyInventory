@@ -235,7 +235,7 @@
 }
 .dashboard-metrics {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 14px;
   margin: 17px 0 23px;
 }
@@ -288,6 +288,7 @@
 }
 .dashboard-metric-icon.is-green { color: #13835f; background: #e7f8f1; }
 .dashboard-metric-icon.is-amber { color: #ad6b12; background: #fff4df; }
+.dashboard-metric-icon.is-purple { color: #6951c7; background: #f0ebff; }
 .dashboard-metrics small { color: #738198; font-size: 11px; }
 .dashboard-metrics strong { margin: 3px 0; font-size: 23px; line-height: 1; }
 .dashboard-metrics section > span:last-child { color: #8995a8; font-size: 10px; }
@@ -435,6 +436,31 @@
   margin: 0 0 4px;
   perspective: 900px;
   color: #2454d9;
+}
+.account-hero-art-image {
+  width: min(100%, 420px);
+  height: auto !important;
+  perspective: none;
+  overflow: visible;
+  border-radius: 24px;
+}
+.account-hero-art-image img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: inherit;
+  object-fit: contain;
+}
+.account-hero-video {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: inherit;
+  object-fit: contain;
+}
+.account-intro-signup .account-hero-art-image {
+  width: min(100%, 380px);
+  margin: 10px auto 14px;
 }
 .account-art-glow {
   position: absolute;
@@ -1084,12 +1110,47 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 14px;
-  padding: 16px;
-  background: #edf3ff;
-  border-radius: 12px;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid #d6e2f5;
+  background: linear-gradient(135deg, #f5f8ff, #edf3ff);
+  border-radius: 16px;
   margin: 16px 0;
+  box-shadow: 0 10px 24px rgba(31, 69, 130, .08);
 }
+.account-checkout-dashboard,
+.account-checkout-wallet {
+  min-height: 62px;
+  border-radius: 12px;
+}
+.account-checkout-dashboard {
+  display: grid;
+  min-width: 210px;
+  flex: 1 1 230px;
+  align-content: center;
+  padding: 10px 14px;
+  border: 1px solid #c9d9f5;
+  background: #fff;
+  color: #18345c;
+  text-decoration: none;
+  transition: transform .16s ease, box-shadow .16s ease, border-color .16s ease;
+}
+.account-checkout-dashboard:hover { transform: translateY(-1px); border-color: #7899e8; box-shadow: 0 7px 16px rgba(40, 92, 190, .12); }
+.account-checkout-dashboard strong { font-size: 15px; }
+.account-checkout-dashboard small,
+.account-checkout-wallet small { color: #71809a; font-size: 11px; }
+.account-checkout-eyebrow { color: #315fe9; font-size: 10px; font-weight: 850; letter-spacing: .1em; text-transform: uppercase; }
+.account-checkout-wallet {
+  display: grid;
+  min-width: 145px;
+  align-content: center;
+  gap: 3px;
+  padding: 10px 14px;
+  border: 1px solid #b8eadb;
+  background: linear-gradient(145deg, #f1fffa, #e4f8f1);
+  color: #087d53;
+}
+.account-checkout-wallet strong { font-size: 19px; line-height: 1; }
 .account-profile-grid {
   display: grid;
   grid-template-columns: minmax(0, 1.05fr) minmax(280px, .95fr);
@@ -1278,7 +1339,7 @@
   .dashboard-hero-mark { width: 76px; height: 76px; margin-right: 7px; border-radius: 22px; }
   .dashboard-hero-mark svg:first-child { width: 49px; height: 49px; }
   .dashboard-hero-mark svg:last-child { right: -12px; top: -11px; width: 34px; height: 34px; }
-  .dashboard-metrics { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 11px 0 16px; }
+  .dashboard-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 11px 0 16px; }
   .dashboard-metrics section { grid-template-columns: 30px 1fr; column-gap: 7px; padding: 11px 9px; }
   .dashboard-metric-icon { width: 29px; height: 29px; border-radius: 9px; }
   .dashboard-metric-icon svg { width: 15px; height: 15px; }
@@ -1301,6 +1362,14 @@
     width: min(100%, 320px);
     height: 148px;
     margin: 5px auto 0;
+  }
+  .account-hero-art-image {
+    width: min(100%, 270px);
+    height: auto !important;
+    margin: 8px auto 0;
+  }
+  .account-intro-signup .account-hero-art-image {
+    width: min(100%, 360px);
   }
   .account-art-orbit-one {
     width: min(315px, 100%);

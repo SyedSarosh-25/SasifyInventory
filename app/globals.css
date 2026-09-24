@@ -1768,13 +1768,15 @@ svg { flex-shrink: 0; }
 }
 
 @media (max-width: 900px) {
-  .nav-inner { flex-wrap: wrap; padding-block: 12px; gap: 12px; }
+  .nav-inner { flex-wrap: wrap; padding: 12px 20px; gap: 12px 18px; }
   .nav-links { order: 3; width: 100%; justify-content: center; gap: 28px; }
   .nav-links a { display: inline-flex; align-items: center; min-height: 44px; }
   .hero { min-height: auto; }
-  .hero::after { width: 36%; height: 54%; opacity: 0.85; }
-  .hero-grid { grid-template-columns: minmax(0, 1fr); padding-top: 32px; }
+  /* Keep the tablet layout readable: the desktop decoration otherwise sits over the copy. */
+  .hero::after { display: none; }
+  .hero-grid { grid-template-columns: minmax(0, 1fr); padding: 32px 24px 24px; }
   .hero-copy { width: 100%; max-width: 640px; justify-self: center; }
+  .hero-copy > p { max-width: 62ch; overflow-wrap: anywhere; }
   .brand-constellation { width: min(100%, 340px); }
   .section-heading, .reviews-heading { align-items: start; flex-direction: column; gap: 20px; }
   .hero-proof { flex-wrap: wrap; padding-block: 20px; }
@@ -1806,10 +1808,13 @@ svg { flex-shrink: 0; }
 }
 
 @media (max-width: 640px) {
-  .nav-inner { display: grid; grid-template-columns: minmax(0, 1fr) auto; min-height: 68px; padding: 8px 16px 4px; gap: 4px 8px; }
-  .nav-links { grid-column: 1 / -1; grid-row: 2; display: flex; justify-content: flex-start; gap: 4px; padding-bottom: 4px; overflow-x: auto; scrollbar-width: none; }
+  .nav-inner { display: flex; min-height: 64px; padding: 8px 16px; gap: 8px; }
+  .nav-links { display: flex; width: 100%; order: 3; justify-content: flex-start; gap: 12px; padding: 2px 2px 6px; overflow-x: auto; scrollbar-width: none; }
   .nav-links::-webkit-scrollbar { display: none; }
-  .nav-links a { flex: 0 0 auto; min-height: 36px; justify-content: center; padding-inline: 9px; font-size: 0.69rem; white-space: nowrap; }
+  .site-header .brand { display: flex; min-width: 0; }
+  .site-header .nav-actions { display: flex; margin-left: auto; }
+  .nav-links::-webkit-scrollbar { display: none; }
+  .nav-links a { flex: 0 0 auto; min-height: 38px; justify-content: center; padding-inline: 9px; font-size: 0.75rem; white-space: nowrap; }
   .brand > img { width: 40px; height: 40px; }
   .brand-name strong { font-size: 0.84rem; }
   .nav-actions { grid-column: 2; grid-row: 1; gap: 8px; }
@@ -2340,6 +2345,13 @@ svg { flex-shrink: 0; }
 .payment-method-picker span { display: grid; gap: 4px; min-width: 0; }
 .payment-method-picker strong { color: #172237; }
 .payment-method-picker small { color: #5b6b82; line-height: 1.35; }
+.payment-method-picker .sasify-wallet-option { grid-column: 1 / -1; border-color: #b9c9f6; background: linear-gradient(135deg,#f4f7ff,#eef2ff); }
+.payment-method-picker .sasify-wallet-option.disabled { opacity: .78; cursor: default; }
+.payment-method-picker .sasify-wallet-option.disabled svg { color: #71809a; }
+.payment-method-link { margin-left: auto; white-space: nowrap; color: #285cff; font-size: 12px; font-weight: 800; text-decoration: none; }
+.sasify-wallet-logo { display: grid !important; place-items: center; width: 38px; height: 38px; padding: 5px; border-radius: 12px; background: linear-gradient(145deg,#285cff,#6d5df7); box-shadow: 0 7px 14px rgba(40,92,255,.24); }
+.sasify-wallet-logo img { width: 100%; height: 100%; object-fit: contain; border-radius: 8px; }
+.payment-method-picker .sasify-wallet-option input { display: none; }
 .checkout-offer { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid #d3def0; border-radius: 6px; background: #fff; }
 .checkout-offer > div { display: grid; gap: 5px; padding: 16px; }
 .checkout-offer > div + div { border-left: 1px solid #d3def0; }
@@ -2469,6 +2481,12 @@ svg { flex-shrink: 0; }
 .checkout-page .commerce-details dt { color: #5b6b82; }
 .checkout-page .commerce-details dd { font-weight: 650; }
 .checkout-page .payment-timer { display: inline-block; min-width: 58px; color: #285cff; font-variant-numeric: tabular-nums; font-size: 18px; }
+.guest-checkout-prompt { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 5px 14px; align-items: center; margin: 14px 0 18px; padding: 15px 17px; border: 1px solid #c8bdfb; border-left: 4px solid #6b55ef; border-radius: 14px; background: linear-gradient(120deg, #f3f0ff, #eef6ff); box-shadow: 0 10px 26px rgba(75, 65, 170, .1); }
+.guest-checkout-prompt strong { display: block; color: #31247d; font-size: 15px; }
+.guest-checkout-prompt span { display: block; margin-top: 3px; color: #5d6681; font-size: 12px; }
+.guest-checkout-prompt small { grid-column: 1 / -1; color: #727b91; font-size: 10px; }
+.guest-checkout-prompt p { grid-column: 1 / -1; margin: 2px 0 0; color: #5d6681; font-size: 12px; }
+.guest-checkout-prompt p a { color: #315fe9; font-weight: 750; }
 .alternate-payment { display: flex; align-items: center; justify-content: space-between; gap: 18px; margin-top: 20px; padding-top: 18px; border-top: 1px solid #d5e1f1; }
 .alternate-payment > div { min-width: 0; }
 .alternate-payment p { margin: 5px 0 0; color: #5b6b82; font-size: 14px; line-height: 1.45; }
@@ -2481,6 +2499,8 @@ svg { flex-shrink: 0; }
 .checkout-page .commerce-error { box-shadow: 0 10px 30px rgba(0,0,0,.16); }
 @media (max-width: 620px) {
   .checkout-page { padding: 24px 14px 42px; }
+  .guest-checkout-prompt { grid-template-columns: minmax(0, 1fr); gap: 9px; padding: 14px; }
+  .guest-checkout-prompt .primary-button { width: 100%; }
   .checkout-page .commerce-shell { padding: 0; }
   .checkout-page .commerce-shell h1 { font-size: 30px; margin-top: 20px; }
   .instant-delivery { grid-template-columns: auto 1fr; padding: 14px; }
@@ -2664,6 +2684,7 @@ svg { flex-shrink: 0; }
 
 @media (max-width: 420px) {
   .nav-inner { padding-inline: 12px; }
+  .nav-links { display: flex; }
   .brand > img { width: 38px; height: 38px; }
   .brand-name strong { font-size: 0.78rem; }
   .currency-toggle { grid-template-columns: repeat(2, 42px); height: 48px; }
@@ -2694,6 +2715,15 @@ svg { flex-shrink: 0; }
 @media(max-width:700px){.supplier-key-row{grid-template-columns:1fr}.supplier-key-actions{justify-content:stretch}.supplier-key-actions > *{flex:1 1 auto}}
   .coupon-admin-summary { align-items: flex-start; }
   .coupon-admin-summary > div { flex-basis: 100%; }
+}
+
+@media (max-width: 360px) {
+  .nav-inner { grid-template-columns: minmax(0, 1fr) auto; padding-inline: 8px; }
+  .nav-links { display: flex; }
+  .brand { gap: 6px; }
+  .brand > img { width: 34px; height: 34px; }
+  .brand-name strong { font-size: 0.72rem; }
+  .brand-name small { margin-top: 3px; font-size: 0.5rem; }
 }
 
 /* Admin operations cockpit: high-contrast workspace with clear action hierarchy. */

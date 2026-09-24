@@ -96,8 +96,16 @@ export async function createMkeOrder({ productId, quantity = 1, idempotencyKey, 
 }
 
 export function mkeDelivery(data) {
+  const containers = [data, data?.order, data?.data]
+    .filter(Boolean)
+    .filter((container, index, all) => all.indexOf(container) === index);
   const order = data.order || data.data || data;
-  const items = order.items || order.delivery || order.codes || order.result;
+  const container = containers.find((item) =>
+    ['items', 'delivery', 'codes', 'result'].some((field) =>
+      item[field] !== undefined && item[field] !== null && item[field] !== '',
+    ),
+  );
+  const items = container?.items || container?.delivery || container?.codes || container?.result;
   if (items === undefined || items === null || items === '') throw Object.assign(new Error('MKE Shop order completed without delivery data.'), { status: 503 });
   const content = Array.isArray(items) ? items.map((item) => typeof item === 'string' ? item : item.content || item.note_en || JSON.stringify(item)).join('\n') : typeof items === 'string' ? items : JSON.stringify(items, null, 2);
   return { content, instructions: order.activation_url ? `Activation link: ${order.activation_url}` : '' };
@@ -105,5 +113,5 @@ export function mkeDelivery(data) {
 
 export function mkeOrderId(data, fallback) {
   const order = data.order || data.data || data;
-  return String(order.id || order.order_id || fallback);
+  return String(order.orderCode || order.order_code || order.id || order.order_id || fallback);
 }

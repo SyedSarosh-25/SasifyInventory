@@ -1151,6 +1151,10 @@
 .admin-requirement-list { display:grid; gap:12px; }
 .admin-requirement-card { border:1px solid #e1e7f0; border-radius:16px; padding:18px; background:#fff; }
 .admin-requirement-card-heading { display:flex; align-items:flex-start; justify-content:space-between; gap:14px; }
+.admin-requirement-card-actions { display:flex; align-items:center; gap:8px; }
+.admin-danger-button { display:inline-grid; place-items:center; width:36px; height:36px; padding:0; border:1px solid #f1c8cf; border-radius:9px; color:#b4233c; background:#fff5f6; cursor:pointer; }
+.admin-danger-button:hover { color:#fff; background:#c93650; border-color:#c93650; }
+.admin-danger-button:disabled { opacity:.55; cursor:not-allowed; }
 .admin-requirement-card-heading h3 { margin:8px 0 0; font-size:18px; }
 .admin-requirement-card > p { color:#69758a; line-height:1.6; white-space:pre-line; }
 .admin-requirement-responses { margin-top:14px; padding-top:14px; border-top:1px solid #edf0f5; display:grid; gap:8px; }

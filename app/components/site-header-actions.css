@@ -111,7 +111,22 @@
     padding: 0 10px;
   }
 }
+@media (max-width: 360px) {
+  .site-header .header-account-actions { gap: 4px; }
+  /* Currency selection remains available in account and checkout views; keep the public header uncluttered. */
+  .site-header .header-account-actions .currency-toggle { display: none; }
+  .site-header .header-account-actions .currency-toggle {
+    grid-template-columns: repeat(2, 25px);
+    height: 32px;
+  }
+  .site-header .header-account-actions .currency-toggle button { font-size: 9px; }
+  .site-header .header-login,
+  .site-header .header-signup { font-size: 10px; min-height: 34px; }
+  .site-header .header-login { padding-inline: 1px; }
+  .site-header .header-signup { padding-inline: 7px; }
+}
 @media (max-width: 640px) {
+  .site-header .header-signup { display: inline-flex; }
   .site-header-account .nav-inner {
     display: flex;
     min-height: 58px;

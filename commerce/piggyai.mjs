@@ -207,14 +207,16 @@ export async function createPiggyAiOrder({
 }
 
 export function piggyAiDelivery(data) {
+  const containers = [data, data?.order, data?.data]
+    .filter(Boolean)
+    .filter((container, index, all) => all.indexOf(container) === index);
   const order = data.order || data.data || data;
-  const raw =
-    order.items ??
-    order.delivery ??
-    order.credentials ??
-    order.code ??
-    order.content ??
-    order.result;
+  const container = containers.find((item) =>
+    ['items', 'delivery', 'credentials', 'code', 'content', 'result'].some((field) =>
+      item[field] !== undefined && item[field] !== null && item[field] !== '',
+    ),
+  );
+  const raw = container?.items ?? container?.delivery ?? container?.credentials ?? container?.code ?? container?.content ?? container?.result;
   if (raw === undefined || raw === null || raw === '')
     throw Object.assign(
       new Error('PiggyAi order completed without delivery data.'),
@@ -228,5 +230,5 @@ export function piggyAiDelivery(data) {
 
 export function piggyAiOrderId(data, fallback) {
   const order = data.order || data.data || data;
-  return String(order.id || order.order_id || order.purchase_id || fallback);
+  return String(order.orderCode || order.order_code || order.id || order.order_id || order.purchase_id || data.orderCode || data.order_code || fallback);
 }

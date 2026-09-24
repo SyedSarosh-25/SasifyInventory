@@ -1,11 +1,8 @@
 'use client';
 
-import { ArrowRight, CalendarDays, Check, Tag, Users } from 'lucide-react';
+import { ArrowRight, Check, Tag } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
-import {
-  inferSupplierCategory,
-  selectFixedTopProducts,
-} from '../catalog-selection';
+import { selectFixedTopProducts } from '../catalog-selection';
 import { products as localProducts, type Product } from '../products';
 import { originalPricePkr, productHref } from '../product-utils';
 import { ProductLogo } from './product-logo';
@@ -48,9 +45,7 @@ export function SupplierFeaturedCard({ product }: { product: FeaturedProduct }) 
       ? supplierProductHref(product)
       : productHref(product.localProduct!)
   );
-  const displayAvailable = product.displayAvailable ?? product.available;
   const displayName = product.display_name || product.name;
-  const category = product.category || inferSupplierCategory(product.name, product.description);
   const comparison = product.source === 'supplier'
     ? supplierOriginalPriceComparison(product)
     : null;
@@ -94,11 +89,6 @@ export function SupplierFeaturedCard({ product }: { product: FeaturedProduct }) 
       <div className="featured-copy">
         <h3>{displayName}</h3>
         <p>{description}</p>
-      </div>
-      <div className="featured-badges">
-        <span><Users className="h-3 w-3" /> {category}</span>
-        {product.localProduct?.duration && <span><CalendarDays className="h-3 w-3" /> {product.localProduct.duration}</span>}
-        <span>{displayAvailable.toLocaleString('en-PK')} available</span>
       </div>
       <div className="featured-price-block">
         {originalPrice !== null ? (

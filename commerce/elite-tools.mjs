@@ -175,15 +175,16 @@ export async function createEliteToolsOrder({
 }
 
 export function eliteToolsDelivery(data) {
+  const containers = [data, data?.order, data?.data]
+    .filter(Boolean)
+    .filter((container, index, all) => all.indexOf(container) === index);
   const order = data.order || data.data || data;
-  const raw =
-    order.delivery ??
-    order.accounts ??
-    order.codes ??
-    order.credentials ??
-    order.items ??
-    order.code ??
-    order.result;
+  const container = containers.find((item) =>
+    ['delivery', 'accounts', 'codes', 'credentials', 'items', 'code', 'result'].some((field) =>
+      item[field] !== undefined && item[field] !== null && item[field] !== '',
+    ),
+  );
+  const raw = container?.delivery ?? container?.accounts ?? container?.codes ?? container?.credentials ?? container?.items ?? container?.code ?? container?.result;
   if (raw === undefined || raw === null || raw === '')
     throw Object.assign(
       new Error('Elite Tools Store order completed without delivery data.'),
@@ -197,5 +198,5 @@ export function eliteToolsDelivery(data) {
 
 export function eliteToolsOrderId(data, fallback) {
   const order = data.order || data.data || data;
-  return String(order.id || order.orderId || order.order_id || fallback);
+  return String(order.orderCode || order.order_code || order.id || order.orderId || order.order_id || data.orderCode || data.order_code || fallback);
 }

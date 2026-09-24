@@ -51,6 +51,7 @@ type CustomerOrder = {
   id: string;
   product: string;
   amount: number;
+  savings?: number;
   status: string;
   created_at: string;
 };
@@ -67,6 +68,7 @@ type Deposit = {
 type Dashboard = {
   account: Account;
   orders: CustomerOrder[];
+  savings?: number;
   deposits: Deposit[];
   ledger: { amount: number; description: string; created_at: string }[];
   requirements: { id: string; tool_name: string; description: string; status: string; response_contact?: string | null; responded_at?: string | null; created_at: string }[];
@@ -201,39 +203,21 @@ export function AccountAuth({ signup = false }: { signup?: boolean }) {
     <>
       <SiteHeader accountMode={signup ? 'signup' : 'login'} />
       <main className="account-auth">
-        <section className="account-intro">
+        <section className={`account-intro${signup ? ' account-intro-signup' : ''}`}>
           <span className="account-eyebrow">YOUR SASIFY ACCOUNT</span>
-          <div className="account-hero-art" aria-hidden="true">
-            <span className="account-art-glow" />
-            <span className="account-art-orbit account-art-orbit-one" />
-            <span className="account-art-orbit account-art-orbit-two" />
-            <div className="account-art-stack">
-              <span className="account-art-card-back" />
-              <div className="account-art-card-main">
-                <div className="account-art-card-brand">
-                  <span className="account-art-wallet-icon">
-                    <WalletCards size={20} />
-                  </span>
-                  <strong>Sasify</strong>
-                  <Sparkles size={15} className="account-art-sparkle" />
-                </div>
-                <span className="account-art-card-kicker">PERSONAL WALLET</span>
-                <strong className="account-art-card-title">
-                  Your purchases, together.
-                </strong>
-                <span className="account-art-card-dots" />
-              </div>
-            </div>
-            <span className="account-art-card-mini">
-              <BadgePercent size={17} />
-              <strong>5% discount</strong>
-            </span>
-          </div>
+          {!signup && <div className="account-hero-art account-hero-art-image" aria-hidden="true">
+            <img src="/sasify-account-hero.png" alt="" />
+          </div>}
           <h1>{signup ? 'Your digital world, together.' : 'Welcome back.'}</h1>
           <p>
             Keep your purchases, credentials and wallet together in one calm,
             secure space built around you.
           </p>
+          {signup && <div className="account-hero-art account-hero-art-image" aria-hidden="true">
+            <video className="account-hero-video" autoPlay muted loop playsInline preload="metadata" poster="/sasify-signup-hero.png">
+              <source src="/wallet-video.mp4" type="video/mp4" />
+            </video>
+          </div>}
           <div className="account-benefits">
             <p>
               <ShoppingBag size={20} />{' '}
@@ -842,6 +826,12 @@ export function CustomerDashboard() {
                     <strong>{data.orders.filter((o) => !['delivered', 'cancelled', 'expired'].includes(o.status)).length}</strong>
                     <span>Awaiting payment or delivery</span>
                   </section>
+                  <section>
+                    <span className="dashboard-metric-icon is-purple"><BadgePercent size={18} /></span>
+                    <small>Your savings</small>
+                    <strong>{money(data.orders.reduce((total, order) => total + Number(order.savings || 0), 0))}</strong>
+                    <span>Discounts you received</span>
+                  </section>
                 </div>
                 {tab === 'overview' && (
                   <div className="dashboard-overview-grid">
@@ -1245,15 +1235,26 @@ export function CheckoutAccount({
   if (!loaded) return null;
   if (!account)
     return (
-      <p>
-        <a href="/login">Log in</a> or <a href="/signup">create an account</a>{' '}
-        before ordering to keep your purchases in your dashboard.
-      </p>
+      <div className="guest-checkout-prompt">
+        <div>
+          <strong>Sign up now and save 5% on every order*</strong>
+          <span>Use your Sasify Wallet for faster checkout and member savings.</span>
+        </div>
+        <a href="/signup" className="primary-button compact">Create account</a>
+        <small>*Wallet discount applies to eligible orders.</small>
+      </div>
     );
   return (
     <div className="account-checkout">
-      <a href="/dashboard">My dashboard</a>
-      <span>Wallet: {money(account.balance)}</span>
+      <a className="account-checkout-dashboard" href="/dashboard">
+        <span className="account-checkout-eyebrow">Signed in</span>
+        <strong>My dashboard</strong>
+        <small>View orders and account details</small>
+      </a>
+      <span className="account-checkout-wallet">
+        <small>Wallet balance</small>
+        <strong>{money(account.balance)}</strong>
+      </span>
       {orderId && (
         <button
           disabled={busy}

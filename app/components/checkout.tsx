@@ -183,6 +183,7 @@ export function Checkout() {
   const twoFactorCodeTimer = useRef<number | null>(null);
   const [couponCode, setCouponCode] = useState('');
   const [customerEmail, setCustomerEmail] = useState('');
+  const [checkoutAccount, setCheckoutAccount] = useState<{ balance: number } | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<
     'wallet' | 'bank' | 'binance' | 'crypto'
   >('wallet');
@@ -230,6 +231,9 @@ export function Checkout() {
       active = false;
       clearInterval(timer);
     };
+  }, []);
+  useEffect(() => {
+    api('account-dashboard').then((data) => setCheckoutAccount(data.account || null)).catch(() => setCheckoutAccount(null));
   }, []);
   useEffect(() => {
     if (!id || !key) return;
@@ -532,6 +536,15 @@ export function Checkout() {
             </aside>
             <fieldset className="payment-method-picker">
               <legend>How will you send the payment?</legend>
+              <label className={`sasify-wallet-option${checkoutAccount ? '' : ' disabled'}`}>
+                <input type="radio" name="sasify-wallet" disabled={!checkoutAccount} checked={false} onChange={() => setPaymentMethod('wallet')} />
+                <span className="sasify-wallet-logo" aria-hidden="true"><img src="/sasify-logo.png" alt="" /></span>
+                <span>
+                  <strong>Sasify Wallet</strong>
+                  <small>{checkoutAccount ? `Balance: PKR ${Number(checkoutAccount.balance || 0).toLocaleString()}` : 'Sign up to unlock · 5% off every purchase'}</small>
+                </span>
+                <a className="payment-method-link" href={checkoutAccount ? '/dashboard?tab=wallet' : '/signup'}>{checkoutAccount ? 'Add funds' : 'Sign up'}</a>
+              </label>
               <label className={paymentMethod === 'wallet' ? 'selected' : ''}>
                 <input
                   type="radio"

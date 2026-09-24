@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Mail, Phone, Plus, Save } from 'lucide-react';
+import { Mail, Phone, Plus, Trash2 } from 'lucide-react';
 
 type Requirement = {
   id: string;
@@ -24,6 +24,12 @@ export function AdminResellerRequirements({ requirements, api, token, busy, onRe
   async function updateStatus(requirementId: string, status: Requirement['status']) {
     await api('admin-requirement-update', token, { requirementId, status }); await onRefresh();
   }
+  async function deleteRequirement(requirement: Requirement) {
+    if (!window.confirm(`Delete “${requirement.tool_name}”? This also removes reseller responses.`)) return;
+    await api('admin-requirement-delete', token, { requirementId: requirement.id });
+    setNotice('Requirement deleted.');
+    await onRefresh();
+  }
   return <section className="admin-panel admin-enhancement-card">
     <div className="admin-enhancement-heading"><div><span className="admin-eyebrow">Reseller demand</span><h2>Required tools</h2><p>Publish what Sasify needs. Approved resellers receive an email and can respond with their contact number.</p></div><span className="admin-count-badge">{requirements.filter((item) => item.status === 'open').length} open</span></div>
     <form className="admin-requirement-create" onSubmit={(event) => { event.preventDefault(); void createRequirement(); }}>
@@ -33,7 +39,7 @@ export function AdminResellerRequirements({ requirements, api, token, busy, onRe
     </form>
     {notice && <p className="admin-success"><Mail size={15} /> {notice}</p>}
     <div className="admin-requirement-list">{requirements.map((requirement) => <article className="admin-requirement-card" key={requirement.id}>
-      <div className="admin-requirement-card-heading"><div><span className={`admin-state ${requirement.status}`}>{requirement.status}</span><h3>{requirement.tool_name}</h3></div><select value={requirement.status} onChange={(event) => void updateStatus(requirement.id, event.target.value as Requirement['status'])} disabled={busy}><option value="open">Open</option><option value="fulfilled">Fulfilled</option><option value="closed">Closed</option></select></div>
+      <div className="admin-requirement-card-heading"><div><span className={`admin-state ${requirement.status}`}>{requirement.status}</span><h3>{requirement.tool_name}</h3></div><div className="admin-requirement-card-actions"><select value={requirement.status} onChange={(event) => void updateStatus(requirement.id, event.target.value as Requirement['status'])} disabled={busy}><option value="open">Open</option><option value="fulfilled">Fulfilled</option><option value="closed">Closed</option></select><button type="button" className="admin-danger-button" onClick={() => void deleteRequirement(requirement)} disabled={busy} title="Delete requirement" aria-label={`Delete ${requirement.tool_name}`}><Trash2 size={15} /></button></div></div>
       <p>{requirement.description}</p>
       <div className="admin-requirement-responses"><strong>{requirement.responses?.length || 0} reseller responses</strong>{requirement.responses?.length ? requirement.responses.map((response) => <div className="admin-requirement-response" key={response.id}><span><strong>{response.name}</strong><small>{response.email} · @{response.username || '—'}</small></span><a href={`tel:${response.contact_number}`}><Phone size={14} /> {response.contact_number}</a></div>) : <small>No reseller has responded yet.</small>}</div>
     </article>)}</div>

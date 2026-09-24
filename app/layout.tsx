@@ -32,7 +32,11 @@ export const metadata: Metadata = {
   metadataBase: new URL(siteOrigin),
   title: siteTitle,
   alternates: { canonical: `${siteOrigin}/` },
-  robots: { 'max-image-preview': 'large' },
+  robots: {
+    index: true,
+    follow: true,
+    'max-image-preview': 'large',
+  },
   verification: {
     google: 'l7lAGn1-T4ymCBShiZZMTVFF1vT3MK2IL92FHcXWKY4',
     other: { 'msvalidate.01': '3EBFF9C64E14DCD2D3149DAF9D02F7F5' },

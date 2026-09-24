@@ -108,16 +108,24 @@ export async function createSupplierOrder({ productId, quantity = 1, externalOrd
 }
 
 export function supplierDelivery(data) {
+  const containers = [data, data?.order, data?.data]
+    .filter(Boolean)
+    .filter((container, index, all) => all.indexOf(container) === index);
   const order = data.order || data.data || data;
-  const raw = order.delivery ?? order.credentials ?? order.items ?? order.stock ?? order.result ?? order.content;
+  const container = containers.find((item) =>
+    ['delivery', 'credentials', 'items', 'stock', 'result', 'content'].some((field) =>
+      item[field] !== undefined && item[field] !== null && item[field] !== '',
+    ),
+  );
+  const raw = container?.delivery ?? container?.credentials ?? container?.items ?? container?.stock ?? container?.result ?? container?.content;
   if (raw === undefined || raw === null || raw === '') throw Object.assign(new Error('Supplier order completed without delivery data.'), { status: 503 });
   return {
     content: typeof raw === 'string' ? raw : JSON.stringify(raw, null, 2),
-    instructions: order.delivery_instruction || data.delivery_instruction || '',
+    instructions: order.delivery_instruction || container?.delivery_instruction || data.delivery_instruction || '',
   };
 }
 
 export function supplierOrderId(data, fallback) {
   const order = data.order || data.data || data;
-  return String(order.id || order.order_id || order.external_order_id || fallback);
+  return String(order.orderCode || order.order_code || order.id || order.order_id || order.external_order_id || data.orderCode || data.order_code || fallback);
 }
