@@ -5,9 +5,19 @@ import { AdminOperations } from './admin-operations';
 import { AdminDailyChart } from './admin-daily-chart';
 import { CheckoutAccount } from './customer-account';
 import { AdminCustomers } from './admin-customers';
+import { AdminResellerRequests } from './admin-reseller-requests';
 import { AdminRecordControls, useRecordView } from './admin-record-controls';
 import { AdminToolRequests } from './admin-tool-requests';
+import { AdminResellerRequirements } from './admin-reseller-requirements';
 import { AdminCatalogStatus } from './admin-catalog-status';
+import {
+  AdminAuditLogs,
+  AdminProducts,
+  AdminSettings,
+  AdminSupport,
+  AdminTransactionHistory,
+  AdminUserDetail,
+} from './admin-enhancements';
 import { supplierOfferDecision, type SupplierCatalogGroup } from './admin-catalog-status-model';
 import {
   ClipboardList,
@@ -111,6 +121,18 @@ async function api(
     );
   return data;
 }
+
+const LOCAL_ADMIN_PREVIEW_DATA = {
+  autoVerify: true,
+  adminSettings: { business_name: 'Sasify Solutions', default_currency: 'PKR', support_email: 'support@sasifysolutions.com', auto_verify_receipts: 'true' },
+  accounts: [{ id: 'preview-user-1', name: 'Demo Customer', email: 'demo@example.com', username: 'demo_customer', balance: 12500, role: 'customer', reseller_status: 'none', created_at: new Date().toISOString(), email_verified_at: new Date().toISOString() }],
+  orders: [{ id: 'preview-order-1', product_id: 'demo-product', product_name: 'AI Credits Starter', supplier_product_name: 'AI Credits Starter', supplier_name: 'Sasify manual catalog', amount: 1499, status: 'delivered', payment_method: 'wallet', created_at: new Date().toISOString(), delivered_at: new Date().toISOString(), payer_name: 'Demo Customer', payment_currency: 'PKR', payment_amount: 1499 }],
+  payments: [{ id: 'preview-payment-1', amount: 1499, payment_amount: 1499, currency: 'PKR', subject: 'Demo wallet payment', transaction_id: 'DEMO-TXN-001', payer_name: 'Demo Customer', verified: true, verification_reason: 'authenticated', order_id: 'preview-order-1', receiver_id: 'demo-receiver', received_at: new Date().toISOString(), created_at: new Date().toISOString() }],
+  supportTickets: [{ id: 'preview-ticket-1', name: 'Demo Customer', email: 'demo@example.com', subject: 'Example support request', message: 'This is sample local-preview data.', status: 'open', created_at: new Date().toISOString() }],
+  auditLogs: [{ id: 'preview-audit-1', action: 'local_preview', object_id: 'preview', details: { note: 'Mock data only' }, created_at: new Date().toISOString() }],
+  supplierProducts: [{ id: 'manual:preview-product', provider_id: 'manual', provider_name: 'Sasify manual catalog', name: 'AI Credits Starter', description: 'Demo product for local UI review', canonical_key: 'demo-product', selling_price: 1499, cost_pkr: 900, enabled: true }],
+  paymentReceivers: [], coupons: [], inventory: [], sharedAccounts: [], scamReports: [], toolRequests: [], blockedUsers: [], providerStates: [], supplierAlerts: [], supplierKeys: [], commissions: [], dailyFinancials: [], profitBreakdown: [], teamAccess: { configured: false, email: null }, metrics: { orders: 1, delivered: 1, pending: 0, revenue: 1499, profit: 599 }, stock: [], supplierUsdPkrRate: 280, supplierUsdtPkrRate: 280,
+};
 export function StockBuy({ productId }: { productId: string }) {
   const [stock, setStock] = useState<Stock | null>(null);
   useEffect(() => {
@@ -1249,6 +1271,7 @@ function CouponRow({
 }
 
 export function CommerceAdmin() {
+  const localPreview = typeof window !== 'undefined' && window.location.hostname === 'localhost';
   const [key, setKey] = useState(''),
     [email, setEmail] = useState(''),
     [password, setPassword] = useState(''),
@@ -1284,8 +1307,16 @@ export function CommerceAdmin() {
       | 'blockedUsers'
       | 'team'
       | 'toolRequests'
+      | 'requirements'
       | 'customers'
+      | 'resellerRequests'
       | 'catalogStatus'
+      | 'userDetail'
+      | 'products'
+      | 'support'
+      | 'auditLogs'
+      | 'settings'
+      | 'transactions'
     >('overview'),
     [inventorySearch, setInventorySearch] = useState(''),
     [supplierSearch, setSupplierSearch] = useState(''),
@@ -1306,6 +1337,7 @@ export function CommerceAdmin() {
       credentials: AccountCredentials;
     } | null>(null),
     [scamReport, setScamReport] = useState<any>(null),
+    [selectedAccountId, setSelectedAccountId] = useState(''),
     [checkingSession, setCheckingSession] = useState(true);
   const [editCost, setEditCost] = useState('0'),
     [editState, setEditState] = useState('available'),
@@ -1322,6 +1354,12 @@ export function CommerceAdmin() {
   const seenOrderIds = useRef<Set<string>>(new Set());
   const seenSupplierAlertIds = useRef<Set<string>>(new Set());
   useEffect(() => {
+    if (localPreview) {
+      setData(LOCAL_ADMIN_PREVIEW_DATA);
+      setNotice('LOCAL PREVIEW · sample data only · backend actions are disabled');
+      setCheckingSession(false);
+      return;
+    }
     let active = true;
     void api('admin-list')
       .then((dashboard) => {
@@ -1334,7 +1372,7 @@ export function CommerceAdmin() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [localPreview]);
   const adminReady = Boolean(data);
   useEffect(() => {
     if (!data) {
@@ -2284,7 +2322,28 @@ export function CommerceAdmin() {
           </section>
         </div>
       )}
-      {tab === 'customers' && <AdminCustomers accounts={data.accounts || []} busy={busy} onReview={(accountId,status)=>{void run(async()=>{await api('admin-reseller-review',key,{accountId,status});setNotice(`Reseller ${status}.`);await refresh();});}} />}
+      {tab === 'customers' && <AdminCustomers accounts={data.accounts || []} onSelectUser={(accountId) => { setSelectedAccountId(accountId); setTab('userDetail'); }} />}
+      {tab === 'userDetail' && selectedAccountId && (
+        <AdminUserDetail accountId={selectedAccountId} accounts={data.accounts || []} api={api} token={key} busy={busy} onBack={() => setTab('customers')} onRefresh={refresh} />
+      )}
+      {tab === 'products' && <AdminProducts products={data.supplierProducts || []} api={api} token={key} busy={busy} onRefresh={refresh} />}
+      {tab === 'support' && <AdminSupport tickets={data.supportTickets || []} api={api} token={key} busy={busy} onRefresh={refresh} />}
+      {tab === 'auditLogs' && <AdminAuditLogs logs={data.auditLogs || []} />}
+      {tab === 'settings' && <AdminSettings settings={data.adminSettings || {}} api={api} token={key} busy={busy} onRefresh={refresh} />}
+      {tab === 'transactions' && <AdminTransactionHistory payments={data.payments || []} orders={data.orders || []} />}
+      {tab === 'resellerRequests' && (
+        <AdminResellerRequests
+          accounts={data.accounts || []}
+          busy={busy}
+          onReview={(accountId, status) => {
+            void run(async () => {
+              await api('admin-reseller-review', key, { accountId, status });
+              setNotice(`Reseller request ${status}.`);
+              await refresh();
+            });
+          }}
+        />
+      )}
       {tab === 'toolRequests' && (
         <AdminToolRequests
           requests={data.toolRequests || []}
@@ -2298,6 +2357,7 @@ export function CommerceAdmin() {
           }}
         />
       )}
+      {tab === 'requirements' && <AdminResellerRequirements requirements={data.resellerRequirements || []} api={api} token={key} busy={busy} onRefresh={refresh} />}
 
       {tab === 'team' && (
         <div className="admin-workspace">

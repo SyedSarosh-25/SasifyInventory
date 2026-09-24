@@ -1,6 +1,6 @@
 'use client';
 import { useState } from 'react';
-type AccountStats = {
+export type AccountStats = {
   id: string;
   name: string;
   email: string;
@@ -22,12 +22,10 @@ const money = (value: number | string) =>
   `PKR ${Number(value).toLocaleString('en-US')}`;
 export function AdminCustomers({
   accounts,
-  busy,
-  onReview,
+  onSelectUser,
 }: {
   accounts: AccountStats[];
-  busy: boolean;
-  onReview: (id: string, status: 'approved' | 'rejected') => void;
+  onSelectUser?: (accountId: string) => void;
 }) {
   const [search, setSearch] = useState(''),
     [role, setRole] = useState('all');
@@ -62,14 +60,24 @@ export function AdminCustomers({
             onChange={(e) => setSearch(e.target.value)}
           />
         </label>
-        <label>
-          Account type
-          <select value={role} onChange={(e) => setRole(e.target.value)}>
-            <option value="all">All users</option>
-            <option value="customer">Customers</option>
-            <option value="reseller">Resellers</option>
-          </select>
-        </label>
+        <div className="admin-customer-filter-actions">
+          <label>
+            Account type
+            <select value={role} onChange={(e) => setRole(e.target.value)}>
+              <option value="all">All users</option>
+              <option value="customer">Customers</option>
+              <option value="reseller">Resellers</option>
+            </select>
+          </label>
+          <button
+            type="button"
+            className={role === 'reseller' ? 'primary-button compact' : 'secondary-button compact'}
+            onClick={() => setRole(role === 'reseller' ? 'all' : 'reseller')}
+            aria-pressed={role === 'reseller'}
+          >
+            {role === 'reseller' ? 'Showing resellers' : 'Resellers only'}
+          </button>
+        </div>
       </div>
       <div className="admin-customers-table-wrap">
         <table className="admin-customers-table">
@@ -78,8 +86,6 @@ export function AdminCustomers({
               <th>User</th>
               <th>Type</th>
               <th>Email status</th>
-              <th>Reseller approval</th>
-              <th>Review</th>
               <th>Current balance</th>
               <th>Orders</th>
               <th>Delivered</th>
@@ -102,6 +108,15 @@ export function AdminCustomers({
                   {a.email}
                   <br />
                   <small>{a.id}</small>
+                  {onSelectUser && (
+                    <button
+                      type="button"
+                      className="admin-table-link"
+                      onClick={() => onSelectUser(a.id)}
+                    >
+                      Open user detail →
+                    </button>
+                  )}
                 </td>
                 <td>
                   {a.role === 'reseller'
@@ -111,35 +126,6 @@ export function AdminCustomers({
                       : 'Customer'}
                 </td>
                 <td>{a.email_verified_at ? 'Verified' : 'Not verified'}</td>
-                <td>
-                  {a.reseller_status !== 'none'
-                    ? a.reseller_status
-                    : 'Not required'}
-                </td>
-                <td>
-                  {a.reseller_status !== 'none' && (
-                    <>
-                      {a.reseller_status !== 'approved' && (
-                        <button
-                          disabled={busy || !a.email_verified_at}
-                          onClick={() => onReview(a.id, 'approved')}
-                        >
-                          Approve
-                        </button>
-                      )}
-                      {a.reseller_status !== 'rejected' && (
-                        <button
-                          disabled={busy}
-                          onClick={() => onReview(a.id, 'rejected')}
-                        >
-                          {a.reseller_status === 'approved'
-                            ? 'Revoke approval'
-                            : 'Reject'}
-                        </button>
-                      )}
-                    </>
-                  )}
-                </td>
                 <td>{money(a.balance)}</td>
                 <td>{a.total_orders}</td>
                 <td>{a.delivered_orders}</td>

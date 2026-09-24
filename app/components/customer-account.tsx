@@ -5,11 +5,13 @@ import {
   ArrowRight,
   BadgePercent,
   CircleDollarSign,
+  ClipboardList,
   Eye,
   EyeOff,
   LayoutDashboard,
   Mail,
   PackageCheck,
+  Phone,
   RefreshCw,
   ShieldCheck,
   ShoppingBag,
@@ -59,13 +61,15 @@ type Deposit = {
   payment_amount: string;
   method: string;
   status: string;
-  reference?: string;
+  created_at: string;
+  expires_at: string;
 };
 type Dashboard = {
   account: Account;
   orders: CustomerOrder[];
   deposits: Deposit[];
   ledger: { amount: number; description: string; created_at: string }[];
+  requirements: { id: string; tool_name: string; description: string; status: string; response_contact?: string | null; responded_at?: string | null; created_at: string }[];
 };
 const money = (amount: number) =>
   `PKR ${Number(amount).toLocaleString('en-US')}`;
@@ -629,7 +633,13 @@ export function CustomerDashboard() {
       number: string;
       title: string;
     } | null>(null);
+  const [requirementContacts, setRequirementContacts] = useState<Record<string, string>>({});
   const [detail, setDetail] = useState<any>(null);
+  const [clock, setClock] = useState(Date.now());
+  useEffect(() => {
+    const timer = window.setInterval(() => setClock(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, []);
   async function refresh() {
     setData(await request('account-dashboard'));
   }
@@ -639,6 +649,18 @@ export function CustomerDashboard() {
       else setError(e.message);
     });
   }, []);
+  const hasOpenDeposits = Boolean(
+    data?.deposits.some((item) => ['pending', 'review'].includes(item.status)),
+  );
+  useEffect(() => {
+    if (!hasOpenDeposits) return;
+    const timer = window.setInterval(() => {
+      request('account-dashboard')
+        .then((latest) => setData(latest))
+        .catch(() => {});
+    }, 15000);
+    return () => window.clearInterval(timer);
+  }, [hasOpenDeposits]);
   async function run(task: () => Promise<void>) {
     setBusy(true);
     setError('');
@@ -662,21 +684,10 @@ export function CustomerDashboard() {
       });
       setDeposit(result.deposit);
       setReceiver(result.receiver);
-    });
-  }
-  async function checkDeposit(event: SyntheticEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const fields = new FormData(event.currentTarget);
-    await run(async () => {
-      const result = await request('account-deposit-check', {
-        id: fields.get('id'),
-        reference: fields.get('reference'),
-      });
-      setNotice(
-        result.status === 'credited'
-          ? 'Funds added to your wallet.'
-          : 'Your deposit needs review or its receipt has not arrived yet. Check again after the receipt arrives.',
-      );
+      if (result.reused)
+        setNotice(
+          'You already have this top-up open. Reusing its payment instructions and five-minute timer.',
+        );
     });
   }
   async function applyForReseller() {
@@ -685,10 +696,16 @@ export function CustomerDashboard() {
       setNotice(result.message);
     });
   }
+  async function respondToRequirement(requirementId: string) {
+    await run(async () => {
+      const contactNumber = requirementContacts[requirementId]?.trim() || '';
+      const result = await request('reseller-requirement-respond', { requirementId, contactNumber });
+      setNotice(result.message);
+      setRequirementContacts((current) => ({ ...current, [requirementId]: '' }));
+    });
+  }
   return (
-    <>
-      <SiteHeader />
-      <main className="account-dashboard">
+    <main className="account-dashboard account-dashboard-clean">
         <div className="customer-dashboard-layout">
           <aside className="customer-dashboard-sidebar">
             <div className="dashboard-user-card">
@@ -721,6 +738,12 @@ export function CustomerDashboard() {
                   <span>{label}</span>
                 </button>
               ))}
+              {data?.account.role === 'reseller' && data.account.reseller_status === 'approved' && (
+                <button aria-current={tab === 'requirements' ? 'page' : undefined} onClick={() => { setTab('requirements'); setDetail(null); }}>
+                  <ClipboardList size={18} />
+                  <span>Required by Sasify</span>
+                </button>
+              )}
             </nav>
             <a className="dashboard-sidebar-help" href="mailto:Support@SasifySolutions.com">
               Need help? <span>Contact support</span>
@@ -779,9 +802,21 @@ export function CustomerDashboard() {
                     </span>
                     <h2>{money(data.account.balance)}</h2>
                     <p>Pay from your wallet and get 5% off every purchase.</p>
-                    <button onClick={() => setTab('wallet')}>
-                      <ArrowDownToLine size={16} /> Add funds
-                    </button>
+                    <div className="dashboard-wallet-actions">
+                      <button onClick={() => setTab('wallet')}>
+                        <ArrowDownToLine size={16} /> Add funds
+                      </button>
+                      {data.account.role === 'reseller' && data.account.reseller_status === 'approved' ? (
+                        <button className="dashboard-requirements-button" onClick={() => setTab('requirements')}>
+                          <ClipboardList size={16} /> Sasify Requirements
+                          {data.requirements.filter((item) => item.status === 'open').length > 0 && <span className="dashboard-requirements-count">{data.requirements.filter((item) => item.status === 'open').length}</span>}
+                        </button>
+                      ) : data.account.reseller_status === 'pending' ? (
+                        <button className="dashboard-reseller-apply-button" disabled><ShieldCheck size={16} /> Application pending</button>
+                      ) : (
+                        <button className="dashboard-reseller-apply-button" onClick={() => void applyForReseller()} disabled={busy}><ShieldCheck size={16} /> Apply as a reseller</button>
+                      )}
+                    </div>
                   </div>
                   <div className="dashboard-hero-mark" aria-hidden="true">
                     <WalletCards size={74} strokeWidth={1.2} />
@@ -844,6 +879,12 @@ export function CustomerDashboard() {
                       <button onClick={() => setTab('profile')}><ShieldCheck size={19} /><span><strong>Account details</strong><small>Review your profile and status</small></span><ArrowRight size={17} /></button>
                       <a href="/inventory"><ShoppingBag size={19} /><span><strong>Shop inventory</strong><small>Find your next digital tool</small></span><ArrowRight size={17} /></a>
                     </section>
+                    {data.account.role === 'reseller' && data.account.reseller_status === 'approved' && (
+                      <section className="dashboard-panel dashboard-requirements-preview">
+                        <div className="dashboard-panel-heading"><div><span>OPPORTUNITIES</span><h2>Required by Sasify</h2></div><button onClick={() => setTab('requirements')}>View all <ArrowRight size={15} /></button></div>
+                        {!data.requirements.filter((item) => item.status === 'open').length ? <div className="dashboard-requirements-empty"><ClipboardList size={22} /><span>No open requirements right now.</span></div> : data.requirements.filter((item) => item.status === 'open').slice(0, 3).map((requirement) => <button className="dashboard-requirement-row" key={requirement.id} onClick={() => setTab('requirements')}><span className="dashboard-requirement-icon"><ClipboardList size={17} /></span><span><strong>{requirement.tool_name}</strong><small>{requirement.description}</small></span><ArrowRight size={16} /></button>)}
+                      </section>
+                    )}
                   </div>
                 )}
             {tab === 'orders' && (
@@ -973,8 +1014,8 @@ export function CustomerDashboard() {
                 <section className="account-card">
                   <h2>Add funds</h2>
                   <p>
-                    Your wallet is held in PKR. Funds become available after
-                    payment verification.
+                    Your wallet is held in PKR. After you pay, verified transfers
+                    are matched automatically and your balance refreshes here.
                   </p>
                   <form onSubmit={addFunds}>
                     <label>
@@ -1003,6 +1044,11 @@ export function CustomerDashboard() {
                       Get payment instructions
                     </button>
                   </form>
+                  <p className="account-deposit-auto-note">
+                    No transaction reference needed. Each payment request
+                    expires after five minutes. Verified payments received
+                    within that window are matched automatically.
+                  </p>
                   {deposit && receiver && (
                     <div className="account-detail">
                       <h3>
@@ -1033,25 +1079,37 @@ export function CustomerDashboard() {
                   {!data.deposits.length && <p>No deposits yet.</p>}
                   {data.deposits.map((item) => (
                     <div className="account-deposit" key={item.id}>
-                      <strong>{money(item.amount)}</strong>
-                      <p>
-                        {item.method} · {item.status} · {item.id.slice(0, 8)}
-                      </p>
-                      {item.status !== 'credited' && (
-                        <form onSubmit={checkDeposit}>
-                          <input type="hidden" name="id" value={item.id} />
-                          <label>
-                            Payment transaction reference
-                            <input
-                              name="reference"
-                              defaultValue={item.reference || ''}
-                              minLength={6}
-                              maxLength={128}
-                              required
-                            />
-                          </label>
-                          <button disabled={busy}>Verify deposit</button>
-                        </form>
+                      <div className="account-deposit-heading">
+                        <div>
+                          <strong>{money(item.amount)}</strong>
+                          <small>
+                            {item.method} ·{' '}
+                            {new Date(item.created_at).toLocaleString()}
+                          </small>
+                        </div>
+                        <span className={`account-deposit-status status-${item.status === 'pending' && Date.parse(item.expires_at) <= clock ? 'expired' : item.status}`}>
+                          {item.status === 'credited'
+                            ? 'Added to wallet'
+                            : item.status === 'review'
+                              ? 'Needs review'
+                              : item.status === 'expired' || Date.parse(item.expires_at) <= clock
+                                ? 'Request expired'
+                                : 'Waiting for payment'}
+                        </span>
+                      </div>
+                      {item.status === 'pending' && Date.parse(item.expires_at) > clock && (
+                        <p>
+                          Expires in {Math.floor((Date.parse(item.expires_at) - clock) / 60000)}:{String(Math.floor(((Date.parse(item.expires_at) - clock) % 60000) / 1000)).padStart(2, '0')}. A verified payment received before expiry will be credited automatically.
+                        </p>
+                      )}
+                      {(item.status === 'expired' || (item.status === 'pending' && Date.parse(item.expires_at) <= clock)) && (
+                        <p>This request expired after five minutes. Start a new top-up to get fresh payment instructions.</p>
+                      )}
+                      {item.status === 'review' && (
+                        <p>
+                          Please contact support and share the deposit date and
+                          amount so we can check it safely.
+                        </p>
                       )}
                     </div>
                   ))}
@@ -1152,13 +1210,18 @@ export function CustomerDashboard() {
                 </section>
               </div>
             )}
+            {tab === 'requirements' && data.account.role === 'reseller' && data.account.reseller_status === 'approved' && (
+              <section className="account-card reseller-requirements-panel">
+                <div className="dashboard-panel-heading"><div><span>GROW WITH SASIFY</span><h2>Required by Sasify</h2></div><span>{data.requirements.filter((item) => item.status === 'open').length} open</span></div>
+                <p>Sasify posts tools and services needed by our customers and reseller network. If you can provide one, share your contact number and we will contact you about pricing and availability.</p>
+                {!data.requirements.length ? <div className="account-empty"><h3>No open requirements</h3><p>New opportunities will appear here when Sasify needs a tool.</p></div> : <div className="reseller-requirement-list">{data.requirements.map((requirement) => <article className="reseller-requirement-card" key={requirement.id}><span className={`account-status status-${requirement.status}`}>{requirement.status}</span><h3>{requirement.tool_name}</h3><p>{requirement.description}</p>{requirement.response_contact ? <div className="reseller-requirement-responded"><Phone size={16} /> You responded with {requirement.response_contact}</div> : requirement.status === 'open' && <div className="reseller-requirement-action"><input type="tel" value={requirementContacts[requirement.id] || ''} onChange={(event) => setRequirementContacts((current) => ({ ...current, [requirement.id]: event.target.value }))} placeholder="Your contact number" /><button className="primary-button" disabled={busy || !requirementContacts[requirement.id]?.trim()} onClick={() => void respondToRequirement(requirement.id)}>I Can Provide This</button></div>}</article>)}</div>}
+              </section>
+            )}
           </>
         )}
           </div>
         </div>
-      </main>
-      <SiteFooter />
-    </>
+    </main>
   );
 }
 

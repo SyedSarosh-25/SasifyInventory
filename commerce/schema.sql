@@ -281,6 +281,24 @@ CREATE TABLE IF NOT EXISTS commerce_tool_requests (
 );
 CREATE INDEX IF NOT EXISTS commerce_tool_requests_created ON commerce_tool_requests(created_at DESC);
 CREATE INDEX IF NOT EXISTS commerce_tool_requests_queue ON commerce_tool_requests(status, priority, created_at DESC);
+CREATE TABLE IF NOT EXISTS commerce_reseller_requirements (
+ id uuid PRIMARY KEY,
+ tool_name text NOT NULL,
+ description text NOT NULL,
+ status text NOT NULL DEFAULT 'open' CHECK(status IN ('open','fulfilled','closed')),
+ created_at timestamptz NOT NULL DEFAULT now(),
+ updated_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS commerce_reseller_requirement_responses (
+ id uuid PRIMARY KEY,
+ requirement_id uuid NOT NULL REFERENCES commerce_reseller_requirements(id) ON DELETE CASCADE,
+ account_id uuid NOT NULL REFERENCES commerce_accounts(id) ON DELETE CASCADE,
+ contact_number text NOT NULL,
+ created_at timestamptz NOT NULL DEFAULT now(),
+ UNIQUE(requirement_id, account_id)
+);
+CREATE INDEX IF NOT EXISTS commerce_reseller_requirements_status ON commerce_reseller_requirements(status, created_at DESC);
+CREATE INDEX IF NOT EXISTS commerce_reseller_requirement_responses_requirement ON commerce_reseller_requirement_responses(requirement_id, created_at DESC);
 CREATE TABLE IF NOT EXISTS commerce_google_reviews (
  id text PRIMARY KEY, name text NOT NULL, quote text NOT NULL, language text NOT NULL DEFAULT 'en',
  rating integer NOT NULL CHECK(rating BETWEEN 1 AND 5), excerpt boolean NOT NULL DEFAULT true,

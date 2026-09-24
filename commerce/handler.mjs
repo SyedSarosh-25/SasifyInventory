@@ -5,10 +5,13 @@ import {
   requireAccount,
   accountAuth,
   creditDeposit,
+  syncWalletDeposits,
+  autoCreditWalletDepositForPayment,
   signupVerification,
   accountPasswordReset,
   adminAccountStats,
   applyForReseller,
+  sendAccountEmail,
 } from './accounts.mjs';
 import { createHmac, randomBytes, randomUUID } from 'node:crypto';
 import {
@@ -1150,6 +1153,18 @@ async function ensurePaymentWorkflowSchema(db) {
       await db.query(
         'ALTER TABLE commerce_audit ADD COLUMN IF NOT EXISTS details jsonb',
       );
+      await db.query(`CREATE TABLE IF NOT EXISTS commerce_admin_support_tickets (
+        id uuid PRIMARY KEY, name text NOT NULL, email text NOT NULL,
+        subject text NOT NULL, message text NOT NULL,
+        status text NOT NULL DEFAULT 'open' CHECK(status IN ('open','in_progress','resolved','closed')),
+        admin_reply text, created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now()
+      )`);
+      await db.query(`CREATE TABLE IF NOT EXISTS commerce_admin_settings (
+        key text PRIMARY KEY, value text NOT NULL, updated_at timestamptz NOT NULL DEFAULT now()
+      )`);
+      await db.query(`INSERT INTO commerce_admin_settings(key,value) VALUES
+        ('business_name','Sasify Solutions'),('default_currency','PKR'),('support_email','Support@SasifySolutions.com')
+        ON CONFLICT(key) DO NOTHING`);
       await db.query(`CREATE TABLE IF NOT EXISTS commerce_payment_receivers (
         id text PRIMARY KEY,
         label text NOT NULL,
@@ -1755,6 +1770,30 @@ async function ensureToolRequestSchema(db) {
     });
   }
   await toolRequestSchemaReady;
+}
+let resellerRequirementSchemaReady;
+async function ensureResellerRequirementSchema(db) {
+  if (!resellerRequirementSchemaReady) {
+    resellerRequirementSchemaReady = (async () => {
+      await db.query(`CREATE TABLE IF NOT EXISTS commerce_reseller_requirements (
+        id uuid PRIMARY KEY, tool_name text NOT NULL, description text NOT NULL,
+        status text NOT NULL DEFAULT 'open' CHECK(status IN ('open','fulfilled','closed')),
+        created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now()
+      )`);
+      await db.query(`CREATE TABLE IF NOT EXISTS commerce_reseller_requirement_responses (
+        id uuid PRIMARY KEY, requirement_id uuid NOT NULL REFERENCES commerce_reseller_requirements(id) ON DELETE CASCADE,
+        account_id uuid NOT NULL REFERENCES commerce_accounts(id) ON DELETE CASCADE,
+        contact_number text NOT NULL, created_at timestamptz NOT NULL DEFAULT now(),
+        UNIQUE(requirement_id, account_id)
+      )`);
+      await db.query('CREATE INDEX IF NOT EXISTS commerce_reseller_requirements_status ON commerce_reseller_requirements(status,created_at DESC)');
+      await db.query('CREATE INDEX IF NOT EXISTS commerce_reseller_requirement_responses_requirement ON commerce_reseller_requirement_responses(requirement_id,created_at DESC)');
+    })().catch((error) => {
+      resellerRequirementSchemaReady = null;
+      throw error;
+    });
+  }
+  await resellerRequirementSchemaReady;
 }
 let inventoryVariantMigrationReady;
 async function ensureInventoryVariants(db) {
@@ -3366,20 +3405,26 @@ export function createHandler(
       return json(res, 503, {
         error: String(action || '').startsWith('account-')
           ? 'Account services are not configured in this local preview yet.'
-          : 'Online checkout is being prepared. Please contact us on WhatsApp.',
+          : ['admin-login', 'admin-list', 'admin-logout'].includes(String(action || ''))
+            ? 'Admin services are not configured in this local preview. Add the database and commerce secrets to .env.local to sign in.'
+            : 'Online checkout is being prepared. Please contact us on WhatsApp.',
       });
     if (!['GET', 'POST'].includes(req.method))
       return json(res, 405, { error: 'Method not allowed.' });
     const origin = req.headers.origin;
+    const vercelOrigin = process.env.VERCEL_URL
+      ? `https://${process.env.VERCEL_URL}`
+      : null;
     if (
       origin &&
       ![
         'https://sasifysolutions.com',
         'https://www.sasifysolutions.com',
+        vercelOrigin,
         ...(process.env.NODE_ENV !== 'production'
           ? ['http://localhost:4173']
           : []),
-      ].includes(origin)
+      ].filter(Boolean).includes(origin)
     )
       return json(res, 403, { error: 'Invalid origin.' });
     let db;
@@ -3508,6 +3553,7 @@ export function createHandler(
       await ensureTwoFactorChallengeSchema(db);
       for (const statement of accountSchema.split(';').filter((s) => s.trim()))
         await db.query(statement);
+      await ensureResellerRequirementSchema(db);
       await db.query('BEGIN');
       const customerAccount = await accountForRequest(db, req);
       await ensureDefaultCoupon(db);
@@ -3574,6 +3620,13 @@ export function createHandler(
         output = await applyForReseller(db, customerAccount);
       } else if (action === 'account-dashboard') {
         const account = requireAccount(customerAccount);
+        await syncWalletDeposits(db, account);
+        const wallet = (
+          await db.query('SELECT balance FROM commerce_accounts WHERE id=$1', [
+            account.id,
+          ])
+        ).rows[0];
+        account.balance = wallet?.balance ?? account.balance;
         const orders = (
           await db.query(
             `SELECT o.id,o.product_id,o.amount,o.status,o.created_at,o.payment_method,
@@ -3599,11 +3652,65 @@ export function createHandler(
           ).rows,
           deposits: (
             await db.query(
-              'SELECT * FROM commerce_wallet_deposits WHERE account_id=$1 ORDER BY created_at DESC LIMIT 50',
+              `SELECT d.*,CASE WHEN d.status='pending' AND d.expires_at<=now()
+                THEN 'expired' ELSE d.status END AS display_status
+               FROM commerce_wallet_deposits d WHERE d.account_id=$1
+               ORDER BY d.created_at DESC LIMIT 50`,
               [account.id],
             )
-          ).rows,
+          ).rows.map(({ display_status, ...item }) => ({
+            ...item,
+            status: display_status,
+          })),
         };
+        if (account.role === 'reseller' && account.reseller_status === 'approved') {
+          const requirements = (await db.query(
+            `SELECT r.id,r.tool_name,r.description,r.status,r.created_at,r.updated_at,
+                    rr.contact_number AS response_contact,rr.created_at AS responded_at
+             FROM commerce_reseller_requirements r
+             LEFT JOIN commerce_reseller_requirement_responses rr
+               ON rr.requirement_id=r.id AND rr.account_id=$1
+             WHERE r.status='open' OR rr.id IS NOT NULL
+             ORDER BY CASE WHEN rr.id IS NULL THEN 0 ELSE 1 END,r.created_at DESC`,
+            [account.id],
+          )).rows;
+          output.requirements = requirements;
+        } else {
+          output.requirements = [];
+        }
+      } else if (action === 'reseller-requirement-respond') {
+        const account = requireAccount(customerAccount);
+        if (account.role !== 'reseller' || account.reseller_status !== 'approved')
+          throw fail(403, 'Only approved resellers can respond to Sasify requirements.');
+        if (!idOk(body.requirementId)) throw fail(400, 'Invalid requirement.');
+        const contactNumber = String(body.contactNumber || '').trim();
+        if (!/^[+\d][\d\s().-]{6,38}$/.test(contactNumber))
+          throw fail(400, 'Enter a valid contact number.');
+        const requirement = (await db.query(
+          "SELECT id,tool_name,description FROM commerce_reseller_requirements WHERE id=$1 AND status='open'",
+          [body.requirementId],
+        )).rows[0];
+        if (!requirement) throw fail(404, 'This requirement is no longer open.');
+        await db.query(
+          `INSERT INTO commerce_reseller_requirement_responses(id,requirement_id,account_id,contact_number)
+           VALUES($1,$2,$3,$4)
+           ON CONFLICT(requirement_id,account_id) DO UPDATE SET contact_number=excluded.contact_number,created_at=now()`,
+          [randomUUID(), requirement.id, account.id, contactNumber],
+        );
+        await db.query("INSERT INTO commerce_audit(action,object_id,details) VALUES('reseller_requirement_response',$1,$2::jsonb)", [requirement.id, JSON.stringify({ accountId: account.id })]);
+        const adminEmail = String(process.env.COMMERCE_ADMIN_EMAIL || '').trim();
+        if (adminEmail) {
+          try {
+            await sendAccountEmail({
+              to: adminEmail,
+              subject: `${requirement.tool_name} — Reseller can provide this`,
+              text: `A reseller can provide a requirement you posted.\n\nTool: ${requirement.tool_name}\nRequirement: ${requirement.description}\nReseller: ${account.name} (@${account.username || 'no username'})\nEmail: ${account.email}\nContact number: ${contactNumber}\n\nReview the requirement in the Sasify admin panel.`,
+            });
+          } catch (error) {
+            console.error('[reseller-requirement] admin notification failed', error?.message || error);
+          }
+        }
+        output = { ok: true, message: 'Thanks. Your contact details were sent to Sasify.' };
       } else if (action === 'account-deposit') {
         const account = requireAccount(customerAccount);
         const amount = Number(body.amount);
@@ -3627,12 +3734,17 @@ export function createHandler(
             };
         if (!receiver?.number)
           throw fail(503, 'This payment method is unavailable.');
-        const deposit = (
+        await db.query('SELECT pg_advisory_xact_lock(hashtext($1))', [
+          `wallet-deposit-create:${account.id}`,
+        ]);
+        let deposit = (
           await db.query(
-            `INSERT INTO commerce_wallet_deposits(id,account_id,amount,currency,payment_amount,method,receiver_id)
-          VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
+            `SELECT * FROM commerce_wallet_deposits
+             WHERE account_id=$1 AND amount=$2 AND currency=$3 AND payment_amount=$4
+               AND method=$5 AND receiver_id=$6 AND status IN ('pending','review')
+               AND expires_at>now()
+             ORDER BY created_at DESC LIMIT 1 FOR UPDATE`,
             [
-              randomUUID(),
               account.id,
               amount,
               crypto ? 'USDT' : 'PKR',
@@ -3642,16 +3754,26 @@ export function createHandler(
             ],
           )
         ).rows[0];
-        output = { deposit, receiver };
+        const reused = Boolean(deposit);
+        if (!deposit)
+          deposit = (
+            await db.query(
+              `INSERT INTO commerce_wallet_deposits(id,account_id,amount,currency,payment_amount,method,receiver_id,expires_at)
+          VALUES($1,$2,$3,$4,$5,$6,$7,now()+interval '5 minutes') RETURNING *`,
+              [
+                randomUUID(),
+                account.id,
+                amount,
+                crypto ? 'USDT' : 'PKR',
+                paymentAmount,
+                method,
+                crypto ? method : paymentReceiver.id,
+              ],
+            )
+          ).rows[0];
+        output = { deposit, receiver, reused };
       } else if (action === 'account-deposit-check') {
-        output = await creditDeposit(
-          db,
-          customerAccount,
-          body.id,
-          String(body.reference || '')
-            .trim()
-            .toUpperCase(),
-        );
+        output = await creditDeposit(db, customerAccount, body.id);
       } else if (action === 'account-wallet-pay') {
         const account = requireAccount(customerAccount);
         if (!idOk(body.id)) throw fail(400, 'Invalid order.');
@@ -5172,6 +5294,13 @@ export function createHandler(
             'UPDATE commerce_payments SET verification_reason=$1 WHERE id=$2',
             [matchReason, inserted.rows[0].id],
           );
+          const walletDepositCredited =
+            orders.length === 0 && matchReason === 'verified_no_eligible_order'
+              ? await autoCreditWalletDepositForPayment(
+                  db,
+                  inserted.rows[0].id,
+                )
+              : false;
           if (orders.length === 1) {
             await db.query(
               'UPDATE commerce_orders SET transaction_id=$1,payment_submitted_at=COALESCE(payment_submitted_at,$2) WHERE id=$3',
@@ -5259,7 +5388,7 @@ export function createHandler(
                 reply_markup: telegramApprovalKeyboard(orders[0].id),
               });
             }
-          } else {
+          } else if (!walletDepositCredited) {
             telegramMessages.push({
               text: telegramPaymentReviewMessage({
                 amount: parsed.amount,
@@ -5684,7 +5813,102 @@ export function createHandler(
           status: report.status,
           reviewedAt: report.reviewed_at,
         };
+      } else if (action === 'admin-user-detail') {
+        const accountId = String(body.accountId || req.query?.id || '');
+        if (!idOk(accountId)) throw fail(400, 'Invalid account ID.');
+        const account = (await db.query(
+          `SELECT id,name,email,username,role,balance,created_at,email_verified_at,reseller_status,reseller_reviewed_at
+           FROM commerce_accounts WHERE id=$1`, [accountId])).rows[0];
+        if (!account) throw fail(404, 'Account not found.');
+        const orders = (await db.query(
+          `SELECT o.id,o.product_id,o.amount,o.status,o.payment_method,o.payment_currency,o.payment_amount,
+             o.transaction_id,o.created_at,o.delivered_at,sp.name AS product_name,sp.provider_name
+           FROM commerce_orders o LEFT JOIN commerce_supplier_products sp ON sp.id=o.supplier_product_id
+           WHERE o.account_id=$1 ORDER BY o.created_at DESC LIMIT 100`, [accountId])).rows;
+        const deposits = (await db.query(
+          `SELECT id,amount,currency,payment_amount,method,status,reference,created_at,credited_at,expires_at
+           FROM commerce_wallet_deposits WHERE account_id=$1 ORDER BY created_at DESC LIMIT 100`, [accountId])).rows;
+        const ledger = (await db.query(
+          `SELECT id,amount,description,order_id,deposit_id,created_at FROM commerce_wallet_ledger
+           WHERE account_id=$1 ORDER BY created_at DESC LIMIT 100`, [accountId])).rows;
+        output = { account, orders, deposits, ledger };
+      } else if (action === 'admin-wallet-adjust') {
+        const accountId = String(body.accountId || '');
+        const amount = Number(body.amount);
+        const note = String(body.note || '').trim();
+        if (!idOk(accountId) || !Number.isSafeInteger(amount) || amount === 0 || Math.abs(amount) > 1000000 || note.length < 3 || note.length > 300)
+          throw fail(400, 'Enter a valid wallet adjustment and reason.');
+        const changed = (await db.query(
+          'UPDATE commerce_accounts SET balance=balance+$1 WHERE id=$2 AND balance+$1>=0 RETURNING id,balance',
+          [amount, accountId])).rows[0];
+        if (!changed) throw fail(409, 'Adjustment would make the wallet balance negative.');
+        await db.query(
+          'INSERT INTO commerce_wallet_ledger(id,account_id,amount,description) VALUES($1,$2,$3,$4)',
+          [randomUUID(), accountId, amount, `Admin adjustment: ${note}`],
+        );
+        await db.query(
+          'INSERT INTO commerce_audit(action,object_id,details) VALUES($1,$2,$3::jsonb)',
+          ['wallet_adjustment', accountId, JSON.stringify({ amount, note })],
+        );
+        output = { ok: true, balance: changed.balance };
+      } else if (action === 'admin-support-update') {
+        const ticketId = String(body.ticketId || '');
+        const status = String(body.status || '').trim();
+        const reply = body.reply === undefined ? undefined : String(body.reply).trim();
+        if (!idOk(ticketId) || !['open','in_progress','resolved','closed'].includes(status) || (reply !== undefined && reply.length > 5000))
+          throw fail(400, 'Invalid support update.');
+        const updated = (await db.query(
+          `UPDATE commerce_admin_support_tickets SET status=$1,admin_reply=COALESCE($2,admin_reply),updated_at=now()
+           WHERE id=$3 RETURNING id,status,admin_reply,updated_at`, [status, reply ?? null, ticketId])).rows[0];
+        if (!updated) throw fail(404, 'Support ticket not found.');
+        await db.query("INSERT INTO commerce_audit(action,object_id) VALUES('support_ticket_update',$1)", [ticketId]);
+        output = updated;
+      } else if (action === 'admin-settings-update') {
+        const settings = body.settings && typeof body.settings === 'object' ? body.settings : {};
+        const allowed = ['business_name','default_currency','support_email','auto_verify_receipts'];
+        for (const key of allowed) {
+          if (settings[key] === undefined) continue;
+          const value = String(settings[key]).trim();
+          if (value.length > 300) throw fail(400, 'Setting value is too long.');
+          await db.query(`INSERT INTO commerce_admin_settings(key,value,updated_at) VALUES($1,$2,now())
+            ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_at=now()`, [key, value]);
+        }
+        await db.query("INSERT INTO commerce_audit(action,object_id,details) VALUES('admin_settings_update','settings',$1::jsonb)", [JSON.stringify(settings)]);
+        output = { ok: true };
+      } else if (action === 'admin-product-create') {
+        const name = String(body.name || '').trim();
+        const description = String(body.description || '').trim();
+        const sellingPrice = Number(body.sellingPrice);
+        const costPkr = Number(body.costPkr || 0);
+        const canonicalKey = String(body.canonicalKey || name).trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 180);
+        if (!name || name.length > 300 || description.length > 20000 || !Number.isSafeInteger(sellingPrice) || sellingPrice < 1 || !Number.isSafeInteger(costPkr) || costPkr < 0 || canonicalKey.length < 2)
+          throw fail(400, 'Enter a valid product name, price and catalog key.');
+        const id = `manual:${randomUUID()}`;
+        const inserted = (await db.query(
+          `INSERT INTO commerce_supplier_products(id,name,description,delivery_instruction,wholesale_price,currency,supplier_stock,cost_pkr,provider_id,provider_name,external_product_id,canonical_key,enabled,selling_price,cost_manual,canonical_manual,name_manual,description_manual)
+           VALUES($1,$2,$3,'',0,'PKR',0,$4,'manual','Sasify manual catalog',$5,$6,true,$7,true,true,true,true) RETURNING *`,
+          [id, name, description, costPkr, id, `manual:${canonicalKey}`, sellingPrice])).rows[0];
+        await db.query("INSERT INTO commerce_audit(action,object_id) VALUES('product_create',$1)", [id]);
+        output = { ok: true, product: inserted };
+      } else if (action === 'admin-product-delete') {
+        const productId = String(body.productId || '');
+        if (!productId) throw fail(400, 'Invalid product.');
+        const changed = await db.query("DELETE FROM commerce_supplier_products WHERE id=$1 AND provider_id='manual' RETURNING id", [productId]);
+        if (!changed.rowCount) throw fail(409, 'Only manually created products can be deleted.');
+        await db.query("INSERT INTO commerce_audit(action,object_id) VALUES('product_delete',$1)", [productId]);
+        output = { ok: true };
       } else if (action === 'admin-list') {
+        const adminSettings = Object.fromEntries(
+          (await db.query('SELECT key,value FROM commerce_admin_settings ORDER BY key')).rows.map((row) => [row.key, row.value]),
+        );
+        const resellerRequirements = (await db.query(
+          `SELECT r.id,r.tool_name,r.description,r.status,r.created_at,r.updated_at,
+                  COALESCE(jsonb_agg(jsonb_build_object('id',rr.id,'name',a.name,'email',a.email,'username',a.username,'contact_number',rr.contact_number,'created_at',rr.created_at) ORDER BY rr.created_at DESC) FILTER (WHERE rr.id IS NOT NULL),'[]'::jsonb) AS responses
+           FROM commerce_reseller_requirements r
+           LEFT JOIN commerce_reseller_requirement_responses rr ON rr.requirement_id=r.id
+           LEFT JOIN commerce_accounts a ON a.id=rr.account_id
+           GROUP BY r.id ORDER BY r.created_at DESC LIMIT 200`,
+        )).rows;
         const sharedAccountRows = (
           await db.query(
             `SELECT sa.id,sa.inventory_id,sa.slots_filled,sa.max_slots,sa.status,sa.created_at,sa.sold_at,
@@ -5865,6 +6089,19 @@ export function createHandler(
                LIMIT 200`,
             )
           ).rows,
+          resellerRequirements,
+          supportTickets: (
+            await db.query(
+              `SELECT id,name,email,subject,message,status,admin_reply,created_at,updated_at
+               FROM commerce_admin_support_tickets ORDER BY CASE status WHEN 'open' THEN 0 WHEN 'in_progress' THEN 1 ELSE 2 END,created_at DESC LIMIT 200`,
+            )
+          ).rows,
+          auditLogs: (
+            await db.query(
+              'SELECT id,action,object_id,details,created_at FROM commerce_audit ORDER BY created_at DESC LIMIT 300',
+            )
+          ).rows,
+          adminSettings,
           supplierProducts: (
             await db.query(
               'SELECT * FROM commerce_supplier_products ORDER BY provider_name,name',
@@ -5929,7 +6166,7 @@ export function createHandler(
               'SELECT product_id,state,count(*)::int AS count FROM commerce_inventory GROUP BY product_id,state',
             )
           ).rows,
-          autoVerify: process.env.NAYAPAY_AUTO_VERIFY === 'true',
+          autoVerify: adminSettings.auto_verify_receipts === 'true' || process.env.NAYAPAY_AUTO_VERIFY === 'true',
           supplierUsdtPkrRate: supplierUsdtRate(),
           supplierUsdPkrRate: supplierUsdRate(),
           profitBreakdown,
@@ -6137,6 +6374,40 @@ export function createHandler(
           [`${status}_scam_report`, body.reportId],
         );
         output = { ok: true, reportId: body.reportId, status };
+      } else if (action === 'admin-requirement-create') {
+        const toolName = String(body.toolName || '').trim();
+        const description = String(body.description || '').trim();
+        if (!toolName || toolName.length > 160 || description.length < 10 || description.length > 4000)
+          throw fail(400, 'Enter a tool name and a description between 10 and 4,000 characters.');
+        const requirement = (await db.query(
+          `INSERT INTO commerce_reseller_requirements(id,tool_name,description)
+           VALUES($1,$2,$3) RETURNING id,tool_name,description,status,created_at,updated_at`,
+          [randomUUID(), toolName, description],
+        )).rows[0];
+        await db.query("INSERT INTO commerce_audit(action,object_id) VALUES('reseller_requirement_create',$1)", [requirement.id]);
+        const resellers = (await db.query(
+          "SELECT email,name,username FROM commerce_accounts WHERE role='reseller' AND reseller_status='approved' AND email_verified_at IS NOT NULL",
+        )).rows;
+        const origin = String(process.env.NEXT_PUBLIC_SITE_ORIGIN || 'https://www.sasifysolutions.com').replace(/\/$/, '');
+        const htmlText = (value) => String(value).replace(/[&<>"']/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character]);
+        const emailResults = await Promise.allSettled(resellers.map((reseller) => sendAccountEmail({
+          to: reseller.email,
+          subject: `${toolName} — Required by Sasify`,
+          text: `Sasify is currently looking for ${toolName} for our customers and reseller network.\n\n${description}\n\nIf you can provide this tool, subscription, or service, open your reseller dashboard and click “I Can Provide This”. Share your contact number and our team will contact you to discuss pricing, availability, and delivery.\n\nOpen your dashboard: ${origin}/dashboard`,
+          html: `<p>Sasify is currently looking for <strong>${htmlText(toolName)}</strong> for our customers and reseller network.</p><p>${htmlText(description).replace(/\n/g, '<br />')}</p><p>If you can provide this tool, subscription, or service, open your reseller dashboard and click <strong>“I Can Provide This”</strong>. Share your contact number and our team will contact you to discuss pricing, availability, and delivery.</p><p><a href="${origin}/dashboard">Open your dashboard</a></p>`,
+        })));
+        output = { ok: true, requirement, notified: emailResults.filter((result) => result.status === 'fulfilled').length, recipients: resellers.length };
+      } else if (action === 'admin-requirement-update') {
+        if (!idOk(body.requirementId)) throw fail(400, 'Invalid requirement.');
+        const status = String(body.status || '').trim();
+        if (!['open', 'fulfilled', 'closed'].includes(status)) throw fail(400, 'Invalid requirement status.');
+        const changed = await db.query(
+          'UPDATE commerce_reseller_requirements SET status=$1,updated_at=now() WHERE id=$2 RETURNING id,status',
+          [status, body.requirementId],
+        );
+        if (!changed.rowCount) throw fail(404, 'Requirement not found.');
+        await db.query("INSERT INTO commerce_audit(action,object_id,details) VALUES('reseller_requirement_update',$1,$2::jsonb)", [body.requirementId, JSON.stringify({ status })]);
+        output = { ok: true, requirement: changed.rows[0] };
       } else if (action === 'admin-tool-request-update') {
         if (!idOk(body.requestId)) throw fail(400, 'Invalid tool request ID.');
         const status = String(body.status || '').trim();

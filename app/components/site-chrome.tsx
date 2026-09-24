@@ -1,15 +1,25 @@
+'use client';
 import { MessageCircle } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import './site-header-actions.css';
 import { favicon, whatsappLink } from '../product-utils';
 import { CurrencyToggle } from './currency';
 import { founderProfile, socials } from '../site-config';
-import { NewProductsTicker } from './new-products-ticker';
 
 export function SiteHeader({
   accountMode,
 }: {
   accountMode?: 'signup' | 'login' | 'recovery';
 } = {}) {
+  const [accountName, setAccountName] = useState<string | null>(null);
+  useEffect(() => {
+    let active = true;
+    fetch('/api/commerce?action=account-dashboard', { credentials: 'same-origin', cache: 'no-store' })
+      .then((response) => response.ok ? response.json() : null)
+      .then((result: any) => { if (active && result?.account?.name) setAccountName(result.account.name); })
+      .catch(() => {});
+    return () => { active = false; };
+  }, []);
   return (
     <header
       className={`site-header${accountMode ? ` site-header-account site-header-account-${accountMode}` : ''}`}
@@ -41,15 +51,16 @@ export function SiteHeader({
         <div className="nav-actions header-account-actions">
           <CurrencyToggle />
           <span className="header-action-divider" aria-hidden="true" />
-          <a href="/login" className="header-login">
-            Log in
-          </a>
-          <a href="/signup" className="header-signup">
-            Sign up
-          </a>
+          {accountName ? (
+            <a href="/dashboard" className="header-login">My dashboard</a>
+          ) : (
+            <>
+              <a href="/login" className="header-login">Log in</a>
+              <a href="/signup" className="header-signup">Sign up</a>
+            </>
+          )}
         </div>
       </nav>
-      <NewProductsTicker />
     </header>
   );
 }

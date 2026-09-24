@@ -9,6 +9,7 @@ import {
   TicketPercent,
   BadgeDollarSign,
   Users,
+  ClipboardCheck,
   ShieldAlert,
   ShieldX,
   PanelLeftClose,
@@ -19,7 +20,9 @@ import {
   LogOut,
   ArrowUpRight,
   MessageSquarePlus,
-  ListChecks,
+  LifeBuoy,
+  Boxes,
+  ChevronDown,
 } from 'lucide-react';
 import {
   Sheet,
@@ -33,37 +36,72 @@ export const adminSections = [
   ['overview', 'Overview', LayoutDashboard],
   ['orders', 'Orders', ClipboardList],
   ['customers', 'Registered users', Users],
+  ['userDetail', 'User detail', Users],
+  ['resellerRequests', 'Reseller requests', ClipboardCheck],
   ['payments', 'Payments', WalletCards],
   ['paymentAccounts', 'Payment accounts', WalletCards],
   ['inventory', 'Inventory', Package],
   ['supplier', 'Supplier Store', ShoppingCart],
-  ['catalogStatus', 'Catalog status', ListChecks],
   ['coupons', 'Coupons', TicketPercent],
   ['commissions', 'Commissions', BadgeDollarSign],
   ['profit', 'Profit', WalletCards],
   ['team', 'Team access', Users],
   ['toolRequests', 'Tool requests', MessageSquarePlus],
+  ['requirements', 'Required tools', MessageSquarePlus],
   ['blockedUsers', 'Blocked users', ShieldX],
   ['scammers', 'Scam reports', ShieldAlert],
+  ['support', 'Support tickets', LifeBuoy],
 ] as const;
-export type AdminSection = (typeof adminSections)[number][0];
+export type AdminSection =
+  | (typeof adminSections)[number][0]
+  | 'products'
+  | 'catalogStatus'
+  | 'auditLogs'
+  | 'settings'
+  | 'transactions';
 
-const sectionDescriptions: Record<AdminSection, string> = {
+const adminSectionGroups: { label: string; items: AdminSection[] }[] = [
+  {
+    label: 'Workspace',
+    items: ['overview', 'orders', 'customers', 'userDetail'],
+  },
+  {
+    label: 'Payments & finance',
+    items: ['payments', 'paymentAccounts', 'profit', 'commissions'],
+  },
+  {
+    label: 'Catalog & stock',
+    items: ['inventory', 'supplier', 'coupons'],
+  },
+  {
+    label: 'Resellers & team',
+    items: ['resellerRequests', 'requirements', 'team', 'toolRequests'],
+  },
+  {
+    label: 'Risk & support',
+    items: ['blockedUsers', 'scammers', 'support'],
+  },
+];
+
+const sectionDescriptions: Record<string, string> = {
   overview: 'Your business at a glance. Every order, every day.',
   orders: 'Track purchases, review order details and manage delivery.',
   customers: 'Customer and reseller accounts, wallet balances and purchase activity.',
+  userDetail: 'Complete customer history and wallet controls.',
+  resellerRequests: 'Review applications to join Sasify as a reseller.',
   payments: 'Review incoming receipts and their verification status.',
   paymentAccounts: 'Manage receiving accounts and your active payment destination.',
   inventory: 'Organize account stock and monitor availability.',
   supplier: 'Edit product copy, compare costs and set your selling prices.',
-  catalogStatus: 'Review product visibility, availability and supplier matching.',
   coupons: 'Manage discount codes and their usage limits.',
   commissions: 'Review commissions and partner earnings.',
   profit: 'Understand revenue, costs and business performance.',
   team: 'Manage teammate access to your workspace.',
   toolRequests: 'Review customer requests and follow up on availability.',
+  requirements: 'Publish requirements and connect with resellers who can provide them.',
   blockedUsers: 'Review blocked visitors and manage access restrictions.',
   scammers: 'Review and manage reported scams.',
+  support: 'Reply to customers and resolve support tickets.',
 };
 
 // Presentation only: all authorization, polling and mutations remain in CommerceAdmin.
@@ -87,6 +125,11 @@ export function AdminShell({
   const [collapsed, setCollapsed] = useState(false);
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
+  const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>(
+    Object.fromEntries(
+      adminSectionGroups.map(({ label }, index) => [label, index < 2]),
+    ),
+  );
   useEffect(() => {
     try {
       setCollapsed(
@@ -115,19 +158,48 @@ export function AdminShell({
   }
   const navigation = (
     <nav aria-label="Admin sections" className="ops-navigation">
-      {adminSections.map(([value, label, Icon]) => (
-        <button
-          key={value}
-          type="button"
-          title={label}
-          aria-label={label}
-          aria-current={value === tab ? 'page' : undefined}
-          onClick={() => navigate(value)}
-        >
-          <Icon size={19} aria-hidden="true" />
-          <span>{label}</span>
-        </button>
-      ))}
+      {adminSectionGroups.map((group) => {
+        const sections = group.items
+          .map((value) => adminSections.find((section) => section[0] === value))
+          .filter((section): section is (typeof adminSections)[number] => Boolean(section));
+        const expanded = expandedGroups[group.label];
+        return (
+          <div className="ops-navigation-group" key={group.label}>
+            <button
+              type="button"
+              className="ops-navigation-group-toggle"
+              aria-expanded={expanded}
+              onClick={() =>
+                setExpandedGroups((current) => ({
+                  ...current,
+                  [group.label]: !current[group.label],
+                }))
+              }
+            >
+              <span>{group.label}</span>
+              <ChevronDown
+                size={14}
+                aria-hidden="true"
+                className={expanded ? undefined : 'is-collapsed'}
+              />
+            </button>
+            {expanded &&
+              sections.map(([value, label, Icon]) => (
+                <button
+                  key={value}
+                  type="button"
+                  title={label}
+                  aria-label={label}
+                  aria-current={value === tab ? 'page' : undefined}
+                  onClick={() => navigate(value)}
+                >
+                  <Icon size={19} aria-hidden="true" />
+                  <span>{label}</span>
+                </button>
+              ))}
+          </div>
+        );
+      })}
     </nav>
   );
   const title =

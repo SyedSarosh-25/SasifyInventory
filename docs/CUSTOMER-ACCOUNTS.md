@@ -63,11 +63,16 @@ not included. Older accounts have no username until separately updated, and are
 not marked verified retroactively.
 
 Wallet balances and ledger amounts are integer PKR. Deposit instructions snapshot
-the exchange rate into an expected payment amount. Deposits require a verified,
-unused receipt with matching amount, currency, receiver and transaction reference,
-dated after deposit creation. Customers press Verify deposit after payment; if
-the receipt has not arrived they can retry. Missing or ambiguous evidence stays
-in review. Credited receipts cannot also pay for an order.
+the exchange rate into an expected payment amount. A trusted incoming receipt
+automatically credits a deposit only when its amount, currency, receiver and
+received time match unambiguously. Customers do not enter a transaction
+reference; pending deposits are rechecked while the dashboard is open. Each
+payment request expires after five minutes and displays a live countdown;
+repeating the same top-up during that window reuses its instructions. A receipt
+must have arrived within the five-minute window to be credited, even if its
+email is processed later. Expired requests are not reused. Missing or ambiguous
+evidence stays pending or requires review rather than being credited by
+guesswork. Credited receipts cannot also pay for an order.
 
 Wallet checkout locks the order, conditionally debits balance, and uses existing
 fulfilment. Duplicate payment requests cannot debit a delivered order twice.

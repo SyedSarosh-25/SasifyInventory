@@ -299,11 +299,23 @@ test('accounts isolate purchases, verified deposits credit once, wallet pays onc
     );
     assert.equal(deposit.code, 200, JSON.stringify(deposit));
     const depositId = deposit.data.deposit.id;
+    assert.ok(
+      new Date(deposit.data.deposit.expires_at).getTime() -
+        new Date(deposit.data.deposit.created_at).getTime() <=
+        5 * 60 * 1000,
+    );
+    const duplicateDeposit = await request(
+      'account-deposit',
+      { amount: 5000, method: 'bank' },
+      cookie,
+    );
+    assert.equal(duplicateDeposit.data.reused, true);
+    assert.equal(duplicateDeposit.data.deposit.id, depositId);
     assert.equal(
       (
         await request(
           'account-deposit-check',
-          { id: depositId, reference: 'TESTREF123' },
+          { id: depositId },
           resellerCookie,
         )
       ).code,
@@ -313,11 +325,11 @@ test('accounts isolate purchases, verified deposits credit once, wallet pays onc
       (
         await request(
           'account-deposit-check',
-          { id: depositId, reference: 'TESTREF123' },
+          { id: depositId },
           cookie,
         )
       ).data.status,
-      'review',
+      'pending',
     );
     assert.equal(
       (await request('account-dashboard', undefined, cookie)).data.account
@@ -325,30 +337,37 @@ test('accounts isolate purchases, verified deposits credit once, wallet pays onc
       0,
     );
     await database.query(
-      `INSERT INTO commerce_payments(id,event_hash,transaction_id,amount,payment_amount,currency,received_at,verified,subject,encrypted_body,receiver_id)
-      VALUES($1,$2,'TESTREF123',5000,5000,'PKR',now(),true,'Test receipt','test',$3)`,
+      `INSERT INTO commerce_payments(id,event_hash,transaction_id,amount,payment_amount,currency,received_at,verified,verification_reason,subject,encrypted_body,receiver_id)
+      VALUES($1,$2,'TESTREF123',5000,5000,'PKR',now(),true,'verified_no_eligible_order','Test receipt','test',$3)`,
       [randomUUID(), randomUUID(), deposit.data.deposit.receiver_id],
     );
-    assert.equal(
-      (
-        await request(
-          'account-deposit-check',
-          { id: depositId, reference: 'TESTREF123' },
-          cookie,
-        )
-      ).data.status,
-      'credited',
-    );
-    await request(
-      'account-deposit-check',
-      { id: depositId, reference: 'TESTREF123' },
+    const syncedDashboard = await request(
+      'account-dashboard',
+      undefined,
       cookie,
     );
+    assert.equal(syncedDashboard.data.deposits[0].status, 'credited');
+    assert.equal(syncedDashboard.data.deposits[0].reference, 'TESTREF123');
     assert.equal(
-      (await request('account-dashboard', undefined, cookie)).data.account
-        .balance,
+      syncedDashboard.data.account.balance,
       5000,
     );
+    const expiringDeposit = await request(
+      'account-deposit',
+      { amount: 6000, method: 'bank' },
+      cookie,
+    );
+    await database.query(
+      "UPDATE commerce_wallet_deposits SET expires_at=now()-interval '1 second' WHERE id=$1",
+      [expiringDeposit.data.deposit.id],
+    );
+    const renewedDeposit = await request(
+      'account-deposit',
+      { amount: 6000, method: 'bank' },
+      cookie,
+    );
+    assert.equal(renewedDeposit.data.reused, false);
+    assert.notEqual(renewedDeposit.data.deposit.id, expiringDeposit.data.deposit.id);
     await request(
       'admin-import',
       {

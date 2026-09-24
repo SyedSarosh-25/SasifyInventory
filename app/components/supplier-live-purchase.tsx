@@ -8,6 +8,15 @@ type Props = {
   canonicalKey: string;
 };
 
+type StockResponse = {
+  products?: Array<{
+    id?: string;
+    canonical_key?: string;
+    source?: string;
+    available?: number;
+  }>;
+};
+
 export function SupplierLivePurchase({ productId, canonicalKey }: Props) {
   const [available, setAvailable] = useState<boolean | null>(null);
 
@@ -17,8 +26,9 @@ export function SupplierLivePurchase({ productId, canonicalKey }: Props) {
 
     fetch('/api/commerce?action=stock', { cache: 'no-store' })
       .then((response) => (response.ok ? response.json() : Promise.reject()))
-      .then((data: { products?: Array<{ id?: string; canonical_key?: string; source?: string; available?: number }> }) => {
-        const found = (data.products || []).some(
+      .then((data) => {
+        const stock = data as StockResponse;
+        const found = (stock.products || []).some(
           (product) =>
             product.source === 'supplier' &&
             Number(product.available) > 0 &&

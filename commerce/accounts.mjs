@@ -25,7 +25,7 @@ function gmailOAuthCredentials() {
     ? { user, clientId, clientSecret, refreshToken }
     : null;
 }
-async function sendAccountEmail({ to, subject, text, html }) {
+export async function sendAccountEmail({ to, subject, text, html }) {
   const credentials = gmailOAuthCredentials();
   if (!credentials)
     throw new Error('Gmail OAuth credentials are not configured.');
@@ -171,8 +171,10 @@ CREATE TABLE IF NOT EXISTS commerce_wallet_deposits (
  amount integer NOT NULL CHECK(amount>0), currency text NOT NULL CHECK(currency IN ('PKR','USDT')),
  payment_amount numeric(20,8) NOT NULL CHECK(payment_amount>0), method text NOT NULL,
  receiver_id text NOT NULL, reference text, status text NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','review','credited')),
- created_at timestamptz NOT NULL DEFAULT now(), credited_at timestamptz
+ created_at timestamptz NOT NULL DEFAULT now(), expires_at timestamptz NOT NULL DEFAULT now()+interval '5 minutes', credited_at timestamptz
 );
+ALTER TABLE commerce_wallet_deposits ADD COLUMN IF NOT EXISTS expires_at timestamptz NOT NULL DEFAULT now()+interval '5 minutes';
+UPDATE commerce_wallet_deposits SET expires_at=created_at+interval '5 minutes' WHERE expires_at>created_at+interval '5 minutes';
 ALTER TABLE commerce_payments ADD COLUMN IF NOT EXISTS wallet_deposit_id uuid UNIQUE REFERENCES commerce_wallet_deposits(id);
 CREATE TABLE IF NOT EXISTS commerce_wallet_ledger (
  id uuid PRIMARY KEY, account_id uuid NOT NULL REFERENCES commerce_accounts(id), amount integer NOT NULL,
@@ -588,66 +590,165 @@ export async function accountAuth(db, req, res, action, body) {
   };
 }
 
-export async function creditDeposit(db, account, depositId, reference) {
-  requireAccount(account);
-  if (!/^[a-f0-9-]{36}$/i.test(String(depositId)))
-    throw error(400, 'Invalid deposit.');
+const walletDepositMatchLock = 'sasify-wallet-deposit-auto-match';
+
+async function lockWalletDepositMatching(db) {
+  await db.query('SELECT pg_advisory_xact_lock(hashtext($1))', [
+    walletDepositMatchLock,
+  ]);
+}
+
+async function attemptWalletDepositMatch(db, depositId, accountId, paymentId) {
   const deposit = (
     await db.query(
-      'SELECT * FROM commerce_wallet_deposits WHERE id=$1 AND account_id=$2 FOR UPDATE',
-      [depositId, account.id],
+      `SELECT * FROM commerce_wallet_deposits
+       WHERE id=$1 AND account_id=$2 FOR UPDATE`,
+      [depositId, accountId],
     )
   ).rows[0];
   if (!deposit) throw error(404, 'Deposit not found.');
-  if (deposit.status === 'credited') return { ok: true, status: 'credited' };
-  if (!/^[A-Z0-9-]{6,128}$/i.test(reference))
-    throw error(400, 'Enter the transaction reference from your payment.');
+  if (deposit.status === 'credited')
+    return { ok: true, status: 'credited' };
+  if (!['pending', 'review'].includes(deposit.status))
+    return { ok: true, status: deposit.status };
+
+  // Only trusted receipts which the normal order matcher found unmatched can
+  // fund a wallet. Exact amount, receiver, and received-after-request checks
+  // plus cross-account ambiguity checks prevent guessing or double allocation.
   const payment = (
     await db.query(
-      'SELECT * FROM commerce_payments WHERE transaction_id=$1 FOR UPDATE',
-      [reference],
+      `SELECT p.* FROM commerce_payments p
+       WHERE p.verified=true AND p.verification_reason='verified_no_eligible_order'
+         AND p.order_id IS NULL AND p.wallet_deposit_id IS NULL
+         AND p.currency=$1 AND COALESCE(p.payment_amount,p.amount)=$2
+         AND p.receiver_id=$3 AND p.received_at IS NOT NULL
+         AND p.received_at >= $4 AND p.received_at <= $8
+         AND ($5::text IS NULL OR p.id::text=$5)
+         AND NOT EXISTS (
+           SELECT 1 FROM commerce_orders o
+           WHERE o.status IN ('pending','review','expired','delivered')
+             AND ((p.transaction_id IS NOT NULL AND o.transaction_id=p.transaction_id)
+               OR (o.receiver_id=$3 AND COALESCE(o.payment_currency,'PKR')=p.currency
+                 AND ((p.currency='USDT' AND o.payment_amount=p.payment_amount)
+                   OR (p.currency='PKR' AND (o.amount=p.amount
+                     OR (MOD(p.amount-1,100)<>0 AND o.amount=p.amount-1))))
+                 AND p.received_at>=o.created_at AND p.received_at<=o.expires_at))
+         )
+         AND NOT EXISTS (
+           SELECT 1 FROM commerce_wallet_deposits claimed
+           WHERE claimed.id<>$6 AND p.transaction_id IS NOT NULL
+             AND claimed.reference=p.transaction_id
+         )
+         AND NOT EXISTS (
+           SELECT 1 FROM commerce_wallet_deposits other
+           WHERE other.status IN ('pending','review') AND other.id<>$6
+             AND other.account_id<>$7 AND other.currency=p.currency
+             AND other.payment_amount=COALESCE(p.payment_amount,p.amount)
+             AND other.receiver_id=p.receiver_id AND p.received_at>=other.created_at
+             AND p.received_at<=other.expires_at
+         )
+         AND NOT EXISTS (
+           SELECT 1 FROM commerce_wallet_deposits earlier
+           WHERE earlier.status IN ('pending','review') AND earlier.id<>$6
+             AND earlier.account_id=$7 AND earlier.currency=p.currency
+             AND earlier.payment_amount=COALESCE(p.payment_amount,p.amount)
+             AND earlier.receiver_id=p.receiver_id AND p.received_at>=earlier.created_at
+             AND p.received_at<=earlier.expires_at
+             AND (earlier.created_at<$4 OR (earlier.created_at=$4 AND earlier.id<$6))
+         )
+       ORDER BY p.received_at,p.created_at,p.id
+       LIMIT 1 FOR UPDATE OF p SKIP LOCKED`,
+      [
+        deposit.currency,
+        deposit.payment_amount,
+        deposit.receiver_id,
+        deposit.created_at,
+        paymentId || null,
+        deposit.id,
+        accountId,
+        deposit.expires_at,
+      ],
     )
   ).rows[0];
-  // Never credit from a customer claim alone, or reuse a receipt allocated to an order.
-  const competing = (
-    await db.query(
-      `SELECT id FROM commerce_wallet_deposits WHERE reference=$1 AND id<>$2
-    UNION ALL SELECT id FROM commerce_orders WHERE transaction_id=$1 AND status IN ('pending','review','delivered')`,
-      [reference, deposit.id],
-    )
-  ).rows;
-  const valid =
-    competing.length === 0 &&
-    payment?.verified &&
-    !payment.order_id &&
-    !payment.wallet_deposit_id &&
-    payment.currency === deposit.currency &&
-    Number(payment.payment_amount ?? payment.amount) ===
-      Number(deposit.payment_amount) &&
-    payment.receiver_id === deposit.receiver_id &&
-    new Date(payment.received_at) >= new Date(deposit.created_at);
-  if (!valid) {
-    await db.query(
-      "UPDATE commerce_wallet_deposits SET reference=$1,status='review' WHERE id=$2",
-      [reference, deposit.id],
-    );
-    return { ok: true, status: 'review' };
-  }
+  if (!payment) return { ok: true, status: deposit.status };
+
   await db.query(
     'UPDATE commerce_accounts SET balance=balance+$1 WHERE id=$2',
-    [deposit.amount, account.id],
+    [deposit.amount, accountId],
   );
   await db.query(
-    'UPDATE commerce_payments SET wallet_deposit_id=$1 WHERE id=$2',
+    "UPDATE commerce_payments SET wallet_deposit_id=$1,verification_reason='verified_wallet_deposit' WHERE id=$2",
     [deposit.id, payment.id],
   );
   await db.query(
     "UPDATE commerce_wallet_deposits SET reference=$1,status='credited',credited_at=now() WHERE id=$2",
-    [reference, deposit.id],
+    [payment.transaction_id, deposit.id],
   );
   await db.query(
     'INSERT INTO commerce_wallet_ledger(id,account_id,amount,deposit_id,description) VALUES($1,$2,$3,$4,$5)',
-    [randomUUID(), account.id, deposit.amount, deposit.id, 'Wallet deposit'],
+    [randomUUID(), accountId, deposit.amount, deposit.id, 'Wallet deposit'],
   );
   return { ok: true, status: 'credited' };
+}
+
+export async function creditDeposit(db, account, depositId) {
+  requireAccount(account);
+  if (!/^[a-f0-9-]{36}$/i.test(String(depositId)))
+    throw error(400, 'Invalid deposit.');
+  await lockWalletDepositMatching(db);
+  return attemptWalletDepositMatch(db, depositId, account.id, null);
+}
+
+export async function syncWalletDeposits(db, account) {
+  requireAccount(account);
+  await lockWalletDepositMatching(db);
+  const deposits = (
+    await db.query(
+      `SELECT id FROM commerce_wallet_deposits
+       WHERE account_id=$1 AND status IN ('pending','review')
+       ORDER BY created_at,id`,
+      [account.id],
+    )
+  ).rows;
+  for (const deposit of deposits)
+    await attemptWalletDepositMatch(db, deposit.id, account.id, null);
+}
+
+export async function autoCreditWalletDepositForPayment(db, paymentId) {
+  if (!/^[a-f0-9-]{36}$/i.test(String(paymentId))) return false;
+  await lockWalletDepositMatching(db);
+  const payment = (
+    await db.query(
+      `SELECT * FROM commerce_payments WHERE id=$1 AND verified=true
+       AND verification_reason='verified_no_eligible_order'
+       AND order_id IS NULL AND wallet_deposit_id IS NULL FOR UPDATE`,
+      [paymentId],
+    )
+  ).rows[0];
+  if (!payment?.received_at) return false;
+  const deposits = (
+    await db.query(
+      `SELECT d.id,d.account_id FROM commerce_wallet_deposits d
+       WHERE d.status IN ('pending','review') AND d.currency=$1
+         AND d.payment_amount=COALESCE($2::numeric,$3::numeric) AND d.receiver_id=$4
+         AND $5::timestamptz>=d.created_at AND $5::timestamptz<=d.expires_at
+       ORDER BY d.created_at,d.id`,
+      [
+        payment.currency,
+        payment.payment_amount,
+        payment.amount,
+        payment.receiver_id,
+        payment.received_at,
+      ],
+    )
+  ).rows;
+  const accounts = new Set(deposits.map((deposit) => deposit.account_id));
+  if (accounts.size !== 1 || !deposits.length) return false;
+  const result = await attemptWalletDepositMatch(
+    db,
+    deposits[0].id,
+    deposits[0].account_id,
+    payment.id,
+  );
+  return result.status === 'credited';
 }
