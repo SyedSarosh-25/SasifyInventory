@@ -186,7 +186,7 @@ function chatGptWalletFlashSalePrice(order) {
   const productId = String(order?.product_id || '');
   const amount = Number(order?.amount || 0);
   return CHATGPT_WALLET_FLASH_SALE_PRODUCT_IDS.has(productId) &&
-    amount > CHATGPT_WALLET_FLASH_SALE_PRICE
+    amount >= CHATGPT_WALLET_FLASH_SALE_PRICE
     ? CHATGPT_WALLET_FLASH_SALE_PRICE
     : null;
 }
@@ -5144,6 +5144,7 @@ export function createHandler(
             paymentMethod: order.payment_method || 'wallet',
             paymentCurrency: order.payment_currency || 'PKR',
             paymentAmount: Number(order.payment_amount || order.amount || 0),
+            walletFlashSalePrice: chatGptWalletFlashSalePrice(order) || undefined,
             paymentWindowMinutes:
               PAYMENT_WINDOWS_MINUTES[order.payment_method] ||
               PAYMENT_WINDOWS_MINUTES.wallet,

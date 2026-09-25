@@ -1217,9 +1217,11 @@ export function CustomerDashboard() {
 
 export function CheckoutAccount({
   orderId,
+  walletFlashSale = false,
   onPaid,
 }: {
   orderId: string;
+  walletFlashSale?: boolean;
   onPaid: () => void;
 }) {
   const [account, setAccount] = useState<Account | null>(null),
@@ -1274,7 +1276,7 @@ export function CheckoutAccount({
             }
           }}
         >
-          Pay from Sasify wallet
+          {walletFlashSale ? 'Pay from Sasify Wallet · PKR 2,999' : 'Pay from Sasify wallet'}
         </button>
       )}
       {error && <p role="alert">{error}</p>}

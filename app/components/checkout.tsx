@@ -75,6 +75,7 @@ type Order = {
   paymentMethod?: 'wallet' | 'bank' | 'binance' | 'crypto';
   paymentCurrency?: 'PKR' | 'USDT';
   paymentAmount?: number;
+  walletFlashSalePrice?: number;
   paymentWindowMinutes?: number;
   sharedSlot?: number;
   sharedSlotsFilled?: number;
@@ -415,7 +416,7 @@ export function Checkout() {
       <h1>
         {order ? (order.amount === 0 ? 'Your free order' : 'Complete your payment') : 'Buy online'}
       </h1>
-      <CheckoutAccount orderId={order?.status === 'pending' ? id : ''} onPaid={() => { void api('status',key,undefined,id).then(setOrder).catch(e=>setError(e.message)); }} />
+      <CheckoutAccount orderId={order?.status === 'pending' ? id : ''} walletFlashSale={product?.id === 'p093' || product?.id === 'p093-ultra'} onPaid={() => { void api('status',key,undefined,id).then(setOrder).catch(e=>setError(e.message)); }} />
       <div className="instant-delivery">
         <span className="instant-icon">
           <Zap size={22} />
@@ -667,6 +668,10 @@ export function Checkout() {
               {order.teamCoupon && order.amount === 0 ? (
                 <small className="coupon-savings">
                   Team access · No payment required
+                </small>
+              ) : order.walletFlashSalePrice ? (
+                <small className="coupon-savings">
+                  Flash sale · PKR {order.walletFlashSalePrice.toLocaleString()} with Sasify Wallet · 30-day warranty
                 </small>
               ) : order.couponDiscount || order.paymentAdjustment ? (
                 <>
