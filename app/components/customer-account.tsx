@@ -1268,11 +1268,13 @@ export function CheckoutAccount({
   orderId,
   walletFlashSale = false,
   onWalletBalanceChange,
+  onInsufficientWallet,
   onPaid,
 }: {
   orderId: string;
   walletFlashSale?: boolean;
   onWalletBalanceChange?: (balance: number) => void;
+  onInsufficientWallet?: () => void;
   onPaid: () => void;
 }) {
   const [account, setAccount] = useState<Account | null>(null),
@@ -1326,7 +1328,13 @@ export function CheckoutAccount({
               }
               onPaid();
             } catch (e) {
-              setError((e as Error).message);
+              const message = (e as Error).message;
+              if (/insufficient wallet balance/i.test(message)) {
+                onInsufficientWallet?.();
+                setError('Insufficient wallet balance. Add funds first.');
+              } else {
+                setError(message);
+              }
             } finally {
               setBusy(false);
             }
