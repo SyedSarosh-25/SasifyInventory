@@ -692,6 +692,17 @@ export function CustomerDashboard() {
         );
     });
   }
+  function cancelDepositRequest(depositId: string) {
+    if (!window.confirm('Cancel this deposit request? Any payment sent after cancellation will not be matched to it.')) return;
+    void run(async () => {
+      await request('account-deposit-cancel', { id: depositId });
+      if (deposit?.id === depositId) {
+        setDeposit(null);
+        setReceiver(null);
+      }
+      setNotice('Deposit request cancelled.');
+    });
+  }
   async function applyForReseller() {
     await run(async () => {
       const result = await request('account-apply-reseller', {});
@@ -1131,6 +1142,8 @@ export function CustomerDashboard() {
                             ? 'Added to wallet'
                             : item.status === 'review'
                               ? 'Needs review'
+                              : item.status === 'cancelled'
+                                ? 'Request cancelled'
                               : item.status === 'expired' || Date.parse(item.expires_at) <= clock
                                 ? 'Request expired'
                                 : 'Waiting for payment'}
@@ -1149,6 +1162,11 @@ export function CustomerDashboard() {
                           Please contact support and share the deposit date and
                           amount so we can check it safely.
                         </p>
+                      )}
+                      {['pending', 'review'].includes(item.status) && Date.parse(item.expires_at) > clock && (
+                        <div className="account-deposit-actions">
+                          <button className="account-deposit-cancel" disabled={busy} onClick={() => cancelDepositRequest(item.id)}>Cancel request</button>
+                        </div>
                       )}
                     </div>
                   ))}

@@ -5,6 +5,7 @@ import {
   requireAccount,
   accountAuth,
   creditDeposit,
+  cancelDeposit,
   syncWalletDeposits,
   autoCreditWalletDepositForPayment,
   signupVerification,
@@ -3895,6 +3896,8 @@ export function createHandler(
         output = { deposit, receiver, reused };
       } else if (action === 'account-deposit-check') {
         output = await creditDeposit(db, customerAccount, body.id);
+      } else if (action === 'account-deposit-cancel') {
+        output = await cancelDeposit(db, customerAccount, body.id);
       } else if (action === 'account-wallet-pay') {
         const account = requireAccount(customerAccount);
         if (!idOk(body.id)) throw fail(400, 'Invalid order.');

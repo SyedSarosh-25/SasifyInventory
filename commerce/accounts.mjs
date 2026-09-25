@@ -170,9 +170,11 @@ CREATE TABLE IF NOT EXISTS commerce_wallet_deposits (
  id uuid PRIMARY KEY, account_id uuid NOT NULL REFERENCES commerce_accounts(id),
  amount integer NOT NULL CHECK(amount>0), currency text NOT NULL CHECK(currency IN ('PKR','USDT')),
  payment_amount numeric(20,8) NOT NULL CHECK(payment_amount>0), method text NOT NULL,
- receiver_id text NOT NULL, reference text, status text NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','review','credited')),
+ receiver_id text NOT NULL, reference text, status text NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','review','credited','cancelled')),
  created_at timestamptz NOT NULL DEFAULT now(), expires_at timestamptz NOT NULL DEFAULT now()+interval '5 minutes', credited_at timestamptz
 );
+ALTER TABLE commerce_wallet_deposits DROP CONSTRAINT IF EXISTS commerce_wallet_deposits_status_check;
+ALTER TABLE commerce_wallet_deposits ADD CONSTRAINT commerce_wallet_deposits_status_check CHECK(status IN ('pending','review','credited','cancelled'));
 ALTER TABLE commerce_wallet_deposits ADD COLUMN IF NOT EXISTS expires_at timestamptz NOT NULL DEFAULT now()+interval '5 minutes';
 UPDATE commerce_wallet_deposits SET expires_at=created_at+interval '5 minutes' WHERE expires_at>created_at+interval '5 minutes';
 ALTER TABLE commerce_payments ADD COLUMN IF NOT EXISTS wallet_deposit_id uuid UNIQUE REFERENCES commerce_wallet_deposits(id);
@@ -697,6 +699,34 @@ export async function creditDeposit(db, account, depositId) {
     throw error(400, 'Invalid deposit.');
   await lockWalletDepositMatching(db);
   return attemptWalletDepositMatch(db, depositId, account.id, null);
+}
+
+export async function cancelDeposit(db, account, depositId) {
+  requireAccount(account);
+  if (!/^[a-f0-9-]{36}$/i.test(String(depositId)))
+    throw error(400, 'Invalid deposit.');
+  await lockWalletDepositMatching(db);
+  const deposit = (
+    await db.query(
+      `SELECT id,status FROM commerce_wallet_deposits
+       WHERE id=$1 AND account_id=$2 FOR UPDATE`,
+      [depositId, account.id],
+    )
+  ).rows[0];
+  if (!deposit) throw error(404, 'Deposit request not found.');
+  if (deposit.status === 'credited')
+    throw error(409, 'This deposit is already credited and cannot be cancelled.');
+  if (deposit.status === 'cancelled')
+    return { ok: true, status: 'cancelled' };
+  const cancelled = await db.query(
+    `UPDATE commerce_wallet_deposits SET status='cancelled'
+     WHERE id=$1 AND account_id=$2 AND status IN ('pending','review')
+     RETURNING id,status`,
+    [depositId, account.id],
+  );
+  if (!cancelled.rowCount)
+    throw error(409, 'This deposit request can no longer be cancelled.');
+  return { ok: true, status: 'cancelled' };
 }
 
 export async function syncWalletDeposits(db, account) {
