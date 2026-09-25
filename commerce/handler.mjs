@@ -3905,8 +3905,18 @@ export function createHandler(
           )
         ).rows[0];
         if (!order) throw fail(404, 'Order not found.');
-        if (order.status === 'delivered')
-          output = { ok: true, status: 'delivered' };
+        if (order.status === 'delivered') {
+          const wallet = (
+            await db.query('SELECT balance FROM commerce_accounts WHERE id=$1', [
+              account.id,
+            ])
+          ).rows[0];
+          output = {
+            ok: true,
+            status: 'delivered',
+            balance: Number(wallet?.balance ?? account.balance ?? 0),
+          };
+        }
         else {
           if (
             order.status !== 'pending' ||
@@ -3926,7 +3936,7 @@ export function createHandler(
             Number(order.amount) - walletDiscount,
           );
           const debited = await db.query(
-            'UPDATE commerce_accounts SET balance=balance-$1 WHERE id=$2 AND balance>=$1 RETURNING id',
+            'UPDATE commerce_accounts SET balance=balance-$1 WHERE id=$2 AND balance>=$1 RETURNING id,balance',
             [payableAmount, account.id],
           );
           if (!debited.rows.length)
@@ -3957,14 +3967,15 @@ export function createHandler(
             supplierApiKeys,
           );
           if (result?.cancelled) {
-            await db.query(
-              'UPDATE commerce_accounts SET balance=balance+$1 WHERE id=$2',
+            const restored = await db.query(
+              'UPDATE commerce_accounts SET balance=balance+$1 WHERE id=$2 RETURNING balance',
               [payableAmount, account.id],
             );
             output = {
               ok: false,
               status: 'cancelled',
               error: 'Supplier could not deliver. Your wallet was not charged.',
+              balance: Number(restored.rows[0]?.balance ?? account.balance ?? 0),
             };
           } else {
             await db.query(
@@ -3985,6 +3996,7 @@ export function createHandler(
               discount: walletDiscount,
               flashSale: flashSalePrice !== null,
               paid: payableAmount,
+              balance: Number(debited.rows[0].balance),
             };
           }
         }

@@ -417,7 +417,7 @@ export function Checkout() {
       <h1>
         {order ? (order.amount === 0 ? 'Your free order' : 'Complete your payment') : 'Buy online'}
       </h1>
-      <CheckoutAccount orderId={order?.status === 'pending' ? id : ''} walletFlashSale={product?.id === 'p093' || product?.id === 'p093-ultra'} onPaid={() => { void api('status',key,undefined,id).then(setOrder).catch(e=>setError(e.message)); }} />
+      <CheckoutAccount orderId={order?.status === 'pending' ? id : ''} walletFlashSale={product?.id === 'p093' || product?.id === 'p093-ultra'} onWalletBalanceChange={(balance) => setCheckoutAccount((current) => current ? { ...current, balance } : current)} onPaid={() => { void api('status',key,undefined,id).then(setOrder).catch(e=>setError(e.message)); }} />
       <div className="instant-delivery">
         <span className="instant-icon">
           <Zap size={22} />
@@ -467,7 +467,10 @@ export function Checkout() {
                 });
                 remember(data.id, data.recovery);
                 if (useSasifyWallet) {
-                  await api('account-wallet-pay', '', { id: data.id });
+                  const walletPayment = await api('account-wallet-pay', '', { id: data.id });
+                  const balance = Number(walletPayment?.balance);
+                  if (Number.isFinite(balance))
+                    setCheckoutAccount((current) => current ? { ...current, balance } : current);
                 }
               });
             }}

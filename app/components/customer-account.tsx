@@ -1218,10 +1218,12 @@ export function CustomerDashboard() {
 export function CheckoutAccount({
   orderId,
   walletFlashSale = false,
+  onWalletBalanceChange,
   onPaid,
 }: {
   orderId: string;
   walletFlashSale?: boolean;
+  onWalletBalanceChange?: (balance: number) => void;
   onPaid: () => void;
 }) {
   const [account, setAccount] = useState<Account | null>(null),
@@ -1268,6 +1270,11 @@ export function CheckoutAccount({
                 id: orderId,
               });
               if (result.error) throw new Error(result.error);
+              const balance = Number(result.balance);
+              if (Number.isFinite(balance)) {
+                setAccount((current) => current ? { ...current, balance } : current);
+                onWalletBalanceChange?.(balance);
+              }
               onPaid();
             } catch (e) {
               setError((e as Error).message);
