@@ -702,13 +702,6 @@ export default async function ProductPage({ params }: Props) {
                 Ultra Stable Account · Apple Pay
               </p>
             )}
-            {product.id === 'p093' && (
-              <div className="wallet-flash-sale" role="note">
-                <span>FLASH SALE</span>
-                <strong>PKR 2,999 with Sasify Wallet</strong>
-                <small>ChatGPT Plus · 30-day warranty · wallet payment only</small>
-              </div>
-            )}
             <dl className="detail-prices">
               <div>
                 <dt>
