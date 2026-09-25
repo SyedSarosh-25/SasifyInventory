@@ -2366,6 +2366,12 @@ svg { flex-shrink: 0; }
 .wallet-flash-sale strong { color: #8b3108; font-size: 1.05rem; }
 .wallet-flash-sale small { color: #7a5a38; line-height: 1.45; }
 .checkout-wallet-flash-sale { margin-top: 12px; }
+.wallet-flash-ticker { overflow: hidden; margin: 14px 0 10px; border: 1px solid #f2b84b; border-radius: 999px; background: linear-gradient(100deg,#fff4d6,#fff0e7); color: #a0440d; white-space: nowrap; }
+.wallet-flash-ticker-track { display: inline-flex; align-items: center; gap: 24px; min-width: max-content; padding: 8px 18px; animation: wallet-flash-ticker 12s linear infinite; }
+.wallet-flash-ticker span { color: #d4560e; font-size: 11px; font-weight: 900; letter-spacing: .13em; }
+.wallet-flash-ticker b { color: #8f2e0a; font-size: 12px; }
+@keyframes wallet-flash-ticker { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+@media (prefers-reduced-motion: reduce) { .wallet-flash-ticker-track { animation: none; } }
 .checkout-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 18px 0; border-bottom: 1px solid #d8e1ef; }
 .checkout-heading > div { display: grid; gap: 5px; }
 .checkout-heading strong { color: #285cff; font-size: 28px; }
