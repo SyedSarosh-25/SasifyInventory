@@ -496,6 +496,13 @@ export function Checkout() {
                 </div>
               </div>
             )}
+            {product?.id === 'p093-ultra' && (
+              <div className="wallet-flash-sale checkout-wallet-flash-sale" role="note">
+                <span>FLASH SALE</span>
+                <strong>PKR 2,999 with Sasify Wallet</strong>
+                <small>ChatGPT Plus · 30-day warranty · other payment methods remain PKR 3,499</small>
+              </div>
+            )}
             {product?.id === 'p093-shared' && (
               <section className="description-section shared-account-checkout-notice">
                 <h2>Shared account · 4 members</h2>

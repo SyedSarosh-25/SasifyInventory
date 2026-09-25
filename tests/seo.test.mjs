@@ -159,8 +159,8 @@ test('plan answers keep warranty terms listing-specific and retain ChatGPT terms
     products.find(({ id }) => id === 'p093'),
   );
   assert.match(chatGptAnswers[0].answer, /PKR 3,499/);
-  assert.match(chatGptAnswers[1].answer, /25-day warranty/);
-  assert.doesNotMatch(productQuestions(hostinger)[2].answer, /25-day/);
+  assert.match(chatGptAnswers[1].answer, /30-day warranty/);
+  assert.doesNotMatch(productQuestions(hostinger)[2].answer, /30-day/);
   assert.match(productQuestions(hostinger)[2].answer, /may differ by product/);
   const unknown = { ...hostinger, duration: '-' };
   assert.match(productQuestions(unknown)[0].answer, /Review the access period/);

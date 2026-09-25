@@ -27,7 +27,7 @@ export const guideQuestions = [
   },
   {
     question: 'What is the warranty on Sasify Solutions products?',
-    answer: 'Warranty terms are specific to each listing. Review the stated warranty duration and coverage for the exact product before payment. ChatGPT keeps its listed account-specific warranty; the Ultra Stable Apple Pay option includes a full 25-day warranty.',
+    answer: 'Warranty terms are specific to each listing. Review the stated warranty duration and coverage for the exact product before payment. ChatGPT keeps its listed account-specific warranty; the Ultra Stable Apple Pay option includes a full 30-day warranty.',
   },
   {
     question: 'How are original prices and savings compared?',

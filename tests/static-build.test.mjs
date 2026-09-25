@@ -372,7 +372,7 @@ test('policy pages are indexable, linked and state only the confirmed commercial
   }
   assert.match(
     await read('warranty.html'),
-    /ChatGPT:[\s\S]*25-day warranty/,
+    /ChatGPT:[\s\S]*30-day warranty/,
   );
   assert.match(
     await read('warranty.html'),

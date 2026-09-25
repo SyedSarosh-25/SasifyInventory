@@ -70,7 +70,7 @@ const catalogProducts: Product[] = [
         duration: '1 Month',
         sellingPricePkr: 3499,
         originalPricePkr: 5700,
-        warrantyDays: 25,
+        warrantyDays: 30,
       },
       {
         id: 'p093-momo',

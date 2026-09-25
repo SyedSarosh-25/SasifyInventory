@@ -2361,6 +2361,11 @@ svg { flex-shrink: 0; }
 .checkout-offer strong { font-size: 21px; }
 .checkout-offer .in-stock { color: #087d53; }
 .checkout-offer .out-stock { color: #a33c3c; }
+.wallet-flash-sale { display: grid; gap: 4px; margin: 16px 0; padding: 14px 16px; border: 1px solid #f2b84b; border-left: 4px solid #ed7b16; border-radius: 12px; background: linear-gradient(120deg,#fff8df,#fff1e6); color: #6b3c0a; }
+.wallet-flash-sale span { color: #c6530b; font-size: 11px; font-weight: 900; letter-spacing: .12em; }
+.wallet-flash-sale strong { color: #8b3108; font-size: 1.05rem; }
+.wallet-flash-sale small { color: #7a5a38; line-height: 1.45; }
+.checkout-wallet-flash-sale { margin-top: 12px; }
 .checkout-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 18px 0; border-bottom: 1px solid #d8e1ef; }
 .checkout-heading > div { display: grid; gap: 5px; }
 .checkout-heading strong { color: #285cff; font-size: 28px; }

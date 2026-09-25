@@ -180,6 +180,16 @@ const PAYMENT_WINDOWS_MINUTES = Object.freeze({
   binance: 15,
   crypto: 30,
 });
+const CHATGPT_WALLET_FLASH_SALE_PRODUCT_IDS = new Set(['p093', 'p093-ultra']);
+const CHATGPT_WALLET_FLASH_SALE_PRICE = 2999;
+function chatGptWalletFlashSalePrice(order) {
+  const productId = String(order?.product_id || '');
+  const amount = Number(order?.amount || 0);
+  return CHATGPT_WALLET_FLASH_SALE_PRODUCT_IDS.has(productId) &&
+    amount > CHATGPT_WALLET_FLASH_SALE_PRICE
+    ? CHATGPT_WALLET_FLASH_SALE_PRICE
+    : null;
+}
 const PAYMENT_VERIFICATION_GRACE_SECONDS = 90;
 const PAYMENT_CLAIM_IP_ALLOWLIST = new Set(
   String(process.env.PAYMENT_CLAIM_IP_ALLOWLIST || '')
@@ -3905,9 +3915,12 @@ export function createHandler(
             new Date(order.expires_at) <= new Date()
           )
             throw fail(409, 'This order cannot be paid from your wallet.');
+          const flashSalePrice = chatGptWalletFlashSalePrice(order);
           const walletDiscount =
-            Number(order.wallet_discount || 0) ||
-            Math.floor(Number(order.amount) * 0.05);
+            flashSalePrice !== null
+              ? Number(order.amount) - flashSalePrice
+              : Number(order.wallet_discount || 0) ||
+                Math.floor(Number(order.amount) * 0.05);
           const payableAmount = Math.max(
             0,
             Number(order.amount) - walletDiscount,
@@ -3961,13 +3974,16 @@ export function createHandler(
                 account.id,
                 -payableAmount,
                 order.id,
-                'Order purchase · 5% wallet discount',
+                flashSalePrice !== null
+                  ? 'ChatGPT Plus flash sale · PKR 2,999 wallet price'
+                  : 'Order purchase · 5% wallet discount',
               ],
             );
             output = {
               ok: true,
               status: 'delivered',
               discount: walletDiscount,
+              flashSale: flashSalePrice !== null,
               paid: payableAmount,
             };
           }

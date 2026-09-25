@@ -52,7 +52,7 @@ test('supplier-specific positive warranty terms are preserved', () => {
 });
 
 test('ChatGPT retains its existing positive warranty terms', () => {
-  const chatgpt = { id: 'p093-ultra', name: 'ChatGPT Plus Ultra Stable', description: 'Full 25-day warranty included.', delivery_instruction: 'Keep your account secure.' };
+  const chatgpt = { id: 'p093-ultra', name: 'ChatGPT Plus Ultra Stable', description: 'Full 30-day warranty included.', delivery_instruction: 'Keep your account secure.' };
   assert.deepEqual(customerProduct(chatgpt), chatgpt);
   const other = customerProduct({ name: 'Chat GPT Pro 1 Month NW', description: '10-day warranty.' });
   assert.equal(other.name, 'Chat GPT Pro 1 Month');

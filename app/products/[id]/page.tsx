@@ -396,7 +396,7 @@ export default async function ProductPage({ params }: Props) {
     redirect(productHref(product));
   const annual = isAnnualPlan(product);
   const sharedChatGpt = product.id === 'p093-shared';
-  const appleWarrantyDays = warrantyDays(product, 'p093-ultra') ?? 25;
+  const appleWarrantyDays = warrantyDays(product, 'p093-ultra') ?? 30;
   const savings = savingsPkr(product);
   const original = originalPricePkr(product);
   const comparison = originalPriceComparison(product);
@@ -702,6 +702,13 @@ export default async function ProductPage({ params }: Props) {
                 Ultra Stable Account · Apple Pay
               </p>
             )}
+            {product.id === 'p093' && (
+              <div className="wallet-flash-sale" role="note">
+                <span>FLASH SALE</span>
+                <strong>PKR 2,999 with Sasify Wallet</strong>
+                <small>ChatGPT Plus · 30-day warranty · wallet payment only</small>
+              </div>
+            )}
             <dl className="detail-prices">
               <div>
                 <dt>
@@ -752,7 +759,7 @@ export default async function ProductPage({ params }: Props) {
                 <p>
                   Selected option: <strong>Apple Pay · Ultra Stable</strong>
                 </p>
-                <p>Use Pay online here to continue.</p>
+                <p>Use Pay online here to continue. Pay from your Sasify Wallet after checkout to unlock the PKR 2,999 flash-sale price.</p>
               </div>
             ) : savings === null ? (
               <p className="price-explanation">
@@ -843,7 +850,7 @@ export default async function ProductPage({ params }: Props) {
                 href="/checkout?product=p093-ultra"
                 className="primary-button detail-buy"
               >
-                <ShoppingCart className="h-5 w-5" /> Pay online · PKR 3,499
+                <ShoppingCart className="h-5 w-5" /> Pay online · Wallet PKR 2,999
               </a>
             ) : (
               <a

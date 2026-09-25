@@ -7,7 +7,7 @@ export default function WarrantyPage() {
   return <PolicyPage title="Warranty Policy" summary="Warranty terms and coverage are specific to each product listing. ChatGPT retains the warranty stated for its selected account option." path="/warranty" updated="14 September 2026">
     <section className="policy-section"><h2>Warranty periods</h2>
       <ul className="policy-list">
-        <li><strong>ChatGPT:</strong> the Ultra Stable Apple Pay account keeps its full 25-day warranty. Other ChatGPT account options retain their listed warranty terms.</li>
+        <li><strong>ChatGPT:</strong> the Ultra Stable Apple Pay account keeps its full 30-day warranty. Other ChatGPT account options retain their listed warranty terms.</li>
         <li><strong>Other plans:</strong> refer to the individual product listing for the stated warranty period, coverage and any activation conditions.</li>
         <li><strong>Credits and allocation packages:</strong> warranty coverage depends on the specific package and its stated validity, redemption and usage conditions.</li>
       </ul>

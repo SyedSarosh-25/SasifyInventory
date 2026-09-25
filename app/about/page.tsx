@@ -34,7 +34,7 @@ export default function AboutPage() {
       <section className="description-section">
         <h2>Orders, payment and warranty</h2>
         <p>Open a product page and choose Buy online. After payment verification, your digital purchase is delivered automatically. If you have a delivery or activation issue, use the WhatsApp support button shown with your order.</p>
-        <p>Warranty terms are specific to each product and shown with the relevant listing. ChatGPT keeps the warranty shown for its selected account option, including the 25-day warranty on Ultra Stable Apple Pay accounts.</p>
+        <p>Warranty terms are specific to each product and shown with the relevant listing. ChatGPT keeps the warranty shown for its selected account option, including the 30-day warranty on Ultra Stable Apple Pay accounts.</p>
         <p>For one-year / 12-month plans, the listed Sasify amount is a one-time payment for the full year. No monthly payments to us are needed during that year.</p>
         <a href="/inventory" className="back-link">Browse the full inventory</a>
       </section>

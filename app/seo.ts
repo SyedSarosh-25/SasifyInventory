@@ -133,7 +133,7 @@ export function productQuestions(product: Product) {
       {
         question: `What warranty comes with ${product.name}?`,
         answer:
-          'The Ultra Stable Apple Pay option includes a full 25-day warranty. Warranty details for other account options are shown with the listing and confirmed before payment. WhatsApp support is available after payment for delivery or activation issues.',
+          'The Ultra Stable Apple Pay option includes a full 30-day warranty. Warranty details for other account options are shown with the listing and confirmed before payment. WhatsApp support is available after payment for delivery or activation issues.',
       },
     ];
   const price = formatPkr(product.sellingPricePkr);
