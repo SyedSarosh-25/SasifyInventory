@@ -617,6 +617,9 @@ export function CustomerDashboard() {
       number: string;
       title: string;
     } | null>(null);
+  const [depositAmount, setDepositAmount] = useState('1000');
+  const [depositMethod, setDepositMethod] = useState('bank');
+  const [checkingDeposits, setCheckingDeposits] = useState(false);
   const [requirementContacts, setRequirementContacts] = useState<Record<string, string>>({});
   const [detail, setDetail] = useState<any>(null);
   const [clock, setClock] = useState(Date.now());
@@ -637,13 +640,29 @@ export function CustomerDashboard() {
     data?.deposits.some((item) => ['pending', 'review'].includes(item.status)),
   );
   useEffect(() => {
-    if (!hasOpenDeposits) return;
-    const timer = window.setInterval(() => {
-      request('account-dashboard')
-        .then((latest) => setData(latest))
-        .catch(() => {});
-    }, 15000);
-    return () => window.clearInterval(timer);
+    if (!hasOpenDeposits) {
+      setCheckingDeposits(false);
+      return;
+    }
+    let active = true;
+    const checkDeposits = async () => {
+      if (document.visibilityState !== 'visible') return;
+      setCheckingDeposits(true);
+      try {
+        const latest = await request('account-dashboard');
+        if (active) setData(latest);
+      } catch {
+        // The next automatic check will retry without interrupting the user.
+      } finally {
+        if (active) setCheckingDeposits(false);
+      }
+    };
+    void checkDeposits();
+    const timer = window.setInterval(() => void checkDeposits(), 5000);
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+    };
   }, [hasOpenDeposits]);
   async function run(task: () => Promise<void>) {
     setBusy(true);
@@ -660,11 +679,10 @@ export function CustomerDashboard() {
   }
   async function addFunds(event: SyntheticEvent<HTMLFormElement>) {
     event.preventDefault();
-    const fields = new FormData(event.currentTarget);
     await run(async () => {
       const result = await request('account-deposit', {
-        amount: Number(fields.get('amount')),
-        method: fields.get('method'),
+        amount: Number(depositAmount),
+        method: depositMethod,
       });
       setDeposit(result.deposit);
       setReceiver(result.receiver);
@@ -1001,12 +1019,23 @@ export function CustomerDashboard() {
             )}
             {tab === 'wallet' && (
               <div className="account-wallet-grid">
-                <section className="account-card">
-                  <h2>Add funds</h2>
-                  <p>
-                    Your wallet is held in PKR. After you pay, verified transfers
-                    are matched automatically and your balance refreshes here.
-                  </p>
+                <section className="account-card wallet-funding-card">
+                  <div className="wallet-funding-header">
+                    <div>
+                      <span className="wallet-funding-kicker"><CircleDollarSign size={15} /> WALLET TOP-UP</span>
+                      <h2>Add funds</h2>
+                      <p>Add balance securely and use your Sasify Wallet for instant checkout discounts.</p>
+                    </div>
+                    <div className="wallet-balance-pill">
+                      <small>Available now</small>
+                      <strong>{money(data.account.balance)}</strong>
+                    </div>
+                  </div>
+                  <div className="wallet-funding-steps" aria-label="Add funds steps">
+                    <span><b>1</b> Choose amount</span>
+                    <span><b>2</b> Send payment</span>
+                    <span><b>3</b> Auto-verified</span>
+                  </div>
                   <form onSubmit={addFunds}>
                     <label>
                       Amount (PKR)
@@ -1016,13 +1045,21 @@ export function CustomerDashboard() {
                         min={100}
                         max={1000000}
                         step={1}
-                        defaultValue={1000}
+                        value={depositAmount}
+                        onChange={(event) => setDepositAmount(event.target.value)}
                         required
                       />
                     </label>
+                    <div className="wallet-amount-presets" aria-label="Suggested amounts">
+                      {[1000, 2500, 5000, 10000].map((amount) => (
+                        <button type="button" key={amount} className={depositAmount === String(amount) ? 'selected' : ''} onClick={() => setDepositAmount(String(amount))}>
+                          PKR {amount.toLocaleString()}
+                        </button>
+                      ))}
+                    </div>
                     <label>
                       Payment method
-                      <select name="method">
+                      <select name="method" value={depositMethod} onChange={(event) => setDepositMethod(event.target.value)}>
                         <option value="bank">Bank transfer / NayaPay</option>
                         <option value="binance">Binance Pay</option>
                         <option value="crypto">
@@ -1030,37 +1067,49 @@ export function CustomerDashboard() {
                         </option>
                       </select>
                     </label>
-                    <button className="primary-button" disabled={busy}>
-                      Get payment instructions
+                    <button className="primary-button wallet-funding-submit" disabled={busy}>
+                      {busy ? 'Preparing instructions…' : 'Continue to payment'} <ArrowRight size={17} />
                     </button>
                   </form>
-                  <p className="account-deposit-auto-note">
-                    No transaction reference needed. Each payment request
-                    expires after five minutes. Verified payments received
-                    within that window are matched automatically.
-                  </p>
+                  <div className="wallet-auto-verify" role="status">
+                    <span className={`wallet-auto-verify-icon${checkingDeposits ? ' is-checking' : ''}`}><RefreshCw size={16} /></span>
+                    <div>
+                      <strong>{checkingDeposits ? 'Checking for your payment…' : 'Auto-verification is active'}</strong>
+                      <small>No reference or screenshot needed. We check every 5 seconds and update your balance automatically after a verified payment.</small>
+                    </div>
+                  </div>
                   {deposit && receiver && (
-                    <div className="account-detail">
-                      <h3>
-                        Send{' '}
-                        {deposit.method === 'crypto'
-                          ? (Number(deposit.payment_amount) + 0.01).toFixed(2)
-                          : Number(deposit.payment_amount).toFixed(
-                              deposit.currency === 'USDT' ? 2 : 0,
-                            )}{' '}
-                        {deposit.currency}
-                      </h3>
-                      <p>{receiver.title}</p>
-                      <code>{receiver.number}</code>
+                    <div className="account-detail wallet-payment-instructions">
+                      <div className="wallet-instructions-heading">
+                        <div>
+                          <span className="wallet-funding-kicker">PAYMENT INSTRUCTIONS</span>
+                          <h3>Send the exact amount</h3>
+                        </div>
+                        <span className="account-deposit-status">Waiting</span>
+                      </div>
+                      <div className="wallet-transfer-amount">
+                        <strong>
+                          {deposit.method === 'crypto'
+                            ? (Number(deposit.payment_amount) + 0.01).toFixed(2)
+                            : Number(deposit.payment_amount).toFixed(
+                                deposit.currency === 'USDT' ? 2 : 0,
+                              )}
+                        </strong>
+                        <span>{deposit.currency}</span>
+                      </div>
+                      <div className="wallet-receiver-row">
+                        <div><small>Send to</small><strong>{receiver.title}</strong></div>
+                        <code>{receiver.number}</code>
+                      </div>
                       {deposit.method === 'crypto' && (
-                        <p>
+                        <p className="wallet-instructions-note">
                           BEP20 only. Your deposit must arrive as{' '}
                           {Number(deposit.payment_amount).toFixed(2)} USDT net.
                           Confirm your sending platform&apos;s fee before
                           transferring.
                         </p>
                       )}
-                      <p>Wallet credit: {money(deposit.amount)}</p>
+                      <p className="wallet-credit-note"><ShieldCheck size={15} /> Wallet credit: {money(deposit.amount)} · expires in 5 minutes</p>
                     </div>
                   )}
                 </section>
