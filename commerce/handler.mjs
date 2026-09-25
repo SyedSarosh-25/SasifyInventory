@@ -5435,7 +5435,7 @@ export function createHandler(
             [matchReason, inserted.rows[0].id],
           );
           const walletDepositCredited =
-            orders.length === 0 && matchReason === 'verified_no_eligible_order'
+            orders.length === 0
               ? await autoCreditWalletDepositForPayment(
                   db,
                   inserted.rows[0].id,

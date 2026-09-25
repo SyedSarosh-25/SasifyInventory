@@ -618,7 +618,7 @@ async function attemptWalletDepositMatch(db, depositId, accountId, paymentId) {
   const payment = (
     await db.query(
       `SELECT p.* FROM commerce_payments p
-       WHERE p.verified=true AND p.verification_reason='verified_no_eligible_order'
+       WHERE p.verified=true AND p.verification_reason IN ('verified_no_eligible_order','verified_after_order_window')
          AND p.order_id IS NULL AND p.wallet_deposit_id IS NULL
          AND p.currency=$1 AND COALESCE(p.payment_amount,p.amount)=$2
          AND p.receiver_id=$3 AND p.received_at IS NOT NULL
@@ -626,7 +626,7 @@ async function attemptWalletDepositMatch(db, depositId, accountId, paymentId) {
          AND ($5::text IS NULL OR p.id::text=$5)
          AND NOT EXISTS (
            SELECT 1 FROM commerce_orders o
-           WHERE o.status IN ('pending','review','expired','delivered')
+           WHERE o.status IN ('pending','review','delivered')
              AND ((p.transaction_id IS NOT NULL AND o.transaction_id=p.transaction_id)
                OR (o.receiver_id=$3 AND COALESCE(o.payment_currency,'PKR')=p.currency
                  AND ((p.currency='USDT' AND o.payment_amount=p.payment_amount)
@@ -720,7 +720,7 @@ export async function autoCreditWalletDepositForPayment(db, paymentId) {
   const payment = (
     await db.query(
       `SELECT * FROM commerce_payments WHERE id=$1 AND verified=true
-       AND verification_reason='verified_no_eligible_order'
+       AND verification_reason IN ('verified_no_eligible_order','verified_after_order_window')
        AND order_id IS NULL AND wallet_deposit_id IS NULL FOR UPDATE`,
       [paymentId],
     )
