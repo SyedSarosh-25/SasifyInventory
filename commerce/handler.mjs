@@ -1691,33 +1691,36 @@ function supplierProviders(keys = {}) {
 let supplierMediaSchemaReady;
 const MUSE_AI_PRODUCT_ID = 'manual:muse-ai';
 const MUSE_AI_DESCRIPTION = `💎 MUSE AI — 1 BILLION AI TOKENS
-Get Your Personal AI Agent for Just Rs. 2,499 Only! 🔥
-Imagine having one AI agent that can handle almost everything from a single chat window.
-📧 Available on Your Personal Email
-🔥 Massive 1 BILLION AI Tokens
-🤖 Powerful Personal AI Agent
-💻 Coding, Debugging & Development
-📱 Build Full-Scale Apps + APK Files
-🌐 Create Websites & Web Apps
-🎬 Generate 30+ Minute AI Videos from a Single Prompt
-✂️ Video Editing & Content Creation
-🖼️ AI Images, Graphics & Creative Assets
-📝 Documents, Scripts, Research & Writing
-📊 Data Analysis & Productivity Tasks
-💬 Work With WhatsApp Messages & Communication
-⚙️ Multi-Step Tasks & Automations
-🧠 Handle Large & Complex Projects
-✨ Premium AI Creation Tools
-🔐 Personal Account Access
 
-Muse is basically your Personal AI Employee.
-You tell it what you need → it plans, creates, codes, edits and gets the work done from one chat window.
+Your personal AI agent for Rs. 2,499 only 🔥
+
+What you get:
+• Available on your personal email
+• 1 billion AI tokens
+• Powerful personal AI agent
+• Coding, debugging and development
+• Full-scale apps and APK files
+• Websites and web apps
+• 30+ minute AI videos from a single prompt
+• Video editing and content creation
+• AI images, graphics and creative assets
+• Documents, scripts, research and writing
+• Data analysis and productivity tasks
+• WhatsApp messages and communication
+• Multi-step tasks and automations
+• Large and complex project handling
+• Premium AI creation tools
+• Personal account access
+
+Why Muse:
+Muse is basically your Personal AI Employee. You tell it what you need → it plans, creates, codes, edits and gets the work done from one chat window.
+
 From a simple WhatsApp message → to content creation → to coding → to websites → to FULL-SCALE APPS.
 
-PRICE: ONLY Rs. 2,499
-LIMITED-TIME 1 BILLION TOKEN OFFER
-The 1 Billion Token offer is available for a limited time, so grab it before the offer ends.
-1 Billion Tokens + Personal Account + Powerful AI Agent — Rs. 2,499 Only. 💎`;
+Price & limited-time offer:
+• Price: Rs. 2,499 only
+• 1 Billion Token offer available for a limited time
+• Includes 1 billion tokens, a personal account and a powerful AI agent 💎`;
 async function ensureMuseManualProduct(db) {
   await db.query(
     `INSERT INTO commerce_supplier_products(

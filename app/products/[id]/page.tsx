@@ -136,6 +136,26 @@ function SupplierSeoProductPage({ product }: { product: SupplierSeoProduct }) {
     .split(/\n{2,}/)
     .map((block) => block.trim())
     .filter(Boolean);
+  const descriptionContent = descriptionBlocks.map((block, blockIndex) => {
+    const lines = block.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+    const isHeading = lines.length === 1 && /:$/.test(lines[0]);
+    const isList = lines.length > 1 && lines.every((line) => /^[•*-]\s+/.test(line));
+    if (isHeading)
+      return <h3 className="supplier-description-heading" key={`${block}-${blockIndex}`}>{lines[0].slice(0, -1)}</h3>;
+    if (isList)
+      return (
+        <ul className="supplier-description-list" key={`${block}-${blockIndex}`}>
+          {lines.map((line) => <li key={line}>{line.replace(/^[•*-]\s+/, '')}</li>)}
+        </ul>
+      );
+    return (
+      <p key={`${block}-${blockIndex}`}>
+        {lines.map((line, lineIndex) => (
+          <span key={line}>{lineIndex ? <br /> : null}{line}</span>
+        ))}
+      </p>
+    );
+  });
   return (
     <main>
       <SiteHeader />
@@ -181,9 +201,7 @@ function SupplierSeoProductPage({ product }: { product: SupplierSeoProduct }) {
 
             <section className="description-section">
               <h2>Product description</h2>
-              {descriptionBlocks.length ? (
-                descriptionBlocks.map((block) => <p key={block}>{block}</p>)
-              ) : (
+              {descriptionBlocks.length ? descriptionContent : (
                 <p>
                   {product.name} is available through Sasify Solutions with
                   automatic delivery after payment verification.
