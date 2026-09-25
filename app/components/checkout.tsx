@@ -185,6 +185,7 @@ export function Checkout() {
   const [couponCode, setCouponCode] = useState('');
   const [customerEmail, setCustomerEmail] = useState('');
   const [checkoutAccount, setCheckoutAccount] = useState<{ balance: number } | null>(null);
+  const [useSasifyWallet, setUseSasifyWallet] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<
     'wallet' | 'bank' | 'binance' | 'crypto'
   >('wallet');
@@ -465,6 +466,9 @@ export function Checkout() {
                   paymentMethod,
                 });
                 remember(data.id, data.recovery);
+                if (useSasifyWallet) {
+                  await api('account-wallet-pay', '', { id: data.id });
+                }
               });
             }}
           >
@@ -548,22 +552,22 @@ export function Checkout() {
             </aside>
             <fieldset className="payment-method-picker">
               <legend>How will you send the payment?</legend>
-              <label className={`sasify-wallet-option${checkoutAccount ? '' : ' disabled'}`}>
-                <input type="radio" name="sasify-wallet" disabled={!checkoutAccount} checked={false} onChange={() => setPaymentMethod('wallet')} />
+              <label className={`sasify-wallet-option${checkoutAccount ? '' : ' disabled'}${useSasifyWallet ? ' selected' : ''}`}>
+                <input type="radio" name="sasify-wallet" disabled={!checkoutAccount} checked={useSasifyWallet} onChange={() => { if (checkoutAccount) { setUseSasifyWallet(true); setPaymentMethod('wallet'); } }} />
                 <span className="sasify-wallet-logo" aria-hidden="true"><img src="/sasify-logo.png" alt="" /></span>
                 <span>
                   <strong>Sasify Wallet</strong>
-                  <small>{checkoutAccount ? `Balance: PKR ${Number(checkoutAccount.balance || 0).toLocaleString()}` : 'Sign up to unlock · 5% off every purchase'}</small>
+                  <small>{checkoutAccount ? `Balance: PKR ${Number(checkoutAccount.balance || 0).toLocaleString()} · Click to pay instantly` : 'Sign up to unlock · 5% off every purchase'}</small>
                 </span>
-                <a className="payment-method-link" href={checkoutAccount ? '/dashboard?tab=wallet' : '/signup'}>{checkoutAccount ? 'Add funds' : 'Sign up'}</a>
+                <a className="payment-method-link" href={checkoutAccount ? '/dashboard?tab=wallet' : '/signup'} onClick={(event) => event.stopPropagation()}>{checkoutAccount ? 'Add funds' : 'Sign up'}</a>
               </label>
-              <label className={paymentMethod === 'wallet' ? 'selected' : ''}>
+              <label className={paymentMethod === 'wallet' && !useSasifyWallet ? 'selected' : ''}>
                 <input
                   type="radio"
                   name="payment-method"
                   value="wallet"
-                  checked={paymentMethod === 'wallet'}
-                  onChange={() => setPaymentMethod('wallet')}
+                  checked={paymentMethod === 'wallet' && !useSasifyWallet}
+                  onChange={() => { setUseSasifyWallet(false); setPaymentMethod('wallet'); }}
                 />
                 <WalletCards size={21} />
                 <span>
@@ -577,7 +581,7 @@ export function Checkout() {
                   name="payment-method"
                   value="bank"
                   checked={paymentMethod === 'bank'}
-                  onChange={() => setPaymentMethod('bank')}
+                  onChange={() => { setUseSasifyWallet(false); setPaymentMethod('bank'); }}
                 />
                 <Landmark size={21} />
                 <span>
@@ -591,7 +595,7 @@ export function Checkout() {
                   name="payment-method"
                   value="binance"
                   checked={paymentMethod === 'binance'}
-                  onChange={() => setPaymentMethod('binance')}
+                  onChange={() => { setUseSasifyWallet(false); setPaymentMethod('binance'); }}
                 />
                 <WalletCards size={21} />
                 <span>
@@ -605,7 +609,7 @@ export function Checkout() {
                   name="payment-method"
                   value="crypto"
                   checked={paymentMethod === 'crypto'}
-                  onChange={() => setPaymentMethod('crypto')}
+                  onChange={() => { setUseSasifyWallet(false); setPaymentMethod('crypto'); }}
                 />
                 <WalletCards size={21} />
                 <span>
@@ -636,7 +640,9 @@ export function Checkout() {
               <ShoppingCart size={18} />{' '}
               {busy
                 ? 'Preparing checkout...'
-                : 'Pay online'}
+                : useSasifyWallet
+                  ? 'Buy with Sasify Wallet'
+                  : 'Pay online'}
             </button>
             {ready && !product?.available && (
               <p>
