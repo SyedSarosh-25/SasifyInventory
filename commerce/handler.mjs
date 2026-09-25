@@ -108,6 +108,21 @@ import { DEFAULT_REVIEWS_URL, fetchGoogleReviews } from './google-reviews.mjs';
 import catalog from './catalog.json' with { type: 'json' };
 
 const fail = (status, message) => Object.assign(new Error(message), { status });
+function escapeEmailHtml(value) {
+  return String(value)
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;');
+}
+function campaignEmailHtml(text) {
+  const paragraphs = escapeEmailHtml(text)
+    .split(/\n\s*\n/)
+    .map((paragraph) => `<p style="margin:0 0 16px;line-height:1.65;color:#334d74">${paragraph.replaceAll('\n', '<br>')}</p>`)
+    .join('');
+  return `<div style="font-family:Arial,sans-serif;max-width:680px;margin:0 auto;padding:24px;color:#173b73"><div style="border:1px solid #d9e4f3;border-radius:16px;padding:24px;background:#f8fbff"><div style="font-size:12px;font-weight:800;letter-spacing:.12em;color:#285cff;text-transform:uppercase;margin-bottom:18px">Sasify Solutions</div>${paragraphs}</div><p style="font-size:12px;color:#718096;margin:18px 4px">You are receiving this update because you have a registered Sasify account. For help, contact support@sasifysolutions.com.</p></div>`;
+}
 const TELEGRAM_APPROVAL_REASONS = new Set(['verified_auto_delivery_failed']);
 function errorDetail(error) {
   const code = String(
@@ -3576,6 +3591,8 @@ export function createHandler(
         ),
         action === 'status'
           ? 60
+          : action === 'admin-email-campaign'
+            ? 2
           : [
                 'admin-login',
                 'account-login',
@@ -6018,6 +6035,60 @@ export function createHandler(
         }
         await db.query("INSERT INTO commerce_audit(action,object_id,details) VALUES('admin_settings_update','settings',$1::jsonb)", [JSON.stringify(settings)]);
         output = { ok: true };
+      } else if (action === 'admin-email-campaign') {
+        const subject = String(body.subject || '').replace(/[\r\n]+/g, ' ').trim();
+        const text = String(body.text || '').trim();
+        const audience = body.audience === 'verified' ? 'verified' : 'all';
+        if (!subject || subject.length > 180 || !text || text.length > 20000)
+          throw fail(400, 'Enter a subject and email message within the allowed length.');
+        const emailFilter = audience === 'verified' ? 'AND email_verified_at IS NOT NULL' : '';
+        const rows = (await db.query(
+          `SELECT email FROM commerce_accounts
+           WHERE email IS NOT NULL AND trim(email) <> '' ${emailFilter}
+           ORDER BY created_at ASC`,
+        )).rows;
+        const recipients = [...new Set(rows.map((row) => String(row.email || '').trim().toLowerCase()).filter((email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)))];
+        if (!recipients.length)
+          throw fail(409, 'No registered email addresses match this audience.');
+        if (recipients.length > 2000)
+          throw fail(413, 'This campaign is limited to 2,000 recipients. Narrow the audience first.');
+        const sender = String(process.env.GMAIL_SENDER_EMAIL || '').trim();
+        if (!sender)
+          throw fail(503, 'Gmail sender is not configured for campaigns.');
+        const failed = [];
+        const batchSize = 50;
+        for (let index = 0; index < recipients.length; index += batchSize) {
+          const batch = recipients.slice(index, index + batchSize);
+          try {
+            await sendAccountEmail({
+              to: sender,
+              bcc: batch,
+              subject,
+              text,
+              html: campaignEmailHtml(text),
+            });
+          } catch (deliveryError) {
+            failed.push(...batch);
+            console.error('[email-campaign] batch failed', deliveryError?.message || deliveryError);
+          }
+        }
+        const sent = recipients.length - failed.length;
+        await db.query(
+          `INSERT INTO commerce_audit(action,object_id,details)
+           VALUES('email_campaign_send','marketing',$1::jsonb)`,
+          [JSON.stringify({ subject, audience, requested: recipients.length, sent, failed: failed.length })],
+        );
+        if (!sent)
+          throw fail(502, 'The campaign could not be delivered. Check the Gmail sender configuration.');
+        output = {
+          ok: failed.length === 0,
+          requested: recipients.length,
+          sent,
+          failed: failed.length,
+          message: failed.length
+            ? `Campaign sent to ${sent} of ${recipients.length} registered email addresses.`
+            : `Campaign sent to all ${sent} registered email addresses.`,
+        };
       } else if (action === 'admin-product-create') {
         const name = String(body.name || '').trim();
         const description = String(body.description || '').trim();

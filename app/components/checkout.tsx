@@ -10,6 +10,7 @@ import { AdminRecordControls, useRecordView } from './admin-record-controls';
 import { AdminToolRequests } from './admin-tool-requests';
 import { AdminResellerRequirements } from './admin-reseller-requirements';
 import { AdminCatalogStatus } from './admin-catalog-status';
+import { AdminEmailCampaign } from './admin-email-campaign';
 import {
   AdminAuditLogs,
   AdminProducts,
@@ -1360,6 +1361,7 @@ export function CommerceAdmin() {
       | 'auditLogs'
       | 'settings'
       | 'transactions'
+      | 'emailCampaign'
     >('overview'),
     [inventorySearch, setInventorySearch] = useState(''),
     [supplierSearch, setSupplierSearch] = useState(''),
@@ -2366,6 +2368,17 @@ export function CommerceAdmin() {
         </div>
       )}
       {tab === 'customers' && <AdminCustomers accounts={data.accounts || []} onSelectUser={(accountId) => { setSelectedAccountId(accountId); setTab('userDetail'); }} />}
+      {tab === 'emailCampaign' && (
+        <AdminEmailCampaign
+          accounts={data.accounts || []}
+          busy={busy}
+          onSend={async ({ audience, subject, text }) => {
+            const result = await api('admin-email-campaign', key, { audience, subject, text });
+            setNotice(result.message || 'Email campaign sent.');
+            await refresh();
+          }}
+        />
+      )}
       {tab === 'userDetail' && selectedAccountId && (
         <AdminUserDetail accountId={selectedAccountId} accounts={data.accounts || []} api={api} token={key} busy={busy} onBack={() => setTab('customers')} onRefresh={refresh} />
       )}

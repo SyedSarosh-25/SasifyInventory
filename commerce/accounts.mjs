@@ -25,7 +25,7 @@ function gmailOAuthCredentials() {
     ? { user, clientId, clientSecret, refreshToken }
     : null;
 }
-export async function sendAccountEmail({ to, subject, text, html }) {
+export async function sendAccountEmail({ to, bcc = [], subject, text, html }) {
   const credentials = gmailOAuthCredentials();
   if (!credentials)
     throw new Error('Gmail OAuth credentials are not configured.');
@@ -56,6 +56,12 @@ export async function sendAccountEmail({ to, subject, text, html }) {
         .toString('base64')
         .match(/.{1,76}/g)
         .join('\r\n');
+    const cleanRecipients = (values) => [...new Set(
+      (Array.isArray(values) ? values : [values])
+        .map((value) => cleanHeader(value))
+        .filter(Boolean),
+    )];
+    const bccRecipients = cleanRecipients(bcc);
     const parts = [
       `--${boundary}\r\nContent-Type: text/plain; charset=UTF-8\r\nContent-Transfer-Encoding: base64\r\n\r\n${encodeBody(text)}`,
     ];
@@ -66,6 +72,7 @@ export async function sendAccountEmail({ to, subject, text, html }) {
     const mime = [
       `From: Sasify Solutions <${cleanHeader(credentials.user)}>`,
       `To: ${cleanHeader(to)}`,
+      ...(bccRecipients.length ? [`Bcc: ${bccRecipients.join(', ')}`] : []),
       `Subject: =?UTF-8?B?${encodedSubject}?=`,
       'MIME-Version: 1.0',
       `Content-Type: multipart/alternative; boundary="${boundary}"`,

@@ -21,6 +21,7 @@ import {
   ArrowUpRight,
   MessageSquarePlus,
   LifeBuoy,
+  Mail,
   Boxes,
   ChevronDown,
 } from 'lucide-react';
@@ -37,6 +38,7 @@ export const adminSections = [
   ['orders', 'Orders', ClipboardList],
   ['customers', 'Registered users', Users],
   ['userDetail', 'User detail', Users],
+  ['emailCampaign', 'Email campaigns', Mail],
   ['resellerRequests', 'Reseller requests', ClipboardCheck],
   ['payments', 'Payments', WalletCards],
   ['paymentAccounts', 'Payment accounts', WalletCards],
@@ -63,7 +65,7 @@ export type AdminSection =
 const adminSectionGroups: { label: string; items: AdminSection[] }[] = [
   {
     label: 'Workspace',
-    items: ['overview', 'orders', 'customers', 'userDetail'],
+    items: ['overview', 'orders', 'customers', 'userDetail', 'emailCampaign'],
   },
   {
     label: 'Payments & finance',
@@ -88,6 +90,7 @@ const sectionDescriptions: Record<string, string> = {
   orders: 'Track purchases, review order details and manage delivery.',
   customers: 'Customer and reseller accounts, wallet balances and purchase activity.',
   userDetail: 'Complete customer history and wallet controls.',
+  emailCampaign: 'Send a controlled announcement to registered Sasify users.',
   resellerRequests: 'Review applications to join Sasify as a reseller.',
   payments: 'Review incoming receipts and their verification status.',
   paymentAccounts: 'Manage receiving accounts and your active payment destination.',
