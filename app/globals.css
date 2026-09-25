@@ -735,6 +735,7 @@ svg { flex-shrink: 0; }
   line-height: 1.2;
   text-align: center;
   white-space: nowrap;
+  animation: chatgpt-flash-sale-glow 2.8s ease-in-out infinite;
 }
 .chatgpt-flash-sale-card-badge > span:first-child {
   width: 7px;
@@ -743,10 +744,23 @@ svg { flex-shrink: 0; }
   border-radius: 50%;
   background: #e34e28;
   box-shadow: 0 0 0 3px rgba(227, 78, 40, .13);
+  animation: chatgpt-flash-sale-dot 1.8s ease-in-out infinite;
 }
 .chatgpt-flash-sale-card-badge strong { color: #b44412; }
 .chatgpt-flash-sale-card-badge b { color: #d76a21; }
 .chatgpt-flash-sale-card-badge > span:last-child { color: #8f2e0a; }
+@keyframes chatgpt-flash-sale-glow {
+  0%, 100% { box-shadow: 0 4px 14px rgba(227, 78, 40, .05); }
+  50% { box-shadow: 0 8px 22px rgba(227, 78, 40, .16); }
+}
+@keyframes chatgpt-flash-sale-dot {
+  0%, 100% { opacity: .8; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.28); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .chatgpt-flash-sale-card-badge,
+  .chatgpt-flash-sale-card-badge > span:first-child { animation: none; }
+}
 .featured-card-topline { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
 .featured-logo {
   position: relative;
