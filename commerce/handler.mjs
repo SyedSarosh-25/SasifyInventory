@@ -1723,12 +1723,13 @@ async function ensureMuseManualProduct(db) {
     `INSERT INTO commerce_supplier_products(
       id,name,description,delivery_instruction,wholesale_price,currency,
       supplier_stock,cost_pkr,provider_id,provider_name,external_product_id,
-      canonical_key,enabled,selling_price,cost_manual,canonical_manual,
+      canonical_key,logo_url,enabled,selling_price,cost_manual,canonical_manual,
       name_manual,description_manual,requires_customer_email,first_seen_at,synced_at
-    ) VALUES($1,$2,$3,$4,0,'PKR',999,0,'manual','Sasify manual catalog',$1,$5,true,2499,true,true,true,true,true,now(),now())
+    ) VALUES($1,$2,$3,$4,0,'PKR',999,0,'manual','Sasify manual catalog',$1,$5,'/muse-ai-logo.png',true,2499,true,true,true,true,true,now(),now())
     ON CONFLICT(id) DO UPDATE SET
       name=EXCLUDED.name,description=EXCLUDED.description,
       delivery_instruction=EXCLUDED.delivery_instruction,
+      logo_url='/muse-ai-logo.png',
       supplier_stock=GREATEST(commerce_supplier_products.supplier_stock,999),
       enabled=true,selling_price=2499,requires_customer_email=true,
       synced_at=now()`,

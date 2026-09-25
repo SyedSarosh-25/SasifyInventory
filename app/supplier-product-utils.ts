@@ -42,7 +42,9 @@ const supplierDomains: Array<[RegExp, string]> = [
 ];
 
 export function supplierLogo(name: string, providedUrl = '') {
-  if (/^https?:\/\//i.test(String(providedUrl).trim())) return String(providedUrl).trim();
+  const provided = String(providedUrl).trim();
+  if (/^https?:\/\//i.test(provided) || /^\/(?!\/)/.test(provided)) return provided;
+  if (/\bmuse\s*ai\b/i.test(name)) return '/muse-ai-logo.png';
   const domain = supplierDomains.find(([pattern]) => pattern.test(name))?.[1];
   return domain ? favicon(domain) : '';
 }

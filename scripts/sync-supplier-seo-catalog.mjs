@@ -47,7 +47,7 @@ function toSeoProduct(product) {
   if (deliveryInstruction) output.deliveryInstruction = deliveryInstruction;
   if (publicProduct.provider_id) output.providerId = String(publicProduct.provider_id);
   if (publicProduct.provider_name) output.providerName = String(publicProduct.provider_name);
-  if (/^https?:\/\//i.test(String(publicProduct.logo_url || '')))
+  if (/^(?:https?:\/\/|\/(?!\/))/i.test(String(publicProduct.logo_url || '')))
     output.logoUrl = String(publicProduct.logo_url);
   if (publicProduct.requires_customer_email) output.requiresCustomerEmail = true;
   return output;
