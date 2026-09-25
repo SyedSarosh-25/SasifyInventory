@@ -1689,6 +1689,58 @@ function supplierProviders(keys = {}) {
   ];
 }
 let supplierMediaSchemaReady;
+const MUSE_AI_PRODUCT_ID = 'manual:muse-ai';
+const MUSE_AI_DESCRIPTION = `💎 MUSE AI — 1 BILLION AI TOKENS
+Get Your Personal AI Agent for Just Rs. 2,499 Only! 🔥
+Imagine having one AI agent that can handle almost everything from a single chat window.
+📧 Available on Your Personal Email
+🔥 Massive 1 BILLION AI Tokens
+🤖 Powerful Personal AI Agent
+💻 Coding, Debugging & Development
+📱 Build Full-Scale Apps + APK Files
+🌐 Create Websites & Web Apps
+🎬 Generate 30+ Minute AI Videos from a Single Prompt
+✂️ Video Editing & Content Creation
+🖼️ AI Images, Graphics & Creative Assets
+📝 Documents, Scripts, Research & Writing
+📊 Data Analysis & Productivity Tasks
+💬 Work With WhatsApp Messages & Communication
+⚙️ Multi-Step Tasks & Automations
+🧠 Handle Large & Complex Projects
+✨ Premium AI Creation Tools
+🔐 Personal Account Access
+
+Muse is basically your Personal AI Employee.
+You tell it what you need → it plans, creates, codes, edits and gets the work done from one chat window.
+From a simple WhatsApp message → to content creation → to coding → to websites → to FULL-SCALE APPS.
+
+PRICE: ONLY Rs. 2,499
+LIMITED-TIME 1 BILLION TOKEN OFFER
+The 1 Billion Token offer is available for a limited time, so grab it before the offer ends.
+1 Billion Tokens + Personal Account + Powerful AI Agent — Rs. 2,499 Only. 💎`;
+async function ensureMuseManualProduct(db) {
+  await db.query(
+    `INSERT INTO commerce_supplier_products(
+      id,name,description,delivery_instruction,wholesale_price,currency,
+      supplier_stock,cost_pkr,provider_id,provider_name,external_product_id,
+      canonical_key,enabled,selling_price,cost_manual,canonical_manual,
+      name_manual,description_manual,requires_customer_email,first_seen_at,synced_at
+    ) VALUES($1,$2,$3,$4,0,'PKR',999,0,'manual','Sasify manual catalog',$1,$5,true,2499,true,true,true,true,true,now(),now())
+    ON CONFLICT(id) DO UPDATE SET
+      name=EXCLUDED.name,description=EXCLUDED.description,
+      delivery_instruction=EXCLUDED.delivery_instruction,
+      supplier_stock=GREATEST(commerce_supplier_products.supplier_stock,999),
+      enabled=true,selling_price=2499,requires_customer_email=true,
+      synced_at=now()`,
+    [
+      MUSE_AI_PRODUCT_ID,
+      'Muse AI · 1 Billion AI Tokens',
+      MUSE_AI_DESCRIPTION,
+      'After payment, Sasify will manually process your personal email and deliver access from the admin panel.',
+      'manual:muse-ai',
+    ],
+  );
+}
 async function ensureSupplierMediaSchema(db) {
   if (!supplierMediaSchemaReady) {
     supplierMediaSchemaReady = (async () => {
@@ -1719,6 +1771,7 @@ async function ensureSupplierMediaSchema(db) {
           "UPDATE commerce_supplier_products SET first_seen_at=now()-interval '1 year'",
         );
       }
+      await ensureMuseManualProduct(db);
     })().catch((error) => {
       supplierMediaSchemaReady = null;
       throw error;
@@ -2534,6 +2587,23 @@ async function fulfill(
     ).rows[0];
     if (!selected)
       throw fail(409, 'Supplier product is unavailable. Contact support.');
+    if (selected.provider_id === 'manual') {
+      await db.query(
+        'UPDATE commerce_payments SET order_id=$1,verification_reason=$3 WHERE id=$2',
+        [order.id, payment.id, manual ? 'manually_approved' : 'verified_manual_fulfillment'],
+      );
+      await db.query(
+        `UPDATE commerce_orders SET status='review',supplier_product_id=$1,
+           supplier_status='awaiting_manual_fulfillment',supplier_cost_pkr=0,
+           fulfillment_cost_pkr=0 WHERE id=$2`,
+        [selected.id, order.id],
+      );
+      await db.query(
+        "INSERT INTO commerce_audit(action,object_id) VALUES('manual_supplier_order_ready',$1)",
+        [order.id],
+      );
+      return { cancelled: true, reason: 'manual_fulfillment' };
+    }
     const candidates = (
       await db.query(
         `SELECT * FROM commerce_supplier_products WHERE canonical_key=$1 AND enabled=true AND selling_price IS NOT NULL
@@ -2839,7 +2909,7 @@ async function fulfillFreeOrder(db, orderId) {
     [order.id],
   );
 }
-async function manualDeliverLocalOrder(db, orderId, inventoryId, key) {
+async function manualDeliverLocalOrder(db, orderId, inventoryId, key, deliveryContent = '') {
   const order = (
     await db.query('SELECT * FROM commerce_orders WHERE id=$1 FOR UPDATE', [
       orderId,
@@ -2851,11 +2921,33 @@ async function manualDeliverLocalOrder(db, orderId, inventoryId, key) {
       409,
       'Only pending or review orders can receive manual delivery.',
     );
-  if (order.supplier_product_id)
-    throw fail(
-      409,
-      'Supplier orders must use supplier fulfilment; manual credential delivery is for local inventory only.',
+  if (order.supplier_product_id) {
+    const supplier = (
+      await db.query(
+        'SELECT provider_id FROM commerce_supplier_products WHERE id=$1',
+        [order.supplier_product_id],
+      )
+    ).rows[0];
+    if (supplier?.provider_id !== 'manual')
+      throw fail(
+        409,
+        'Supplier orders must use supplier fulfilment; manual delivery is only available for Sasify manual products.',
+      );
+    const content = String(deliveryContent || '').trim();
+    if (!content || content.length > 20000)
+      throw fail(400, 'Enter the delivery details before marking this order done.');
+    await db.query(
+      `UPDATE commerce_orders SET status='delivered',delivered_at=now(),
+         supplier_status='manually_delivered',supplier_cost_pkr=0,
+         fulfillment_cost_pkr=0,supplier_delivery=$1 WHERE id=$2`,
+      [encrypt({ content }, process.env.COMMERCE_ENCRYPTION_KEY), order.id],
     );
+    await db.query(
+      "INSERT INTO commerce_audit(action,object_id) VALUES('manual_supplier_delivery',$1)",
+      [order.id],
+    );
+    return { orderId: order.id, delivery: { content } };
+  }
   if (order.shared_account_id) {
     const assigned = (
       await db.query(
@@ -3544,6 +3636,9 @@ export function createHandler(
       await ensureSupplierApiLogSchema(db);
       await ensureSupplierSecretSchema(db);
       await ensureSupplierMediaSchema(db);
+      // Keep the manual catalogue item present even on warm server instances
+      // that initialized the cached schema promise before it was introduced.
+      await ensureMuseManualProduct(db);
       await ensureScamSchema(db);
       await ensureToolRequestSchema(db);
       await ensureGoogleReviewSchema(db);
@@ -6142,10 +6237,10 @@ export function createHandler(
           ).rows,
           orders: (
             await db.query(
-              `SELECT o.id,o.product_id,o.amount,o.listed_amount,o.coupon_discount,o.status,o.transaction_id,o.payer_name,o.ip_address,o.payment_method,o.payment_currency,o.payment_amount,o.telegram_chat_id,
+              `SELECT o.id,o.product_id,o.amount,o.listed_amount,o.coupon_discount,o.status,o.transaction_id,o.payer_name,o.customer_email,o.ip_address,o.payment_method,o.payment_currency,o.payment_amount,o.telegram_chat_id,
                  o.payment_submitted_at,o.supplier_order_id,o.supplier_status,c.code_display AS coupon_code,
                  o.shared_account_id,o.shared_slot,
-                sp.provider_name AS supplier_name,sp.name AS supplier_product_name,o.created_at,o.delivered_at,
+                sp.provider_id,sp.provider_name AS supplier_name,sp.name AS supplier_product_name,o.created_at,o.delivered_at,
                 o.fulfillment_cost_pkr AS cost_pkr,
                 CASE WHEN o.status='delivered' THEN
                   (CASE WHEN c.code_display='HOR' THEN o.amount+COALESCE(o.coupon_discount,0) ELSE o.amount END)-COALESCE(o.fulfillment_cost_pkr,0)
@@ -6482,6 +6577,7 @@ export function createHandler(
           body.orderId,
           body.inventoryId,
           key,
+          body.deliveryContent,
         );
         await queueTelegramDelivery(
           db,

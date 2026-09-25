@@ -424,11 +424,15 @@ export function Checkout() {
           <strong>
             {order?.amount === 0
               ? 'Free coupon delivery'
+              : product?.provider_id === 'manual'
+                ? 'Manual processing after payment'
               : 'Automatic credential delivery'}
           </strong>
           <p>
             {order?.amount === 0
               ? 'HOR covered the full price. Your account credentials are ready below.'
+              : product?.provider_id === 'manual'
+                ? 'After payment, our team will process your personal email manually and deliver access from the admin panel.'
               : order?.paymentMethod === 'bank'
                 ? 'Your delivery appears here automatically after the signed NayaPay receipt is matched.'
                 : ['binance', 'crypto'].includes(order?.paymentMethod || '')
@@ -436,7 +440,7 @@ export function Checkout() {
                   : 'Pay here and your account credentials will appear on this screen automatically after verification, usually within one minute. No manual delivery delays.'}
           </p>
         </div>
-        <span className="instant-badge">Instant</span>
+        <span className="instant-badge">{product?.provider_id === 'manual' ? 'Manual' : 'Instant'}</span>
       </div>
       {error && (
         <p role="alert" className="commerce-error">
@@ -3484,27 +3488,40 @@ export function CommerceAdmin() {
                           </small>
                         )}
                       </td>
-                      <td>{row.payer_name || '-'}</td>
+                      <td>
+                        <strong>{row.payer_name || '-'}</strong>
+                        {row.customer_email && <small>Customer email: {row.customer_email}</small>}
+                      </td>
                       <td>{row.ip_address || '-'}</td>
                       <td>{new Date(row.created_at).toLocaleString()}</td>
                       <td>
                         <div className="commerce-order-actions">
-                        {['pending', 'review'].includes(row.status) && !row.supplier_product_name && (
+                        {['pending', 'review'].includes(row.status) && (!row.supplier_product_name || row.provider_id === 'manual') && (
                           <button
                             className="primary-button compact"
                             disabled={busy}
                             onClick={() => {
-                              if (!window.confirm('Deliver this order manually without payment verification?')) return;
+                              const deliveryContent = row.provider_id === 'manual'
+                                ? window.prompt('Enter the access details or delivery message for this customer:')
+                                : undefined;
+                              if (row.provider_id === 'manual' && !deliveryContent?.trim()) return;
+                              if (!window.confirm(row.provider_id === 'manual'
+                                ? 'Mark this Muse AI order as delivered and send these details to the customer?'
+                                : 'Deliver this order manually without payment verification?')) return;
                               void run(async () => {
-                                const result = await api('admin-manual-delivery', key, { orderId: row.id, confirmed: true });
+                                const result = await api('admin-manual-delivery', key, {
+                                  orderId: row.id,
+                                  confirmed: true,
+                                  ...(deliveryContent ? { deliveryContent: deliveryContent.trim() } : {}),
+                                });
                                 setOrderId(row.id);
                                 setOrderDelivery(await api('admin-order-delivery', key, { orderId: result.orderId }));
-                                setNotice('Credentials delivered manually.');
+                                setNotice(row.provider_id === 'manual' ? 'Manual order marked as delivered.' : 'Credentials delivered manually.');
                                 await refresh();
                               });
                             }}
                           >
-                            <KeyRound size={16} /> Deliver manually
+                            <KeyRound size={16} /> {row.provider_id === 'manual' ? 'Mark done' : 'Deliver manually'}
                           </button>
                         )}
                         {['pending', 'review'].includes(row.status) && (

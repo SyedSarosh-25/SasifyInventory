@@ -80,11 +80,9 @@ export const fixedTopProductSpecs: FixedTopProductSpec[] = [
   },
   {
     source: 'supplier',
-    canonicalKey: 'auto:grok-heavy-duration-1m',
-    canonicalAliases: ['auto:cdk-grok-heavy-supper-duration-1m'],
-    displayName: 'SuperGrok Heavy · 30 Days',
-    displayPricePkr: 19999,
-    displayOriginalPricePkr: 60000,
+    canonicalKey: 'manual:muse-ai',
+    displayName: 'Muse AI · 1 Billion AI Tokens',
+    displayPricePkr: 2499,
   },
   {
     source: 'supplier',
