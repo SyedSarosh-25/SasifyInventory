@@ -716,6 +716,37 @@ svg { flex-shrink: 0; }
   transition: transform .2s ease, box-shadow .2s ease, border-color .2s ease;
 }
 .featured-card:hover { border-color: #9bb7ec; box-shadow: 0 18px 36px rgba(39, 54, 104, 0.14); transform: translateY(-3px); }
+.chatgpt-flash-sale-card-badge {
+  display: flex;
+  width: 100%;
+  min-height: 28px;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin: -5px 0 14px;
+  padding: 7px 9px;
+  border: 1px solid #f2b84b;
+  border-radius: 999px;
+  background: linear-gradient(100deg, #fff4d6, #fff0e7);
+  color: #a0440d;
+  font-size: .62rem;
+  font-weight: 900;
+  letter-spacing: .055em;
+  line-height: 1.2;
+  text-align: center;
+  white-space: nowrap;
+}
+.chatgpt-flash-sale-card-badge > span:first-child {
+  width: 7px;
+  height: 7px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: #e34e28;
+  box-shadow: 0 0 0 3px rgba(227, 78, 40, .13);
+}
+.chatgpt-flash-sale-card-badge strong { color: #b44412; }
+.chatgpt-flash-sale-card-badge b { color: #d76a21; }
+.chatgpt-flash-sale-card-badge > span:last-child { color: #8f2e0a; }
 .featured-card-topline { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
 .featured-logo {
   position: relative;
@@ -1969,6 +2000,16 @@ svg { flex-shrink: 0; }
   .hero-title-line + .hero-title-line { margin-top: 10px; }
   .featured-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
   .featured-card { gap: 0; min-height: 0; padding: 10px; border-radius: 12px; }
+  .chatgpt-flash-sale-card-badge {
+    min-height: 25px;
+    gap: 3px;
+    margin: -2px 0 9px;
+    padding: 5px 4px;
+    font-size: .48rem;
+    letter-spacing: .015em;
+    white-space: normal;
+  }
+  .chatgpt-flash-sale-card-badge > span:first-child { width: 5px; height: 5px; }
   .featured-logo { width: 34px; height: 34px; border-radius: 9px; }
   .featured-logo img { width: 22px; height: 22px; }
   .featured-stock-badge { gap: 2px; padding: 4px 5px; font-size: .5rem; }

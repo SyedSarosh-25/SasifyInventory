@@ -59,12 +59,21 @@ export function SupplierFeaturedCard({ product }: { product: FeaturedProduct }) 
   const savings = originalPrice === null
     ? null
     : Math.round((originalPrice - salePrice) * 100) / 100;
+  const isChatGptFlashSale = product.source === 'local' && product.id === 'p093';
   const description = String(product.description || '')
     .split(/\n+/)
     .map((line) => line.replace(/^[^\p{L}\p{N}]+/u, '').trim())
     .find(Boolean) || 'Review access, duration and requirements before ordering.';
   return (
     <a className="featured-card supplier-featured-card" href={href}>
+      {isChatGptFlashSale && (
+        <div className="chatgpt-flash-sale-card-badge" role="status">
+          <span aria-hidden="true" />
+          <strong>FLASH SALE LIVE</strong>
+          <b aria-hidden="true">·</b>
+          <span>RS 2,999 ONLY</span>
+        </div>
+      )}
       <div className="featured-card-topline">
         <div className="featured-logo">
           {product.source === 'local' ? (
