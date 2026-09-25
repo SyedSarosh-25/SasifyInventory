@@ -554,7 +554,7 @@ export function Checkout() {
               <legend>How will you send the payment?</legend>
               <label className={`sasify-wallet-option${checkoutAccount ? '' : ' disabled'}${useSasifyWallet ? ' selected' : ''}`}>
                 <input type="radio" name="sasify-wallet" disabled={!checkoutAccount} checked={useSasifyWallet} onChange={() => { if (checkoutAccount) { setUseSasifyWallet(true); setPaymentMethod('wallet'); } }} />
-                <span className="sasify-wallet-logo" aria-hidden="true"><img src="/sasify-logo.png" alt="" /></span>
+                <span className="sasify-wallet-logo" aria-hidden="true"><img src="/sasify-wallet.png" alt="" /></span>
                 <span>
                   <strong>Sasify Wallet</strong>
                   <small>{checkoutAccount ? `Balance: PKR ${Number(checkoutAccount.balance || 0).toLocaleString()} · Click to pay instantly` : 'Sign up to unlock · 5% off every purchase'}</small>

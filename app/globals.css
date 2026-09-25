@@ -2351,8 +2351,8 @@ svg { flex-shrink: 0; }
 .payment-method-picker .sasify-wallet-option.disabled { opacity: .78; cursor: default; }
 .payment-method-picker .sasify-wallet-option.disabled svg { color: #71809a; }
 .payment-method-link { margin-left: auto; white-space: nowrap; color: #285cff; font-size: 12px; font-weight: 800; text-decoration: none; }
-.sasify-wallet-logo { display: grid !important; place-items: center; width: 38px; height: 38px; padding: 5px; border-radius: 12px; background: linear-gradient(145deg,#285cff,#6d5df7); box-shadow: 0 7px 14px rgba(40,92,255,.24); }
-.sasify-wallet-logo img { width: 100%; height: 100%; object-fit: contain; border-radius: 8px; }
+.sasify-wallet-logo { display: grid !important; place-items: center; width: 50px; height: 50px; padding: 0; border-radius: 10px; background: transparent; box-shadow: none; }
+.sasify-wallet-logo img { width: 100%; height: 100%; object-fit: contain; border-radius: 0; }
 .payment-method-picker .sasify-wallet-option input { display: none; }
 .checkout-offer { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid #d3def0; border-radius: 6px; background: #fff; }
 .checkout-offer > div { display: grid; gap: 5px; padding: 16px; }
