@@ -24,7 +24,6 @@ import {
   ClipboardList,
   Copy,
   KeyRound,
-  Landmark,
   MessageCircle,
   Pencil,
   RefreshCw,
@@ -34,7 +33,6 @@ import {
   ShoppingCart,
   Trash2,
   Users,
-  WalletCards,
   X,
   Zap,
 } from 'lucide-react';
@@ -561,71 +559,55 @@ export function Checkout() {
             </aside>
             <fieldset className="payment-method-picker">
               <legend>How will you send the payment?</legend>
-              <label className={`sasify-wallet-option${checkoutAccount ? '' : ' disabled'}${useSasifyWallet ? ' selected' : ''}`}>
-                <input type="radio" name="sasify-wallet" disabled={!checkoutAccount} checked={useSasifyWallet} onChange={() => { if (checkoutAccount) { setUseSasifyWallet(true); setCouponCode(''); setPaymentMethod('wallet'); } }} />
-                <span className="sasify-wallet-logo" aria-hidden="true"><img src="/sasify-wallet.png" alt="" /></span>
-                <span>
-                  <strong>Sasify Wallet</strong>
-                  <small>{checkoutAccount ? `Balance: PKR ${Number(checkoutAccount.balance || 0).toLocaleString()} · 5% discount on eligible products` : 'Sign up to unlock · 5% discount on eligible products'}</small>
-                </span>
-                <a className="payment-method-link" href={checkoutAccount ? '/dashboard?tab=wallet' : '/signup'} onClick={(event) => event.stopPropagation()}>{checkoutAccount ? 'Add funds' : 'Sign up'}</a>
+              <label className="payment-method-select-label" htmlFor="checkout-payment-method">
+                Payment method
               </label>
-              <label className={paymentMethod === 'wallet' && !useSasifyWallet ? 'selected' : ''}>
-                <input
-                  type="radio"
-                  name="payment-method"
-                  value="wallet"
-                  checked={paymentMethod === 'wallet' && !useSasifyWallet}
-                  onChange={() => { setUseSasifyWallet(false); setPaymentMethod('wallet'); }}
-                />
-                <WalletCards size={21} />
-                <span>
-                  <strong>Wallet transfer</strong>
-                  <small>Easypaisa, JazzCash, NayaPay, SadaPay and more</small>
-                </span>
-              </label>
-              <label className={paymentMethod === 'bank' ? 'selected' : ''}>
-                <input
-                  type="radio"
-                  name="payment-method"
-                  value="bank"
-                  checked={paymentMethod === 'bank'}
-                  onChange={() => { setUseSasifyWallet(false); setPaymentMethod('bank'); }}
-                />
-                <Landmark size={21} />
-                <span>
-                  <strong>Bank transfer</strong>
-                  <small>All banks</small>
-                </span>
-              </label>
-              <label className={paymentMethod === 'binance' ? 'selected' : ''}>
-                <input
-                  type="radio"
-                  name="payment-method"
-                  value="binance"
-                  checked={paymentMethod === 'binance'}
-                  onChange={() => { setUseSasifyWallet(false); setPaymentMethod('binance'); }}
-                />
-                <WalletCards size={21} />
-                <span>
-                  <strong>Binance</strong>
-                  <small>Binance Pay in USDT</small>
-                </span>
-              </label>
-              <label className={paymentMethod === 'crypto' ? 'selected' : ''}>
-                <input
-                  type="radio"
-                  name="payment-method"
-                  value="crypto"
-                  checked={paymentMethod === 'crypto'}
-                  onChange={() => { setUseSasifyWallet(false); setPaymentMethod('crypto'); }}
-                />
-                <WalletCards size={21} />
-                <span>
-                  <strong>Crypto deposit</strong>
-                  <small>Send USDT on the displayed network</small>
-                </span>
-              </label>
+              <select
+                id="checkout-payment-method"
+                name="payment-method"
+                value={useSasifyWallet ? 'sasify-wallet' : paymentMethod}
+                onChange={(event) => {
+                  const value = event.target.value;
+                  if (value === 'sasify-wallet') {
+                    if (checkoutAccount) {
+                      setUseSasifyWallet(true);
+                      setCouponCode('');
+                      setPaymentMethod('wallet');
+                    }
+                    return;
+                  }
+                  setUseSasifyWallet(false);
+                  setPaymentMethod(value as 'wallet' | 'bank' | 'binance' | 'crypto');
+                }}
+              >
+                <option value="sasify-wallet" disabled={!checkoutAccount}>
+                  Sasify Wallet · 5% discount{checkoutAccount ? '' : ' · Sign up required'}
+                </option>
+                <option value="wallet">Wallet transfer</option>
+                <option value="bank">Bank transfer</option>
+                <option value="binance">Binance Pay</option>
+                <option value="crypto">Crypto deposit · USDT BEP20</option>
+              </select>
+              {useSasifyWallet ? (
+                <div className="payment-method-wallet-note">
+                  <span className="sasify-wallet-logo" aria-hidden="true"><img src="/sasify-wallet.png" alt="" /></span>
+                  <span>
+                    <strong>Sasify Wallet selected</strong>
+                    <small>Balance: PKR {Number(checkoutAccount?.balance || 0).toLocaleString()} · 5% discount on eligible products</small>
+                  </span>
+                  <a className="payment-method-link" href="/dashboard?tab=wallet">Add funds</a>
+                </div>
+              ) : (
+                <small className="payment-method-description">
+                  {paymentMethod === 'wallet'
+                    ? 'Easypaisa, JazzCash, NayaPay, SadaPay and more'
+                    : paymentMethod === 'bank'
+                      ? 'All banks'
+                      : paymentMethod === 'binance'
+                        ? 'Binance Pay in USDT'
+                        : 'Send USDT on the displayed network'}
+                </small>
+              )}
             </fieldset>
             {useSasifyWallet && product && product.price > 0 && (
               <div className="wallet-discount-preview" role="status">

@@ -2341,22 +2341,19 @@ svg { flex-shrink: 0; }
 .supplier-key-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .online-stock { margin: 16px 0; color: #087d53; }
 .checkout-start { margin-top: 12px; }
-.payment-method-picker { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px; margin: 0; padding: 0; border: 0; }
-.payment-method-picker legend { grid-column: 1/-1; margin-bottom: 8px; color: #172237; font-weight: 750; }
-.payment-method-picker label { display: grid; grid-template-columns: auto auto minmax(0,1fr); align-items: center; gap: 11px; min-height: 78px; padding: 14px; border: 1px solid #c7d4e7; border-radius: 9px; background: #fff; cursor: pointer; transition: border-color .18s ease,box-shadow .18s ease,background .18s ease; }
-.payment-method-picker label.selected { border-color: #285cff; background: #f2f6ff; box-shadow: 0 0 0 3px rgba(40,92,255,.11); }
-.payment-method-picker input { width: 17px; height: 17px; accent-color: #285cff; }
-.payment-method-picker svg { color: #285cff; }
-.payment-method-picker span { display: grid; gap: 4px; min-width: 0; }
-.payment-method-picker strong { color: #172237; }
+.payment-method-picker { display: grid; gap: 9px; margin: 0; padding: 15px; border: 1px solid #c7d4e7; border-radius: 10px; background: #fff; }
+.payment-method-picker legend { padding: 0 4px; color: #172237; font-weight: 750; }
+.payment-method-select-label { color: #53647c; font-size: 12px; font-weight: 750; }
+.payment-method-picker select { width: 100%; min-height: 46px; padding: 0 40px 0 13px; border: 1px solid #aebfda; border-radius: 8px; background: #f8faff; color: #172237; font-weight: 700; cursor: pointer; }
+.payment-method-picker select:focus { border-color: #285cff; outline: 3px solid rgba(40,92,255,.13); }
 .payment-method-picker small { color: #5b6b82; line-height: 1.35; }
-.payment-method-picker .sasify-wallet-option { grid-column: 1 / -1; border-color: #b9c9f6; background: linear-gradient(135deg,#f4f7ff,#eef2ff); }
-.payment-method-picker .sasify-wallet-option.disabled { opacity: .78; cursor: default; }
-.payment-method-picker .sasify-wallet-option.disabled svg { color: #71809a; }
+.payment-method-description { padding: 0 2px; }
+.payment-method-wallet-note { display: grid; grid-template-columns: auto minmax(0,1fr) auto; align-items: center; gap: 10px; padding: 10px 11px; border: 1px solid #b9c9f6; border-radius: 8px; background: linear-gradient(135deg,#f4f7ff,#eef2ff); }
+.payment-method-wallet-note > span:not(.sasify-wallet-logo) { display: grid; gap: 3px; min-width: 0; }
+.payment-method-wallet-note strong { color: #172237; font-size: 13px; }
 .payment-method-link { margin-left: auto; white-space: nowrap; color: #285cff; font-size: 12px; font-weight: 800; text-decoration: none; }
-.sasify-wallet-logo { display: grid !important; place-items: center; width: 50px; height: 50px; padding: 0; border-radius: 10px; background: transparent; box-shadow: none; }
+.sasify-wallet-logo { display: grid !important; place-items: center; width: 42px; height: 42px; padding: 0; border-radius: 9px; background: transparent; box-shadow: none; }
 .sasify-wallet-logo img { width: 100%; height: 100%; object-fit: contain; border-radius: 0; }
-.payment-method-picker .sasify-wallet-option input { display: none; }
 .wallet-discount-preview { display: grid; gap: 6px; margin: -2px 0 2px; padding: 12px 14px; border: 1px solid #bfe5d5; border-radius: 10px; background: linear-gradient(135deg, #f1fbf6, #e7f8f0); color: #175942; }
 .wallet-discount-preview > div { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .wallet-discount-preview span { font-size: 13px; font-weight: 750; }
