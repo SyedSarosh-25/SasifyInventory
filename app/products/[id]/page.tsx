@@ -862,7 +862,11 @@ export default async function ProductPage({ params }: Props) {
                   href={`/checkout?product=${encodeURIComponent(product.id === 'p093' ? 'p093-ultra' : product.id)}`}
                   className="primary-button wallet-purchase-button detail-buy"
                 >
-                  <span><WalletCards className="h-5 w-5" /> Buy with Sasify Wallet and get additional 5% off</span>
+                  <span className="wallet-cta-title">
+                    <WalletCards className="h-5 w-5" />
+                    <span>Buy with Sasify Wallet</span>
+                    <strong>5% OFF</strong>
+                  </span>
                   <small>Pay only PKR {walletPrice.toLocaleString('en-PK')} with wallet</small>
                 </a>
                 <p className="order-footnote">
