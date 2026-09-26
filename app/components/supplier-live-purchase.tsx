@@ -1,11 +1,12 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { ShoppingCart } from 'lucide-react';
+import { ShoppingCart, WalletCards } from 'lucide-react';
 
 type Props = {
   productId: string;
   canonicalKey: string;
+  price: number;
 };
 
 type StockResponse = {
@@ -17,7 +18,7 @@ type StockResponse = {
   }>;
 };
 
-export function SupplierLivePurchase({ productId, canonicalKey }: Props) {
+export function SupplierLivePurchase({ productId, canonicalKey, price }: Props) {
   const [available, setAvailable] = useState<boolean | null>(null);
 
   useEffect(() => {
@@ -48,13 +49,29 @@ export function SupplierLivePurchase({ productId, canonicalKey }: Props) {
   }, [canonicalKey, productId]);
 
   if (available === true) {
+    const walletDiscount = Math.floor(Math.max(0, Number(price)) * 0.05);
+    const walletPrice = Math.max(0, Number(price) - walletDiscount);
+    const checkoutProduct = canonicalKey || productId;
     return (
-      <a
-        href={`/checkout?product=${encodeURIComponent(canonicalKey || productId)}`}
-        className="primary-button detail-buy"
-      >
-        <ShoppingCart className="h-5 w-5" /> Buy online
-      </a>
+      <>
+        <a
+          href={`/checkout?product=${encodeURIComponent(checkoutProduct)}`}
+          className="primary-button detail-buy"
+        >
+          <ShoppingCart className="h-5 w-5" /> Buy online
+        </a>
+        <a
+          href={`/checkout?product=${encodeURIComponent(checkoutProduct)}`}
+          className="primary-button wallet-purchase-button detail-buy"
+        >
+          <span className="wallet-cta-title">
+            <WalletCards className="h-5 w-5" />
+            <span>Buy with Sasify Wallet</span>
+            <strong>5% OFF</strong>
+          </span>
+          <small>Pay only PKR {walletPrice.toLocaleString('en-PK')} with wallet</small>
+        </a>
+      </>
     );
   }
 

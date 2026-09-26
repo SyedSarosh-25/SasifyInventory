@@ -365,6 +365,7 @@ function SupplierSeoProductPage({ product }: { product: SupplierSeoProduct }) {
             <SupplierLivePurchase
               productId={product.id}
               canonicalKey={product.canonicalKey}
+              price={product.price}
             />
             <p className="order-footnote">
               WhatsApp support is available after successful payment.
