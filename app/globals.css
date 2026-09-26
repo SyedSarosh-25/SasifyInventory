@@ -756,9 +756,10 @@ svg { flex-shrink: 0; }
 .featured-details-button, .featured-buy-button { display: inline-flex; min-height: 34px; align-items: center; justify-content: center; gap: 5px; border-radius: 8px; font-size: .7rem; font-weight: 850; }
 .featured-details-button { border: 1px solid #2863ff; color: #2863ff; }
 .featured-buy-button { background: linear-gradient(110deg, #2863ff, #7345f5); color: #fff; }
-.featured-wallet-button { display: flex; min-height: 43px; flex-direction: column; align-items: center; justify-content: center; gap: 3px; margin-top: 14px; padding: 7px 8px; border: 1px solid #a9bdf4; border-radius: 9px; background: linear-gradient(135deg, #f7f9ff, #eef3ff); color: #285bd7; font-size: .66rem; font-weight: 800; line-height: 1.2; text-align: center; text-decoration: none; transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease; }
-.featured-wallet-button > span { display: inline-flex; align-items: center; justify-content: center; gap: 5px; }
-.featured-wallet-button > span svg { flex: 0 0 auto; color: var(--blue); }
+.featured-wallet-button { display: flex; min-height: 43px; flex-direction: column; align-items: center; justify-content: center; gap: 3px; margin-top: 14px; padding: 8px 10px; border: 1px solid #a9bdf4; border-radius: 9px; background: linear-gradient(135deg, #f7f9ff, #eef3ff); color: #285bd7; font-size: .66rem; font-weight: 800; line-height: 1.2; text-align: center; text-decoration: none; transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease; }
+.featured-wallet-label { display: inline-flex; width: 100%; align-items: center; justify-content: center; gap: 6px; white-space: nowrap; }
+.featured-wallet-label > span { font-weight: 850; }
+.featured-wallet-label svg { flex: 0 0 auto; color: var(--blue); }
 .featured-wallet-button strong { color: #174fc9; font-weight: 900; }
 .featured-wallet-button small { color: #5b6f9b; font-size: .61rem; font-weight: 750; }
 .featured-wallet-button:hover { border-color: #6e90eb; background: #eef3ff; color: #174fc9; box-shadow: 0 7px 16px rgba(66, 99, 205, 0.12); transform: translateY(-1px); }

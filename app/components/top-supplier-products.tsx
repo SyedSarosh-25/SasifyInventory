@@ -125,7 +125,11 @@ export function SupplierFeaturedCard({ product }: { product: FeaturedProduct }) 
       </a>
       {walletEligible && (
         <a className="featured-wallet-button" href={`/checkout?product=${encodeURIComponent(checkoutProductId)}`}>
-          <span><WalletCards className="h-4 w-4" /> Get additional <strong>5% OFF</strong> with Sasify Wallet</span>
+          <span className="featured-wallet-label">
+            <WalletCards className="h-4 w-4" />
+            <span>Sasify Wallet</span>
+            <strong>5% OFF</strong>
+          </span>
           <small>Pay only PKR {walletPrice.toLocaleString('en-PK')} with wallet</small>
         </a>
       )}
