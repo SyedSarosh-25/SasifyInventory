@@ -1078,7 +1078,7 @@ export function CustomerDashboard() {
                     <label>
                       Payment method
                       <select name="method" value={depositMethod} onChange={(event) => setDepositMethod(event.target.value)}>
-                        <option value="bank">Bank transfer / NayaPay</option>
+                        <option value="bank">NayaPay</option>
                         <option value="binance">Binance Pay</option>
                         <option value="crypto">
                           Crypto USDT · BEP20 · minimum USDT 6
