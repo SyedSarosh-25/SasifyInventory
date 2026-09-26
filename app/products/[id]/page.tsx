@@ -863,7 +863,7 @@ export default async function ProductPage({ params }: Props) {
                   className="wallet-purchase-button detail-buy"
                 >
                   <span><WalletCards className="h-5 w-5" /> Buy with Sasify Wallet and get additional 5% off</span>
-                  <small>Pay PKR {walletPrice.toLocaleString('en-PK')} · save PKR {walletDiscount.toLocaleString('en-PK')} extra</small>
+                  <small>Pay only PKR {walletPrice.toLocaleString('en-PK')} with wallet</small>
                 </a>
                 <p className="order-footnote">
                   Availability and activation details are confirmed before
