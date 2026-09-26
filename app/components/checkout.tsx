@@ -466,7 +466,8 @@ export function Checkout() {
               void run(async () => {
                 const data = await api('create', '', {
                   productId: selected,
-                  couponCode,
+                  couponCode: useSasifyWallet ? '' : couponCode,
+                  useSasifyWallet,
                   ...(product?.requires_customer_email
                     ? { customerEmail: customerEmail.trim() }
                     : {}),
@@ -561,7 +562,7 @@ export function Checkout() {
             <fieldset className="payment-method-picker">
               <legend>How will you send the payment?</legend>
               <label className={`sasify-wallet-option${checkoutAccount ? '' : ' disabled'}${useSasifyWallet ? ' selected' : ''}`}>
-                <input type="radio" name="sasify-wallet" disabled={!checkoutAccount} checked={useSasifyWallet} onChange={() => { if (checkoutAccount) { setUseSasifyWallet(true); setPaymentMethod('wallet'); } }} />
+                <input type="radio" name="sasify-wallet" disabled={!checkoutAccount} checked={useSasifyWallet} onChange={() => { if (checkoutAccount) { setUseSasifyWallet(true); setCouponCode(''); setPaymentMethod('wallet'); } }} />
                 <span className="sasify-wallet-logo" aria-hidden="true"><img src="/sasify-wallet.png" alt="" /></span>
                 <span>
                   <strong>Sasify Wallet</strong>
@@ -635,15 +636,17 @@ export function Checkout() {
                 <small>Final amount with Sasify Wallet: <strong>PKR {walletPayable.toLocaleString('en-PK')}</strong></small>
               </div>
             )}
-            <label>
-              Reseller coupon (optional)
+            <label className={useSasifyWallet ? 'disabled-field' : undefined}>
+              Reseller coupon {useSasifyWallet ? '(not available with Sasify Wallet)' : '(optional)'}
               <input
                 value={couponCode}
                 onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
                 placeholder="Enter coupon code"
                 autoCapitalize="characters"
                 maxLength={32}
+                disabled={useSasifyWallet}
               />
+              {useSasifyWallet && <small>Coupons cannot be combined with Sasify Wallet payments.</small>}
             </label>
             <button
               className="primary-button"

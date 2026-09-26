@@ -4020,6 +4020,11 @@ export function createHandler(
             new Date(order.expires_at) <= new Date()
           )
             throw fail(409, 'This order cannot be paid from your wallet.');
+          if (order.coupon_id || Number(order.coupon_discount || 0) > 0)
+            throw fail(
+              409,
+              'Coupons cannot be combined with Sasify Wallet payments. Start a new order without a coupon.',
+            );
           const walletDiscount = Math.floor(Number(order.amount) * 0.05);
           const payableAmount = Math.max(
             0,
@@ -4733,6 +4738,12 @@ export function createHandler(
         }
         const sharedProduct = isSharedChatGptProduct(product?.id);
         const requestedCouponCode = normalizeCouponCode(body.couponCode);
+        const usingSasifyWallet = body.useSasifyWallet === true;
+        if (usingSasifyWallet && requestedCouponCode)
+          throw fail(
+            409,
+            'Coupons cannot be combined with Sasify Wallet payments. Remove the coupon or choose another payment method.',
+          );
         const isRequestedTeamCoupon = requestedCouponCode === TEAM_COUPON_CODE;
         if (
           isRequestedTeamCoupon &&
