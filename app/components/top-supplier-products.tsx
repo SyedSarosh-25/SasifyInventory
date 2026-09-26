@@ -123,18 +123,18 @@ export function SupplierFeaturedCard({ product }: { product: FeaturedProduct }) 
         )}
       </div>
       </a>
+      {walletEligible && (
+        <a className="featured-wallet-button" href={`/checkout?product=${encodeURIComponent(checkoutProductId)}`}>
+          <span><WalletCards className="h-4 w-4" /> Get additional <strong>5% OFF</strong> with Sasify Wallet</span>
+          <small>Pay only PKR {walletPrice.toLocaleString('en-PK')} with wallet</small>
+        </a>
+      )}
       <div className="featured-card-actions">
         <a className="featured-details-button" href={href}>View details</a>
         <a className="featured-buy-button" href={`/checkout?product=${encodeURIComponent(checkoutProductId)}`}>
           Buy now <ArrowRight className="h-4 w-4" />
         </a>
       </div>
-      {walletEligible && (
-        <a className="featured-wallet-button" href={`/checkout?product=${encodeURIComponent(checkoutProductId)}`}>
-          <span><WalletCards className="h-4 w-4" /> Buy with Sasify Wallet · 5% OFF</span>
-          <small>Pay only PKR {walletPrice.toLocaleString('en-PK')} with wallet</small>
-        </a>
-      )}
     </article>
   );
 }
