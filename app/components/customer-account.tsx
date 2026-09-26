@@ -1311,17 +1311,7 @@ export function CheckoutAccount({
       .finally(() => setLoaded(true));
   }, []);
   if (!loaded) return null;
-  if (!account)
-    return (
-      <div className="guest-checkout-prompt">
-        <div>
-          <strong>Sign up now and save 5% on every order*</strong>
-          <span>Use your Sasify Wallet for faster checkout and member savings.</span>
-        </div>
-        <a href="/signup" className="primary-button compact">Create account</a>
-        <small>*Wallet discount applies to eligible orders.</small>
-      </div>
-    );
+  if (!account) return null;
   return (
     <div className="account-checkout">
       <a className="account-checkout-dashboard" href="/dashboard">
