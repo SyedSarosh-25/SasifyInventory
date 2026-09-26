@@ -1288,7 +1288,6 @@ export function CheckoutAccount({
   onPaid,
 }: {
   orderId: string;
-  walletFlashSale?: boolean;
   onWalletBalanceChange?: (balance: number) => void;
   onInsufficientWallet?: () => void;
   onPaid: () => void;

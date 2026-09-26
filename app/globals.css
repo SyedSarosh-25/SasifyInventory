@@ -756,16 +756,11 @@ svg { flex-shrink: 0; }
 .featured-details-button, .featured-buy-button { display: inline-flex; min-height: 34px; align-items: center; justify-content: center; gap: 5px; border-radius: 8px; font-size: .7rem; font-weight: 850; }
 .featured-details-button { border: 1px solid #2863ff; color: #2863ff; }
 .featured-buy-button { background: linear-gradient(110deg, #2863ff, #7345f5); color: #fff; }
-.featured-wallet-button { display: flex; min-height: 43px; flex-direction: column; align-items: center; justify-content: center; gap: 3px; margin-top: 14px; padding: 8px 10px; border: 1px solid #a9bdf4; border-radius: 9px; background: linear-gradient(135deg, #f7f9ff, #eef3ff); color: #285bd7; font-size: .66rem; font-weight: 800; line-height: 1.2; text-align: center; text-decoration: none; transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease; }
-.featured-wallet-label { display: inline-flex; width: 100%; align-items: center; justify-content: center; gap: 6px; white-space: nowrap; }
-.featured-wallet-label > span { font-weight: 850; }
-.featured-wallet-label svg { flex: 0 0 auto; color: var(--blue); }
-.featured-wallet-button strong { color: #174fc9; font-weight: 900; }
-.featured-wallet-button small { color: #5b6f9b; font-size: .61rem; font-weight: 750; }
-.featured-wallet-button:hover { border-color: #6e90eb; background: #eef3ff; color: #174fc9; box-shadow: 0 7px 16px rgba(66, 99, 205, 0.12); transform: translateY(-1px); }
 .inventory-action { display: flex; justify-content: center; margin-top: 26px; }
 .inventory-action a { min-width: 230px; }
 .comparison-note { color: #62708b; font-size: 0.72rem; line-height: 1.6; margin-top: 20px; }
+.wallet-discount-notice { display: flex; align-items: center; justify-content: center; gap: 8px; margin: 18px 0 0; padding: 11px 16px; border: 1px solid #cbd9fa; border-radius: 10px; background: linear-gradient(135deg, #f6f8ff, #eef3ff); color: #234baf; font-size: .78rem; font-weight: 800; line-height: 1.4; text-align: center; }
+.wallet-discount-notice svg { flex: 0 0 auto; color: var(--blue); }
 .featured-arrow {
   display: grid;
   width: 32px;
@@ -1711,13 +1706,6 @@ svg { flex-shrink: 0; }
 .plan-notice svg { flex: 0 0 auto; margin-top: 2px; }
 .plan-notice strong { display: block; margin-bottom: 3px; }
 .detail-buy { width: 100%; margin-top: 24px; min-height: 49px; }
-.wallet-purchase-button { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; padding: 10px 16px; border: 0; border-radius: 9px; color: #fff; background: linear-gradient(115deg, var(--blue), var(--violet)); box-shadow: 0 10px 24px rgba(66, 77, 238, 0.22); font-size: 0.82rem; }
-.wallet-cta-title { display: inline-flex; align-items: center; justify-content: center; gap: 8px; line-height: 1.25; text-align: center; }
-.wallet-cta-title > span { font-weight: 850; }
-.wallet-cta-title strong { padding: 3px 7px; border: 1px solid rgba(255, 255, 255, 0.34); border-radius: 999px; background: rgba(255, 255, 255, 0.16); font-size: 0.64rem; letter-spacing: 0.04em; white-space: nowrap; }
-.wallet-purchase-button small { color: rgba(255, 255, 255, 0.92); font-size: 12px; font-weight: 700; line-height: 1.25; }
-.wallet-purchase-button:hover { color: #fff; background: linear-gradient(115deg, var(--blue), var(--violet)); transform: translateY(-2px); }
-.wallet-purchase-button:hover small { color: #fff; }
 .detail-unavailable { display: flex; align-items: center; justify-content: center; border: 1px solid #e6b8be; border-radius: 12px; color: #8a3140; background: #fff5f6; font-weight: 800; text-align: center; }
 .order-footnote { text-align: center; margin-bottom: 0; }
 .related-section { margin-top: 54px; padding-top: 32px; border-top: 1px solid var(--line); }
@@ -2369,6 +2357,12 @@ svg { flex-shrink: 0; }
 .sasify-wallet-logo { display: grid !important; place-items: center; width: 50px; height: 50px; padding: 0; border-radius: 10px; background: transparent; box-shadow: none; }
 .sasify-wallet-logo img { width: 100%; height: 100%; object-fit: contain; border-radius: 0; }
 .payment-method-picker .sasify-wallet-option input { display: none; }
+.wallet-discount-preview { display: grid; gap: 6px; margin: -2px 0 2px; padding: 12px 14px; border: 1px solid #bfe5d5; border-radius: 10px; background: linear-gradient(135deg, #f1fbf6, #e7f8f0); color: #175942; }
+.wallet-discount-preview > div { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.wallet-discount-preview span { font-size: 13px; font-weight: 750; }
+.wallet-discount-preview > div > strong { color: #087d53; font-size: 14px; }
+.wallet-discount-preview small { color: #3d6c5b; font-size: 12px; line-height: 1.4; }
+.wallet-discount-preview small strong { color: #087d53; }
 .checkout-offer { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid #d3def0; border-radius: 6px; background: #fff; }
 .checkout-offer > div { display: grid; gap: 5px; padding: 16px; }
 .checkout-offer > div + div { border-left: 1px solid #d3def0; }

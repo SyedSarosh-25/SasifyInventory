@@ -16,6 +16,7 @@ import {
   ShieldCheck,
   Star,
   UserRoundCheck,
+  WalletCards,
   X,
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
@@ -616,6 +617,10 @@ export default function Home() {
               <h2 id="featured-title">Top 8 products</h2>
             </div>
           </div>
+          <p className="wallet-discount-notice">
+            <WalletCards className="h-4 w-4" />
+            <span>5% discount applies on all products when you pay with Sasify Wallet.</span>
+          </p>
           <TopSupplierProducts />
           <div className="inventory-action"><a href="/inventory" className="primary-button">View full inventory <ArrowRight className="h-4 w-4" /></a></div>
           <p className="comparison-note">Savings compare the original price for the full plan duration with our price. Monthly references are multiplied by the number of months. Access and provider billing options may differ.</p>

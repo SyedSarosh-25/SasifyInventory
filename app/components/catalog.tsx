@@ -1,6 +1,6 @@
 'use client';
 
-import { Filter, Search, X } from 'lucide-react';
+import { Filter, Search, WalletCards, X } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import {
   isChatGptPlusProduct,
@@ -168,6 +168,10 @@ export function Catalog({ initialQuery = '' }: { initialQuery?: string }) {
         </div>
 
         <p className="comparison-note">Savings compare the original price for the full plan duration with our price. Monthly references are multiplied by the number of months. Access and provider billing options may differ.</p>
+        <p className="wallet-discount-notice">
+          <WalletCards className="h-4 w-4" />
+          <span>5% discount applies on all products when you pay with Sasify Wallet.</span>
+        </p>
 
         <div className="featured-grid catalog-featured-grid">
           {filtered.map((product) => <SupplierFeaturedCard key={product.id} product={product} />)}

@@ -10,7 +10,6 @@ import {
   ShieldCheck,
   ShoppingCart,
   Tag,
-  WalletCards,
 } from 'lucide-react';
 import { products } from '../../products';
 import {
@@ -365,7 +364,6 @@ function SupplierSeoProductPage({ product }: { product: SupplierSeoProduct }) {
             <SupplierLivePurchase
               productId={product.id}
               canonicalKey={product.canonicalKey}
-              price={product.price}
             />
             <p className="order-footnote">
               WhatsApp support is available after successful payment.
@@ -402,8 +400,6 @@ export default async function ProductPage({ params }: Props) {
   const savings = savingsPkr(product);
   const original = originalPricePkr(product);
   const comparison = originalPriceComparison(product);
-  const walletDiscount = Math.floor(product.sellingPricePkr * 0.05);
-  const walletPrice = Math.max(0, product.sellingPricePkr - walletDiscount);
   const questions = productQuestions(product);
   const about = productAbout(product);
   const related = products
@@ -859,17 +855,6 @@ export default async function ProductPage({ params }: Props) {
             )}
             {!product.contactOnly && (
               <>
-                <a
-                  href={`/checkout?product=${encodeURIComponent(product.id === 'p093' ? 'p093-ultra' : product.id)}`}
-                  className="primary-button wallet-purchase-button detail-buy"
-                >
-                  <span className="wallet-cta-title">
-                    <WalletCards className="h-5 w-5" />
-                    <span>Buy with Sasify Wallet</span>
-                    <strong>5% OFF</strong>
-                  </span>
-                  <small>Pay only PKR {walletPrice.toLocaleString('en-PK')} with wallet</small>
-                </a>
                 <p className="order-footnote">
                   Availability and activation details are confirmed before
                   payment.

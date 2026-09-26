@@ -328,6 +328,12 @@ export function Checkout() {
     setShowTwoFactorStep(false);
   }
   const product = products.find((p) => p.id === selected);
+  const walletDiscount = product && useSasifyWallet
+    ? Math.floor(Math.max(0, Number(product.price)) * 0.05)
+    : 0;
+  const walletPayable = product
+    ? Math.max(0, Number(product.price) - walletDiscount)
+    : 0;
   const checkoutProducts = products.filter((p) => p.id !== 'p093');
   const CUSTOMER_PAYMENT_DISPLAY_SECONDS = 5 * 60;
   const orderExpiryMs = order ? new Date(order.expiresAt).getTime() : 0;
@@ -418,7 +424,7 @@ export function Checkout() {
       <h1>
         {order ? (order.amount === 0 ? 'Your free order' : 'Complete your payment') : 'Buy online'}
       </h1>
-      <CheckoutAccount orderId={order?.status === 'pending' ? id : ''} walletFlashSale={product?.id === 'p093' || product?.id === 'p093-ultra'} onWalletBalanceChange={(balance) => setCheckoutAccount((current) => current ? { ...current, balance } : current)} onInsufficientWallet={() => { clear(); setError('Insufficient wallet balance. Add funds first, then try again.'); }} onPaid={() => { void api('status',key,undefined,id).then(setOrder).catch(e=>setError(e.message)); }} />
+      <CheckoutAccount orderId={order?.status === 'pending' ? id : ''} onWalletBalanceChange={(balance) => setCheckoutAccount((current) => current ? { ...current, balance } : current)} onInsufficientWallet={() => { clear(); setError('Insufficient wallet balance. Add funds first, then try again.'); }} onPaid={() => { void api('status',key,undefined,id).then(setOrder).catch(e=>setError(e.message)); }} />
       <div className="instant-delivery">
         <span className="instant-icon">
           <Zap size={22} />
@@ -559,7 +565,7 @@ export function Checkout() {
                 <span className="sasify-wallet-logo" aria-hidden="true"><img src="/sasify-wallet.png" alt="" /></span>
                 <span>
                   <strong>Sasify Wallet</strong>
-                  <small>{checkoutAccount ? `Balance: PKR ${Number(checkoutAccount.balance || 0).toLocaleString()} · 5% off every purchase` : 'Sign up to unlock · 5% off every purchase'}</small>
+                  <small>{checkoutAccount ? `Balance: PKR ${Number(checkoutAccount.balance || 0).toLocaleString()} · 5% discount on eligible products` : 'Sign up to unlock · 5% discount on eligible products'}</small>
                 </span>
                 <a className="payment-method-link" href={checkoutAccount ? '/dashboard?tab=wallet' : '/signup'} onClick={(event) => event.stopPropagation()}>{checkoutAccount ? 'Add funds' : 'Sign up'}</a>
               </label>
@@ -620,6 +626,15 @@ export function Checkout() {
                 </span>
               </label>
             </fieldset>
+            {useSasifyWallet && product && product.price > 0 && (
+              <div className="wallet-discount-preview" role="status">
+                <div>
+                  <span>Wallet discount (5%)</span>
+                  <strong>−PKR {walletDiscount.toLocaleString('en-PK')}</strong>
+                </div>
+                <small>Final amount with Sasify Wallet: <strong>PKR {walletPayable.toLocaleString('en-PK')}</strong></small>
+              </div>
+            )}
             <label>
               Reseller coupon (optional)
               <input

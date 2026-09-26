@@ -1,6 +1,6 @@
 'use client';
 
-import { ArrowRight, Check, Tag, WalletCards } from 'lucide-react';
+import { ArrowRight, Check, Tag } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { selectFixedTopProducts } from '../catalog-selection';
 import { products as localProducts, type Product } from '../products';
@@ -68,12 +68,6 @@ export function SupplierFeaturedCard({ product }: { product: FeaturedProduct }) 
     : product.id === 'p093'
       ? 'p093-ultra'
       : product.id;
-  const walletDiscount = Math.floor(Math.max(0, Number(salePrice)) * 0.05);
-  const walletPrice = Math.max(0, Number(salePrice) - walletDiscount);
-  const walletEligible = Number.isFinite(Number(salePrice))
-    && Number(salePrice) > 0
-    && product.available > 0
-    && !(product.source === 'local' && product.localProduct?.contactOnly);
   return (
     <article className="featured-card supplier-featured-card">
       <a className="featured-card-main" href={href}>
@@ -123,16 +117,6 @@ export function SupplierFeaturedCard({ product }: { product: FeaturedProduct }) 
         )}
       </div>
       </a>
-      {walletEligible && (
-        <a className="featured-wallet-button" href={`/checkout?product=${encodeURIComponent(checkoutProductId)}`}>
-          <span className="featured-wallet-label">
-            <WalletCards className="h-4 w-4" />
-            <span>Sasify Wallet</span>
-            <strong>5% OFF</strong>
-          </span>
-          <small>Pay only PKR {walletPrice.toLocaleString('en-PK')} with wallet</small>
-        </a>
-      )}
       <div className="featured-card-actions">
         <a className="featured-details-button" href={href}>View details</a>
         <a className="featured-buy-button" href={`/checkout?product=${encodeURIComponent(checkoutProductId)}`}>
