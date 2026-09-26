@@ -14,6 +14,10 @@ const error = (status, message) =>
   Object.assign(new Error(message), { status });
 const digest = (value) => createHash('sha256').update(value).digest('hex');
 const usernamePattern = /^[a-z0-9](?:[a-z0-9._-]{1,22}[a-z0-9])$/;
+const usernameIsAllowed = (value) =>
+  usernamePattern.test(value) &&
+  !/(?:^|[._-])(?:gmail|googlemail)\.com$/i.test(value) &&
+  !/^\d{7,}$/.test(value.replace(/[^a-z0-9]/gi, ''));
 const emailPattern =
   /^[^\s@]+@(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z0-9][a-z0-9-]{0,61}[a-z0-9]$/i;
 function gmailOAuthCredentials() {
@@ -257,11 +261,11 @@ export async function signupVerification(db, action, body) {
       email.length > 254 ||
       !name ||
       name.length > 100 ||
-      !usernamePattern.test(username)
+      !usernameIsAllowed(username)
     )
       throw error(
         400,
-        'Enter your name, a valid username, and a valid email address.',
+        'Use a random username, not a Gmail/email address, gmail.com, or a phone number.',
       );
     if (!gmailOAuthCredentials())
       throw error(
@@ -507,10 +511,10 @@ export async function accountAuth(db, req, res, action, body) {
     const username = String(body.username || '')
       .trim()
       .toLowerCase();
-    if (!usernamePattern.test(username))
+    if (!usernameIsAllowed(username))
       throw error(
         400,
-        'Choose a username with 3–24 letters, numbers, dots, underscores, or hyphens. It must start and end with a letter or number.',
+        'Use a random username, not a Gmail/email address, gmail.com, or a phone number.',
       );
     if (
       !/^[a-f0-9-]{36}$/i.test(String(body.challengeId)) ||

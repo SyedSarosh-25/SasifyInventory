@@ -76,6 +76,11 @@ const money = (amount: number) =>
   `PKR ${Number(amount).toLocaleString('en-US')}`;
 const emailPattern =
   /^[^\s@]+@(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z0-9][a-z0-9-]{0,61}[a-z0-9]$/i;
+const usernamePattern = /^[a-z0-9](?:[a-z0-9._-]{1,22}[a-z0-9])$/;
+const usernameIsAllowed = (value: string) =>
+  usernamePattern.test(value) &&
+  !/(?:^|[._-])(?:gmail|googlemail)\.com$/i.test(value) &&
+  !/^\d{7,}$/.test(value.replace(/[^a-z0-9]/gi, ''));
 
 function PasswordField({
   label,
@@ -130,6 +135,7 @@ export function AccountAuth({ signup = false }: { signup?: boolean }) {
     [resendAt, setResendAt] = useState(0),
     [now, setNow] = useState(Date.now());
   const emailLooksValid = emailPattern.test(email.trim());
+  const usernameLooksValid = usernameIsAllowed(username.trim().toLowerCase());
   useEffect(() => {
     if (step !== 'otp') return;
     const timer = setInterval(() => setNow(Date.now()), 1000);
@@ -138,9 +144,9 @@ export function AccountAuth({ signup = false }: { signup?: boolean }) {
   async function sendCode() {
     if (!name.trim()) throw new Error('Enter your full name.');
     const normalizedUsername = username.trim().toLowerCase();
-    if (!/^[a-z0-9](?:[a-z0-9._-]{1,22}[a-z0-9])$/.test(normalizedUsername))
+    if (!usernameIsAllowed(normalizedUsername))
       throw new Error(
-        'Username must be 3–24 characters, start and end with a letter or number, and use only letters, numbers, dots, underscores, or hyphens.',
+        'Use a random username only. Do not enter your Gmail/email address, gmail.com, or a phone number.',
       );
     const normalizedEmail = email.trim().toLowerCase();
     if (!emailPattern.test(normalizedEmail))
@@ -274,6 +280,10 @@ export function AccountAuth({ signup = false }: { signup?: boolean }) {
                   onChange={(e) => setUsername(e.target.value)}
                   required
                 />
+                <small>
+                  Use a random username, e.g. sky_user482. Do not enter your
+                  Gmail/email address, <code>gmail.com</code>, or phone number.
+                </small>
               </label>
             </>
           )}
@@ -301,9 +311,7 @@ export function AccountAuth({ signup = false }: { signup?: boolean }) {
                     disabled={
                       busy ||
                       !name.trim() ||
-                      !/^[a-z0-9](?:[a-z0-9._-]{1,22}[a-z0-9])$/.test(
-                        username.trim().toLowerCase(),
-                      ) ||
+                      !usernameLooksValid ||
                       !emailLooksValid ||
                       (step === 'otp' && now < resendAt)
                     }
