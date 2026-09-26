@@ -559,55 +559,54 @@ export function Checkout() {
             </aside>
             <fieldset className="payment-method-picker">
               <legend>How will you send the payment?</legend>
-              <label className="payment-method-select-label" htmlFor="checkout-payment-method">
-                Payment method
-              </label>
-              <select
-                id="checkout-payment-method"
-                name="payment-method"
-                value={useSasifyWallet ? 'sasify-wallet' : paymentMethod}
-                onChange={(event) => {
-                  const value = event.target.value;
-                  if (value === 'sasify-wallet') {
+              <label className={`sasify-wallet-card${checkoutAccount ? '' : ' disabled'}${useSasifyWallet ? ' selected' : ''}`}>
+                <input
+                  type="radio"
+                  name="sasify-wallet-choice"
+                  disabled={!checkoutAccount}
+                  checked={useSasifyWallet}
+                  onChange={() => {
                     if (checkoutAccount) {
                       setUseSasifyWallet(true);
                       setCouponCode('');
                       setPaymentMethod('wallet');
                     }
-                    return;
-                  }
+                  }}
+                />
+                <span className="sasify-wallet-logo" aria-hidden="true"><img src="/sasify-wallet.png" alt="" /></span>
+                <span>
+                  <strong>Sasify Wallet{useSasifyWallet ? ' · Selected' : ''}</strong>
+                  <small>{checkoutAccount ? `Balance: PKR ${Number(checkoutAccount.balance || 0).toLocaleString()} · 5% discount on eligible products` : 'Sign up to unlock · 5% discount on eligible products'}</small>
+                </span>
+                <a className="payment-method-link" href={checkoutAccount ? '/dashboard?tab=wallet' : '/signup'} onClick={(event) => event.stopPropagation()}>{checkoutAccount ? 'Add funds' : 'Sign up'}</a>
+              </label>
+              <label className="payment-method-select-label" htmlFor="checkout-payment-method">
+                Other payment methods
+              </label>
+              <select
+                id="checkout-payment-method"
+                name="payment-method"
+                value={paymentMethod}
+                onChange={(event) => {
+                  const value = event.target.value;
                   setUseSasifyWallet(false);
                   setPaymentMethod(value as 'wallet' | 'bank' | 'binance' | 'crypto');
                 }}
               >
-                <option value="sasify-wallet" disabled={!checkoutAccount}>
-                  Sasify Wallet · 5% discount{checkoutAccount ? '' : ' · Sign up required'}
-                </option>
                 <option value="wallet">Wallet transfer</option>
                 <option value="bank">Bank transfer</option>
                 <option value="binance">Binance Pay</option>
                 <option value="crypto">Crypto deposit · USDT BEP20</option>
               </select>
-              {useSasifyWallet ? (
-                <div className="payment-method-wallet-note">
-                  <span className="sasify-wallet-logo" aria-hidden="true"><img src="/sasify-wallet.png" alt="" /></span>
-                  <span>
-                    <strong>Sasify Wallet selected</strong>
-                    <small>Balance: PKR {Number(checkoutAccount?.balance || 0).toLocaleString()} · 5% discount on eligible products</small>
-                  </span>
-                  <a className="payment-method-link" href="/dashboard?tab=wallet">Add funds</a>
-                </div>
-              ) : (
-                <small className="payment-method-description">
-                  {paymentMethod === 'wallet'
-                    ? 'Easypaisa, JazzCash, NayaPay, SadaPay and more'
-                    : paymentMethod === 'bank'
-                      ? 'All banks'
-                      : paymentMethod === 'binance'
-                        ? 'Binance Pay in USDT'
-                        : 'Send USDT on the displayed network'}
-                </small>
-              )}
+              <small className="payment-method-description">
+                {paymentMethod === 'wallet'
+                  ? 'Easypaisa, JazzCash, NayaPay, SadaPay and more'
+                  : paymentMethod === 'bank'
+                    ? 'All banks'
+                    : paymentMethod === 'binance'
+                      ? 'Binance Pay in USDT'
+                      : 'Send USDT on the displayed network'}
+              </small>
             </fieldset>
             {useSasifyWallet && product && product.price > 0 && (
               <div className="wallet-discount-preview" role="status">

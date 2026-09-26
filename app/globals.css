@@ -2343,14 +2343,19 @@ svg { flex-shrink: 0; }
 .checkout-start { margin-top: 12px; }
 .payment-method-picker { display: grid; gap: 9px; margin: 0; padding: 15px; border: 1px solid #c7d4e7; border-radius: 10px; background: #fff; }
 .payment-method-picker legend { padding: 0 4px; color: #172237; font-weight: 750; }
+.sasify-wallet-card { position: relative; display: grid; grid-template-columns: auto minmax(0,1fr) auto; align-items: center; gap: 11px; min-height: 68px; padding: 10px 12px; border: 1px solid #b9c9f6; border-radius: 9px; background: linear-gradient(135deg,#f4f7ff,#eef2ff); cursor: pointer; transition: border-color .18s ease,box-shadow .18s ease,background .18s ease; }
+.sasify-wallet-card.selected { border-color: #285cff; background: linear-gradient(135deg,#edf3ff,#e9efff); box-shadow: 0 0 0 3px rgba(40,92,255,.11); }
+.sasify-wallet-card.disabled { opacity: .78; cursor: default; }
+.sasify-wallet-card input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+.sasify-wallet-card:focus-within { outline: 3px solid rgba(40,92,255,.13); outline-offset: 1px; }
+.sasify-wallet-card > span:not(.sasify-wallet-logo) { display: grid; gap: 3px; min-width: 0; }
+.sasify-wallet-card strong { color: #172237; font-size: 13px; }
+.sasify-wallet-card small { color: #5b6b82; line-height: 1.35; }
 .payment-method-select-label { color: #53647c; font-size: 12px; font-weight: 750; }
 .payment-method-picker select { width: 100%; min-height: 46px; padding: 0 40px 0 13px; border: 1px solid #aebfda; border-radius: 8px; background: #f8faff; color: #172237; font-weight: 700; cursor: pointer; }
 .payment-method-picker select:focus { border-color: #285cff; outline: 3px solid rgba(40,92,255,.13); }
 .payment-method-picker small { color: #5b6b82; line-height: 1.35; }
 .payment-method-description { padding: 0 2px; }
-.payment-method-wallet-note { display: grid; grid-template-columns: auto minmax(0,1fr) auto; align-items: center; gap: 10px; padding: 10px 11px; border: 1px solid #b9c9f6; border-radius: 8px; background: linear-gradient(135deg,#f4f7ff,#eef2ff); }
-.payment-method-wallet-note > span:not(.sasify-wallet-logo) { display: grid; gap: 3px; min-width: 0; }
-.payment-method-wallet-note strong { color: #172237; font-size: 13px; }
 .payment-method-link { margin-left: auto; white-space: nowrap; color: #285cff; font-size: 12px; font-weight: 800; text-decoration: none; }
 .sasify-wallet-logo { display: grid !important; place-items: center; width: 42px; height: 42px; padding: 0; border-radius: 9px; background: transparent; box-shadow: none; }
 .sasify-wallet-logo img { width: 100%; height: 100%; object-fit: contain; border-radius: 0; }
