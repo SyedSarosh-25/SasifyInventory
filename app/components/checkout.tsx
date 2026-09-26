@@ -21,9 +21,12 @@ import {
 } from './admin-enhancements';
 import { supplierOfferDecision, type SupplierCatalogGroup } from './admin-catalog-status-model';
 import {
+  Check,
+  ChevronDown,
   ClipboardList,
   Copy,
   KeyRound,
+  Landmark,
   MessageCircle,
   Pencil,
   RefreshCw,
@@ -33,6 +36,7 @@ import {
   ShoppingCart,
   Trash2,
   Users,
+  WalletCards,
   X,
   Zap,
 } from 'lucide-react';
@@ -51,6 +55,12 @@ type Stock = {
   shared_slots_filled?: number;
   shared_slots_total?: number;
 };
+const PAYMENT_METHOD_OPTIONS = [
+  { value: 'wallet' as const, label: 'Wallet transfer', description: 'Easypaisa, JazzCash, NayaPay, SadaPay and more', icon: WalletCards },
+  { value: 'bank' as const, label: 'Bank transfer', description: 'All banks', icon: Landmark },
+  { value: 'binance' as const, label: 'Binance Pay', description: 'Binance Pay in USDT', icon: WalletCards },
+  { value: 'crypto' as const, label: 'Crypto deposit', description: 'Send USDT on the displayed network', icon: WalletCards },
+];
 type AccountCredentials = {
   email: string;
   password: string;
@@ -185,6 +195,8 @@ export function Checkout() {
   const [customerEmail, setCustomerEmail] = useState('');
   const [checkoutAccount, setCheckoutAccount] = useState<{ balance: number } | null>(null);
   const [useSasifyWallet, setUseSasifyWallet] = useState(false);
+  const [paymentMenuOpen, setPaymentMenuOpen] = useState(false);
+  const paymentMenuRef = useRef<HTMLDivElement | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<
     'wallet' | 'bank' | 'binance' | 'crypto'
   >('wallet');
@@ -236,6 +248,22 @@ export function Checkout() {
   useEffect(() => {
     api('account-dashboard').then((data) => setCheckoutAccount(data.account || null)).catch(() => setCheckoutAccount(null));
   }, []);
+  useEffect(() => {
+    if (!paymentMenuOpen) return;
+    const closeOnOutside = (event: PointerEvent) => {
+      if (!paymentMenuRef.current?.contains(event.target as Node))
+        setPaymentMenuOpen(false);
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setPaymentMenuOpen(false);
+    };
+    document.addEventListener('pointerdown', closeOnOutside);
+    document.addEventListener('keydown', closeOnEscape);
+    return () => {
+      document.removeEventListener('pointerdown', closeOnOutside);
+      document.removeEventListener('keydown', closeOnEscape);
+    };
+  }, [paymentMenuOpen]);
   useEffect(() => {
     if (!id || !key) return;
     let active = true;
@@ -326,6 +354,7 @@ export function Checkout() {
     setShowTwoFactorStep(false);
   }
   const product = products.find((p) => p.id === selected);
+  const selectedPayment = PAYMENT_METHOD_OPTIONS.find((option) => option.value === paymentMethod) || PAYMENT_METHOD_OPTIONS[0];
   const walletDiscount = product && useSasifyWallet
     ? Math.floor(Math.max(0, Number(product.price)) * 0.05)
     : 0;
@@ -580,33 +609,51 @@ export function Checkout() {
                 </span>
                 <a className="payment-method-link" href={checkoutAccount ? '/dashboard?tab=wallet' : '/signup'} onClick={(event) => event.stopPropagation()}>{checkoutAccount ? 'Add funds' : 'Sign up'}</a>
               </label>
-              <label className="payment-method-select-label" htmlFor="checkout-payment-method">
-                Other payment methods
-              </label>
-              <select
-                id="checkout-payment-method"
-                name="payment-method"
-                value={paymentMethod}
-                onChange={(event) => {
-                  const value = event.target.value;
-                  setUseSasifyWallet(false);
-                  setPaymentMethod(value as 'wallet' | 'bank' | 'binance' | 'crypto');
-                }}
-              >
-                <option value="wallet">Wallet transfer</option>
-                <option value="bank">Bank transfer</option>
-                <option value="binance">Binance Pay</option>
-                <option value="crypto">Crypto deposit · USDT BEP20</option>
-              </select>
-              <small className="payment-method-description">
-                {paymentMethod === 'wallet'
-                  ? 'Easypaisa, JazzCash, NayaPay, SadaPay and more'
-                  : paymentMethod === 'bank'
-                    ? 'All banks'
-                    : paymentMethod === 'binance'
-                      ? 'Binance Pay in USDT'
-                      : 'Send USDT on the displayed network'}
-              </small>
+              <div className="payment-method-select-group" ref={paymentMenuRef}>
+                <span className="payment-method-select-label">Other payment methods</span>
+                <button
+                  type="button"
+                  className={`payment-method-trigger${paymentMenuOpen ? ' open' : ''}`}
+                  aria-haspopup="listbox"
+                  aria-expanded={paymentMenuOpen}
+                  onClick={() => setPaymentMenuOpen((open) => !open)}
+                >
+                  <span className="payment-method-trigger-copy">
+                    <strong>{useSasifyWallet ? 'Select another payment method' : selectedPayment.label}</strong>
+                    <small>{useSasifyWallet ? 'Sasify Wallet is selected above' : selectedPayment.description}</small>
+                  </span>
+                  <ChevronDown size={18} aria-hidden="true" />
+                </button>
+                {paymentMenuOpen && (
+                  <div className="payment-method-menu" role="listbox" aria-label="Other payment methods">
+                    {PAYMENT_METHOD_OPTIONS.map((option) => {
+                      const Icon = option.icon;
+                      const selected = !useSasifyWallet && option.value === paymentMethod;
+                      return (
+                        <button
+                          type="button"
+                          role="option"
+                          aria-selected={selected}
+                          className={`payment-method-option${selected ? ' selected' : ''}`}
+                          key={option.value}
+                          onClick={() => {
+                            setUseSasifyWallet(false);
+                            setPaymentMethod(option.value);
+                            setPaymentMenuOpen(false);
+                          }}
+                        >
+                          <span className="payment-method-option-icon"><Icon size={17} aria-hidden="true" /></span>
+                          <span className="payment-method-option-copy">
+                            <strong>{option.label}</strong>
+                            <small>{option.description}</small>
+                          </span>
+                          {selected && <Check size={18} aria-hidden="true" />}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             </fieldset>
             {useSasifyWallet && product && product.price > 0 && (
               <div className="wallet-discount-preview" role="status">
