@@ -752,7 +752,7 @@ export default async function ProductPage({ params }: Props) {
                 <p>
                   Selected option: <strong>Apple Pay · Ultra Stable</strong>
                 </p>
-                <p>Use Pay online here to continue. Pay from your Sasify Wallet after checkout to unlock the PKR 2,999 flash-sale price.</p>
+                <p>Use Pay online here to continue. Pay from your Sasify Wallet to receive 5% off this purchase.</p>
               </div>
             ) : savings === null ? (
               <p className="price-explanation">
@@ -839,19 +839,12 @@ export default async function ProductPage({ params }: Props) {
                 <MessageCircle className="h-5 w-5" /> Contact on WhatsApp
               </a>
             ) : product.id === 'p093' ? (
-              <>
-                <div className="wallet-flash-ticker" role="status" aria-label="Flash sale live: Rs 2,999 only">
-                  <div className="wallet-flash-ticker-track">
-                    <span>FLASH SALE LIVE</span><b>RS 2,999 ONLY</b><span>FLASH SALE LIVE</span><b>RS 2,999 ONLY</b>
-                  </div>
-                </div>
-                <a
-                  href="/checkout?product=p093-ultra"
-                  className="primary-button detail-buy"
-                >
-                  <ShoppingCart className="h-5 w-5" /> Pay online · Wallet PKR 2,999
-                </a>
-              </>
+              <a
+                href="/checkout?product=p093-ultra"
+                className="primary-button detail-buy"
+              >
+                <ShoppingCart className="h-5 w-5" /> Buy online · Wallet 5% off
+              </a>
             ) : (
               <a
                 href={`/checkout?product=${encodeURIComponent(product.id)}`}

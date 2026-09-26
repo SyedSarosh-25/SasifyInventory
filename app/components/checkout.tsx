@@ -76,7 +76,6 @@ type Order = {
   paymentMethod?: 'wallet' | 'bank' | 'binance' | 'crypto';
   paymentCurrency?: 'PKR' | 'USDT';
   paymentAmount?: number;
-  walletFlashSalePrice?: number;
   paymentWindowMinutes?: number;
   sharedSlot?: number;
   sharedSlotsFilled?: number;
@@ -127,6 +126,7 @@ async function api(
 const LOCAL_ADMIN_PREVIEW_DATA = {
   autoVerify: true,
   adminSettings: { business_name: 'Sasify Solutions', default_currency: 'PKR', support_email: 'support@sasifysolutions.com', auto_verify_receipts: 'true' },
+  postmarkInboundUsage: { available: true, used: 12, limit: 100, remaining: 88, percentage: 12, windowDays: 30, updatedAt: new Date().toISOString() },
   accounts: [{ id: 'preview-user-1', name: 'Demo Customer', email: 'demo@example.com', username: 'demo_customer', balance: 12500, role: 'customer', reseller_status: 'none', created_at: new Date().toISOString(), email_verified_at: new Date().toISOString() }],
   orders: [{ id: 'preview-order-1', product_id: 'demo-product', product_name: 'AI Credits Starter', supplier_product_name: 'AI Credits Starter', supplier_name: 'Sasify manual catalog', amount: 1499, status: 'delivered', payment_method: 'wallet', created_at: new Date().toISOString(), delivered_at: new Date().toISOString(), payer_name: 'Demo Customer', payment_currency: 'PKR', payment_amount: 1499 }],
   payments: [{ id: 'preview-payment-1', amount: 1499, payment_amount: 1499, currency: 'PKR', subject: 'Demo wallet payment', transaction_id: 'DEMO-TXN-001', payer_name: 'Demo Customer', verified: true, verification_reason: 'authenticated', order_id: 'preview-order-1', receiver_id: 'demo-receiver', received_at: new Date().toISOString(), created_at: new Date().toISOString() }],
@@ -510,13 +510,6 @@ export function Checkout() {
                 </div>
               </div>
             )}
-            {product?.id === 'p093-ultra' && (
-              <div className="wallet-flash-sale checkout-wallet-flash-sale" role="note">
-                <span>FLASH SALE</span>
-                <strong>PKR 2,999 with Sasify Wallet</strong>
-                <small>ChatGPT Plus · 30-day warranty · other payment methods remain PKR 3,499</small>
-              </div>
-            )}
             {product?.id === 'p093-shared' && (
               <section className="description-section shared-account-checkout-notice">
                 <h2>Shared account · 4 members</h2>
@@ -566,7 +559,7 @@ export function Checkout() {
                 <span className="sasify-wallet-logo" aria-hidden="true"><img src="/sasify-wallet.png" alt="" /></span>
                 <span>
                   <strong>Sasify Wallet</strong>
-                  <small>{checkoutAccount ? `Balance: PKR ${Number(checkoutAccount.balance || 0).toLocaleString()} · Click to pay instantly` : 'Sign up to unlock · 5% off every purchase'}</small>
+                  <small>{checkoutAccount ? `Balance: PKR ${Number(checkoutAccount.balance || 0).toLocaleString()} · 5% off every purchase` : 'Sign up to unlock · 5% off every purchase'}</small>
                 </span>
                 <a className="payment-method-link" href={checkoutAccount ? '/dashboard?tab=wallet' : '/signup'} onClick={(event) => event.stopPropagation()}>{checkoutAccount ? 'Add funds' : 'Sign up'}</a>
               </label>
@@ -684,10 +677,6 @@ export function Checkout() {
                 <small className="coupon-savings">
                   Team access · No payment required
                 </small>
-              ) : order.walletFlashSalePrice ? (
-                <small className="coupon-savings">
-                  Flash sale · PKR {order.walletFlashSalePrice.toLocaleString()} with Sasify Wallet · 30-day warranty
-                </small>
               ) : order.couponDiscount || order.paymentAdjustment ? (
                 <>
                   <small>
@@ -701,7 +690,7 @@ export function Checkout() {
                   ) : null}
                   {order.paymentAdjustment ? (
                     <small className="coupon-savings">
-                      Unique payment amount: −PKR{' '}
+                      {order.paymentMethod === 'wallet' ? 'Sasify Wallet discount: −PKR ' : 'Unique payment amount: −PKR '}
                       {order.paymentAdjustment.toLocaleString()}
                     </small>
                   ) : null}
@@ -2155,6 +2144,40 @@ export function CommerceAdmin() {
 
       {tab === 'overview' && (
         <div className="admin-workspace ops-overview">
+          {data.postmarkInboundUsage && (
+            <section className="admin-panel postmark-usage-panel postmark-usage-compact" aria-label="Postmark inbound usage">
+              <div className="postmark-usage-compact-row">
+                <div className="postmark-usage-compact-copy">
+                  <span className="admin-eyebrow">Postmark inbound</span>
+                  {data.postmarkInboundUsage.available ? (
+                    <>
+                      <strong>
+                        {Number(data.postmarkInboundUsage.used || 0).toLocaleString()} / {Number(data.postmarkInboundUsage.limit || 100).toLocaleString()}
+                      </strong>
+                      <span className="postmark-usage-compact-meta">
+                        {Number(data.postmarkInboundUsage.remaining || 0).toLocaleString()} remaining · last {data.postmarkInboundUsage.windowDays || 30} days
+                      </span>
+                    </>
+                  ) : (
+                    <span className="postmark-usage-compact-meta">Usage temporarily unavailable</span>
+                  )}
+                </div>
+                <span className={data.postmarkInboundUsage.available ? 'admin-state available' : 'admin-state'}>
+                  {data.postmarkInboundUsage.available ? 'Live' : 'Unavailable'}
+                </span>
+              </div>
+              {data.postmarkInboundUsage.available ? (
+                <progress
+                  className="postmark-usage-progress"
+                  max={Number(data.postmarkInboundUsage.limit || 100)}
+                  value={Number(data.postmarkInboundUsage.used || 0)}
+                  aria-label="Postmark inbound email usage"
+                />
+              ) : (
+                <span className="postmark-usage-compact-note">Refresh to try again.</span>
+              )}
+            </section>
+          )}
           <section className="metric-grid">
             <article>
               <span>Recognized sales value</span>

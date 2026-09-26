@@ -15,7 +15,6 @@ import {
   RefreshCw,
   ShieldCheck,
   ShoppingBag,
-  Sparkles,
   WalletCards,
 } from 'lucide-react';
 import { SiteHeader, SiteFooter } from './site-chrome';
@@ -1284,7 +1283,6 @@ export function CustomerDashboard() {
 
 export function CheckoutAccount({
   orderId,
-  walletFlashSale = false,
   onWalletBalanceChange,
   onInsufficientWallet,
   onPaid,
@@ -1358,7 +1356,7 @@ export function CheckoutAccount({
             }
           }}
         >
-          {walletFlashSale ? 'Pay from Sasify Wallet · PKR 2,999' : 'Pay from Sasify wallet'}
+          Pay from Sasify Wallet · 5% off
         </button>
       )}
       {error && <p role="alert">{error}</p>}

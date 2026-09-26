@@ -196,16 +196,71 @@ const PAYMENT_WINDOWS_MINUTES = Object.freeze({
   binance: 15,
   crypto: 30,
 });
-const CHATGPT_WALLET_FLASH_SALE_PRODUCT_IDS = new Set(['p093', 'p093-ultra']);
-const CHATGPT_WALLET_FLASH_SALE_PRICE = 2999;
-function chatGptWalletFlashSalePrice(order) {
-  const productId = String(order?.product_id || '');
-  const amount = Number(order?.amount || 0);
-  return CHATGPT_WALLET_FLASH_SALE_PRODUCT_IDS.has(productId) &&
-    amount >= CHATGPT_WALLET_FLASH_SALE_PRICE
-    ? CHATGPT_WALLET_FLASH_SALE_PRICE
-    : null;
+const POSTMARK_INBOUND_WINDOW_DAYS = 30;
+const POSTMARK_INBOUND_LIMIT = Math.max(
+  1,
+  Number(process.env.POSTMARK_INBOUND_LIMIT || 100),
+);
+let postmarkInboundUsageCache = { expiresAt: 0, value: null };
+
+async function postmarkInboundUsage() {
+  const now = Date.now();
+  if (postmarkInboundUsageCache.expiresAt > now && postmarkInboundUsageCache.value)
+    return postmarkInboundUsageCache.value;
+
+  const token = String(process.env.POSTMARK_SERVER_TOKEN || '').trim();
+  if (!token)
+    return {
+      available: false,
+      reason: 'not_configured',
+      limit: POSTMARK_INBOUND_LIMIT,
+      windowDays: POSTMARK_INBOUND_WINDOW_DAYS,
+    };
+
+  const to = new Date();
+  const from = new Date(
+    now - POSTMARK_INBOUND_WINDOW_DAYS * 24 * 60 * 60 * 1000,
+  );
+  const url = new URL('https://api.postmarkapp.com/messages/inbound');
+  url.searchParams.set('count', '1');
+  url.searchParams.set('offset', '0');
+  url.searchParams.set('status', 'processed');
+  url.searchParams.set('fromdate', from.toISOString());
+  url.searchParams.set('todate', to.toISOString());
+
+  try {
+    const response = await fetch(url, {
+      headers: {
+        Accept: 'application/json',
+        'X-Postmark-Server-Token': token,
+      },
+      cache: 'no-store',
+    });
+    if (!response.ok) throw new Error(`Postmark responded with ${response.status}`);
+    const payload = await response.json();
+    const used = Math.max(0, Number(payload?.TotalCount || 0));
+    const value = {
+      available: true,
+      used,
+      limit: POSTMARK_INBOUND_LIMIT,
+      remaining: Math.max(0, POSTMARK_INBOUND_LIMIT - used),
+      percentage: Math.min(100, (used / POSTMARK_INBOUND_LIMIT) * 100),
+      windowDays: POSTMARK_INBOUND_WINDOW_DAYS,
+      updatedAt: new Date().toISOString(),
+    };
+    postmarkInboundUsageCache = { expiresAt: now + 15_000, value };
+    return value;
+  } catch (error) {
+    console.error('postmark-inbound-usage-error', error?.message || error);
+    return {
+      available: false,
+      reason: 'temporarily_unavailable',
+      limit: POSTMARK_INBOUND_LIMIT,
+      windowDays: POSTMARK_INBOUND_WINDOW_DAYS,
+    };
+  }
 }
+
 const PAYMENT_VERIFICATION_GRACE_SECONDS = 90;
 const PAYMENT_CLAIM_IP_ALLOWLIST = new Set(
   String(process.env.PAYMENT_CLAIM_IP_ALLOWLIST || '')
@@ -1230,7 +1285,7 @@ async function ensurePaymentWorkflowSchema(db) {
         `INSERT INTO commerce_payment_receivers(id,label,title,account_number,receiver_marker)
          VALUES
            ('primary','Syed Adeen Sarosh',$1,$2,$1),
-           ('secondary','Laiba Seemab Ahmad',$3,$4,$3)
+           ('secondary','Sohail Ahmed Khatri',$3,$4,$3)
          ON CONFLICT(id) DO UPDATE SET
            label=EXCLUDED.label,
            title=EXCLUDED.title,
@@ -1241,8 +1296,8 @@ async function ensurePaymentWorkflowSchema(db) {
         [
           process.env.PAYMENT_ACCOUNT_TITLE || 'Syed Adeen Sarosh',
           process.env.PAYMENT_ACCOUNT_NUMBER || '03450485711',
-          process.env.PAYMENT_SECONDARY_TITLE || 'LAIBA SEEMAB AHMAD',
-          process.env.PAYMENT_SECONDARY_NUMBER || '03013219068',
+          process.env.PAYMENT_SECONDARY_TITLE || 'Sohail Ahmed Khatri',
+          process.env.PAYMENT_SECONDARY_NUMBER || '03333163059',
         ],
       );
       await db.query(
@@ -3512,6 +3567,27 @@ export function createHandler(
     }),
 ) {
   let pool;
+  let accountSchemaReady;
+  const ensureAccountSchema = async (db) => {
+    if (!accountSchemaReady) {
+      accountSchemaReady = (async () => {
+        const lockKey = 'sasify:account-schema';
+        await db.query('SELECT pg_advisory_lock(hashtext($1))', [lockKey]);
+        try {
+          for (const statement of accountSchema
+            .split(';')
+            .filter((s) => s.trim()))
+            await db.query(statement);
+        } finally {
+          await db.query('SELECT pg_advisory_unlock(hashtext($1))', [lockKey]);
+        }
+      })().catch((error) => {
+        accountSchemaReady = null;
+        throw error;
+      });
+    }
+    await accountSchemaReady;
+  };
   return async function handler(req, res) {
     res.setHeader('Cache-Control', 'no-store');
     res.setHeader('X-Content-Type-Options', 'nosniff');
@@ -3678,8 +3754,7 @@ export function createHandler(
       await ensureTeamSchema(db);
       await ensureSharedAccountSchema(db);
       await ensureTwoFactorChallengeSchema(db);
-      for (const statement of accountSchema.split(';').filter((s) => s.trim()))
-        await db.query(statement);
+      await ensureAccountSchema(db);
       await ensureResellerRequirementSchema(db);
       await db.query('BEGIN');
       const customerAccount = await accountForRequest(db, req);
@@ -3945,12 +4020,7 @@ export function createHandler(
             new Date(order.expires_at) <= new Date()
           )
             throw fail(409, 'This order cannot be paid from your wallet.');
-          const flashSalePrice = chatGptWalletFlashSalePrice(order);
-          const walletDiscount =
-            flashSalePrice !== null
-              ? Number(order.amount) - flashSalePrice
-              : Number(order.wallet_discount || 0) ||
-                Math.floor(Number(order.amount) * 0.05);
+          const walletDiscount = Math.floor(Number(order.amount) * 0.05);
           const payableAmount = Math.max(
             0,
             Number(order.amount) - walletDiscount,
@@ -4005,16 +4075,13 @@ export function createHandler(
                 account.id,
                 -payableAmount,
                 order.id,
-                flashSalePrice !== null
-                  ? 'ChatGPT Plus flash sale · PKR 2,999 wallet price'
-                  : 'Order purchase · 5% wallet discount',
+                'Order purchase · 5% wallet discount',
               ],
             );
             output = {
               ok: true,
               status: 'delivered',
               discount: walletDiscount,
-              flashSale: flashSalePrice !== null,
               paid: payableAmount,
               balance: Number(debited.rows[0].balance),
             };
@@ -5176,7 +5243,6 @@ export function createHandler(
             paymentMethod: order.payment_method || 'wallet',
             paymentCurrency: order.payment_currency || 'PKR',
             paymentAmount: Number(order.payment_amount || order.amount || 0),
-            walletFlashSalePrice: chatGptWalletFlashSalePrice(order) || undefined,
             paymentWindowMinutes:
               PAYMENT_WINDOWS_MINUTES[order.payment_method] ||
               PAYMENT_WINDOWS_MINUTES.wallet,
@@ -6115,6 +6181,7 @@ export function createHandler(
         const adminSettings = Object.fromEntries(
           (await db.query('SELECT key,value FROM commerce_admin_settings ORDER BY key')).rows.map((row) => [row.key, row.value]),
         );
+        const inboundUsage = await postmarkInboundUsage();
         const resellerRequirements = (await db.query(
           `SELECT r.id,r.tool_name,r.description,r.status,r.created_at,r.updated_at,
                   COALESCE(jsonb_agg(jsonb_build_object('id',rr.id,'name',a.name,'email',a.email,'username',a.username,'contact_number',rr.contact_number,'created_at',rr.created_at) ORDER BY rr.created_at DESC) FILTER (WHERE rr.id IS NOT NULL),'[]'::jsonb) AS responses
@@ -6316,6 +6383,7 @@ export function createHandler(
             )
           ).rows,
           adminSettings,
+          postmarkInboundUsage: inboundUsage,
           supplierProducts: (
             await db.query(
               'SELECT * FROM commerce_supplier_products ORDER BY provider_name,name',

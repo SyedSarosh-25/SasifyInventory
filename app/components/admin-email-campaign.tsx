@@ -14,36 +14,22 @@ export type EmailCampaignPayload = {
   text: string;
 };
 
-const FLASH_SALE_SUBJECT =
-  'FLASH SALE IS LIVE — ChatGPT Plus with 30-day warranty for PKR 2,999';
-const FLASH_SALE_BODY = `Assalam-o-alaikum,
+const WALLET_SAVINGS_SUBJECT =
+  'Sasify Wallet — 5% off every purchase';
+const WALLET_SAVINGS_BODY = `Assalam-o-alaikum,
 
-FLASH SALE IS LIVE at Sasify Solutions!
+Save 5% on every purchase when you pay with your Sasify Wallet.
 
-Get a ChatGPT Plus private account with a 30-day warranty for only PKR 2,999 when you pay using your Sasify Wallet.
+Your wallet discount is applied automatically at checkout.
 
-What you get:
-• One-month ChatGPT Plus private account
-• 30-day warranty on the Ultra Stable account
-• Access to advanced models, higher limits, file analysis and image generation
-• Secure online checkout through Sasify Solutions
-
-How to activate:
+How to use it:
 1. Log in to your Sasify account and open Dashboard → Wallet & deposits.
 2. Add funds to your Sasify Wallet. Your balance updates after the payment is verified.
-3. Open the ChatGPT Plus private account listing and click Buy now.
-4. Select Sasify Wallet at checkout. The flash-sale price will be PKR 2,999.
-5. Keep the order screen open. After wallet payment verification, your account credentials appear automatically, usually within one minute.
-6. Log in to ChatGPT using the delivered email and password. When asked for a 6-digit authenticator code, use Sasify OTP with the delivered 2FA key.
-7. Transfer the account to your own personal email from ChatGPT Settings → Account → Email Change. This step is required to keep the warranty active.
+3. Choose any eligible product and continue to checkout.
+4. Select Sasify Wallet. The 5% discount is applied automatically.
+5. Keep the order screen open. After wallet payment, delivery continues automatically where available.
 
-Important:
-• The PKR 2,999 price is available when paying from Sasify Wallet.
-• The flash sale is limited-time and subject to available stock.
-• Do not change the password or 2FA settings before completing the transfer.
-• Keep your credentials private and contact Sasify support if you face any issue.
-
-Grab the offer while it is live!
+Keep your credentials private and contact Sasify support if you need help.
 
 Regards,
 Sasify Solutions`;
@@ -58,8 +44,8 @@ export function AdminEmailCampaign({
   onSend: (payload: EmailCampaignPayload) => Promise<void>;
 }) {
   const [audience, setAudience] = useState<'all' | 'verified'>('all');
-  const [subject, setSubject] = useState(FLASH_SALE_SUBJECT);
-  const [text, setText] = useState(FLASH_SALE_BODY);
+  const [subject, setSubject] = useState(WALLET_SAVINGS_SUBJECT);
+  const [text, setText] = useState(WALLET_SAVINGS_BODY);
   const totalRecipients = accounts.filter((account) => account.email?.trim()).length;
   const verifiedRecipients = accounts.filter(
     (account) => account.email?.trim() && account.email_verified_at,
@@ -95,7 +81,7 @@ export function AdminEmailCampaign({
         <div className="admin-enhancement-heading">
           <div>
             <span className="admin-eyebrow">Ready to send</span>
-            <h2>Flash Sale announcement</h2>
+            <h2>Wallet savings announcement</h2>
             <p>Edit the message below, preview it, then send it to the selected audience.</p>
           </div>
         </div>
