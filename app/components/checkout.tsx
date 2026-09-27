@@ -154,6 +154,7 @@ export function Checkout() {
   const [products, setProducts] = useState<Stock[]>([]),
     [selected, setSelected] = useState('p013');
   const [availability, setAvailability] = useState<'checking' | 'available' | 'unavailable' | 'unknown'>('checking');
+  const [availabilityStock, setAvailabilityStock] = useState<number | null>(null);
   const [availabilityRetry, setAvailabilityRetry] = useState(0);
   const [order, setOrder] = useState<Order | null>(null),
     [id, setId] = useState(''),
@@ -219,9 +220,16 @@ export function Checkout() {
     if (!ready || id) return;
     let active = true;
     setAvailability('checking');
+    setAvailabilityStock(null);
     api('checkout-availability', '', { productId: selected })
-      .then((data) => { if (active) setAvailability(['available', 'unavailable'].includes(data.status) ? data.status : 'unknown'); })
-      .catch(() => { if (active) setAvailability('unknown'); });
+      .then((data) => {
+        if (!active) return;
+        const status = ['available', 'unavailable'].includes(data.status) ? data.status : 'unknown';
+        setAvailability(status);
+        const stock = Number(data.available);
+        setAvailabilityStock(status === 'available' && Number.isSafeInteger(stock) && stock >= 0 ? stock : null);
+      })
+      .catch(() => { if (active) { setAvailability('unknown'); setAvailabilityStock(null); } });
     return () => { active = false; };
   }, [selected, ready, id, availabilityRetry]);
   useEffect(() => {
@@ -516,7 +524,7 @@ export function Checkout() {
                 </div>
                 <div>
                   <span>Supplier availability</span>
-                  <strong role="status">{availability === 'checking' ? 'Checking availability…' : availability === 'available' ? 'Available' : availability === 'unavailable' ? 'Unavailable' : 'Could not verify'}</strong>
+                  <strong role="status">{availability === 'checking' ? 'Checking availability…' : availability === 'available' ? `Available${availabilityStock === null ? '' : ` · ${availabilityStock.toLocaleString()} in stock`}` : availability === 'unavailable' ? 'Unavailable' : 'Could not verify'}</strong>
                 </div>
               </div>
             )}

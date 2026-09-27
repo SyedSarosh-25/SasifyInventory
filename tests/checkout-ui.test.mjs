@@ -52,3 +52,8 @@ test('admin payment inbox shows receipts from all receiver accounts by default',
 test('private-account delivery guide is hidden for shared accounts', () => {
   assert.match(checkoutSource, /!order\.sharedSlot\s*&&\s*<section className="account-delivery-guide"/);
 });
+
+test('checkout displays live supplier quantity when availability is confirmed', () => {
+  assert.match(checkoutSource, /availabilityStock/);
+  assert.match(checkoutSource, /in stock/);
+});
