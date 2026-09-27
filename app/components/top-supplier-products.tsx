@@ -1,4 +1,5 @@
 'use client';
+import { requestLiveStock } from '../live-stock-request.mjs';
 import { LocalizedContent } from './language';
 
 
@@ -141,7 +142,7 @@ export function TopSupplierProducts() {
   useEffect(() => {
     let active = true;
     const previewOnly = new URLSearchParams(window.location.search).has('top10Preview');
-    fetch('/api/commerce?action=stock', { cache: 'no-store' })
+    requestLiveStock()
       .then(async (response) => {
         if (!response.ok) throw new Error('Could not load supplier products.');
         return (await response.json()) as { products?: SupplierProduct[] };

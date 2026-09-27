@@ -1,4 +1,5 @@
 'use client';
+import { requestLiveStock } from '../live-stock-request.mjs';
 import { LocalizedContent } from './language';
 
 
@@ -31,7 +32,7 @@ export function SupplierLivePurchase({ productId, canonicalKey, name }: Props) {
     const identifiers = new Set([productId, canonicalKey].filter(Boolean));
     const planKey = supplierProductKey(name);
 
-    fetch('/api/commerce?action=stock', { cache: 'no-store' })
+    requestLiveStock()
       .then((response) => (response.ok ? response.json() : Promise.reject()))
       .then((data) => {
         const stock = data as StockResponse;

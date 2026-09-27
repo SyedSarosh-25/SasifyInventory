@@ -1,4 +1,5 @@
 'use client';
+import { requestLiveStock } from '../live-stock-request.mjs';
 
 import { Megaphone } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
@@ -76,7 +77,7 @@ export function NewProductsTicker() {
   useEffect(() => {
     let active = true;
     const load = () => {
-      fetch('/api/commerce?action=stock', { cache: 'no-store' })
+      requestLiveStock()
         .then(async (response) => {
           if (!response.ok) throw new Error('Could not load stock.');
           return await response.json() as { products?: StockProduct[] };

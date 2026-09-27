@@ -1,4 +1,5 @@
 'use client';
+import { requestLiveStock } from './live-stock-request.mjs';
 import { LocalizedContent } from './components/language';
 
 
@@ -416,7 +417,7 @@ export default function Home() {
 
   useEffect(() => {
     let active = true;
-    fetch('/api/commerce?action=stock', { cache: 'no-store' })
+    requestLiveStock()
       .then((response) => response.ok ? response.json() : Promise.reject())
       .then((data: any) => {
         if (active && Number.isSafeInteger(data.productCount)) setLiveProductCount(data.productCount);

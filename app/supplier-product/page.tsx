@@ -1,4 +1,5 @@
 'use client';
+import { requestLiveStock } from '../live-stock-request.mjs';
 
 import { ArrowLeft, MessageCircle, ShoppingCart, Tag } from 'lucide-react';
 import { useEffect, useState } from 'react';
@@ -11,7 +12,7 @@ type SupplierProduct = { id:string; name:string; description?:string; warranty?:
 export default function SupplierProductPage() {
   const [product,setProduct] = useState<SupplierProduct|null>(null);
   const [loading,setLoading] = useState(true);
-  useEffect(() => { const id = new URLSearchParams(window.location.search).get('product'); if (!id) { setLoading(false); return; } const cached = readSupplierCatalogProduct<SupplierProduct>(id); if (cached) { setProduct(cached); setLoading(false); } let active = true; fetch('/api/commerce?action=stock',{cache:'no-store'}).then((response) => response.ok ? response.json() : Promise.reject()).then((data:any) => { cacheSupplierCatalog(data.products || []); if (active) setProduct((data.products || []).find((item:SupplierProduct) => item.id === id && item.available > 0) || null); }).catch(() => {}).finally(() => { if (active) setLoading(false); }); return () => { active = false; }; }, []);
+  useEffect(() => { const id = new URLSearchParams(window.location.search).get('product'); if (!id) { setLoading(false); return; } const cached = readSupplierCatalogProduct<SupplierProduct>(id); if (cached) { setProduct(cached); setLoading(false); } let active = true; requestLiveStock().then((response) => response.ok ? response.json() : Promise.reject()).then((data:any) => { cacheSupplierCatalog(data.products || []); if (active) setProduct((data.products || []).find((item:SupplierProduct) => item.id === id && item.available > 0) || null); }).catch(() => {}).finally(() => { if (active) setLoading(false); }); return () => { active = false; }; }, []);
 
   const description = product?.description || 'The supplier did not provide a product description for this listing.';
   const logo = product ? supplierLogo(product.name, product.logo_url) : '';
