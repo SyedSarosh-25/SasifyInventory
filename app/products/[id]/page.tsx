@@ -336,6 +336,7 @@ function SupplierSeoProductPage({ product }: { product: SupplierSeoProduct }) {
               <SupplierLivePurchase
                 productId={product.id}
                 canonicalKey={product.canonicalKey}
+                name={product.name}
               />
             </div>
             <p className="order-footnote">

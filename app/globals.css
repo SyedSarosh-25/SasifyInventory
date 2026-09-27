@@ -3137,3 +3137,16 @@ svg { flex-shrink: 0; }
   .tool-request-admin-count { justify-items: start; }
   .tool-request-admin-actions > * { flex: 1 1 145px; justify-content: center; }
 }
+.catalog-family-link {
+  display: inline-flex;
+  align-items: center;
+  margin: 0 0 18px;
+  padding: 10px 14px;
+  border: 1px solid #d9e3ff;
+  border-radius: 10px;
+  background: #f5f7ff;
+  color: #285cff;
+  font-weight: 700;
+  text-decoration: none;
+}
+.catalog-family-link:hover { background: #eaf0ff; }

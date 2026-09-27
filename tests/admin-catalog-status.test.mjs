@@ -63,6 +63,15 @@ test('different durations remain separate supplier products', () => {
   assert.deepEqual([...ids], []);
 });
 
+test('CapCut Pro and Team remain separate in admin even with a stale shared automatic key', () => {
+  const groups = supplierCatalogGroups([
+    product({ id: 'pro', name: 'CapCut Pro 1 Month', canonical_key: 'auto:capcut-duration-1m' }),
+    product({ id: 'team', name: 'CapCut Pro Team 1 Month 1200 Credits', canonical_key: 'auto:capcut-duration-1m' }),
+  ]);
+  assert.equal(groups.length, 2);
+  assert.notEqual(groups[0].key, groups[1].key);
+});
+
 test('grouped supplier catalogue exposes one price target and the cheapest live winner', () => {
   const groups = supplierCatalogGroups([
     product({ id: 'dodi:chatgpt', name: 'ChatGPT Plus 1 Month', cost_pkr: 900, selling_price: 1999 }),

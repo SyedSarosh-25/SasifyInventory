@@ -1404,6 +1404,7 @@ export function CommerceAdmin() {
     >('overview'),
     [inventorySearch, setInventorySearch] = useState(''),
     [supplierSearch, setSupplierSearch] = useState(''),
+    [selectedSupplierId, setSelectedSupplierId] = useState(''),
     [supplierKeyValues, setSupplierKeyValues] = useState<Record<string, string>>({}),
     [supplierKeysOpen, setSupplierKeysOpen] = useState(false),
     [supplierProvider, setSupplierProvider] = useState<
@@ -1586,10 +1587,11 @@ export function CommerceAdmin() {
     );
     await refresh();
   };
-  const saveSupplierGroupPrice = async (group: SupplierCatalogGroup, sellingPrice: number) => {
+  const saveSupplierGroupPrice = async (group: SupplierCatalogGroup, sellingPrice: number, productDescription?: string) => {
     const result = await api('admin-supplier-group-update', key, {
       productIds: group.products.map((product) => product.id),
       sellingPrice,
+      ...(productDescription !== undefined ? { productDescription } : {}),
     });
     setNotice(
       `${group.name} price saved for ${result.updated || group.products.length} supplier offer${result.updated === 1 ? '' : 's'}.`,
@@ -3260,11 +3262,19 @@ export function CommerceAdmin() {
             <AdminCatalogStatus
               products={supplierProducts as any}
               busy={busy}
-              onSaveGroupPrice={(group, sellingPrice) =>
-                run(() => saveSupplierGroupPrice(group, sellingPrice))
+              onManage={(product) => {
+                setSelectedSupplierId(product.id);
+                setSupplierSearch(product.external_product_id || product.name);
+                setSupplierProvider('all');
+                setSupplierStockFilter(supplierOfferView.rejected.has(product.id) ? 'rejected' : 'best-price');
+                setTab('supplier');
+                window.setTimeout(() => document.querySelector('.supplier-raw-offers')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 0);
+              }}
+              onSaveGroupPrice={(group, sellingPrice, description) =>
+                run(() => saveSupplierGroupPrice(group, sellingPrice, description))
               }
             />
-            <details className="supplier-raw-offers">
+            <details className="supplier-raw-offers" open={Boolean(selectedSupplierId) || undefined}>
               <summary>Advanced: edit individual supplier offers</summary>
             <div
               className="supplier-provider-tabs"

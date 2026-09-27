@@ -16,12 +16,12 @@ test('supplier matching merges equivalent CapCut duration labels', () => {
   );
 });
 
-test('supplier matching groups every CapCut access label by duration', () => {
-  assert.equal(
+test('supplier matching keeps CapCut plan types and credit packages separate', () => {
+  assert.notEqual(
     supplierProductKey('CapCut Pro 1 Month'),
     supplierProductKey('CapCut Pro Team 1 Month 1200 Credits'),
   );
-  assert.equal(
+  assert.notEqual(
     supplierProductKey('CapCut Pro 30D full warranty'),
     supplierProductKey('CapCut Pro Team 30D full warranty'),
   );
@@ -29,10 +29,12 @@ test('supplier matching groups every CapCut access label by duration', () => {
     supplierProductKey('CapCut Pro one month'),
     supplierProductKey('Pro Capcut 1M with warranty'),
   );
-  assert.equal(
+  assert.notEqual(
     supplierProductKey('CAPCUT 6 MONTHS full warranty'),
     supplierProductKey('Capcut Pro 6M (FW)'),
   );
+  assert.notEqual(supplierProductKey('ChatGPT Plus 1 Month'), supplierProductKey('ChatGPT Plus K12 1 Month'));
+  assert.notEqual(supplierProductKey('CapCut Team 1200 Credits 1 Month'), supplierProductKey('CapCut Team 500 Credits 1 Month'));
 });
 
 test('supplier matching merges equivalent Grok Heavy names before choosing a cost winner', () => {
@@ -91,4 +93,12 @@ test('supplier catalogue merges records when either stored key or normalized nam
     },
   ]);
   assert.deepEqual(selected.map((product) => product.id), ['supplier-b']);
+});
+
+test('stale automatic keys do not merge distinct CapCut plans', () => {
+  const selected = selectLowestSupplierOffers([
+    { id: 'pro', name: 'CapCut Pro 1 Month', canonical_key: 'auto:capcut-duration-1m', supplier_stock: 2, cost_pkr: 600 },
+    { id: 'team', name: 'CapCut Pro Team 1 Month 1200 Credits', canonical_key: 'auto:capcut-duration-1m', supplier_stock: 2, cost_pkr: 400 },
+  ]);
+  assert.deepEqual(selected.map((product) => product.id), ['pro', 'team']);
 });

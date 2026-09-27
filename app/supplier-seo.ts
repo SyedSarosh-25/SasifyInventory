@@ -40,4 +40,11 @@ export function findSupplierSeoProduct(idOrSlug: string) {
   return bySlug.get(idOrSlug) || byCheckoutId.get(idOrSlug) || null;
 }
 
+/** Newly synced offers do not yet have generated static SEO pages. */
+export function supplierCatalogHref(product: { id?: string | null; canonical_key?: string | null; name?: string | null }) {
+  const key = String(product.canonical_key || product.id || '');
+  const generated = byCheckoutId.get(key);
+  return generated ? supplierProductHref(generated) : `/supplier-product?product=${encodeURIComponent(key)}`;
+}
+
 export { supplierProductHref, supplierProductSlug };

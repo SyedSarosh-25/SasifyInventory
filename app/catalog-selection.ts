@@ -34,7 +34,9 @@ export function supplierEquivalentProductName(staticName: string, supplierName: 
 }
 
 export function isChatGptPlusProduct(name: string) {
-  return /\bchatgpt\s+plus\b/i.test(String(name || ''));
+  const value = String(name || '');
+  return /\bchatgpt\s+plus\b/i.test(value)
+    && !/\b(?:k12|edu|education|business|team|enterprise)\b|\b(?:[2-9]\d*|1\d+)\s*(?:m|months?)\b|\b\d+\s*(?:y|years?)\b/i.test(value);
 }
 
 export type LiveCatalogProduct = {
@@ -73,22 +75,18 @@ export const fixedTopProductSpecs: FixedTopProductSpec[] = [
   { source: 'local', id: 'p012', displayName: 'Claude Team Plan Premium' },
   {
     source: 'supplier',
-    canonicalKey: 'auto:capcut-duration-1m',
-    displayName: 'CapCut Pro · 1 Month',
-    displayPricePkr: 999,
-    displayOriginalPricePkr: 5600,
+    canonicalKey: 'auto:1200-capcut-credits-pro-team-duration-1m',
+    displayName: 'CapCut Pro Team · 1 Month · 1200 Credits',
   },
   {
     source: 'supplier',
     canonicalKey: 'manual:muse-ai',
     displayName: 'Muse AI · 1 Billion AI Tokens',
-    displayPricePkr: 2499,
   },
   {
     source: 'supplier',
     canonicalKey: 'auto:education-figma-plan-pro-duration-2y',
     displayName: 'Figma Pro · 2 Years',
-    displayPricePkr: 6999,
     displayOriginalPricePkr: 109440,
   },
   {

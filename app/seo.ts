@@ -13,6 +13,7 @@ import {
   supplierSeoProducts,
 } from './supplier-seo.ts';
 import { supplierLogo } from './supplier-product-utils.ts';
+import { knownToolFamilySlugs } from './tool-families.ts';
 import {
   founderProfile,
   siteDescription,
@@ -353,6 +354,7 @@ export function sitemapEntries() {
     '/privacy',
     '/terms',
     '/categories',
+    ...knownToolFamilySlugs.map((slug) => `/tools/${slug}`),
     ...storefrontCategories.map(category => `/categories/${category.slug}`),
     ...products.map(productHref),
     ...supplierSeoProducts.map(supplierProductHref),

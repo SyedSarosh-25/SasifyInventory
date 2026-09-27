@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, Check, Pencil, Plus, Save, Trash2, WalletCards, X } from 'lucide-react';
 
 type AdminApi = (action: string, token?: string, body?: object) => Promise<any>;
@@ -14,14 +14,14 @@ export function AdminUserDetail({ accountId, accounts, api, token, busy, onBack,
   const [note, setNote] = useState('');
   const [message, setMessage] = useState('');
   const account = accounts.find((row) => row.id === accountId);
-  async function load() {
+  const load = useCallback(async () => {
     try {
       setDetail(await api('admin-user-detail', token, { accountId }));
     } catch {
       setDetail({ account: account || { id: accountId, name: 'Preview user', email: 'demo@example.com', balance: 0, role: 'customer' }, orders: [], deposits: [], ledger: [] });
     }
-  }
-  useEffect(() => { void load(); }, [accountId]);
+  }, [account, accountId, api, token]);
+  useEffect(() => { void load(); }, [load]);
   async function adjust() {
     await api('admin-wallet-adjust', token, { accountId, amount: Number(adjustment), note });
     setAdjustment(''); setNote(''); setMessage('Wallet balance updated.'); await load(); await onRefresh();

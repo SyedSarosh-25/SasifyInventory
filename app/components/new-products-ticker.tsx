@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { products as localProducts, type Product } from '../products';
 import { productHref } from '../product-utils';
 import { supplierLogo, supplierMonogram } from '../supplier-product-utils';
-import { supplierProductHref } from '../supplier-seo-utils';
+import { supplierCatalogHref } from '../supplier-seo';
 import { Money } from './currency';
 import { ProductLogo } from './product-logo';
 
@@ -44,7 +44,7 @@ function TickerItem({ product, duplicate = false }: { product: NewProduct; dupli
   const supplier = product.source === 'supplier';
   const logo = supplier ? supplierLogo(product.name, product.logoUrl) : '';
   const href = supplier
-    ? supplierProductHref({
+    ? supplierCatalogHref({
       id: product.id,
       name: product.name,
       canonical_key: product.canonical_key,

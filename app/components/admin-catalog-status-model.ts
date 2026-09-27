@@ -1,6 +1,9 @@
+import { supplierProductKey } from '../../commerce/supplier-matching.mjs';
+
 export type SupplierCatalogStatusProduct = {
   id: string;
   name: string;
+  description?: string | null;
   provider_name?: string | null;
   provider_id?: string | null;
   external_product_id?: string | null;
@@ -8,6 +11,7 @@ export type SupplierCatalogStatusProduct = {
   selling_price?: number | string | null;
   cost_pkr?: number | string | null;
   canonical_key?: string | null;
+  canonical_manual?: boolean | null;
   enabled?: boolean | null;
   wholesale_price?: number | string | null;
   currency?: string | null;
@@ -48,52 +52,12 @@ export function supplierStatusLabel(status: SupplierCatalogStatus) {
   return 'Needs setup';
 }
 
-const duplicateNoise = new Set([
-  'a', 'an', 'the', 'for', 'full', 'has', 'included', 'no', 'not', 'with',
-  'without', 'warranty', 'nw', 'fw', 'preorder', 'pre',
-]);
-
-const durationUnit = /^(d|day|days|m|mo|month|months|y|year|years|w|week|weeks)$/;
-
-function normalizedDuration(amount: number, unit: string) {
-  if (['d', 'day', 'days'].includes(unit)) {
-    return amount >= 28 && amount <= 31 ? 'duration:1m' : `duration:${amount}d`;
-  }
-  if (['m', 'mo', 'month', 'months'].includes(unit)) return `duration:${amount}m`;
-  if (['y', 'year', 'years'].includes(unit)) return `duration:${amount}y`;
-  return `duration:${amount}w`;
-}
-
 /**
  * Produces a conservative name key for finding repeated supplier offers.
- * Duration and warranty wording is intentionally ignored because suppliers
- * commonly describe the same offer differently (for example, 30D and 1M).
+ * Warranty wording is ignored; duration, plan type and credits are retained.
  */
 export function supplierDuplicateKey(product: Pick<SupplierCatalogStatusProduct, 'name'>) {
-  const tokens = String(product.name || '')
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, ' ')
-    .trim()
-    .split(/\s+/)
-    .filter(Boolean);
-  const kept: string[] = [];
-  for (let index = 0; index < tokens.length; index += 1) {
-    const token = tokens[index];
-    if (duplicateNoise.has(token)) continue;
-    const compactDuration = token.match(/^(\d+)(d|day|days|m|mo|month|months|y|year|years|w|week|weeks)$/);
-    if (compactDuration) {
-      kept.push(normalizedDuration(Number(compactDuration[1]), compactDuration[2]));
-      continue;
-    }
-    if (/^\d+$/.test(token) && durationUnit.test(tokens[index + 1] || '')) {
-      kept.push(normalizedDuration(Number(token), tokens[index + 1]));
-      index += 1;
-      continue;
-    }
-    if (durationUnit.test(token) && /^\d+$/.test(tokens[index - 1] || '')) continue;
-    kept.push(token);
-  }
-  return kept.join(' ');
+  return supplierProductKey(product.name) || '';
 }
 
 export function supplierOfferGroups(products: SupplierCatalogStatusProduct[]) {
@@ -113,9 +77,13 @@ export function supplierOfferGroups(products: SupplierCatalogStatusProduct[]) {
   const keyOwners = new Map<string, string>();
   for (const product of products) {
     parent.set(product.id, product.id);
-    const keys = [`name:${supplierDuplicateKey(product)}`];
+    const nameKey = supplierDuplicateKey(product);
     const canonicalKey = String((product as SupplierCatalogStatusProduct & { canonical_key?: string | null }).canonical_key || '').trim().toLowerCase();
-    if (canonicalKey) keys.push(`canonical:${canonicalKey}`);
+    // Manual mappings are explicit admin decisions. Automatic keys can be
+    // stale after the matching algorithm changes, so derive them from names.
+    const keys = canonicalKey && (product.canonical_manual === true || !canonicalKey.startsWith('auto:'))
+      ? [`canonical:${canonicalKey}`]
+      : [nameKey ? `name:${nameKey}` : `id:${product.id}`];
     for (const key of keys) {
       const owner = keyOwners.get(key);
       if (owner) union(product.id, owner);
@@ -139,11 +107,12 @@ export function supplierOfferDecision(products: SupplierCatalogStatusProduct[]) 
       winners.add(group[0].id);
       continue;
     }
-    const inStock = group.filter((product) => Number(product.supplier_stock || 0) > 0);
-    const candidates = inStock.length ? inStock : group;
+    const sellable = group.filter((product) => hasSupplierStock(product) && hasSellingPrice(product) && product.enabled === true);
+    const inStock = group.filter(hasSupplierStock);
+    const candidates = sellable.length ? sellable : inStock.length ? inStock : group;
     const winner = [...candidates].sort((left, right) => {
-      const leftCost = Number(left.cost_pkr ?? Number.POSITIVE_INFINITY);
-      const rightCost = Number(right.cost_pkr ?? Number.POSITIVE_INFINITY);
+      const leftCost = Number(left.cost_pkr ?? left.wholesale_price ?? Number.POSITIVE_INFINITY);
+      const rightCost = Number(right.cost_pkr ?? right.wholesale_price ?? Number.POSITIVE_INFINITY);
       return leftCost - rightCost || left.id.localeCompare(right.id);
     })[0];
     winners.add(winner.id);
@@ -168,12 +137,13 @@ export type SupplierCatalogGroup = {
   providerNames: string[];
   cheapestCost: number | null;
   groupSellingPrice: number | null;
+  groupDescription: string | null;
 };
 
 function lowestCostProduct(products: SupplierCatalogStatusProduct[]) {
   return [...products].sort((left, right) => {
-    const leftCost = Number(left.cost_pkr ?? Number.POSITIVE_INFINITY);
-    const rightCost = Number(right.cost_pkr ?? Number.POSITIVE_INFINITY);
+    const leftCost = Number(left.cost_pkr ?? left.wholesale_price ?? Number.POSITIVE_INFINITY);
+    const rightCost = Number(right.cost_pkr ?? right.wholesale_price ?? Number.POSITIVE_INFINITY);
     return leftCost - rightCost || left.id.localeCompare(right.id);
   })[0] || null;
 }
@@ -199,10 +169,11 @@ export function supplierCatalogGroups(products: SupplierCatalogStatusProduct[]):
       .map((product) => Number(product.selling_price))
       .filter((value) => Number.isFinite(value) && value > 0);
     const distinctPrices = [...new Set(prices)];
+    const descriptions = [...new Set(group.map((product) => String(product.description || '').trim()))];
     const canonicalKey = String(group[0]?.canonical_key || '').trim().toLowerCase();
     const nameKey = supplierDuplicateKey(group[0] || { name: '' });
     return {
-      key: canonicalKey ? `canonical:${canonicalKey}` : `name:${nameKey}`,
+      key: canonicalKey && (group[0]?.canonical_manual === true || !canonicalKey.startsWith('auto:')) ? `canonical:${canonicalKey}` : `name:${nameKey || group[0]?.id}`,
       name: winner?.name || group[0]?.name || 'Unnamed product',
       products: group,
       winner,
@@ -213,6 +184,7 @@ export function supplierCatalogGroups(products: SupplierCatalogStatusProduct[]):
       providerNames: [...new Set(group.map((product) => product.provider_name || product.provider_id || 'Supplier'))],
       cheapestCost: costs.length ? Math.min(...costs) : null,
       groupSellingPrice: distinctPrices.length === 1 ? distinctPrices[0] : null,
+      groupDescription: descriptions.length === 1 ? descriptions[0] : null,
     };
   });
 }

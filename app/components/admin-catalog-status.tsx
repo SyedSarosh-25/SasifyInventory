@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ArrowRight, ChevronDown, CircleCheck, CircleDashed, Layers3, Save, Search, TriangleAlert } from 'lucide-react';
 import {
   supplierCatalogGroups,
@@ -30,10 +30,15 @@ function GroupRow({
 }: {
   group: SupplierCatalogGroup;
   onManage?: (product: SupplierCatalogStatusProduct) => void;
-  onSaveGroupPrice?: (group: SupplierCatalogGroup, price: number) => Promise<void>;
+  onSaveGroupPrice?: (group: SupplierCatalogGroup, price: number, description?: string) => Promise<void>;
   busy?: boolean;
 }) {
   const [price, setPrice] = useState(group.groupSellingPrice ? String(group.groupSellingPrice) : '');
+  const [description, setDescription] = useState(group.groupDescription || '');
+  useEffect(() => {
+    setPrice(group.groupSellingPrice ? String(group.groupSellingPrice) : '');
+    setDescription(group.groupDescription || '');
+  }, [group.groupSellingPrice, group.groupDescription]);
   const [priceError, setPriceError] = useState('');
   const Icon = group.listed ? CircleCheck : TriangleAlert;
   return (
@@ -81,25 +86,35 @@ function GroupRow({
         </button>
         {priceError && <small className="catalog-group-error">{priceError}</small>}
       </div>
+      <details className="catalog-group-copy-editor">
+        <summary>Edit customer description for all offers</summary>
+        <p>Apply shared copy only when every supplier offer has the same access and delivery terms. Use “Edit” below for offer-specific requirements.</p>
+        <label>Customer-facing description
+          <textarea rows={4} maxLength={20000} value={description} onChange={(event) => setDescription(event.target.value)} />
+        </label>
+        <button type="button" className="secondary-button compact" disabled={busy || !onSaveGroupPrice} onClick={() => {
+          const value = Number(price);
+          if (!Number.isSafeInteger(value) || value < 1) { setPriceError('Set a valid group price before saving the description.'); return; }
+          void onSaveGroupPrice?.(group, value, description.trim());
+        }}><Save size={15} /> Save description</button>
+      </details>
       <details className="catalog-group-offers">
         <summary><ChevronDown size={15} /> View supplier offers and fallback order</summary>
-        <div className="catalog-group-offer-list">
+        <div className="catalog-group-offer-list"><table><thead><tr><th>Priority</th><th>Supplier offer</th><th>Stock</th><th>Cost</th><th>Customer price</th><th>Status</th></tr></thead><tbody>
           {group.products
             .slice()
             .sort((left, right) => Number(left.cost_pkr ?? Number.POSITIVE_INFINITY) - Number(right.cost_pkr ?? Number.POSITIVE_INFINITY))
             .map((product) => (
-              <div className={`catalog-group-offer ${group.winner?.id === product.id ? 'is-winner' : ''}`} key={product.id}>
-                <div>
-                  <strong>{product.provider_name || product.provider_id || 'Supplier'}</strong>
-                  <small>{product.name} · {product.external_product_id || product.id}</small>
-                </div>
-                <span>{Number(product.supplier_stock || 0).toLocaleString('en-PK')} in stock</span>
-                <span>{money(product.cost_pkr)} cost</span>
-                <span>{product.enabled === true ? 'Enabled' : 'Disabled'} · {money(product.selling_price)}</span>
-                {onManage && <button type="button" className="secondary-button compact" onClick={() => onManage(product)}>Edit <ArrowRight size={14} /></button>}
-              </div>
+              <tr className={group.winner?.id === product.id ? 'is-winner' : ''} key={product.id}>
+                <td>{group.winner?.id === product.id ? 'Primary' : 'Backup'}</td>
+                <td><strong>{product.provider_name || product.provider_id || 'Supplier'}</strong><small>{product.name} · {product.external_product_id || product.id}</small></td>
+                <td>{Number(product.supplier_stock || 0).toLocaleString('en-PK')}</td>
+                <td>{money(product.cost_pkr)}</td>
+                <td>{money(product.selling_price)}</td>
+                <td>{product.enabled === true ? 'Enabled' : 'Disabled'} {onManage && <button type="button" className="secondary-button compact" onClick={() => onManage(product)}>Edit <ArrowRight size={14} /></button>}</td>
+              </tr>
             ))}
-        </div>
+        </tbody></table></div>
       </details>
     </article>
   );
@@ -113,20 +128,19 @@ export function AdminCatalogStatus({
 }: {
   products: SupplierCatalogStatusProduct[];
   onManage?: (product: SupplierCatalogStatusProduct) => void;
-  onSaveGroupPrice?: (group: SupplierCatalogGroup, price: number) => Promise<void>;
+  onSaveGroupPrice?: (group: SupplierCatalogGroup, price: number, description?: string) => Promise<void>;
   busy?: boolean;
 }) {
   const [query, setQuery] = useState('');
   const [activeStatus, setActiveStatus] = useState<keyof typeof statusConfig>('listed');
   const grouped = useMemo(() => {
     const normalized = query.trim().toLowerCase();
-    const matching = products.filter((product) =>
-      !normalized ||
-      `${product.name} ${product.provider_name || ''} ${product.external_product_id || ''}`
-        .toLowerCase()
-        .includes(normalized),
+    const groups = supplierCatalogGroups(products).filter((group) =>
+      !normalized || group.products.some((product) =>
+        `${product.name} ${product.provider_name || ''} ${product.external_product_id || ''} ${product.canonical_key || ''}`
+          .toLowerCase()
+          .includes(normalized)),
     );
-    const groups = supplierCatalogGroups(matching);
     return {
       listed: groups.filter((group) => group.listed),
       unlisted: groups.filter((group) => !group.listed),

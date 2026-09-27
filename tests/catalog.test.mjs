@@ -216,7 +216,7 @@ test('landing selection has exactly ten distinct products with the requested fir
   assert.deepEqual(featuredProducts.map((product) => product.id), ['p013', 'p012', 'p100', 'p101']);
 });
 
-test('homepage Top 8 stays fixed and applies the curated merchandising values', () => {
+test('homepage Top 8 keeps distinct plan names and supplier prices from live stock', () => {
   assert.equal(fixedTopProductSpecs.length, 8);
   const catalog = [
     ...products.map((product) => ({
@@ -227,18 +227,18 @@ test('homepage Top 8 stays fixed and applies the curated merchandising values', 
       source: 'local',
     })),
     {
-      id: 'auto:capcut-duration-1m',
-      canonical_key: 'auto:capcut-duration-1m',
+      id: 'auto:1200-capcut-credits-pro-team-duration-1m',
+      canonical_key: 'auto:1200-capcut-credits-pro-team-duration-1m',
       name: 'Capcut Pro Team 1 Month 1200 Credits',
       price: 999,
       available: 6,
       source: 'supplier',
     },
     {
-      id: 'auto:grok-heavy-duration-1m',
-      canonical_key: 'auto:grok-heavy-duration-1m',
-      name: 'CDK Supper Grok Heavy 1 month',
-      price: 19999,
+      id: 'manual:muse-ai',
+      canonical_key: 'manual:muse-ai',
+      name: 'Muse AI 1 Billion AI Tokens',
+      price: 2499,
       available: 6,
       source: 'supplier',
     },
@@ -257,8 +257,8 @@ test('homepage Top 8 stays fixed and applies the curated merchandising values', 
     'p093-shared',
     'p013',
     'p012',
-    'auto:capcut-duration-1m',
-    'auto:grok-heavy-duration-1m',
+    'auto:1200-capcut-credits-pro-team-duration-1m',
+    'manual:muse-ai',
     'auto:education-figma-plan-pro-duration-2y',
     'p100',
   ]);
@@ -267,13 +267,13 @@ test('homepage Top 8 stays fixed and applies the curated merchandising values', 
     'ChatGPT Plus · Shared Account',
     'Claude Team Plan Standard',
     'Claude Team Plan Premium',
-    'CapCut Pro · 1 Month',
-    'SuperGrok Heavy · 30 Days',
+    'CapCut Pro Team · 1 Month · 1200 Credits',
+    'Muse AI · 1 Billion AI Tokens',
     'Figma Pro · 2 Years',
     'Hostinger Unlimited · 12 Months',
   ]);
-  assert.deepEqual(selected.map((product) => product.display_price), [3499, 999, 5199, 24999, 999, 19999, 6999, 4500]);
-  assert.deepEqual(selected.map((product) => product.display_original_price), [undefined, undefined, undefined, undefined, 5600, 60000, 109440, undefined]);
+  assert.deepEqual(selected.map((product) => product.display_price), [3499, 999, 5199, 24999, undefined, undefined, undefined, 4500]);
+  assert.deepEqual(selected.map((product) => product.display_original_price), [undefined, undefined, undefined, undefined, undefined, undefined, 109440, undefined]);
 });
 
 test('homepage top ten keeps ChatGPT available and randomizes the remaining live stock', () => {

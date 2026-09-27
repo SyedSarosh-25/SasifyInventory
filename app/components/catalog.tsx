@@ -9,7 +9,8 @@ import {
   supplierEquivalentProductName,
 } from '../catalog-selection';
 import { products as localProducts } from '../products';
-import { supplierProductHref, supplierSeoProducts } from '../supplier-seo';
+import { supplierCatalogHref, supplierProductHref, supplierSeoProducts } from '../supplier-seo';
+import { toolFamilyHref, toolFamilyLabel, toolFamilySlug } from '../tool-families';
 import { cacheSupplierCatalog } from '../supplier-catalog-cache';
 import { CategoryNavigation } from './category-navigation';
 import { SupplierFeaturedCard, type FeaturedProduct } from './top-supplier-products';
@@ -51,7 +52,7 @@ function matchesQuery(product: FeaturedProduct, query: string) {
     .includes(normalizedQuery);
 }
 
-export function Catalog({ initialQuery = '', initialCategory = 'All', heading = 'Full inventory' }: { initialQuery?: string; initialCategory?: string; heading?: string }) {
+export function Catalog({ initialQuery = '', initialCategory = 'All', heading = 'Full inventory', family = '' }: { initialQuery?: string; initialCategory?: string; heading?: string; family?: string }) {
   const [query, setQuery] = useState(initialQuery);
   const [activeCategory, setActiveCategory] = useState(initialCategory);
   const [sort, setSort] = useState('featured');
@@ -105,6 +106,7 @@ export function Catalog({ initialQuery = '', initialCategory = 'All', heading = 
     const sourceInventory = stockState === 'ready'
       ? seoInventory.filter((product) => liveByKey.has(product.canonical_key || product.id))
       : seoInventory;
+    const generatedKeys = new Set(sourceInventory.map((product) => product.canonical_key || product.id));
     const supplierInventory = sourceInventory.map((product) => {
       const live = liveByKey.get(product.canonical_key || product.id);
       if (!live) return { ...product, stockVerified: false };
@@ -118,6 +120,26 @@ export function Catalog({ initialQuery = '', initialCategory = 'All', heading = 
         logo_url: live.logo_url || product.logo_url,
       };
     });
+    if (stockState === 'ready') {
+      for (const live of liveSupplierProducts) {
+        const key = live.canonical_key || live.id;
+        if (generatedKeys.has(key)) continue;
+        supplierInventory.push({
+          id: key,
+          name: live.name,
+          description: live.description || '',
+          price: Number(live.price),
+          available: Number(live.available),
+          source: 'supplier',
+          canonical_key: key,
+          provider_name: live.provider_name,
+          logo_url: live.logo_url,
+          category: live.category || 'Other',
+          href: supplierCatalogHref(live),
+          stockVerified: true,
+        });
+      }
+    }
     const localInventory: FeaturedProduct[] = localProducts.map((product) => {
       const live = liveLocalProducts.get(product.id);
       return {
@@ -151,11 +173,15 @@ export function Catalog({ initialQuery = '', initialCategory = 'All', heading = 
 
   const filtered = useMemo(
     () => inventory.filter((product) =>
+      (!family || toolFamilySlug(product.name) === family) &&
       (activeCategory === 'All' || product.category === activeCategory) && matchesQuery(product, query)
       && (stockFilter === 'all' || (product.stockVerified && (stockFilter === 'in' ? product.available > 0 : product.available <= 0))),
     ).sort((left, right) => sort === 'low' ? left.price - right.price : sort === 'high' ? right.price - left.price : sort === 'name' ? left.name.localeCompare(right.name) : 0),
-    [activeCategory, inventory, query, sort, stockFilter],
+    [activeCategory, family, inventory, query, sort, stockFilter],
   );
+  const matchingFamily = !family && query.trim()
+    ? inventory.find((product) => toolFamilySlug(product.name) === query.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-'))
+    : null;
 
   return (
     <LocalizedContent><section id="catalog" className="catalog-section">
@@ -177,6 +203,7 @@ export function Catalog({ initialQuery = '', initialCategory = 'All', heading = 
             {query && <button type="button" onClick={() => setQuery('')} aria-label="Clear search"><X className="h-4 w-4" /></button>}
           </label>
         </div>
+        {matchingFamily && <a className="catalog-family-link" href={toolFamilyHref(matchingFamily.name)}>View all {toolFamilyLabel(toolFamilySlug(matchingFamily.name))} plans and prices →</a>}
 
         <div className="catalog-filter-row">
           <label>Sort by <select value={sort} onChange={event => setSort(event.target.value)}>

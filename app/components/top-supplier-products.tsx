@@ -11,7 +11,7 @@ import { ProductLogo } from './product-logo';
 import { Money } from './currency';
 import { supplierLogo, supplierMonogram } from '../supplier-product-utils';
 import { cacheSupplierCatalog } from '../supplier-catalog-cache';
-import { supplierProductHref } from '../supplier-seo-utils';
+import { supplierCatalogHref } from '../supplier-seo';
 import { supplierOriginalPriceComparison } from '../supplier-price-utils';
 
 type SupplierProduct = {
@@ -45,7 +45,7 @@ export function SupplierFeaturedCard({ product }: { product: FeaturedProduct }) 
       : '';
   const href = product.href || (
     product.source === 'supplier'
-      ? supplierProductHref(product)
+      ? supplierCatalogHref(product)
       : productHref(product.localProduct!)
   );
   const displayName = product.display_name || product.name;

@@ -22,7 +22,6 @@ import {
   MessageSquarePlus,
   LifeBuoy,
   Mail,
-  Boxes,
   ChevronDown,
 } from 'lucide-react';
 import {
