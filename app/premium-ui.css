@@ -1,7 +1,8 @@
 /* Public storefront only. No selectors apply to admin or team portals. */
 body[data-storefront="true"] { --page: #f7f8fc; --ink: #131a32; --copy: #4b5672; --line: #e4e8f2; --muted: #64718a; background: var(--page); }
 body[data-storefront="true"] :is(button,input,select,textarea) { font: inherit; }
-body[data-storefront="true"] :is(a,button,input,select,textarea,summary):focus-visible { outline: 3px solid #554ce8; outline-offset: 4px; }
+body[data-storefront="true"] :is(a,button,summary):focus-visible { outline: 3px solid #554ce8; outline-offset: 4px; }
+body[data-storefront="true"] :is(input,select,textarea):focus-visible { outline: none; border-color: #554ce8; }
 body[data-storefront="true"] :is(input,select,textarea) { border-radius: 12px; }
 body[data-storefront="true"] .site-header { border-top: 0; background: rgba(255,255,255,.96); box-shadow: 0 4px 24px #172d5910; }
 body[data-storefront="true"] .nav-inner { min-height: 84px; gap: 20px; }
@@ -120,6 +121,9 @@ body[data-storefront="true"] .policy-section { padding-block: 18px; }
 body[data-storefront="true"] .policy-section p,body[data-storefront="true"] .policy-list { line-height: 1.85; color: #4b5871; }
 body[data-storefront="true"] .account-card { border-color: #e1e6f0; border-radius: 20px; box-shadow: 0 12px 38px #25365d08; }
 body[data-storefront="true"] .account-card :is(input,select) { min-height: 46px; border-color: #dce2ed; background: #fcfdff; }
+/* Composite fields draw their focus state on the outer control, not again on the inner input. */
+body[data-storefront="true"] :is(.hero-search,.catalog-search,.account-input-with-icon) input:focus-visible { outline: none; box-shadow: none; }
+body[data-storefront="true"] .account-card .account-input-with-icon input { border: 0; border-radius: 0; background: transparent; box-shadow: none; }
 body[data-storefront="true"] .account-error,body[data-storefront="true"] .commerce-error { border-radius: 12px; line-height: 1.65; }
 body[data-storefront="true"] .dashboard-panel { border-radius: 18px; border-color: #e1e6f0; box-shadow: 0 8px 25px #21315706; }
 body[data-storefront="true"] .customer-dashboard-sidebar { border-color: #e1e6f0; }

@@ -407,8 +407,13 @@ svg { flex-shrink: 0; }
   flex: 1;
   border: 0;
   outline: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  appearance: none;
   color: var(--ink);
 }
+.hero-search input:focus-visible { border: 0; outline: 0; box-shadow: none; }
 .hero-search input::placeholder { color: #8a95ad; text-overflow: ellipsis; }
 .hero-search button, .hero-search > a {
   display: grid;

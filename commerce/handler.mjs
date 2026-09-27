@@ -1,4 +1,5 @@
 import pg from 'pg';
+import { liveSupplierStock, cheapestLiveOffers } from './live-stock.mjs';
 import {
   accountSchema,
   accountForRequest,
@@ -4528,13 +4529,11 @@ export function createHandler(
                AND i.state IN ('available','reserved','delivered')`,
           )
         ).rows[0] || { available: 0, slots_filled: 0, slots_total: 0 };
-        const supplierProducts = (
-          await db.query(`WITH ranked AS (
-        SELECT id,name,description,delivery_instruction,logo_url,requires_customer_email,selling_price AS price,supplier_stock AS available,provider_id,provider_name,canonical_key,first_seen_at,
-          row_number() OVER(PARTITION BY canonical_key ORDER BY cost_pkr ASC NULLS LAST,wholesale_price ASC,id) AS choice
-        FROM commerce_supplier_products WHERE enabled=true AND selling_price IS NOT NULL AND supplier_stock>0)
-        SELECT id,name,description,delivery_instruction,logo_url,requires_customer_email,price,available,provider_id,provider_name,canonical_key,first_seen_at FROM ranked WHERE choice=1 ORDER BY name`)
-        ).rows.filter((product) => !isChatGptPlusProduct(product.name));
+        const supplierOffers = (await db.query(`SELECT id,name,description,delivery_instruction,logo_url,requires_customer_email,selling_price AS price,supplier_stock,external_product_id,provider_id,provider_name,canonical_key,first_seen_at
+          FROM commerce_supplier_products WHERE enabled=true AND selling_price IS NOT NULL
+          ORDER BY cost_pkr ASC NULLS LAST,wholesale_price ASC,id`)).rows;
+        const liveStock = await liveSupplierStock(supplierOffers, supplierProviders(supplierApiKeys));
+        const supplierProducts = cheapestLiveOffers(liveStock.offers).filter((product) => !isChatGptPlusProduct(product.name));
         const supplierTotal = Number(
           (
             await db.query(
@@ -4588,7 +4587,7 @@ export function createHandler(
                   }
                 : {}),
             })),
-            ...supplierProducts.map((p) => ({
+            ...supplierProducts.map(({ supplier_stock, external_product_id, ...p }) => ({
               ...customerProduct(p),
               id: p.canonical_key,
               source: 'supplier',
@@ -4597,6 +4596,8 @@ export function createHandler(
           ],
           productCount: visibleCatalog.length + supplierTotal,
           catalogSyncedAt,
+          availabilityCheckedAt: liveStock.checkedAt,
+          availabilityProviders: liveStock.providers,
           ready: Boolean(paymentReceiver?.title),
           paymentReceiver: paymentReceiver
             ? {
