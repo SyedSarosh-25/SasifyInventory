@@ -1550,14 +1550,14 @@ function automaticProductKey(name) {
 async function refreshAutomaticSupplierKeys(db) {
   const rows = (
     await db.query(
-      "SELECT id,name,canonical_key FROM commerce_supplier_products WHERE canonical_manual=false OR canonical_key LIKE 'auto:capcut-duration-%' OR canonical_key='auto:4-account-chatgpt-level-plus-duration-2m'",
+      "SELECT id,name,canonical_key FROM commerce_supplier_products WHERE canonical_manual=false OR canonical_key LIKE 'auto:%'",
     )
   ).rows;
   for (const row of rows) {
     const key = automaticProductKey(row.name);
     if (!key || key === row.canonical_key) continue;
     await db.query(
-      "UPDATE commerce_supplier_products SET canonical_key=$1,canonical_manual=false WHERE id=$2 AND (canonical_manual=false OR canonical_key LIKE 'auto:capcut-duration-%' OR canonical_key='auto:4-account-chatgpt-level-plus-duration-2m')",
+      "UPDATE commerce_supplier_products SET canonical_key=$1 WHERE id=$2 AND (canonical_manual=false OR canonical_key LIKE 'auto:%')",
       [key, row.id],
     );
   }
@@ -1632,9 +1632,7 @@ function supplierEquivalentProductName(staticName, supplierName) {
   return !!left && left === right;
 }
 function isChatGptPlusProduct(name) {
-  const value = String(name || '');
-  return /\bchatgpt\s+plus\b/i.test(value)
-    && !/\b(?:k12|edu|education|business|team|enterprise)\b|\b(?:[2-9]\d*|1\d+)\s*(?:m|months?)\b|\b\d+\s*(?:y|years?)\b/i.test(value);
+  return /\bchatgpt\s+plus\b/i.test(String(name || ''));
 }
 function supplierProviders(keys = {}) {
   return [
@@ -3183,7 +3181,7 @@ async function listPublicTelegramProducts(db) {
   }));
   const supplierRows = (
     await db.query(
-      `SELECT id,canonical_key,canonical_manual,name,description,delivery_instruction,selling_price AS price,
+      `SELECT id,canonical_key,name,description,delivery_instruction,selling_price AS price,
               supplier_stock AS available,cost_pkr,wholesale_price,provider_name,
               requires_customer_email
        FROM commerce_supplier_products
@@ -3213,7 +3211,6 @@ async function listPublicTelegramProducts(db) {
   ];
 }
 async function createTelegramCommerceOrder(db, options, paymentReceiver) {
-  await refreshAutomaticSupplierKeys(db);
   const productId = String(options.productId || '').trim();
   let product = catalog.find((item) => item.id === productId);
   let supplierProduct;
@@ -4712,7 +4709,6 @@ export function createHandler(
           createdAt: inserted.rows[0].created_at,
         };
       } else if (action === 'create') {
-        await refreshAutomaticSupplierKeys(db);
         const selectedPaymentMethod = paymentMethod(body.paymentMethod);
         const paymentWindowMinutes =
           PAYMENT_WINDOWS_MINUTES[selectedPaymentMethod];
@@ -5979,9 +5975,7 @@ export function createHandler(
           );
         const changed = await db.query(
           `UPDATE commerce_supplier_products
-           SET selling_price=$1,cost_pkr=$2,cost_manual=true,enabled=$3,
-               canonical_manual=CASE WHEN canonical_key<>$4 THEN true ELSE canonical_manual END,
-               canonical_key=$4,
+           SET selling_price=$1,cost_pkr=$2,cost_manual=true,enabled=$3,canonical_key=$4,canonical_manual=true,
                name=COALESCE($6,name),
                description=COALESCE($7,description),
                name_manual=CASE WHEN $6 IS NULL THEN name_manual ELSE true END,
@@ -6013,15 +6007,11 @@ export function createHandler(
           ),
         ];
         const sellingPrice = Number(body.sellingPrice);
-        const productDescription = body.productDescription === undefined
-          ? null
-          : String(body.productDescription).trim();
         if (
           !productIds.length ||
           productIds.length > 500 ||
           !Number.isSafeInteger(sellingPrice) ||
-          sellingPrice < 1 ||
-          (productDescription !== null && productDescription.length > 20000)
+          sellingPrice < 1
         )
           throw fail(
             400,
@@ -6029,12 +6019,10 @@ export function createHandler(
           );
         const changed = await db.query(
           `UPDATE commerce_supplier_products
-           SET selling_price=$1,
-               description=COALESCE($3,description),
-               description_manual=CASE WHEN $3 IS NULL THEN description_manual ELSE true END
+           SET selling_price=$1
            WHERE id=ANY($2::text[])
            RETURNING id`,
-          [sellingPrice, productIds, productDescription],
+          [sellingPrice, productIds],
         );
         if (!changed.rowCount)
           throw fail(404, 'Supplier group not found. Sync products first.');
@@ -6201,7 +6189,6 @@ export function createHandler(
         await db.query("INSERT INTO commerce_audit(action,object_id) VALUES('product_delete',$1)", [productId]);
         output = { ok: true };
       } else if (action === 'admin-list') {
-        await refreshAutomaticSupplierKeys(db);
         const adminSettings = Object.fromEntries(
           (await db.query('SELECT key,value FROM commerce_admin_settings ORDER BY key')).rows.map((row) => [row.key, row.value]),
         );

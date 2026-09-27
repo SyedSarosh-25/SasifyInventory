@@ -23,7 +23,7 @@ export function customerProductName(product) {
   return tidy(String(product?.name || '').replace(new RegExp(noWarrantyPattern, 'gi'), ''));
 }
 
-export function customerProductText(value, _product) {
+export function customerProductText(value, product) {
   const text = String(value || '');
   // Protect links: a supplier URL may legitimately contain /nw or /warranty.
   const urls = [];

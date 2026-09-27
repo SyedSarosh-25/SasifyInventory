@@ -11,7 +11,6 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { products } from '../app/products.ts';
 import { productHref } from '../app/product-utils.ts';
-import { supplierProductRedirects } from '../app/supplier-product-redirects.mjs';
 
 const root = await realpath(fileURLToPath(new URL('../', import.meta.url)));
 const target = path.join(root, '.vercel/output');
@@ -20,10 +19,8 @@ if (path.dirname(target) !== path.join(root, '.vercel'))
 await rm(target, { recursive: true, force: true });
 const staticDir = path.join(target, 'static');
 const func = path.join(target, 'functions/api/commerce.func');
-const welcomeFunc = path.join(target, 'functions/api/welcome-language.func');
 await mkdir(staticDir, { recursive: true });
 await mkdir(func, { recursive: true });
-await mkdir(welcomeFunc, { recursive: true });
 // Only copy public assets; never copy deployment credentials or environment files.
 for (const entry of await readdir(path.join(root, 'out'), {
   withFileTypes: true,
@@ -93,27 +90,21 @@ await writeFile(
     maxDuration: 30,
   }),
 );
-await cp(path.join(root, 'commerce/welcome-language.mjs'), path.join(welcomeFunc, 'handler.mjs'));
-await writeFile(
-  path.join(welcomeFunc, '.vc-config.json'),
-  JSON.stringify({ runtime: 'nodejs22.x', handler: 'handler.mjs', launcherType: 'Nodejs', shouldAddHelpers: true, maxDuration: 15 }),
-);
 const copied = new Set();
-async function dependency(name, destination = func, completed = copied) {
-  if (completed.has(name)) return;
-  completed.add(name);
+async function dependency(name) {
+  if (copied.has(name)) return;
+  copied.add(name);
   const pkg = path.join(root, 'node_modules', name, 'package.json');
-  await cp(path.dirname(pkg), path.join(destination, 'node_modules', name), {
+  await cp(path.dirname(pkg), path.join(func, 'node_modules', name), {
     recursive: true,
   });
   const meta = JSON.parse(await readFile(pkg, 'utf8'));
-  for (const dep of Object.keys(meta.dependencies || {})) await dependency(dep, destination, completed);
+  for (const dep of Object.keys(meta.dependencies || {})) await dependency(dep);
 }
 await dependency('pg');
 await dependency('html-to-text');
 await dependency('nodemailer');
 await dependency('mailauth');
-await dependency('pg', welcomeFunc, new Set());
 await dependency('mailparser');
 const overrides = {};
 async function htmlOverrides(dir, prefix = '') {
@@ -135,11 +126,6 @@ const productRedirectRoutes = products
     headers: { Location: productHref(product) },
   }))
   .filter((route) => route.src !== route.headers.Location);
-const supplierRedirectRoutes = supplierProductRedirects.map(([from, to]) => ({
-  src: `/products/${from}`,
-  status: 308,
-  headers: { Location: `/products/${to}` },
-}));
 await writeFile(
   path.join(target, 'config.json'),
   JSON.stringify(
@@ -153,7 +139,6 @@ await writeFile(
           headers: { Location: '/dashboard' },
         },
         ...productRedirectRoutes,
-        ...supplierRedirectRoutes,
         {
           src: '/api/google-reviews-sync',
           dest: '/api/commerce?action=google-reviews-sync',
@@ -167,7 +152,6 @@ await writeFile(
           dest: '/api/commerce?action=inbound-email&provider=binance',
         },
         { src: '/api/commerce', dest: '/api/commerce' },
-        { src: '/api/welcome-language', dest: '/api/welcome-language' },
         {
           src: '/(checkout|orders-admin|team|account|dashboard|login|signup|forgot-password|reset-password)',
           headers: {

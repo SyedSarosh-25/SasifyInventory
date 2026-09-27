@@ -35,36 +35,30 @@ export function supplierProductKey(name) {
       return [token];
     });
   const identity = [];
+  const isCapCut = tokens.includes('capcut');
   let duration = '';
-  let warrantyDuration = '';
-  const recordDuration = (index, consumed, amount, unit) => {
-    const value = normalizedDuration(amount, unit);
-    const after = tokens[index + consumed + 1] || '';
-    const warrantyContext = after === 'warranty' || after === 'fw' || tokens[index - 1] === 'warranty';
-    if (warrantyContext) warrantyDuration ||= value;
-    else duration ||= value;
-  };
   for (let index = 0; index < tokens.length; index += 1) {
     const token = tokens[index];
     const compact = token.match(/^(\d+)(d|day|days|m|mo|month|months|y|year|years|w|week|weeks)$/);
     if (compact) {
-      recordDuration(index, 0, Number(compact[1]), compact[2]);
+      duration = normalizedDuration(Number(compact[1]), compact[2]);
       continue;
     }
     const numeric = token.match(/^\d+$/);
     const numericUnit = tokens[index + 1] || '';
     if (numeric && durationUnit.test(numericUnit)) {
-      recordDuration(index, 1, Number(token), numericUnit);
+      duration = normalizedDuration(Number(token), numericUnit);
       index += 1;
       continue;
     }
     const wordAmount = durationWords.get(token);
     if (wordAmount && durationUnit.test(numericUnit)) {
-      recordDuration(index, 1, wordAmount, numericUnit);
+      duration = normalizedDuration(wordAmount, numericUnit);
       index += 1;
       continue;
     }
     if (durationUnit.test(token) && (/^\d+$/.test(tokens[index - 1] || '') || durationWords.has(tokens[index - 1] || ''))) continue;
+    if (isCapCut && token === 'pro') continue;
     if (duplicateNoise.has(token)) continue;
     identity.push(token);
   }
@@ -74,9 +68,10 @@ export function supplierProductKey(name) {
   if (normalizedTokens.includes('grok') && normalizedTokens.includes('heavy')) {
     normalizedTokens = normalizedTokens.filter((token) => token !== 'super');
   }
-  const normalizedIdentity = normalizedTokens.sort().join('-');
+  const normalizedIdentity = isCapCut
+    ? 'capcut'
+    : normalizedTokens.sort().join('-');
   if (!normalizedIdentity) return null;
-  duration ||= warrantyDuration;
   return `auto:${normalizedIdentity}${duration ? `-${duration}` : ''}`.slice(0, 200);
 }
 
@@ -105,10 +100,10 @@ export function selectLowestSupplierOffers(products = []) {
   const groups = [];
   const aliasToGroup = new Map();
   for (const product of products) {
-    const canonicalKey = String(product?.canonical_key || '').trim();
-    const aliases = canonicalKey && (product?.canonical_manual === true || !canonicalKey.startsWith('auto:'))
-      ? [canonicalKey]
-      : [supplierProductKey(product?.name)].filter(Boolean);
+    const aliases = [
+      supplierProductKey(product?.name),
+      String(product?.canonical_key || '').trim(),
+    ].filter(Boolean);
     if (!aliases.length) continue;
     const matchingGroups = [
       ...new Set(
