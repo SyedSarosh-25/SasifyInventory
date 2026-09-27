@@ -5,7 +5,6 @@ import { LanguageSwitcher } from './language';
 import { useEffect, useRef, useState } from 'react';
 import { AdminShell } from './admin-shell';
 import { AdminOperations } from './admin-operations';
-import { SupplierChangeLog } from './supplier-change-log';
 import { AdminDailyChart } from './admin-daily-chart';
 import { CheckoutAccount } from './customer-account';
 import { AdminCustomers } from './admin-customers';
@@ -2279,7 +2278,6 @@ export function CommerceAdmin() {
           )}
           <AdminDailyChart days={data.dailyFinancials} unlocked={profitVisible} onNavigate={setTab} />
           <AdminOperations orders={data.orders || []} payments={data.payments || []} providers={data.providerStates || []} onNavigate={setTab} />
-          <SupplierChangeLog changes={data.supplierChanges} status={data.supplierSyncStatus} />
           <section className="admin-panel">
             <div className="panel-heading">
               <div>
@@ -3236,25 +3234,15 @@ export function CommerceAdmin() {
                   disabled={busy}
                   onClick={() =>
                     void run(async () => {
-                      const collected: any[] = [];
-                      const providerIds = ['dodi','qamify','mke','fatbunny','piggyai','zoomstore'];
-                      for (const providerId of providerIds) {
-                        try {
-                          const response = await api('admin-supplier-sync', key, { providerId, rebuild: false });
-                          collected.push(...(response.providers || []));
-                        } catch {
-                          collected.push({ providerId, providerName: providerId, synced: 0, failed: true });
-                        }
-                      }
-                      const result = { providers: collected, synced: collected.reduce((sum, p) => sum + (p.synced || 0), 0) };
+                      const result = await api('admin-supplier-sync', key, {});
                       const summary = (result.providers || [])
                         .map(
                           (provider: any) =>
-                            provider.failed ? `${provider.providerName}: sync failed, previous catalog retained` : `${provider.providerName}: ${provider.synced} products, balance ${provider.balance ?? '—'} ${provider.currency || ''}${provider.balanceUpdated ? '' : ' (last known balance)'}`,
+                            `${provider.providerName}: ${provider.synced} products, balance ${provider.balance ?? '—'} ${provider.currency || ''}${provider.balanceUpdated ? '' : ' (last known balance)'}`,
                         )
                         .join(', ');
                       setNotice(
-                        `${result.synced} products synced${summary ? ` (${summary})` : ''}. Selling prices unchanged. Elite Tools excluded.`,
+                        `${result.synced} products synced${summary ? ` (${summary})` : ''}.${result.seoRebuild?.triggered ? ' SEO catalog rebuild started.' : result.seoRebuild?.configured ? ' SEO catalog rebuild could not be started.' : ' SEO catalog rebuild hook is not configured.'}`,
                       );
                       await refresh();
                     })

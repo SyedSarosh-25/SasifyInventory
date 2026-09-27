@@ -1,5 +1,4 @@
 'use client';
-import { requestLiveStock } from '../live-stock-request.mjs';
 import { LocalizedContent } from './language';
 
 
@@ -70,7 +69,7 @@ export function HeroProductSearch() {
     return () => clearTimeout(timer);
   }, []);
 
-  useEffect(() => { let active = true; requestLiveStock().then((response) => response.ok ? response.json() : Promise.reject()).then((data:any) => { cacheSupplierCatalog(data.products || []); if (active) setSupplierProducts((data.products || []).filter((product:LiveSupplierResult & {source?:string}) => product.source === 'supplier')); }).catch(() => {}); return () => { active = false; }; }, []);
+  useEffect(() => { let active = true; fetch('/api/commerce?action=stock',{cache:'no-store'}).then((response) => response.ok ? response.json() : Promise.reject()).then((data:any) => { cacheSupplierCatalog(data.products || []); if (active) setSupplierProducts((data.products || []).filter((product:LiveSupplierResult & {source?:string}) => product.source === 'supplier')); }).catch(() => {}); return () => { active = false; }; }, []);
 
   function clearSearch() {
     setQuery('');

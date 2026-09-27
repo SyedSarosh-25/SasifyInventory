@@ -1,5 +1,4 @@
 'use client';
-import { requestLiveStock } from '../live-stock-request.mjs';
 import { LocalizedContent } from './language';
 
 
@@ -74,7 +73,7 @@ export function Catalog({ initialQuery = '', initialCategory = 'All', heading = 
 
   useEffect(() => {
     let active = true;
-    requestLiveStock()
+    fetch('/api/commerce?action=stock', { cache: 'no-store' })
       .then((response) => response.ok ? response.json() : Promise.reject())
       .then((data: unknown) => {
         if (!data || typeof data !== 'object' || !('products' in data) || !Array.isArray(data.products)) throw new Error('Invalid stock response');

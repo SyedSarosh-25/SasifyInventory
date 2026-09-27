@@ -57,13 +57,11 @@ try {
   const response = await fetch(source, { headers: { Accept: 'application/json' } });
   if (!response.ok) throw new Error(`HTTP ${response.status}`);
   const data = await response.json();
-  const failedProviders = new Set((data.availabilityProviders || []).filter(provider => !provider.ok).map(provider => provider.providerId));
-  const previousProducts = failedProviders.size ? (await import('../app/supplier-seo-products.generated.ts')).supplierSeoProducts.filter(product => failedProviders.has(product.providerId)) : [];
   const seen = new Set();
-  const products = [...(Array.isArray(data.products) ? data.products : [])
+  const products = (Array.isArray(data.products) ? data.products : [])
     .filter((product) => product?.source === 'supplier')
     .map(toSeoProduct)
-    .filter(Boolean), ...previousProducts]
+    .filter(Boolean)
     .filter((product) => {
       if (seen.has(product.slug)) return false;
       seen.add(product.slug);
