@@ -10,7 +10,7 @@ const root = fileURLToPath(new URL('../', import.meta.url));
 const target = path.join(root, 'app', 'supplier-seo-products.generated.ts');
 const source =
   process.env.SASIFY_SUPPLIER_SEO_SOURCE ||
-  `${process.env.NEXT_PUBLIC_SITE_ORIGIN || defaultSiteOrigin}/api/commerce?action=stock`;
+  `${process.env.NEXT_PUBLIC_SITE_ORIGIN || defaultSiteOrigin}/api/commerce?action=catalog`;
 
 const compactText = (value, fallback = '') =>
   String(value || fallback)
@@ -26,7 +26,7 @@ function toSeoProduct(product) {
   const name = compactText(publicProduct.name);
   const price = Math.round(Number(publicProduct.price));
   const available = Math.max(0, Math.floor(Number(publicProduct.available || 0)));
-  if (!id || !name || name.length < 3 || !Number.isFinite(price) || price <= 0 || available <= 0)
+  if (!id || !name || name.length < 3 || !Number.isFinite(price) || price <= 0)
     return null;
   if (isChatGptPlusProduct(name)) return null;
   const description = compactText(

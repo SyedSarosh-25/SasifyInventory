@@ -45,9 +45,6 @@ export function SupplierSeoDirectory() {
                     )}
                     {product.category}
                   </span>
-                  <strong className="in-stock">
-                    {product.available.toLocaleString('en-PK')} available
-                  </strong>
                 </div>
                 <h3>{product.name}</h3>
                 <p>{product.description || 'Instant delivery digital product from Sasify Solutions.'}</p>

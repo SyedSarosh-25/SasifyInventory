@@ -20,7 +20,13 @@ export function AdminDailyChart({ days, unlocked, onNavigate }: { days?: Day[]; 
   const min = Math.min(0, ...values);
   const y = (value: number) => 220 - ((value - min) / (max - min)) * 180;
   const step = 660 / Math.max(1, rows.length);
+  const xAt = (index: number) => 78 + (index + .5) * step;
+  const linePath = (field: 'revenue' | 'profit') => rows.map((day, index) => day[field] === null ? null : { index, value: day[field] as number }).reduce((path, point, index, points) => point ? `${path} ${index === 0 || !points[index - 1] ? 'M' : 'L'} ${xAt(point.index)} ${y(point.value)}` : path, '');
   return <>
+    <section className="ops-visitor-summary" aria-label="Website traffic">
+      <article><span>Live website visitors</span><strong>Not connected</strong><small>Real-time visitor data is not provided by the existing admin API.</small></article>
+      <article><span>Daily website visitors</span><strong>View analytics</strong><small>Review recorded traffic in the existing analytics dashboard.</small><a href="https://vercel.com/syed-adeen-saroshs-projects/sasify-solutions-updated-build/analytics" target="_blank" rel="noopener noreferrer">Open website analytics <ArrowUpRight size={16} /></a></article>
+    </section>
     <section className="ops-quick-links" aria-label="Quick navigation">
       {([
         ['orders', 'Manage orders', 'Review & deliver', ShoppingBag],
@@ -39,10 +45,12 @@ export function AdminDailyChart({ days, unlocked, onNavigate }: { days?: Day[]; 
         <div className="ops-chart-scroll"><svg viewBox="0 0 760 260" className="ops-daily-svg" role="img" aria-label={`Daily revenue${unlocked ? ' and profit' : ''} for the last ${range} days. Exact figures available in the table below.`}>
           {[0, .25, .5, .75, 1].map((fraction) => { const value = min + fraction * (max - min); return <g key={fraction}><line x1="72" x2="742" y1={y(value)} y2={y(value)} stroke="#e7edf5" /><text x="62" y={y(value) + 4} textAnchor="end" fill="#64748b" fontSize="11">{new Intl.NumberFormat('en', { notation: 'compact', maximumFractionDigits: 1 }).format(value)}</text></g>; })}
           <line x1="72" x2="742" y1={y(0)} y2={y(0)} stroke="#9aaec7" />
-          {rows.map((day, index) => { const x = 78 + index * step; const width = Math.max(3, step * .3); return <g key={day.date}>
-            <rect x={x} y={Math.min(y(0), y(day.revenue))} width={width} height={Math.max(1, Math.abs(y(day.revenue) - y(0)))} rx="3" fill="#5262ed"><title>{label(day.date)}: Revenue {money(day.revenue)}</title></rect>
-            {unlocked && day.profit !== null && <rect x={x + width + 2} y={Math.min(y(0), y(day.profit))} width={width} height={Math.max(1, Math.abs(y(day.profit) - y(0)))} rx="3" fill="#0d9488"><title>Profit {money(day.profit)}</title></rect>}
-            {(index % Math.ceil(rows.length / 7) === 0 || index === rows.length - 1) && <text x={x + width} y="248" textAnchor="middle" fill="#64748b" fontSize="10">{label(day.date)}</text>}
+          <path d={linePath('revenue')} fill="none" stroke="#5262ed" strokeWidth="3" strokeLinejoin="round" strokeLinecap="round" />
+          {unlocked && <path d={linePath('profit')} fill="none" stroke="#0d9488" strokeWidth="3" strokeLinejoin="round" strokeLinecap="round" />}
+          {rows.map((day, index) => { const x = 78 + index * step; return <g key={day.date}>
+            <circle cx={xAt(index)} cy={y(day.revenue)} r={active?.date === day.date ? 5 : 3} fill="#5262ed" stroke="white" strokeWidth="2"><title>{label(day.date)}: Revenue {money(day.revenue)}</title></circle>
+            {unlocked && day.profit !== null && <circle cx={xAt(index)} cy={y(day.profit)} r="3" fill="#0d9488" stroke="white" strokeWidth="2"><title>Profit {money(day.profit)}</title></circle>}
+            {(index % Math.ceil(rows.length / 7) === 0 || index === rows.length - 1) && <text x={xAt(index)} y="248" textAnchor="middle" fill="#64748b" fontSize="10">{label(day.date)}</text>}
             <rect x={x - 2} y="30" width={step - 2} height="195" fill="transparent" onMouseEnter={() => setSelected(day.date)} onFocus={() => setSelected(day.date)} onClick={() => setSelected(day.date)} tabIndex={0} role="button" aria-label={`${label(day.date)}: revenue ${money(day.revenue)}${unlocked && day.profit !== null ? `, profit ${money(day.profit)}` : ''}`} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setSelected(day.date); } }} />
           </g>; })}
         </svg></div>

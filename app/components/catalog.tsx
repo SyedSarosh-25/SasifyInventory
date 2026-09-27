@@ -73,7 +73,7 @@ export function Catalog({ initialQuery = '', initialCategory = 'All', heading = 
 
   useEffect(() => {
     let active = true;
-    fetch('/api/commerce?action=stock', { cache: 'no-store' })
+    fetch('/api/commerce?action=catalog', { cache: 'no-store' })
       .then((response) => response.ok ? response.json() : Promise.reject())
       .then((data: unknown) => {
         if (!data || typeof data !== 'object' || !('products' in data) || !Array.isArray(data.products)) throw new Error('Invalid stock response');
@@ -209,12 +209,9 @@ export function Catalog({ initialQuery = '', initialCategory = 'All', heading = 
           <label>Sort by <select value={sort} onChange={event => setSort(event.target.value)}>
             <option value="featured">Featured</option><option value="low">Price: low to high</option><option value="high">Price: high to low</option><option value="name">Name: A–Z</option>
           </select></label>
-          <label>Availability <select value={stockFilter} onChange={event => setStockFilter(event.target.value)} disabled={stockState !== 'ready'}>
-            <option value="all">All</option><option value="in">In stock</option><option value="out">Out of stock</option>
-          </select></label>
           <button type="button" className="catalog-reset" onClick={() => { setQuery(''); setActiveCategory(initialCategory); setSort('featured'); setStockFilter('all'); }}>Reset filters</button>
         </div>
-        {stockState !== 'ready' && <p className="catalog-stock-status" role="status">{stockState === 'loading' ? 'Checking availability…' : 'Live availability could not be checked. Open a product to confirm before ordering.'}</p>}
+        {stockState === 'error' && <p className="catalog-stock-status" role="status">Catalog updates could not be loaded. Availability is verified at checkout.</p>}
         <p className="comparison-note">Savings compare the original price for the full plan duration with our price. Monthly references are multiplied by the number of months. Access and provider billing options may differ.</p>
         <p className="wallet-discount-notice">
           <WalletCards className="h-4 w-4" />

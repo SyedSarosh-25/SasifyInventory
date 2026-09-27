@@ -16,6 +16,7 @@ const knownFamilies: Array<[string, RegExp]> = [
   ['Netflix', /\bnetflix\b/i],
   ['Spotify', /\bspotify\b/i],
   ['Notion', /\bnotion\b/i],
+  ['Outlook', /\boutlook\b/i],
   ['Grammarly', /\bgrammarly\b/i],
   ['Hostinger', /\bhostinger\b/i],
 ];

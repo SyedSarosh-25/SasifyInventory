@@ -56,8 +56,6 @@ export function SupplierFeaturedCard({ product }: { product: FeaturedProduct }) 
   const contactOnly = Boolean(product.localProduct?.contactOnly);
   const packagePrices = product.localProduct?.variants?.map(variant => variant.sellingPricePkr).filter(price => price > 0) || [];
   const contactPrice = packagePrices.length ? Math.min(...packagePrices) : null;
-  const stockKnown = product.stockVerified !== false;
-  const inStock = stockKnown && product.available > 0;
   const originalPrice = product.display_original_price
     ?? (product.source === 'supplier'
       ? comparison?.totalPkr ?? null
@@ -98,7 +96,6 @@ export function SupplierFeaturedCard({ product }: { product: FeaturedProduct }) 
             </span>
           )}
         </div>
-        <span className={`featured-stock-badge${inStock ? '' : ' is-unavailable'}`}><Check className="h-3 w-3" /> {contactOnly ? 'Choose package' : !stockKnown ? 'Check availability' : inStock ? 'In stock' : 'Out of stock'}</span>
       </div>
       <div className="featured-copy">
         <h3 translate="no">{displayName}</h3>
@@ -127,8 +124,8 @@ export function SupplierFeaturedCard({ product }: { product: FeaturedProduct }) 
       </a>
       <div className="featured-card-actions">
         <a className="featured-details-button" href={href}>View details</a>
-        <a className="featured-buy-button" href={contactOnly || !inStock ? href : `/checkout?product=${encodeURIComponent(checkoutProductId)}`}>
-          {contactOnly ? 'Choose package' : inStock ? 'Buy now' : 'View details'} <ArrowRight className="h-4 w-4" />
+        <a className="featured-buy-button" href={contactOnly ? href : `/checkout?product=${encodeURIComponent(checkoutProductId)}`}>
+          {contactOnly ? 'Choose package' : 'Buy now'} <ArrowRight className="h-4 w-4" />
         </a>
       </div>
     </article></LocalizedContent>
@@ -141,7 +138,7 @@ export function TopSupplierProducts() {
   useEffect(() => {
     let active = true;
     const previewOnly = new URLSearchParams(window.location.search).has('top10Preview');
-    fetch('/api/commerce?action=stock', { cache: 'no-store' })
+    fetch('/api/commerce?action=catalog', { cache: 'no-store' })
       .then(async (response) => {
         if (!response.ok) throw new Error('Could not load supplier products.');
         return (await response.json()) as { products?: SupplierProduct[] };

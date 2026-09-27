@@ -69,7 +69,7 @@ export function HeroProductSearch() {
     return () => clearTimeout(timer);
   }, []);
 
-  useEffect(() => { let active = true; fetch('/api/commerce?action=stock',{cache:'no-store'}).then((response) => response.ok ? response.json() : Promise.reject()).then((data:any) => { cacheSupplierCatalog(data.products || []); if (active) setSupplierProducts((data.products || []).filter((product:LiveSupplierResult & {source?:string}) => product.source === 'supplier')); }).catch(() => {}); return () => { active = false; }; }, []);
+  useEffect(() => { let active = true; fetch('/api/commerce?action=catalog',{cache:'no-store'}).then((response) => response.ok ? response.json() : Promise.reject()).then((data:any) => { cacheSupplierCatalog(data.products || []); if (active) setSupplierProducts((data.products || []).filter((product:LiveSupplierResult & {source?:string}) => product.source === 'supplier')); }).catch(() => {}); return () => { active = false; }; }, []);
 
   function clearSearch() {
     setQuery('');
@@ -117,7 +117,7 @@ export function HeroProductSearch() {
           {supplierMatches.map((product) => <li key={product.id}>
             <a href={supplierCatalogHref(product)} className="hero-search-result">
               <span className="hero-mini-logo">{supplierLogo(product.name, product.logo_url) ? <img src={supplierLogo(product.name, product.logo_url)} alt={`${product.name} logo`} /> : supplierMonogram(product.name)}</span>
-              <span className="hero-result-copy"><strong>{product.name}</strong><small>Instant delivery · {product.available} in stock</small></span>
+              <span className="hero-result-copy"><strong>{product.name}</strong><small>View plan details</small></span>
               <strong className="hero-result-price"><Money amount={product.price} /></strong>
               <ArrowRight className="h-4 w-4 hero-result-arrow" aria-hidden="true" />
             </a>

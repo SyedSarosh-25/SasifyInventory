@@ -123,6 +123,7 @@ async function api(
       body: body ? JSON.stringify(body) : undefined,
       cache: 'no-store',
       credentials: 'same-origin',
+      ...(action === 'checkout-availability' ? { signal: AbortSignal.timeout(12000) } : {}),
     },
   );
   const data: any = await response.json();
@@ -147,45 +148,13 @@ const LOCAL_ADMIN_PREVIEW_DATA = {
   paymentReceivers: [], coupons: [], inventory: [], sharedAccounts: [], scamReports: [], toolRequests: [], blockedUsers: [], providerStates: [], supplierAlerts: [], supplierKeys: [], commissions: [], dailyFinancials: [], profitBreakdown: [], teamAccess: { configured: false, email: null }, metrics: { orders: 1, delivered: 1, pending: 0, revenue: 1499, profit: 599 }, stock: [], supplierUsdPkrRate: 280, supplierUsdtPkrRate: 280,
 };
 export function StockBuy({ productId }: { productId: string }) {
-  const [stock, setStock] = useState<Stock | null>(null);
-  useEffect(() => {
-    let active = true;
-    const load = () =>
-      api('stock')
-        .then((data) => {
-          if (active)
-            setStock(
-              data.ready
-                ? data.products.find((p: Stock) => p.id === productId) || null
-                : null,
-            );
-        })
-        .catch(() => {
-          if (active) setStock(null);
-        });
-    void load();
-    const timer = setInterval(load, 30000);
-    return () => {
-      active = false;
-      clearInterval(timer);
-    };
-  }, [productId]);
-  if (!stock) return null;
-  return (
-    <LocalizedContent><div className="online-stock">
-      <p>
-        {stock.available > 0
-          ? stock.id === 'p093-shared'
-            ? `${stock.available} shared slots available · ${stock.shared_slots_filled || 0}/${stock.shared_slots_total || 4} filled`
-            : `${stock.available} accounts available`
-          : 'Online stock sold out'}
-      </p>
-    </div></LocalizedContent>
-  );
+  return null;
 }
 export function Checkout() {
   const [products, setProducts] = useState<Stock[]>([]),
     [selected, setSelected] = useState('p013');
+  const [availability, setAvailability] = useState<'checking' | 'available' | 'unavailable' | 'unknown'>('checking');
+  const [availabilityRetry, setAvailabilityRetry] = useState(0);
   const [order, setOrder] = useState<Order | null>(null),
     [id, setId] = useState(''),
     [key, setKey] = useState('');
@@ -231,7 +200,7 @@ export function Checkout() {
     }
     let active = true;
     const loadStock = () =>
-      api('stock')
+      api('catalog')
         .then((data) => {
           if (active) {
             setProducts(data.products);
@@ -242,12 +211,19 @@ export function Checkout() {
           if (active) setError(e.message);
         });
     void loadStock();
-    const timer = setInterval(loadStock, 15000);
     return () => {
       active = false;
-      clearInterval(timer);
     };
   }, []);
+  useEffect(() => {
+    if (!ready || id) return;
+    let active = true;
+    setAvailability('checking');
+    api('checkout-availability', '', { productId: selected })
+      .then((data) => { if (active) setAvailability(['available', 'unavailable'].includes(data.status) ? data.status : 'unknown'); })
+      .catch(() => { if (active) setAvailability('unknown'); });
+    return () => { active = false; };
+  }, [selected, ready, id, availabilityRetry]);
   useEffect(() => {
     api('account-dashboard').then((data) => setCheckoutAccount(data.account || null)).catch(() => setCheckoutAccount(null));
   }, []);
@@ -523,7 +499,7 @@ export function Checkout() {
               Select package
               <select
                 value={selected}
-                onChange={(e) => setSelected(e.target.value)}
+                onChange={(e) => { setAvailability('checking'); setSelected(e.target.value); }}
               >
                 {checkoutProducts.map((p) => (
                   <option key={p.id} value={p.id}>
@@ -539,12 +515,8 @@ export function Checkout() {
                   <strong>PKR {product.price.toLocaleString()}</strong>
                 </div>
                 <div>
-                  <span>Available stock</span>
-                  <strong
-                    className={product.available ? 'in-stock' : 'out-stock'}
-                  >
-                    {product.available}
-                  </strong>
+                  <span>Supplier availability</span>
+                  <strong role="status">{availability === 'checking' ? 'Checking availability…' : availability === 'available' ? 'Available' : availability === 'unavailable' ? 'Unavailable' : 'Could not verify'}</strong>
                 </div>
               </div>
             )}
@@ -685,7 +657,7 @@ export function Checkout() {
               disabled={
                 busy ||
                 !ready ||
-                !product?.available ||
+                availability !== 'available' || !product ||
                 (product.requires_customer_email && !customerEmail.trim())
               }
             >
@@ -696,12 +668,8 @@ export function Checkout() {
                   ? 'Buy with Sasify Wallet'
                   : 'Pay online'}
             </button>
-            {ready && !product?.available && (
-              <p>
-                Sold out online.{' '}
-                <a href="https://wa.me/923116185711">Contact us on WhatsApp</a>.
-              </p>
-            )}
+            {ready && availability === 'unavailable' && <p role="status">Sorry, this product is currently unavailable from the supplier.</p>}
+            {ready && availability === 'unknown' && <div role="status"><p>We couldn’t verify availability. Please retry.</p><button type="button" className="secondary-button" onClick={() => setAvailabilityRetry((value) => value + 1)}>Retry availability check</button></div>}
           </form>
         </>
       )}
@@ -3250,6 +3218,10 @@ export function CommerceAdmin() {
                 >
                   <RefreshCw size={17} /> Sync providers
                 </button>
+                <button className="primary-button" disabled={busy} onClick={() => {
+                  if (!window.confirm('Publish unpriced supplier products at 3× PKR cost? Existing prices and local products stay unchanged. Elite Tools is excluded.')) return;
+                  void run(async () => { const result = await api('admin-supplier-publish-unpriced', key, {}); setNotice(`${result.published} unpriced supplier offers published. Existing prices unchanged.`); await refresh(); });
+                }}>Publish unpriced · 3× cost</button>
                 <button
                   className="secondary-button"
                   disabled={busy}

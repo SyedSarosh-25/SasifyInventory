@@ -1,4 +1,5 @@
 import pg from 'pg';
+import { checkSupplierPlan } from './checkout-availability.mjs';
 import {
   accountSchema,
   accountForRequest,
@@ -1632,7 +1633,8 @@ function supplierEquivalentProductName(staticName, supplierName) {
   return !!left && left === right;
 }
 function isChatGptPlusProduct(name) {
-  return /\bchatgpt\s+plus\b/i.test(String(name || ''));
+  const value = String(name || '');
+  return /\bchatgpt\s+plus\b/i.test(value) && !/\b(?:k12|edu|education|business|team|enterprise)\b|\b(?:[2-9]\d*|1\d+)\s*(?:m|months?)\b|\b\d+\s*(?:y|years?)\b/i.test(value);
 }
 function supplierProviders(keys = {}) {
   return [
@@ -2691,11 +2693,11 @@ async function fulfill(
     }
     const candidates = (
       await db.query(
-        `SELECT * FROM commerce_supplier_products WHERE canonical_key=$1 AND enabled=true AND selling_price IS NOT NULL
-      AND selling_price<=$2 AND supplier_stock>0 ORDER BY cost_pkr ASC NULLS LAST,wholesale_price ASC,id FOR UPDATE`,
-        [selected.canonical_key, Number(order.listed_amount ?? order.amount)],
+        `SELECT * FROM commerce_supplier_products WHERE enabled=true AND selling_price IS NOT NULL
+      AND selling_price<=$1 ORDER BY cost_pkr ASC NULLS LAST,wholesale_price ASC,id`,
+        [Number(order.listed_amount ?? order.amount)],
       )
-    ).rows;
+    ).rows.filter((candidate) => supplierProductKey(candidate.name) === supplierProductKey(selected.name));
     if (
       !candidates.some((product) => product.id === selected.id) &&
       selected.supplier_stock > 0
@@ -3626,10 +3628,48 @@ export function createHandler(
     )
       return json(res, 403, { error: 'Invalid origin.' });
     let db;
+    let checkoutAvailability;
     const supplierLogs = [];
     const captureSupplierExchange = (exchange) => supplierLogs.push(exchange);
     try {
       pool ||= poolFactory();
+      // Catalog reads and supplier network calls must not hold checkout locks.
+      if (['catalog', 'checkout-availability', 'create'].includes(action)) {
+        const input = typeof req.body === 'string' ? JSON.parse(req.body) : req.body || {};
+        if (JSON.stringify(input).length > 200000) throw fail(413, 'Request too large.');
+        const productId = String(input.productId || req.query?.productId || new URL(req.url, 'https://www.sasifysolutions.com').searchParams.get('productId') || '');
+        if (action !== 'catalog' && (!productId || productId.length > 200)) throw fail(400, 'Select a valid product.');
+        const connection = await pool.connect();
+        let offers = [], providers = [];
+        try {
+          await rate(connection, hash(`${action}:${req.headers['x-vercel-forwarded-for'] || req.socket?.remoteAddress || 'unknown'}`), 60);
+          if (action === 'catalog') {
+            const rows = (await connection.query(`SELECT id,canonical_key,canonical_manual,name,description,delivery_instruction,logo_url,requires_customer_email,selling_price AS price,cost_pkr,wholesale_price,first_seen_at
+              FROM commerce_supplier_products WHERE enabled=true AND selling_price IS NOT NULL
+              ORDER BY cost_pkr ASC NULLS LAST,wholesale_price ASC,id`)).rows;
+            const unique = new Map();
+            for (const row of rows) { const planKey = row.canonical_manual && !row.canonical_key.startsWith('auto:') ? row.canonical_key : supplierProductKey(row.name) || row.canonical_key; if (!unique.has(planKey)) unique.set(planKey, { ...row, canonical_key: planKey }); }
+            return json(res, 200, { ready: true, products: [...catalog.map((p) => ({ ...customerProduct(p), source: 'local' })), ...[...unique.values()].filter((p) => !isChatGptPlusProduct(p.name)).map(({ cost_pkr, wholesale_price, canonical_manual, ...p }) => ({ ...customerProduct(p), id: p.canonical_key, source: 'supplier' }))] });
+          }
+          const local = catalog.find((p) => p.id === productId);
+          if (local) {
+            const available = productId === SHARED_CHATGPT_PRODUCT_ID
+              ? Number((await connection.query(`SELECT COALESCE(SUM(sa.max_slots-sa.slots_filled),0)::int AS available FROM commerce_shared_accounts sa JOIN commerce_inventory i ON i.id=sa.inventory_id WHERE sa.status='active' AND sa.slots_filled<sa.max_slots AND i.state IN ('available','reserved','delivered')`)).rows[0]?.available || 0)
+              : Number((await connection.query(`SELECT count(*)::int AS available FROM commerce_inventory i WHERE i.product_id=$1 AND i.state='available' AND NOT EXISTS (SELECT 1 FROM commerce_shared_accounts sa WHERE sa.inventory_id=i.id)`, [productId])).rows[0]?.available || 0);
+            checkoutAvailability = { status: available > 0 ? 'available' : 'unavailable', available };
+          } else {
+            const allOffers = (await connection.query(`SELECT * FROM commerce_supplier_products WHERE enabled=true AND selling_price IS NOT NULL ORDER BY cost_pkr ASC NULLS LAST,wholesale_price ASC,id`)).rows;
+            const planKey = (p) => p.canonical_manual && !p.canonical_key.startsWith('auto:') ? p.canonical_key : supplierProductKey(p.name) || p.canonical_key;
+            const requested = allOffers.find((p) => p.id === productId || planKey(p) === productId) || allOffers.find((p) => p.canonical_key === productId);
+            offers = requested ? allOffers.filter((p) => planKey(p) === planKey(requested)) : [];
+            providers = supplierProviders(await readSupplierApiKeys(connection, key));
+          }
+        } finally { connection.release(); }
+        if (!checkoutAvailability) checkoutAvailability = { ...await checkSupplierPlan(offers, providers), listedPrice: offers[0]?.selling_price };
+        if (action === 'checkout-availability') return json(res, 200, { productId, status: checkoutAvailability.status, available: checkoutAvailability.available, checkedAt: new Date().toISOString() });
+        if (checkoutAvailability.status === 'unknown') throw fail(503, 'We couldn’t verify availability. Please retry.');
+        if (checkoutAvailability.status !== 'available') throw fail(409, 'Sorry, this product is currently unavailable from the supplier.');
+      }
       db = await pool.connect();
       let body = req.body || {};
       if (typeof body === 'string') body = JSON.parse(body);
@@ -4715,25 +4755,18 @@ export function createHandler(
         let product = catalog.find((p) => p.id === body.productId);
         let supplierProduct;
         if (!product) {
-          const requested = (
-            await db.query(
-              'SELECT canonical_key FROM commerce_supplier_products WHERE (id=$1 OR canonical_key=$1) AND enabled=true AND selling_price IS NOT NULL',
-              [body.productId],
-            )
-          ).rows[0];
-          if (requested)
+          if (checkoutAvailability?.offer)
             supplierProduct = (
               await db.query(
-                `SELECT * FROM commerce_supplier_products WHERE canonical_key=$1 AND enabled=true AND selling_price IS NOT NULL
-          AND supplier_stock>0 ORDER BY cost_pkr ASC NULLS LAST,wholesale_price ASC,id FOR UPDATE SKIP LOCKED LIMIT 1`,
-                [requested.canonical_key],
+                `SELECT * FROM commerce_supplier_products WHERE id=$1 AND enabled=true AND selling_price IS NOT NULL FOR UPDATE SKIP LOCKED LIMIT 1`,
+                [checkoutAvailability.offer.id],
               )
             ).rows[0];
           if (supplierProduct)
             product = {
               id: supplierProduct.id,
               name: supplierProduct.name,
-              price: supplierProduct.selling_price,
+              price: checkoutAvailability.listedPrice ?? supplierProduct.selling_price,
             };
         }
         const sharedProduct = isSharedChatGptProduct(product?.id);
@@ -4830,7 +4863,7 @@ export function createHandler(
             throw fail(409, 'Only the HOR team code can provide free access.');
         }
         if (supplierProduct) {
-          if (supplierProduct.supplier_stock < 1)
+          if (checkoutAvailability?.status !== 'available')
             throw fail(409, 'Sold out. Please contact us on WhatsApp.');
         } else if (sharedProduct) {
           const shared = await reserveSharedAccount(db);
@@ -5943,6 +5976,10 @@ export function createHandler(
           [String(synced)],
         );
         output = { ok: true, synced, providers, seoRebuild };
+      } else if (action === 'admin-supplier-publish-unpriced') {
+        const result = await db.query(`UPDATE commerce_supplier_products SET selling_price=ceil(cost_pkr*3)::integer,enabled=true WHERE selling_price IS NULL AND cost_pkr>0 AND cost_pkr<=715827882 AND provider_id<>'elitetools' RETURNING id`);
+        await db.query("INSERT INTO commerce_audit(action,object_id) VALUES('supplier_publish_unpriced_3x',$1)", [String(result.rowCount)]);
+        output = { ok: true, published: result.rowCount, message: 'Unpriced supplier products published at 3× PKR cost. Existing prices unchanged.' };
       } else if (action === 'admin-supplier-update') {
         const supplierId = String(body.productId || '');
         const sellingPrice = Number(body.sellingPrice),

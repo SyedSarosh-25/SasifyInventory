@@ -260,10 +260,6 @@ function SupplierSeoProductPage({ product }: { product: SupplierSeoProduct }) {
                   <dd>{product.category}</dd>
                 </div>
                 <div>
-                  <dt>Availability</dt>
-                  <dd>{product.available.toLocaleString('en-PK')} in stock</dd>
-                </div>
-                <div>
                   <dt>Supplier route</dt>
                   <dd>{product.providerName || 'Automated supplier'}</dd>
                 </div>
@@ -314,10 +310,6 @@ function SupplierSeoProductPage({ product }: { product: SupplierSeoProduct }) {
               <div>
                 <dt>Your savings</dt>
                 <dd>{savings !== null ? <Money amount={savings} /> : 'Price may vary'}</dd>
-              </div>
-              <div>
-                <dt>Availability</dt>
-                <dd>{product.available.toLocaleString('en-PK')} in stock</dd>
               </div>
               <div>
                 <dt>Delivery</dt>

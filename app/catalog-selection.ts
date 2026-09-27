@@ -140,7 +140,7 @@ export function selectHeroSupplierShortcut(
   catalog: LiveCatalogProduct[],
   target: (typeof heroSupplierShortcuts)[number],
 ) {
-  const available = catalog.filter((product) => product.source !== 'local' && product.available > 0);
+  const available = catalog.filter((product) => product.source !== 'local' && product.price > 0);
   return available.find((product) => product.canonical_key === target.canonicalKey || product.id === target.canonicalKey)
     || available
       .filter((product) => target.fallbackPattern.test(product.name))
@@ -170,13 +170,13 @@ export function selectRandomTopProducts(
   const localChatGpt = catalog.find(
     (product) => product.source === 'local' && product.id === 'p093-shared',
   ) || catalog.find(
-    (product) => product.source === 'local' && product.id === 'p093' && product.available > 0,
+    (product) => product.source === 'local' && product.id === 'p093',
   );
   const seen = new Set<string>();
   if (localChatGpt) seen.add(localChatGpt.id);
 
   const candidates = catalog.filter((product) => {
-    if (product.available <= 0 || product === localChatGpt || product.id === 'p093-ultra') return false;
+    if (product.price <= 0 || product === localChatGpt || product.id === 'p093-ultra') return false;
     if (product.source === 'supplier' && isChatGptPlusProduct(product.name)) return false;
     const key = product.source === 'supplier' ? product.canonical_key || product.id : product.id;
     if (seen.has(key)) return false;

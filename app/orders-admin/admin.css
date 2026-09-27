@@ -1370,3 +1370,37 @@
     animation: none !important;
   }
 }
+
+/* Shared admin layout: keep wide records inside their own scroll area. */
+.ops-shell .ops-main, .ops-shell .admin-workspace, .ops-shell .admin-panel { min-width: 0; }
+.ops-shell .admin-panel { border-top: 3px solid #e3e7ff; }
+.ops-shell .commerce-table { max-width: 100%; overflow-x: auto; overscroll-behavior-x: contain; }
+.ops-shell .commerce-table th { position: sticky; top: 0; z-index: 1; color: #334475; }
+.ops-shell .commerce-table tbody tr:nth-child(even) { background: #f9faff; }
+.ops-shell .admin-panel :is(pre, code) { overflow-wrap: anywhere; white-space: pre-wrap; }
+.ops-shell .panel-heading { flex-wrap: wrap; gap: 16px; }
+.ops-shell .panel-heading > div { min-width: 0; }
+.ops-shell .ops-visitor-summary { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 16px; }
+.ops-shell .ops-visitor-summary article { display: grid; gap: 10px; padding: 22px; background: linear-gradient(135deg,#fff,#f4f2ff); border: 1px solid #dfe4f3; border-radius: 16px; }
+.ops-shell .ops-visitor-summary article > span { color: #55627c; font-weight: 600; }
+.ops-shell .ops-visitor-summary strong { font-size: 24px; color: #302d73; }
+.ops-shell .ops-visitor-summary small { line-height: 1.6; color: #64748b; }
+.ops-shell .ops-visitor-summary a { display: flex; align-items: center; gap: 6px; color: #5145cd; font-weight: 650; }
+@media (max-width: 760px) {
+  .ops-shell .ops-main { overflow-x: clip; }
+  .ops-shell .metric-grid, .ops-shell .ops-visitor-summary { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .ops-shell .metric-grid > *, .ops-shell .ops-visitor-summary article { min-width: 0; padding: 14px; }
+  .ops-shell .metric-grid strong, .ops-shell .ops-visitor-summary strong { font-size: clamp(18px,5vw,24px); overflow-wrap: anywhere; }
+  .ops-shell .admin-panel .panel-heading { align-items: flex-start; }
+  .ops-shell .ops-record-controls, .ops-shell .supplier-catalog-toolbar { display: flex; flex-wrap: wrap; }
+  .ops-shell .ops-record-controls > *, .ops-shell .supplier-catalog-toolbar > * { max-width: 100%; min-width: 0; }
+  .ops-shell .commerce-table :is(th,td) { padding: 12px; font-size: 13px; }
+  .ops-shell .ops-chart-totals { flex-wrap: wrap; gap: 14px; }
+  .ops-shell .ops-chart-ranges { display: flex; flex-wrap: wrap; }
+  .ops-shell .ops-daily-svg { min-width: 0; margin-top: 12px; }
+  .ops-shell :is(button,summary) { min-height: 44px; }
+}
+@media (max-width: 400px) {
+  .ops-shell .ops-visitor-summary { grid-template-columns: 1fr; }
+  .ops-shell .ops-quick-links { grid-template-columns: 1fr; }
+}

@@ -65,7 +65,6 @@ function TickerItem({ product, duplicate = false }: { product: NewProduct; dupli
         <strong>{product.name}</strong>
       </span>
       <span className="new-products-ticker-price"><Money amount={product.price} /></span>
-      <span className="new-products-ticker-stock"><i /> {product.available} left</span>
     </a>
   );
 }
@@ -76,7 +75,7 @@ export function NewProductsTicker() {
   useEffect(() => {
     let active = true;
     const load = () => {
-      fetch('/api/commerce?action=stock', { cache: 'no-store' })
+      fetch('/api/commerce?action=catalog', { cache: 'no-store' })
         .then(async (response) => {
           if (!response.ok) throw new Error('Could not load stock.');
           return await response.json() as { products?: StockProduct[] };
@@ -97,7 +96,7 @@ export function NewProductsTicker() {
   const newProducts = useMemo(() => {
     const localById = new Map(localProducts.map((product) => [product.id, product]));
     return stock
-      .filter((product) => product.available > 0 && product.price > 0)
+      .filter((product) => product.price > 0)
       .map((product): NewProduct | null => {
         if (product.source === 'local') {
           const localProduct = localById.get(product.id);
