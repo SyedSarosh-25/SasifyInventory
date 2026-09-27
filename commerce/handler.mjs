@@ -3644,12 +3644,11 @@ export function createHandler(
         try {
           await rate(connection, hash(`${action}:${req.headers['x-vercel-forwarded-for'] || req.socket?.remoteAddress || 'unknown'}`), 60);
           if (action === 'catalog') {
-            const rows = (await connection.query(`SELECT id,canonical_key,canonical_manual,name,description,delivery_instruction,logo_url,requires_customer_email,selling_price AS price,cost_pkr,wholesale_price,first_seen_at
+            const rows = (await connection.query(`SELECT id,canonical_key,canonical_manual,name,description,delivery_instruction,logo_url,requires_customer_email,selling_price AS price,cost_pkr,wholesale_price,supplier_stock AS available,first_seen_at
               FROM commerce_supplier_products WHERE enabled=true AND selling_price IS NOT NULL
               ORDER BY cost_pkr ASC NULLS LAST,wholesale_price ASC,id`)).rows;
-            const unique = new Map();
-            for (const row of rows) { const planKey = row.canonical_manual && !row.canonical_key.startsWith('auto:') ? row.canonical_key : supplierProductKey(row.name) || row.canonical_key; if (!unique.has(planKey)) unique.set(planKey, { ...row, canonical_key: planKey }); }
-            return json(res, 200, { ready: true, products: [...catalog.map((p) => ({ ...customerProduct(p), source: 'local' })), ...[...unique.values()].filter((p) => !isChatGptPlusProduct(p.name)).map(({ cost_pkr, wholesale_price, canonical_manual, ...p }) => ({ ...customerProduct(p), id: p.canonical_key, source: 'supplier' }))] });
+            const supplier = selectLowestSupplierOffers(rows).filter((product) => !isChatGptPlusProduct(product.name));
+            return json(res, 200, { ready: true, products: [...catalog.map((p) => ({ ...customerProduct(p), source: 'local' })), ...supplier.map(({ cost_pkr, wholesale_price, canonical_manual, available, ...p }) => ({ ...customerProduct(p), id: canonical_manual && !String(p.canonical_key || '').startsWith('auto:') ? p.canonical_key : supplierProductKey(p.name) || p.canonical_key, source: 'supplier' }))] });
           }
           const local = catalog.find((p) => p.id === productId);
           if (local) {
@@ -5976,10 +5975,10 @@ export function createHandler(
           [String(synced)],
         );
         output = { ok: true, synced, providers, seoRebuild };
-      } else if (action === 'admin-supplier-publish-unpriced') {
-        const result = await db.query(`UPDATE commerce_supplier_products SET selling_price=ceil(cost_pkr*3)::integer,enabled=true WHERE selling_price IS NULL AND cost_pkr>0 AND cost_pkr<=715827882 AND provider_id<>'elitetools' RETURNING id`);
-        await db.query("INSERT INTO commerce_audit(action,object_id) VALUES('supplier_publish_unpriced_3x',$1)", [String(result.rowCount)]);
-        output = { ok: true, published: result.rowCount, message: 'Unpriced supplier products published at 3× PKR cost. Existing prices unchanged.' };
+      } else if (action === 'admin-supplier-price-all-3x' || action === 'admin-supplier-publish-unpriced') {
+        const result = await db.query(`UPDATE commerce_supplier_products SET selling_price=ceil(cost_pkr*3)::integer,enabled=true WHERE cost_pkr>0 AND cost_pkr<=715827882 RETURNING id`);
+        await db.query("INSERT INTO commerce_audit(action,object_id) VALUES('supplier_price_all_3x',$1)", [String(result.rowCount)]);
+        output = { ok: true, priced: result.rowCount, published: result.rowCount, message: 'All supplier products with a valid cost are enabled and priced at 3× PKR cost. Local products are unchanged.' };
       } else if (action === 'admin-supplier-update') {
         const supplierId = String(body.productId || '');
         const sellingPrice = Number(body.sellingPrice),

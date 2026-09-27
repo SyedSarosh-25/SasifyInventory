@@ -104,9 +104,16 @@ export function selectLowestSupplierOffers(products = []) {
   const groups = [];
   const aliasToGroup = new Map();
   for (const product of products) {
+    const nameKey = supplierProductKey(product?.name);
+    const canonicalKey = String(product?.canonical_key || '').trim();
+    // Automatic keys are derived data and can be stale after the matching
+    // rules change. Only an explicit/manual key is allowed to merge names
+    // that the current matcher considers different.
     const aliases = [
-      supplierProductKey(product?.name),
-      String(product?.canonical_key || '').trim(),
+      nameKey,
+      product?.canonical_manual === true || !canonicalKey.startsWith('auto:')
+        ? canonicalKey
+        : '',
     ].filter(Boolean);
     if (!aliases.length) continue;
     const matchingGroups = [
