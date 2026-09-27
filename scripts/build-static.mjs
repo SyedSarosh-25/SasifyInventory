@@ -55,11 +55,17 @@ await cp(path.join(root, 'scripts/static.htaccess'), path.join(out, '.htaccess')
 await cp(path.join(root, 'scripts/static.vercel.json'), path.join(out, 'vercel.json'));
 const { products } = await import('../app/products.ts');
 const { productHref } = await import('../app/product-utils.ts');
+const { supplierProductRedirects } = await import('../app/supplier-product-redirects.mjs');
 const { robotsText, sitemapXml } = await import('../app/seo.ts');
 const vercelConfigPath = path.join(out, 'vercel.json');
 const vercelConfig = JSON.parse(await readFile(vercelConfigPath, 'utf8'));
 const productRedirects = [
   { source: '/account', destination: '/dashboard', permanent: true },
+  ...supplierProductRedirects.map(([from, to]) => ({
+    source: `/products/${from}`,
+    destination: `/products/${to}`,
+    permanent: true,
+  })),
   ...products
   .map((product) => ({
     source: `/products/${product.id}`,

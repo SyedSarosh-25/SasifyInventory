@@ -18,6 +18,7 @@ import { productHref } from '../app/product-utils.ts';
 import { guidePlans, guideQuestions } from '../app/buying-guide-content.ts';
 import { storefrontCategories } from '../app/categories.ts';
 import { knownToolFamilySlugs } from '../app/tool-families.ts';
+import { supplierProductRedirects } from '../app/supplier-product-redirects.mjs';
 
 const out = fileURLToPath(new URL('../out/', import.meta.url));
 const read = (file) => readFile(path.join(out, file), 'utf8');
@@ -252,6 +253,10 @@ test('Vercel export preserves canonical routes without hiding missing pages', as
     ),
     'Legacy account URL must redirect to the customer dashboard',
   );
+  for (const [from, to] of supplierProductRedirects) {
+    assert.ok(config.redirects.some((redirect) =>
+      redirect.source === `/products/${from}` && redirect.destination === `/products/${to}` && redirect.permanent === true));
+  }
   for (const product of products) {
     assert.ok(
       config.redirects.some(
