@@ -76,14 +76,6 @@ import {
   normalizeCustomerEmail,
   supplierRequiresCustomerEmail,
 } from './supplier-capabilities.mjs';
-import {
-  createEliteToolsOrder,
-  eliteToolsDelivery,
-  eliteToolsOrderId,
-  fetchEliteToolsBalance,
-  fetchEliteToolsProducts,
-  normalizeEliteToolsProduct,
-} from './elite-tools.mjs';
 import { authenticateInboundEmail } from './inbound-email.mjs';
 import {
   normalizeScamReport,
@@ -1752,23 +1744,6 @@ function supplierProviders(keys = {}) {
         return fetchZoomStoreBalance(keys.zoomstore);
       },
     },
-    {
-      id: 'elitetools',
-      name: 'Elite Tools Store',
-      configured: !!(keys.elitetools || process.env.ELITE_TOOLS_API_KEY),
-      async catalog() {
-        const products = await fetchEliteToolsProducts(keys.elitetools);
-        return {
-          currency: 'USD',
-          products: products
-            .map((product) => normalizeEliteToolsProduct(product, 'USD'))
-            .filter(Boolean),
-        };
-      },
-      async balance() {
-        return fetchEliteToolsBalance(keys.elitetools);
-      },
-    },
   ];
 }
 let supplierMediaSchemaReady;
@@ -2574,24 +2549,8 @@ async function placeSupplierOrder(product, order, onExchange, keys = {}) {
       supplierId: zoomStoreOrderId(result, order.id),
     };
   }
-  if (product.provider_id === 'elitetools') {
-    const externalProductId = String(
-      product.external_product_id || product.id || '',
-    ).trim();
-    if (!externalProductId)
-      throw fail(503, 'Elite Tools Store product ID is invalid.');
-    const result = await createEliteToolsOrder({
-      productId: externalProductId,
-      quantity: 1,
-      idempotencyKey: `sasify-${order.id}-${externalProductId}`,
-      onExchange,
-      apiKey: keys.elitetools,
-    });
-    return {
-      delivery: eliteToolsDelivery(result),
-      supplierId: eliteToolsOrderId(result, order.id),
-    };
-  }
+  if (product.provider_id === 'elitetools')
+    throw fail(503, 'Elite Tools Store fulfilment is disabled.');
   if (['dodi', 'dody'].includes(product.provider_id)) {
     const result = await createSupplierOrder({
       productId: product.external_product_id || product.id,
@@ -3187,7 +3146,7 @@ async function listPublicTelegramProducts(db) {
               supplier_stock AS available,cost_pkr,wholesale_price,provider_name,
               requires_customer_email
        FROM commerce_supplier_products
-       WHERE enabled=true AND selling_price IS NOT NULL
+       WHERE enabled=true AND selling_price IS NOT NULL AND provider_id<>'elitetools'
        ORDER BY name LIMIT 5000`,
     )
   ).rows;
@@ -3645,7 +3604,7 @@ export function createHandler(
           await rate(connection, hash(`${action}:${req.headers['x-vercel-forwarded-for'] || req.socket?.remoteAddress || 'unknown'}`), 60);
           if (action === 'catalog') {
             const rows = (await connection.query(`SELECT id,canonical_key,canonical_manual,name,description,delivery_instruction,logo_url,requires_customer_email,selling_price AS price,cost_pkr,wholesale_price,supplier_stock AS available,first_seen_at
-              FROM commerce_supplier_products WHERE enabled=true AND selling_price IS NOT NULL
+              FROM commerce_supplier_products WHERE enabled=true AND selling_price IS NOT NULL AND provider_id<>'elitetools'
               ORDER BY cost_pkr ASC NULLS LAST,wholesale_price ASC,id`)).rows;
             const supplier = selectLowestSupplierOffers(rows).filter((product) => !isChatGptPlusProduct(product.name));
             return json(res, 200, { ready: true, products: [...catalog.map((p) => ({ ...customerProduct(p), source: 'local' })), ...supplier.map(({ cost_pkr, wholesale_price, canonical_manual, available, ...p }) => ({ ...customerProduct(p), id: canonical_manual && !String(p.canonical_key || '').startsWith('auto:') ? p.canonical_key : supplierProductKey(p.name) || p.canonical_key, source: 'supplier' }))] });
@@ -3657,7 +3616,7 @@ export function createHandler(
               : Number((await connection.query(`SELECT count(*)::int AS available FROM commerce_inventory i WHERE i.product_id=$1 AND i.state='available' AND NOT EXISTS (SELECT 1 FROM commerce_shared_accounts sa WHERE sa.inventory_id=i.id)`, [productId])).rows[0]?.available || 0);
             checkoutAvailability = { status: available > 0 ? 'available' : 'unavailable', available };
           } else {
-            const allOffers = (await connection.query(`SELECT * FROM commerce_supplier_products WHERE enabled=true AND selling_price IS NOT NULL ORDER BY cost_pkr ASC NULLS LAST,wholesale_price ASC,id`)).rows;
+            const allOffers = (await connection.query(`SELECT * FROM commerce_supplier_products WHERE enabled=true AND selling_price IS NOT NULL AND provider_id<>'elitetools' ORDER BY cost_pkr ASC NULLS LAST,wholesale_price ASC,id`)).rows;
             const planKey = (p) => p.canonical_manual && !p.canonical_key.startsWith('auto:') ? p.canonical_key : supplierProductKey(p.name) || p.canonical_key;
             const requested = allOffers.find((p) => p.id === productId || planKey(p) === productId) || allOffers.find((p) => p.canonical_key === productId);
             offers = requested ? allOffers.filter((p) => planKey(p) === planKey(requested)) : [];
@@ -4568,7 +4527,7 @@ export function createHandler(
           await db.query(`WITH ranked AS (
         SELECT id,name,description,delivery_instruction,logo_url,requires_customer_email,selling_price AS price,supplier_stock AS available,provider_id,provider_name,canonical_key,first_seen_at,
           row_number() OVER(PARTITION BY canonical_key ORDER BY cost_pkr ASC NULLS LAST,wholesale_price ASC,id) AS choice
-        FROM commerce_supplier_products WHERE enabled=true AND selling_price IS NOT NULL AND supplier_stock>0)
+        FROM commerce_supplier_products WHERE enabled=true AND selling_price IS NOT NULL AND supplier_stock>0 AND provider_id<>'elitetools')
         SELECT id,name,description,delivery_instruction,logo_url,requires_customer_email,price,available,provider_id,provider_name,canonical_key,first_seen_at FROM ranked WHERE choice=1 ORDER BY name`)
         ).rows.filter((product) => !isChatGptPlusProduct(product.name));
         const supplierTotal = Number(
