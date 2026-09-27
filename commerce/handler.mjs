@@ -1,5 +1,6 @@
 import pg from 'pg';
 import { liveSupplierStock, cheapestLiveOffers } from './live-stock.mjs';
+import { supplierChangeSchema, recordSupplierChanges } from './supplier-changes.mjs';
 import {
   accountSchema,
   accountForRequest,
@@ -2267,7 +2268,7 @@ async function syncSupplierCatalog(
   const results = [];
   for (const provider of supplierProviders(keys).filter(
     (item) =>
-      item.configured && (!onlyProviderId || item.id === onlyProviderId),
+      item.configured && item.id !== 'elitetools' && (!onlyProviderId || item.id === onlyProviderId),
   )) {
     const lockKey = `supplier-catalog-sync:${provider.id}`;
     const lock = force
@@ -2298,7 +2299,17 @@ async function syncSupplierCatalog(
         [provider.id],
       )
     ).rows[0];
-    const synced = await provider.catalog();
+    let synced;
+    try {
+      synced = await provider.catalog();
+      if (!Array.isArray(synced.products)) throw new Error('Invalid supplier catalog');
+      if (synced.products.some(p => !p.id || !p.name || !Number.isFinite(Number(p.wholesale_price)) || Number(p.wholesale_price) < 0 || !Number.isSafeInteger(Number(p.stock)) || Number(p.stock) < 0)) throw new Error('Invalid supplier products');
+    } catch {
+      await db.query('INSERT INTO commerce_supplier_sync_status(provider_id,succeeded) VALUES($1,false) ON CONFLICT(provider_id) DO UPDATE SET succeeded=false,checked_at=now()', [provider.id]);
+      results.push({ providerId: provider.id, providerName: provider.name, synced: 0, failed: true });
+      continue;
+    }
+    await recordSupplierChanges(db, provider, synced.products);
     let balanceState;
     let balanceError = null;
     try {
@@ -3729,6 +3740,7 @@ export function createHandler(
           'status',
           'google-reviews',
           'google-reviews-sync',
+          'supplier-catalog-sync',
           'scam-reports',
           'scam-report',
           'admin-list',
@@ -3748,6 +3760,7 @@ export function createHandler(
       await ensureSupplierApiLogSchema(db);
       await ensureSupplierSecretSchema(db);
       await ensureSupplierMediaSchema(db);
+      if (['admin-list', 'admin-supplier-sync', 'admin-supplier-key', 'supplier-catalog-sync'].includes(action)) await db.query(supplierChangeSchema);
       // Keep the manual catalogue item present even on warm server instances
       // that initialized the cached schema promise before it was introduced.
       await ensureMuseManualProduct(db);
@@ -4623,6 +4636,11 @@ export function createHandler(
           averageRating: Number(sync?.average_rating || 0),
           syncedAt: sync?.synced_at || null,
         };
+      } else if (action === 'supplier-catalog-sync') {
+        if (!cronAuthorized(req, admin)) throw fail(401, 'Supplier sync authorization is invalid.');
+        const providerId = String(req.query?.provider || '');
+        if (!['dodi','qamify','mke','fatbunny','piggyai','zoomstore'].includes(providerId)) throw fail(400, 'Invalid supplier.');
+        output = { ok: true, providers: await syncSupplierCatalog(db, false, supplierApiKeys, providerId) };
       } else if (action === 'google-reviews-sync') {
         if (!cronAuthorized(req, admin))
           throw fail(401, 'Google review sync authorization is invalid.');
@@ -5935,14 +5953,16 @@ export function createHandler(
           };
         }
       } else if (action === 'admin-supplier-sync') {
-        const providers = await syncSupplierCatalog(db, true, supplierApiKeys);
+        const providerId = String(body.providerId || '');
+        if (providerId && !['dodi','qamify','mke','fatbunny','piggyai','zoomstore'].includes(providerId)) throw fail(400, 'Invalid supplier.');
+        const providers = await syncSupplierCatalog(db, true, supplierApiKeys, providerId);
         if (!providers.length)
           throw fail(503, 'No supplier API is configured.');
         const synced = providers.reduce(
           (sum, provider) => sum + provider.synced,
           0,
         );
-        const seoRebuild = await triggerSupplierSeoRebuild(db);
+        const seoRebuild = body.rebuild === false ? { triggered: false, deferred: true } : await triggerSupplierSeoRebuild(db);
         await db.query(
           "INSERT INTO commerce_audit(action,object_id) VALUES('supplier_sync',$1)",
           [String(synced)],
@@ -6408,6 +6428,8 @@ export function createHandler(
             )
           ).rows,
           adminSettings,
+          supplierChanges: (await db.query('SELECT * FROM commerce_supplier_changes ORDER BY created_at DESC,id DESC LIMIT 100')).rows,
+          supplierSyncStatus: (await db.query('SELECT * FROM commerce_supplier_sync_status ORDER BY provider_id')).rows,
           postmarkInboundUsage: inboundUsage,
           supplierProducts: (
             await db.query(

@@ -38,6 +38,7 @@ for (const entry of await readdir(path.join(root, 'out'), {
 for (const name of [
   'handler.mjs',
   'live-stock.mjs',
+  'supplier-changes.mjs',
   'accounts.mjs',
   'core.mjs',
   'binance-email.mjs',
@@ -91,7 +92,7 @@ await writeFile(
     handler: 'handler.mjs',
     launcherType: 'Nodejs',
     shouldAddHelpers: true,
-    maxDuration: 30,
+    maxDuration: 60,
   }),
 );
 await cp(path.join(root, 'commerce/welcome-language.mjs'), path.join(welcomeFunc, 'handler.mjs'));
@@ -190,6 +191,7 @@ await writeFile(
         { src: '/(.*)', status: 404, dest: '/404.html' },
       ],
       crons: [
+        ...['dodi','qamify','mke','fatbunny','piggyai','zoomstore'].map((provider, minute) => ({ path: `/api/commerce?action=supplier-catalog-sync&provider=${provider}`, schedule: `${minute * 5} 1 * * *` })),
         {
           path: '/api/google-reviews-sync',
           schedule: '0 0 * * *',
