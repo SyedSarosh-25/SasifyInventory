@@ -16,6 +16,17 @@ test('supplier matching merges equivalent CapCut duration labels', () => {
   );
 });
 
+test('supplier plan duration wins over a shorter warranty duration', () => {
+  assert.equal(
+    supplierProductKey('ChatGPT Plus Account Level 4 4 Months, 2 Months Warranty'),
+    'auto:4-account-chatgpt-level-plus-duration-4m',
+  );
+  assert.equal(
+    supplierProductKey('Capcut Pro 30D with a 30-day warranty'),
+    supplierProductKey('Capcut Pro 1 Month full warranty'),
+  );
+});
+
 test('supplier matching keeps CapCut plan types and credit packages separate', () => {
   assert.notEqual(
     supplierProductKey('CapCut Pro 1 Month'),

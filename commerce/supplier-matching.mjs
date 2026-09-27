@@ -36,23 +36,31 @@ export function supplierProductKey(name) {
     });
   const identity = [];
   let duration = '';
+  let warrantyDuration = '';
+  const recordDuration = (index, consumed, amount, unit) => {
+    const value = normalizedDuration(amount, unit);
+    const after = tokens[index + consumed + 1] || '';
+    const warrantyContext = after === 'warranty' || after === 'fw' || tokens[index - 1] === 'warranty';
+    if (warrantyContext) warrantyDuration ||= value;
+    else duration ||= value;
+  };
   for (let index = 0; index < tokens.length; index += 1) {
     const token = tokens[index];
     const compact = token.match(/^(\d+)(d|day|days|m|mo|month|months|y|year|years|w|week|weeks)$/);
     if (compact) {
-      duration = normalizedDuration(Number(compact[1]), compact[2]);
+      recordDuration(index, 0, Number(compact[1]), compact[2]);
       continue;
     }
     const numeric = token.match(/^\d+$/);
     const numericUnit = tokens[index + 1] || '';
     if (numeric && durationUnit.test(numericUnit)) {
-      duration = normalizedDuration(Number(token), numericUnit);
+      recordDuration(index, 1, Number(token), numericUnit);
       index += 1;
       continue;
     }
     const wordAmount = durationWords.get(token);
     if (wordAmount && durationUnit.test(numericUnit)) {
-      duration = normalizedDuration(wordAmount, numericUnit);
+      recordDuration(index, 1, wordAmount, numericUnit);
       index += 1;
       continue;
     }
@@ -68,6 +76,7 @@ export function supplierProductKey(name) {
   }
   const normalizedIdentity = normalizedTokens.sort().join('-');
   if (!normalizedIdentity) return null;
+  duration ||= warrantyDuration;
   return `auto:${normalizedIdentity}${duration ? `-${duration}` : ''}`.slice(0, 200);
 }
 

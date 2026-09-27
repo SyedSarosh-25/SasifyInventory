@@ -1550,14 +1550,14 @@ function automaticProductKey(name) {
 async function refreshAutomaticSupplierKeys(db) {
   const rows = (
     await db.query(
-      "SELECT id,name,canonical_key FROM commerce_supplier_products WHERE canonical_manual=false OR canonical_key LIKE 'auto:capcut-duration-%'",
+      "SELECT id,name,canonical_key FROM commerce_supplier_products WHERE canonical_manual=false OR canonical_key LIKE 'auto:capcut-duration-%' OR canonical_key='auto:4-account-chatgpt-level-plus-duration-2m'",
     )
   ).rows;
   for (const row of rows) {
     const key = automaticProductKey(row.name);
     if (!key || key === row.canonical_key) continue;
     await db.query(
-      "UPDATE commerce_supplier_products SET canonical_key=$1,canonical_manual=false WHERE id=$2 AND (canonical_manual=false OR canonical_key LIKE 'auto:capcut-duration-%')",
+      "UPDATE commerce_supplier_products SET canonical_key=$1,canonical_manual=false WHERE id=$2 AND (canonical_manual=false OR canonical_key LIKE 'auto:capcut-duration-%' OR canonical_key='auto:4-account-chatgpt-level-plus-duration-2m')",
       [key, row.id],
     );
   }
