@@ -74,59 +74,79 @@ export function SupplierFeaturedCard({ product }: { product: FeaturedProduct }) 
     : product.id === 'p093'
       ? 'p093-ultra'
       : product.id;
-  return (
-    <LocalizedContent><article className="featured-card supplier-featured-card">
-      <a className="featured-card-main" href={href}>
-      <div className="featured-card-topline">
-        <div className="featured-logo">
-          {product.source === 'local' ? (
-            <ProductLogo product={product.localProduct!} />
-          ) : logo ? (
-            <img
-              src={logo}
-              alt={`${displayName} logo`}
-              width={128}
-              height={128}
-              loading="lazy"
-              decoding="async"
-            />
-          ) : (
-            <span className="product-monogram" aria-label={product.name}>
-              {supplierMonogram(displayName)}
-            </span>
-          )}
-        </div>
-      </div>
-      <div className="featured-copy">
-        <h3 translate="no">{displayName}</h3>
-        <p translate="no">{description}</p>
-      </div>
-      <div className="featured-price-block">
-        {!contactOnly && originalPrice !== null ? (
-          <div className="featured-original-price">
-            <span>Original price</span>
-            <del><Money amount={originalPrice} /></del>
-          </div>
+  const isSupplier = product.source === 'supplier';
+  const stockVerified = !isSupplier || product.stockVerified === true;
+  const inStock = !isSupplier || (stockVerified && Number(product.available) > 0);
+  const stockLabel = !isSupplier
+    ? ''
+    : !stockVerified
+      ? 'Checking stock…'
+      : inStock
+        ? `In stock${Number.isFinite(Number(product.available)) ? ` · ${Number(product.available).toLocaleString('en-PK')}` : ''}`
+        : 'Out of stock';
+  const canOpen = !isSupplier || inStock;
+  const cardContent = <>
+    <div className="featured-card-topline">
+      <div className="featured-logo">
+        {product.source === 'local' ? (
+          <ProductLogo product={product.localProduct!} />
+        ) : logo ? (
+          <img
+            src={logo}
+            alt={`${displayName} logo`}
+            width={128}
+            height={128}
+            loading="lazy"
+            decoding="async"
+          />
         ) : (
-          <div className="featured-original-price featured-price-placeholder">
-            <span>Original price</span>
-            <strong>Price may vary</strong>
-          </div>
-        )}
-        <div className="featured-our-price">
-          <span><Tag className="h-3 w-3" /> {contactOnly ? 'From' : 'Our price'}</span>
-          <strong>{contactOnly ? contactPrice === null ? 'Choose package' : <Money amount={contactPrice} /> : <Money amount={salePrice} />}</strong>
-        </div>
-        {!contactOnly && savings !== null ? <div className="featured-savings">Your savings <strong><Money amount={savings} /></strong></div> : (
-          <div className="featured-savings featured-savings-muted">Your savings <strong>Price may vary</strong></div>
+          <span className="product-monogram" aria-label={product.name}>
+            {supplierMonogram(displayName)}
+          </span>
         )}
       </div>
-      </a>
+      {isSupplier && <span className={`featured-stock-badge ${!stockVerified ? 'is-checking' : inStock ? 'is-available' : 'is-unavailable'}`} role="status">
+        <i aria-hidden="true" /> {stockLabel}
+      </span>}
+    </div>
+    <div className="featured-copy">
+      <h3 translate="no">{displayName}</h3>
+      <p translate="no">{description}</p>
+    </div>
+    <div className="featured-price-block">
+      {!contactOnly && originalPrice !== null ? (
+        <div className="featured-original-price">
+          <span>Original price</span>
+          <del><Money amount={originalPrice} /></del>
+        </div>
+      ) : (
+        <div className="featured-original-price featured-price-placeholder">
+          <span>Original price</span>
+          <strong>Price may vary</strong>
+        </div>
+      )}
+      <div className="featured-our-price">
+        <span><Tag className="h-3 w-3" /> {contactOnly ? 'From' : 'Our price'}</span>
+        <strong>{contactOnly ? contactPrice === null ? 'Choose package' : <Money amount={contactPrice} /> : <Money amount={salePrice} />}</strong>
+      </div>
+      {!contactOnly && savings !== null ? <div className="featured-savings">Your savings <strong><Money amount={savings} /></strong></div> : (
+        <div className="featured-savings featured-savings-muted">Your savings <strong>Price may vary</strong></div>
+      )}
+    </div>
+  </>;
+  return (
+    <LocalizedContent><article className={`featured-card supplier-featured-card${isSupplier && !canOpen ? ' is-stock-blocked' : ''}`}>
+      {canOpen ? <a className="featured-card-main" href={href}>{cardContent}</a> : <div className="featured-card-main is-disabled" aria-disabled="true">{cardContent}</div>}
       <div className="featured-card-actions">
-        <a className="featured-details-button" href={href}>View details</a>
-        <a className="featured-buy-button" href={contactOnly ? href : `/checkout?product=${encodeURIComponent(checkoutProductId)}`}>
-          {contactOnly ? 'Choose package' : 'Buy now'} <ArrowRight className="h-4 w-4" />
-        </a>
+        {canOpen ? <>
+          <a className="featured-details-button" href={href}>View details</a>
+          <a className="featured-buy-button" href={contactOnly ? href : `/checkout?product=${encodeURIComponent(checkoutProductId)}`}>
+            {contactOnly ? 'Choose package' : 'Buy now'} <ArrowRight className="h-4 w-4" />
+          </a>
+        </> : <>
+          <span className="featured-details-button is-disabled" aria-disabled="true">{stockVerified ? 'Out of stock' : 'Checking stock…'}</span>
+          <span className="featured-buy-button is-disabled" aria-disabled="true">Unavailable</span>
+        </>}
       </div>
     </article></LocalizedContent>
   );
@@ -150,6 +170,7 @@ export function TopSupplierProducts() {
           setProducts(
             selected.map((product) => ({
               ...product,
+              stockVerified: true,
               source: product.source === 'local' ? 'local' : 'supplier',
               localProduct:
                 product.source === 'local'

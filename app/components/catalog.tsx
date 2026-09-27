@@ -211,7 +211,7 @@ export function Catalog({ initialQuery = '', initialCategory = 'All', heading = 
           </select></label>
           <button type="button" className="catalog-reset" onClick={() => { setQuery(''); setActiveCategory(initialCategory); setSort('featured'); setStockFilter('all'); }}>Reset filters</button>
         </div>
-        {stockState === 'error' && <p className="catalog-stock-status" role="status">Catalog updates could not be loaded. Availability is verified at checkout.</p>}
+        {stockState === 'error' && <p className="catalog-stock-status" role="status">Live stock updates could not be loaded. Supplier cards are disabled until stock can be confirmed.</p>}
         <p className="comparison-note">Savings compare the original price for the full plan duration with our price. Monthly references are multiplied by the number of months. Access and provider billing options may differ.</p>
         <p className="wallet-discount-notice">
           <WalletCards className="h-4 w-4" />

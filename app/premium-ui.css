@@ -40,7 +40,7 @@ body[data-storefront="true"] .hero-proof { flex-wrap: wrap; row-gap: 12px; borde
 body[data-storefront="true"] .featured-card { border-radius: 20px; border: 1px solid #e1e6f1; box-shadow: 0 8px 26px #1a2a4c06; overflow: hidden; }
 body[data-storefront="true"] .featured-card:hover { box-shadow: 0 12px 30px #42389110; border-color: #bdb5ee; }
 body[data-storefront="true"] .featured-copy h3 { line-height: 1.4; letter-spacing: -.025em; }
-body[data-storefront="true"] .featured-stock-badge.is-unavailable { color: #68738c; background: #f0f2f7; }
+body[data-storefront="true"] .featured-stock-badge.is-unavailable { color: #a33c3c; background: #fff0f0; }
 body[data-storefront="true"] .featured-price-block { border-radius: 13px; }
 body[data-storefront="true"] .featured-buy-button,body[data-storefront="true"] .featured-details-button { min-height: 44px; border-radius: 10px; }
 body[data-storefront="true"] .catalog-section { padding-top: 54px; }

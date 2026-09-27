@@ -123,7 +123,6 @@ async function api(
       body: body ? JSON.stringify(body) : undefined,
       cache: 'no-store',
       credentials: 'same-origin',
-      ...(action === 'checkout-availability' ? { signal: AbortSignal.timeout(12000) } : {}),
     },
   );
   const data: any = await response.json();
@@ -153,9 +152,6 @@ export function StockBuy({ productId }: { productId: string }) {
 export function Checkout() {
   const [products, setProducts] = useState<Stock[]>([]),
     [selected, setSelected] = useState('p013');
-  const [availability, setAvailability] = useState<'checking' | 'available' | 'unavailable' | 'unknown'>('checking');
-  const [availabilityStock, setAvailabilityStock] = useState<number | null>(null);
-  const [availabilityRetry, setAvailabilityRetry] = useState(0);
   const [order, setOrder] = useState<Order | null>(null),
     [id, setId] = useState(''),
     [key, setKey] = useState('');
@@ -216,22 +212,6 @@ export function Checkout() {
       active = false;
     };
   }, []);
-  useEffect(() => {
-    if (!ready || id) return;
-    let active = true;
-    setAvailability('checking');
-    setAvailabilityStock(null);
-    api('checkout-availability', '', { productId: selected })
-      .then((data) => {
-        if (!active) return;
-        const status = ['available', 'unavailable'].includes(data.status) ? data.status : 'unknown';
-        setAvailability(status);
-        const stock = Number(data.available);
-        setAvailabilityStock(status === 'available' && Number.isSafeInteger(stock) && stock >= 0 ? stock : null);
-      })
-      .catch(() => { if (active) { setAvailability('unknown'); setAvailabilityStock(null); } });
-    return () => { active = false; };
-  }, [selected, ready, id, availabilityRetry]);
   useEffect(() => {
     api('account-dashboard').then((data) => setCheckoutAccount(data.account || null)).catch(() => setCheckoutAccount(null));
   }, []);
@@ -341,6 +321,7 @@ export function Checkout() {
     setShowTwoFactorStep(false);
   }
   const product = products.find((p) => p.id === selected);
+  const productUnavailable = product?.source === 'supplier' && Number(product.available) <= 0;
   const selectedPayment = PAYMENT_METHOD_OPTIONS.find((option) => option.value === paymentMethod) || PAYMENT_METHOD_OPTIONS[0];
   const walletDiscount = product && useSasifyWallet
     ? Math.floor(Math.max(0, Number(product.price)) * 0.05)
@@ -507,7 +488,7 @@ export function Checkout() {
               Select package
               <select
                 value={selected}
-                onChange={(e) => { setAvailability('checking'); setSelected(e.target.value); }}
+                onChange={(e) => setSelected(e.target.value)}
               >
                 {checkoutProducts.map((p) => (
                   <option key={p.id} value={p.id}>
@@ -521,10 +502,6 @@ export function Checkout() {
                 <div>
                   <span>Price</span>
                   <strong>PKR {product.price.toLocaleString()}</strong>
-                </div>
-                <div>
-                  <span>Supplier availability</span>
-                  <strong role="status">{availability === 'checking' ? 'Checking availability…' : availability === 'available' ? `Available${availabilityStock === null ? '' : ` · ${availabilityStock.toLocaleString()} in stock`}` : availability === 'unavailable' ? 'Unavailable' : 'Could not verify'}</strong>
                 </div>
               </div>
             )}
@@ -665,7 +642,7 @@ export function Checkout() {
               disabled={
                 busy ||
                 !ready ||
-                availability !== 'available' || !product ||
+                !product || productUnavailable ||
                 (product.requires_customer_email && !customerEmail.trim())
               }
             >
@@ -676,8 +653,7 @@ export function Checkout() {
                   ? 'Buy with Sasify Wallet'
                   : 'Pay online'}
             </button>
-            {ready && availability === 'unavailable' && <p role="status">Sorry, this product is currently unavailable from the supplier.</p>}
-            {ready && availability === 'unknown' && <div role="status"><p>We couldn’t verify availability. Please retry.</p><button type="button" className="secondary-button" onClick={() => setAvailabilityRetry((value) => value + 1)}>Retry availability check</button></div>}
+            {productUnavailable && <p role="status">This product is currently unavailable. Please return to the inventory and choose another product.</p>}
           </form>
         </>
       )}

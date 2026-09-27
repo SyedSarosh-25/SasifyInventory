@@ -735,6 +735,12 @@ svg { flex-shrink: 0; }
 }
 .featured-logo img { width: 30px; height: 30px; object-fit: contain; }
 .featured-stock-badge { display: inline-flex; align-items: center; gap: 4px; padding: 5px 8px; border: 1px solid #bee4d7; border-radius: 999px; background: #eaf8f1; color: #175942; font-size: .62rem; font-weight: 850; white-space: nowrap; }
+.featured-stock-badge i { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.featured-stock-badge.is-unavailable { border-color: #efb7b7; background: #fff0f0; color: #a33c3c; }
+.featured-stock-badge.is-checking { border-color: #d8deeb; background: #f3f5f9; color: #6b7890; }
+.featured-card.is-stock-blocked { opacity: .86; }
+.featured-card-main.is-disabled { cursor: not-allowed; }
+.featured-details-button.is-disabled, .featured-buy-button.is-disabled { cursor: not-allowed; opacity: .58; }
 .featured-copy { min-width: 0; margin-top: 12px; }
 .featured-copy h3 {
   margin: 0;

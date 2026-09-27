@@ -53,7 +53,8 @@ test('private-account delivery guide is hidden for shared accounts', () => {
   assert.match(checkoutSource, /!order\.sharedSlot\s*&&\s*<section className="account-delivery-guide"/);
 });
 
-test('checkout displays live supplier quantity when availability is confirmed', () => {
-  assert.match(checkoutSource, /availabilityStock/);
-  assert.match(checkoutSource, /in stock/);
+test('checkout no longer performs or displays a supplier availability check', () => {
+  assert.doesNotMatch(checkoutSource, /checkout-availability/);
+  assert.doesNotMatch(checkoutSource, /Checking availability/);
+  assert.doesNotMatch(checkoutSource, /Supplier availability/);
 });
