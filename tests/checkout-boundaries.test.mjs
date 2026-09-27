@@ -25,14 +25,15 @@ async function request(action, rows, productId = '') {
   return { ...result, released, queries };
 }
 
-test('catalog reads do not run checkout maintenance or expose supplier cost', async () => {
-  const result = await request('catalog', [{ id: 'manual:one', canonical_key: 'auto:test', name: 'Figma Pro 1 year', price: 999, cost_pkr: 333, wholesale_price: 1, canonical_manual: false }]);
+test('catalog reads expose supplier stock without supplier cost or checkout maintenance', async () => {
+  const result = await request('catalog', [{ id: 'manual:one', canonical_key: 'auto:test', name: 'Figma Pro 1 year', price: 999, available: 44, cost_pkr: 333, wholesale_price: 1, canonical_manual: false }]);
   assert.equal(result.status, 200);
   assert.equal(result.released, true);
   const item = result.body.products.find(p => p.source === 'supplier');
   assert.ok(item);
   assert.equal(item.cost_pkr, undefined);
   assert.equal(item.wholesale_price, undefined);
+  assert.equal(item.available, 44);
   assert.equal(result.queries.length, 2);
 });
 
