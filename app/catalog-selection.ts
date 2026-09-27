@@ -76,6 +76,7 @@ export const fixedTopProductSpecs: FixedTopProductSpec[] = [
   {
     source: 'supplier',
     canonicalKey: 'auto:1200-capcut-credits-pro-team-duration-1m',
+    canonicalAliases: ['auto:capcut-duration-1m'],
     displayName: 'CapCut Pro Team · 1 Month · 1200 Credits',
   },
   {

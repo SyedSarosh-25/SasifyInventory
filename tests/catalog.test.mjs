@@ -276,6 +276,14 @@ test('homepage Top 8 keeps distinct plan names and supplier prices from live sto
   assert.deepEqual(selected.map((product) => product.display_original_price), [undefined, undefined, undefined, undefined, undefined, undefined, 109440, undefined]);
 });
 
+test('homepage CapCut card accepts the restored API identifier without changing price or stock', () => {
+  const selected = selectFixedTopProducts([{ id: 'auto:capcut-duration-1m', canonical_key: 'auto:capcut-duration-1m', name: 'Capcut Pro Team 1 Month 1200 Credits', source: 'supplier', price: 999, available: 6 }]);
+  assert.equal(selected.length, 1);
+  assert.equal(selected[0].display_name, 'CapCut Pro Team · 1 Month · 1200 Credits');
+  assert.equal(selected[0].price, 999);
+  assert.equal(selected[0].available, 6);
+});
+
 test('homepage top ten keeps ChatGPT available and randomizes the remaining live stock', () => {
   const catalog = [
     { id: 'p093', name: 'ChatGPT Plus', price: 3499, available: 2, source: 'local' },
