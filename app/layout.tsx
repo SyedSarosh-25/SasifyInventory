@@ -1,6 +1,8 @@
 import type { Metadata, Viewport } from 'next';
 import { Geist, Plus_Jakarta_Sans } from 'next/font/google';
 import './globals.css';
+import './premium-ui.css';
+import { LanguageProvider } from './components/language';
 import { siteDescription, siteOrigin, siteTitle } from './site-config';
 import { CurrencyProvider } from './components/currency';
 import { StructuredData } from './components/structured-data';
@@ -80,7 +82,7 @@ export default function RootLayout({
     <html lang="en" className="light" style={{ colorScheme: 'light' }}>
       <body className={`${geistSans.variable} ${displaySans.variable} antialiased`}>
         <StructuredData data={organizationData} />
-        <CurrencyProvider>{children}</CurrencyProvider>
+        <LanguageProvider><CurrencyProvider>{children}</CurrencyProvider></LanguageProvider>
         <MotionSystem />
         <AdminShortcut />
         <SiteTelemetry />

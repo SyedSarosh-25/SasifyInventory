@@ -1,4 +1,6 @@
 'use client';
+import { LanguageSwitcher, LocalizedContent } from './language';
+
 import { useEffect, useState, type SyntheticEvent } from 'react';
 import {
   ArrowDownToLine,
@@ -97,7 +99,7 @@ function PasswordField({
 }) {
   const [visible, setVisible] = useState(false);
   return (
-    <label>
+    <LocalizedContent><label>
       {label}
       <span className="account-password-control">
         <input
@@ -118,7 +120,7 @@ function PasswordField({
           {visible ? <EyeOff size={18} /> : <Eye size={18} />}
         </button>
       </span>
-    </label>
+    </label></LocalizedContent>
   );
 }
 
@@ -205,7 +207,7 @@ export function AccountAuth({ signup = false }: { signup?: boolean }) {
     }
   }
   return (
-    <>
+    <LocalizedContent><>
       <SiteHeader accountMode={signup ? 'signup' : 'login'} />
       <main className="account-auth">
         <section className={`account-intro${signup ? ' account-intro-signup' : ''}`}>
@@ -450,7 +452,7 @@ export function AccountAuth({ signup = false }: { signup?: boolean }) {
         </form>
       </main>
       <SiteFooter />
-    </>
+    </></LocalizedContent>
   );
 }
 
@@ -516,7 +518,7 @@ export function AccountRecovery({ reset = false }: { reset?: boolean }) {
   const hasResetToken = Boolean(resetToken);
 
   return (
-    <>
+    <LocalizedContent><>
       <SiteHeader accountMode="recovery" />
       <main className="account-recovery-page">
         <section className="account-card account-recovery-card">
@@ -609,7 +611,7 @@ export function AccountRecovery({ reset = false }: { reset?: boolean }) {
         </section>
       </main>
       <SiteFooter />
-    </>
+    </></LocalizedContent>
   );
 }
 
@@ -725,14 +727,14 @@ export function CustomerDashboard() {
     });
   }
   return (
-    <main className="account-dashboard account-dashboard-clean">
+    <LocalizedContent><main className="account-dashboard account-dashboard-clean">
         <div className="customer-dashboard-layout">
           <aside className="customer-dashboard-sidebar">
             <div className="dashboard-user-card">
               <span className="dashboard-avatar" aria-hidden="true">
                 {data?.account.name.slice(0, 1).toUpperCase() || 'S'}
               </span>
-              <span className="dashboard-user-copy">
+              <span className="dashboard-user-copy" translate="no">
                 <strong>{data?.account.name || 'Your account'}</strong>
                 <small>
                   {data?.account.role === 'reseller' ? 'Reseller' : 'Customer'}
@@ -785,6 +787,7 @@ export function CustomerDashboard() {
                 <p>Track your orders, wallet and account details.</p>
               </div>
               <div className="dashboard-topbar-actions">
+                <LanguageSwitcher />
                 <a className="dashboard-browse-link" href="/inventory">
                   Browse products <ArrowRight size={16} />
                 </a>
@@ -1209,15 +1212,15 @@ export function CustomerDashboard() {
                   <h2>Account details</h2>
                   <dl>
                     <dt>Name</dt>
-                    <dd>{data.account.name}</dd>
+                    <dd translate="no">{data.account.name}</dd>
                     {data.account.username && (
                       <>
                         <dt>Username</dt>
-                        <dd>@{data.account.username}</dd>
+                        <dd translate="no">@{data.account.username}</dd>
                       </>
                     )}
                     <dt>Email</dt>
-                    <dd>{data.account.email}</dd>
+                    <dd translate="no">{data.account.email}</dd>
                     <dt>Account type</dt>
                     <dd>
                       {data.account.role === 'reseller'
@@ -1285,7 +1288,7 @@ export function CustomerDashboard() {
         )}
           </div>
         </div>
-    </main>
+    </main></LocalizedContent>
   );
 }
 
@@ -1313,7 +1316,7 @@ export function CheckoutAccount({
   if (!loaded) return null;
   if (!account) return null;
   return (
-    <div className="account-checkout">
+    <LocalizedContent><div className="account-checkout">
       <a className="account-checkout-dashboard" href="/dashboard">
         <span className="account-checkout-eyebrow">Signed in</span>
         <strong>My dashboard</strong>
@@ -1357,6 +1360,6 @@ export function CheckoutAccount({
         </button>
       )}
       {error && <p role="alert">{error}</p>}
-    </div>
+    </div></LocalizedContent>
   );
 }

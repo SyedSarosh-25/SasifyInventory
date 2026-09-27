@@ -1,4 +1,7 @@
 'use client';
+import { LocalizedContent } from './language';
+import { LanguageSwitcher } from './language';
+
 import { useEffect, useRef, useState } from 'react';
 import { AdminShell } from './admin-shell';
 import { AdminOperations } from './admin-operations';
@@ -169,7 +172,7 @@ export function StockBuy({ productId }: { productId: string }) {
   }, [productId]);
   if (!stock) return null;
   return (
-    <div className="online-stock">
+    <LocalizedContent><div className="online-stock">
       <p>
         {stock.available > 0
           ? stock.id === 'p093-shared'
@@ -177,7 +180,7 @@ export function StockBuy({ productId }: { productId: string }) {
             : `${stock.available} accounts available`
           : 'Online stock sold out'}
       </p>
-    </div>
+    </div></LocalizedContent>
   );
 }
 export function Checkout() {
@@ -435,7 +438,8 @@ export function Checkout() {
     }
   }
   return (
-    <div className="commerce-shell">
+    <LocalizedContent><div className="commerce-shell">
+      <div className="checkout-language-bar"><LanguageSwitcher /></div>
       <a href="/" className="brand">
         <img
           src="/sasify-logo.png"
@@ -1093,7 +1097,7 @@ export function Checkout() {
           )}
         </>
       )}
-    </div>
+    </div></LocalizedContent>
   );
 }
 

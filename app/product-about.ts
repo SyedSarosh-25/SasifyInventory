@@ -13,6 +13,7 @@ type AboutInput = {
 export type ProductAbout = {
   heading: string;
   paragraphs: string[];
+  // Research vocabulary for editorial planning; never render as a keyword list.
   searchTerms: string[];
   useCases: string[];
 };
@@ -72,7 +73,7 @@ function readableSearchName(input: AboutInput) {
 }
 
 const keywordFamilies = [
-  { matches: ['chatgpt'], terms: ['ChatGPT Plus price in Pakistan', 'buy ChatGPT Plus Pakistan', 'ChatGPT Plus subscription Pakistan', 'ChatGPT Plus account Pakistan', 'ChatGPT Plus shared account Pakistan', 'ChatGPT Plus 1 month Pakistan'] },
+  { matches: ['chatgpt'], terms: ['ChatGPT Plus price in Pakistan', 'buy ChatGPT Plus Pakistan', 'ChatGPT Plus subscription Pakistan', 'ChatGPT Plus price', 'ChatGPT subscription', 'ChatGPT Plus 1 month Pakistan'] },
   { matches: ['claude'], terms: ['Claude AI price in Pakistan', 'buy Claude subscription Pakistan', 'Claude Pro Pakistan', 'Claude Team plan Pakistan', 'Claude AI account Pakistan', 'Claude API credits Pakistan'] },
   { matches: ['cursor'], terms: ['Cursor AI price in Pakistan', 'buy Cursor Pro Pakistan', 'Cursor AI subscription Pakistan', 'Cursor AI credits Pakistan', 'Cursor coding tool Pakistan', 'AI coding tool Pakistan'] },
   { matches: ['canva'], terms: ['Canva Pro price in Pakistan', 'buy Canva Pro Pakistan', 'Canva Pro subscription Pakistan', 'Canva Pro account Pakistan', 'Canva Edu Pakistan', 'Canva design tool Pakistan'] },
@@ -81,7 +82,7 @@ const keywordFamilies = [
   { matches: ['adobe', 'premiere'], requireAll: true, terms: ['Adobe Premiere Pro price in Pakistan', 'buy Adobe Premiere Pro Pakistan', 'Adobe Premiere Pro subscription Pakistan', 'Adobe Premiere Pro account Pakistan', 'Adobe video editing software Pakistan', 'video editing software Pakistan'] },
   { matches: ['adobe', 'express'], requireAll: true, terms: ['Adobe Express price in Pakistan', 'buy Adobe Express Pakistan', 'Adobe Express subscription Pakistan', 'Adobe Express account Pakistan', 'Adobe graphic design app Pakistan', 'graphic design app Pakistan'] },
   { matches: ['adobe'], terms: ['Adobe subscription price in Pakistan', 'buy Adobe subscription Pakistan', 'Adobe Creative Cloud Pakistan', 'Adobe account Pakistan', 'Adobe software Pakistan', 'creative software Pakistan'] },
-  { matches: ['figma'], terms: ['Figma Pro price in Pakistan', 'buy Figma Pro Pakistan', 'Figma subscription Pakistan', 'Figma Pro account Pakistan', 'Figma Education Pakistan', 'UI design tool Pakistan'] },
+  { matches: ['figma'], terms: ['Figma price in Pakistan', 'buy Figma Pakistan', 'Figma subscription Pakistan', 'Figma price', 'Figma subscription', 'UI design tool Pakistan'] },
   { matches: ['freepik'], terms: ['Freepik Premium price in Pakistan', 'buy Freepik Premium Pakistan', 'Freepik subscription Pakistan', 'Freepik Magnific Pakistan', 'Freepik credits Pakistan', 'AI image tool Pakistan'] },
   { matches: ['heygen'], terms: ['HeyGen AI price in Pakistan', 'buy HeyGen Creator Pakistan', 'HeyGen subscription Pakistan', 'HeyGen AI account Pakistan', 'AI avatar tool Pakistan', 'AI video tool Pakistan'] },
   { matches: ['kling'], terms: ['Kling AI price in Pakistan', 'buy Kling AI Pakistan', 'Kling AI subscription Pakistan', 'Kling AI credits Pakistan', 'Kling 26K credits Pakistan', 'AI video tool Pakistan'] },
@@ -361,24 +362,22 @@ function buildProductAbout(input: AboutInput): ProductAbout {
   const kind = productKind(input);
   const profile = capabilityProfile(input);
   const searchPhrases = searchIntentPhrases(input, kind);
+  const searchName = readableSearchName(input);
   const duration =
     input.duration && input.duration !== '-'
-      ? ` The listed access period is ${input.duration}.`
-      : '';
+      ? `covers ${input.duration.toLowerCase()} of access.`
+      : `is the ${input.name} option.`;
   const customerEmail = input.requiresCustomerEmail
-    ? ' This listing may require your customer email during checkout so the supplier can process activation or delivery.'
+    ? ' Your email may be needed at checkout for activation or delivery.'
     : '';
   return {
-    heading: `About this ${kind}`,
+    heading: `About ${searchName}`,
     paragraphs: [
       cleanSentence(
-        `${input.name} is a ${kind} for ${profile.audience}. It is mainly used for ${profile.purpose}.${duration}`,
+        `This ${searchName} ${kind} ${duration}${input.name === searchName || !input.duration || input.duration === '-' ? '' : ` This option is ${input.name}.`}`,
       ),
       cleanSentence(
-        `This section explains the real-world use case of ${input.name} so you can decide whether this tool, subscription, account or service matches what you searched for.${customerEmail}`,
-      ),
-      cleanSentence(
-        `For global search intent, this page covers people comparing ${searchPhrases.slice(0, -1).join(', ')} and ${searchPhrases.at(-1)} before buying online; Pakistan pricing and checkout details are shown where relevant.`,
+        `Use ${searchName} for ${profile.purpose}. Check the access type, price and activation details before ordering.${customerEmail}`,
       ),
     ],
     searchTerms: searchPhrases,

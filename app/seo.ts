@@ -1,5 +1,6 @@
 import type { Product } from './products.ts';
 import { products } from './products.ts';
+import { storefrontCategories } from './categories.ts';
 import {
   formatPkr,
   isAnnualPlan,
@@ -126,14 +127,14 @@ export function productQuestions(product: Product) {
   if (product.id === 'p093' && product.variants?.length)
     return [
       {
-        question: 'What is the ChatGPT Plus account price in Pakistan?',
+        question: 'What is the ChatGPT Plus price in Pakistan?',
         answer:
-          'Sasify Solutions offers a one-month Ultra Stable ChatGPT Plus account paid through Apple Pay for PKR 3,499. To buy ChatGPT Plus in Pakistan, choose the available account option and confirm current stock before ordering.',
+          'This one-month ChatGPT Plus subscription is the private Ultra Stable account paid through Apple Pay. It costs PKR 3,499 at Sasify Solutions and can be purchased through online checkout.',
       },
       {
         question: `What warranty comes with ${product.name}?`,
         answer:
-          'The Ultra Stable Apple Pay option includes a full 30-day warranty. Warranty details for other account options are shown with the listing and confirmed before payment. WhatsApp support is available after payment for delivery or activation issues.',
+          'The Ultra Stable Apple Pay option includes a full 30-day warranty. Warranty details for other account options are shown on their listings. WhatsApp support is available after payment for delivery or activation issues.',
       },
     ];
   const price = formatPkr(product.sellingPricePkr);
@@ -165,6 +166,7 @@ export const organizationData = {
   '@type': 'Organization',
   '@id': `${siteOrigin}/#organization`,
   name: 'Sasify Solutions',
+  alternateName: ['Sasify', 'Sasify Digital Solutions'],
   url: `${siteOrigin}/`,
   logo: {
     '@type': 'ImageObject',
@@ -350,6 +352,8 @@ export function sitemapEntries() {
     '/refunds',
     '/privacy',
     '/terms',
+    '/categories',
+    ...storefrontCategories.map(category => `/categories/${category.slug}`),
     ...products.map(productHref),
     ...supplierSeoProducts.map(supplierProductHref),
   ].map((path) => ({ url: `${siteOrigin}${path}` }));

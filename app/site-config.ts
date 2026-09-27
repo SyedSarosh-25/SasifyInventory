@@ -7,7 +7,7 @@ if (!['http:', 'https:'].includes(origin.protocol) || origin.pathname !== '/' ||
 
 export const siteOrigin = origin.origin;
 export const siteTitle = 'Sasify Solutions | Digital Tools and Services Marketplace';
-export const siteDescription = 'Shop AI, design, coding and productivity subscriptions in Pakistan. Compare PKR prices, access types and warranties, then pay online for secure delivery.';
+export const siteDescription = 'Sasify Solutions is a digital tools marketplace in Pakistan. Compare AI, design, coding and productivity plans with clear PKR prices and online checkout.';
 export const founderProfile = 'https://pk.linkedin.com/in/syedsarosh2';
 export const socials = [
   { name: 'Instagram', domain: 'instagram.com', href: 'https://www.instagram.com/sasify_solutions/' },

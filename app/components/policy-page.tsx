@@ -1,9 +1,9 @@
+
+import { LocalizedContent } from './language';
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
-import { MessageCircle } from 'lucide-react';
 import { breadcrumbData } from '../seo';
 import { siteOrigin } from '../site-config';
-import { whatsappLink } from '../product-utils';
 import { SiteFooter, SiteHeader } from './site-chrome';
 import { StructuredData } from './structured-data';
 import { shareImage, shareImageUrl } from '../share-metadata';
@@ -27,7 +27,7 @@ export function policyMetadata(title: string, description: string, path: string)
 }
 
 export function PolicyPage({ title, summary, path, children, updated = '3 September 2026' }: { title: string; summary: string; path: string; children: ReactNode; updated?: string }) {
-  return <main>
+  return <LocalizedContent><main>
     <SiteHeader />
     <StructuredData data={breadcrumbData([{ name: 'Home', path: '/' }, { name: title, path }])} />
     <article className="detail-shell about-page policy-page">
@@ -40,8 +40,8 @@ export function PolicyPage({ title, summary, path, children, updated = '3 Septem
       <nav className="policy-navigation" aria-label="Related policies">
         {policyLinks.map((link) => <a key={link.href} href={link.href} aria-current={link.href === path ? 'page' : undefined}>{link.label}</a>)}
       </nav>
-      <a href={whatsappLink()} target="_blank" rel="noreferrer" className="primary-button"><MessageCircle className="h-4 w-4" /> Ask a policy question</a>
+      <a href="/inventory" className="primary-button">Browse products</a>
     </article>
     <SiteFooter />
-  </main>;
+  </main></LocalizedContent>;
 }

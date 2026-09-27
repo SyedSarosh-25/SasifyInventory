@@ -1,9 +1,10 @@
+
+import { LocalizedContent } from '../components/language';
 import type { Metadata } from 'next';
 import { SiteFooter, SiteHeader } from '../components/site-chrome';
 import { StructuredData } from '../components/structured-data';
 import { breadcrumbData } from '../seo';
 import { founderProfile, siteOrigin, socials } from '../site-config';
-import { whatsappLink } from '../product-utils';
 import { shareImage, shareImageUrl } from '../share-metadata';
 
 const title = 'About Sasify Solutions | Founder, Contact & Online Ordering';
@@ -16,7 +17,7 @@ export const metadata: Metadata = {
 };
 
 export default function AboutPage() {
-  return <main>
+  return <LocalizedContent><main>
     <SiteHeader />
     <StructuredData data={breadcrumbData([{ name: 'Home', path: '/' }, { name: 'About Sasify Solutions', path: '/about' }])} />
     <article className="detail-shell about-page">
@@ -27,8 +28,12 @@ export default function AboutPage() {
       </div>
       <p>Sasify Solutions is a digital tools and services marketplace founded by <a href={founderProfile} target="_blank" rel="noreferrer">Syed Sarosh</a>. Our inventory brings together AI, coding, design, productivity and other digital packages for buyers in Pakistan, with listed PKR prices, online checkout and automatic delivery after payment verification.</p>
       <section className="description-section">
+        <h2>Our official name and website</h2>
+        <p>We are <strong>Sasify Solutions</strong> (spelled S-A-S-I-F-Y), at <a href={`${siteOrigin}/`}>sasifysolutions.com</a>. Some searches show “SaaSify Solutions” (S-A-A-S-I-F-Y); that is a different company, not another name for us. Check our domain and founder before placing an order.</p>
+      </section>
+      <section className="description-section">
         <h2>Know the package before you pay</h2>
-        <p>Each listing describes a specific package, not every feature or billing option offered by its provider. Shared access, personal access, team seats, invitations and credit packages are not interchangeable. Confirm the exact access arrangement, usage limits and activation requirements for the listing you select.</p>
+        <p>Each listing describes a specific package, not every feature or billing option offered by its provider. Shared access, personal access, team seats, invitations and credit packages are not interchangeable. Review the access arrangement, usage limits and activation requirements on the listing you select.</p>
         <p>Provider names and logos identify the relevant tools. Original prices are comparison references; provider billing, access and regional pricing may differ from the Sasify package.</p>
       </section>
       <section className="description-section">
@@ -40,12 +45,12 @@ export default function AboutPage() {
       </section>
       <section className="description-section">
         <h2>Contact Sasify Solutions</h2>
-        <p>After a successful payment, use the WhatsApp support button shown with your order for delivery, activation or warranty support. For general questions, you can also contact <a href={whatsappLink()} target="_blank" rel="noreferrer">+923116185711 on WhatsApp</a>.</p>
+        <p>After a successful payment, use the WhatsApp support button shown with your order if you have a payment, delivery, activation or warranty issue.</p>
         <a href="/inventory" className="primary-button">Browse products</a>
         <ul className="about-socials">{socials.map((social) => <li key={social.name}><a href={social.href} target="_blank" rel="noreferrer">{social.name}: @Sasify_Solutions</a></li>)}</ul>
         <p><a href="/#reviews">Read customer review excerpts</a> and follow their source links to the original Google Maps reviews.</p>
       </section>
     </article>
     <SiteFooter />
-  </main>;
+  </main></LocalizedContent>;
 }

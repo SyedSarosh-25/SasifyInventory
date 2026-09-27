@@ -1,10 +1,11 @@
+
+import { LocalizedContent } from '../../components/language';
 import type { Metadata } from 'next';
 import { notFound, redirect } from 'next/navigation';
 import {
   ArrowLeft,
   ArrowRight,
   CalendarDays,
-  Check,
   ExternalLink,
   MessageCircle,
   ShieldCheck,
@@ -46,7 +47,6 @@ import {
   originalPriceComparison,
   originalPricePkr,
   productHref,
-  productLogo,
   savingsPkr,
   siteOrigin,
   warrantyDays,
@@ -54,6 +54,7 @@ import {
 } from '../../product-utils';
 import { productShareImage, productShareImageUrl } from '../../share-metadata';
 import { supplierOriginalPriceComparison, supplierSavingsPkr } from '../../supplier-price-utils';
+import { productSearchTags } from '../../product-search-tags';
 
 type Props = { params: Promise<{ id: string }> };
 
@@ -63,7 +64,7 @@ function findLocalProduct(routeId: string) {
 
 function PurchaseDisclaimer() {
   return (
-    <aside className="purchase-disclaimer" role="note">
+    <LocalizedContent><aside className="purchase-disclaimer" role="note">
       <strong>Please read before purchasing</strong>
       <p>
         Please read the complete product description, activation requirements,
@@ -71,8 +72,37 @@ function PurchaseDisclaimer() {
         the description or requirements were not read or followed, Sasify
         Solutions cannot be held responsible.
       </p>
-    </aside>
+    </aside></LocalizedContent>
   );
+}
+
+function usefulCases(name: string, cases: string[]) {
+  if (/chatgpt/i.test(name)) return [
+    'Draft, rewrite and summarize writing or documents.',
+    'Explain code, debug errors and work on software projects with Codex, subject to the plan’s usage limits.',
+    'Generate and refine images, ideas and presentations.',
+    'Explore research questions, study topics and everyday planning.',
+  ];
+  if (/figma/i.test(name)) return [
+    'Design website and app screens, wireframes and interactive prototypes.',
+    'Collaborate on interface designs and hand off assets to developers.',
+  ];
+  const useful = cases.filter((item) => !/before purchase|confirm|check|review|choose this type/i.test(item)).slice(0, 3);
+  return useful.length ? useful : [`Use ${name} for the functions described in this listing.`];
+}
+
+function ProductUseCases({ name, slug, cases }: { name: string; slug: string; cases: string[] }) {
+  const searches = productSearchTags(name, slug);
+  return <section className="description-section product-use-cases" id="popular-uses">
+    <h2>Popular uses</h2>
+    <ul className="supplier-description-list">{usefulCases(name, cases).map((item) => <li key={item}>{item}</li>)}</ul>
+    {searches.length ? <div className="product-related-searches">
+      <h3>Related searches</h3>
+      <ul aria-label="Related product searches" className="product-search-tags">
+        {searches.map((phrase) => <li key={phrase} data-no-translate>{phrase}</li>)}
+      </ul>
+    </div> : null}
+  </section>;
 }
 
 export function generateStaticParams() {
@@ -138,7 +168,7 @@ function SupplierSeoProductPage({ product }: { product: SupplierSeoProduct }) {
     .filter(Boolean);
   const descriptionContent = descriptionBlocks.map((block, blockIndex) => {
     const lines = block.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
-    const isHeading = lines.length === 1 && /:$/.test(lines[0]);
+    const isHeading = lines.length === 1 && lines[0].endsWith(':');
     const isList = lines.length > 1 && lines.every((line) => /^[•*-]\s+/.test(line));
     if (isHeading)
       return <h3 className="supplier-description-heading" key={`${block}-${blockIndex}`}>{lines[0].slice(0, -1)}</h3>;
@@ -157,7 +187,7 @@ function SupplierSeoProductPage({ product }: { product: SupplierSeoProduct }) {
     );
   });
   return (
-    <main>
+    <LocalizedContent><main>
       <SiteHeader />
       <StructuredData data={supplierProductData(product)} />
       <StructuredData
@@ -180,7 +210,7 @@ function SupplierSeoProductPage({ product }: { product: SupplierSeoProduct }) {
         </a>
         <div className="detail-layout">
           <article className="detail-content">
-            <div className="detail-identity">
+            <div className="detail-identity product-detail-hero">
               <div className="detail-logo-frame supplier-detail-logo">
                 {logo ? (
                   <img src={logo} alt={`${product.name} logo`} />
@@ -196,10 +226,17 @@ function SupplierSeoProductPage({ product }: { product: SupplierSeoProduct }) {
                 <span className="detail-duration">
                   <CalendarDays className="h-4 w-4" /> Instant delivery
                 </span>
+                <p className="detail-hero-summary">Review the product requirements and availability before ordering.</p>
+                <a className="detail-hero-action" href="#purchase-options">See price &amp; purchase options <ArrowRight className="h-4 w-4" /></a>
               </div>
             </div>
+            <nav className="detail-jump-links" aria-label="Product sections">
+              <a href="#overview">Overview</a>
+              <a href="#questions">Questions about this product</a>
+              <a href="#popular-uses">Popular uses</a>
+            </nav>
 
-            <section className="description-section">
+            <section className="description-section" id="overview">
               <h2>Product description</h2>
               {descriptionBlocks.length ? descriptionContent : (
                 <p>
@@ -230,35 +267,8 @@ function SupplierSeoProductPage({ product }: { product: SupplierSeoProduct }) {
                   <dt>Supplier route</dt>
                   <dd>{product.providerName || 'Automated supplier'}</dd>
                 </div>
-                <div>
-                  <dt>Listing reference</dt>
-                  <dd>{product.id}</dd>
-                </div>
               </dl>
-            </section>
-
-            <section className="description-section product-about-section">
-              <h2>{about.heading}</h2>
-              {about.paragraphs.map((paragraph) => (
-                <p key={paragraph}>{paragraph}</p>
-              ))}
-              <div className="search-intent-terms">
-                <h3>Related searches and use cases</h3>
-                <ul>
-                  {about.searchTerms.map((term) => (
-                    <li key={term}>{term}</li>
-                  ))}
-                </ul>
-              </div>
-              <ul className="about-use-case-list">
-                {about.useCases.map((useCase) => (
-                  <li key={useCase}>{useCase}</li>
-                ))}
-              </ul>
-            </section>
-
-            <section className="description-section">
-              <h2>Price comparison</h2>
+              <h3>Price comparison</h3>
               <p>
                 Our price is <strong><Money amount={product.price} /></strong>.
                 {comparison ? (
@@ -280,23 +290,15 @@ function SupplierSeoProductPage({ product }: { product: SupplierSeoProduct }) {
                   {comparison.sourceLabel} <ExternalLink className="h-3.5 w-3.5" />
                 </a>
               ) : null}
-            </section>
-
-            <section className="description-section">
-              <h2>Payment &amp; delivery</h2>
+              <h3>How this order works</h3>
               <p>
-                The listed Sasify price is{' '}
-                <strong>
-                  <Money amount={product.price} />
-                </strong>
-                . Pay online through secure checkout and keep the order page
-                open while payment is verified.
+                Pay online through checkout, and keep the order page open
+                while payment is verified.
               </p>
               <p>
-                <strong>Warranty terms are listing-specific.</strong> Review the
-                product description and activation requirements before payment,
-                then use the WhatsApp support button shown with your order if
-                you need help.
+                <strong>Check this listing’s warranty terms before paying.</strong>{' '}
+                Review the product description and activation requirements.
+                WhatsApp support is available after payment for order issues.
               </p>
               {product.requiresCustomerEmail ? (
                 <p>
@@ -306,7 +308,7 @@ function SupplierSeoProductPage({ product }: { product: SupplierSeoProduct }) {
               ) : null}
             </section>
 
-            <section className="description-section">
+            <section className="description-section" id="questions">
               <h2>Questions about this product</h2>
               <div className="faq-list">
                 {questions.map(({ question, answer }, index) => (
@@ -317,6 +319,7 @@ function SupplierSeoProductPage({ product }: { product: SupplierSeoProduct }) {
                 ))}
               </div>
             </section>
+            <ProductUseCases name={product.name} slug={product.slug} cases={about.useCases} />
           </article>
 
           <aside
@@ -361,10 +364,12 @@ function SupplierSeoProductPage({ product }: { product: SupplierSeoProduct }) {
               </span>
             </div>
             <PurchaseDisclaimer />
-            <SupplierLivePurchase
-              productId={product.id}
-              canonicalKey={product.canonicalKey}
-            />
+            <div id="purchase-options" className="detail-purchase-actions">
+              <SupplierLivePurchase
+                productId={product.id}
+                canonicalKey={product.canonicalKey}
+              />
+            </div>
             <p className="order-footnote">
               WhatsApp support is available after successful payment.
             </p>
@@ -380,7 +385,7 @@ function SupplierSeoProductPage({ product }: { product: SupplierSeoProduct }) {
         </div>
       </div>
       <SiteFooter />
-    </main>
+    </main></LocalizedContent>
   );
 }
 
@@ -389,7 +394,7 @@ export default async function ProductPage({ params }: Props) {
   const product = findLocalProduct(id);
   if (!product) {
     const supplierProduct = findSupplierSeoProduct(id);
-    if (supplierProduct) return <SupplierSeoProductPage product={supplierProduct} />;
+    if (supplierProduct) return <LocalizedContent><SupplierSeoProductPage product={supplierProduct} /></LocalizedContent>;
     notFound();
   }
   if (id === product.id && product.slug && product.slug !== product.id)
@@ -412,7 +417,7 @@ export default async function ProductPage({ params }: Props) {
     .slice(0, 3);
 
   return (
-    <main>
+    <LocalizedContent><main>
       <SiteHeader />
       <StructuredData data={productData(product)} />
       <StructuredData
@@ -435,7 +440,7 @@ export default async function ProductPage({ params }: Props) {
         </a>
         <div className="detail-layout">
           <article className="detail-content">
-            <div className="detail-identity">
+            <div className="detail-identity product-detail-hero">
               <div className="detail-logo-frame">
                 <ProductLogo product={product} eager />
               </div>
@@ -448,10 +453,18 @@ export default async function ProductPage({ params }: Props) {
                     ? 'Duration confirmed at checkout'
                     : product.duration}
                 </span>
+                <p className="detail-hero-summary">{product.description}</p>
+                <a className="detail-hero-action" href="#purchase-options">See price &amp; purchase options <ArrowRight className="h-4 w-4" /></a>
               </div>
             </div>
+            <nav className="detail-jump-links" aria-label="Product sections">
+              <a href="#overview">Overview</a>
+              {product.variants?.length && product.id !== 'p093' ? <a href="#account-options">Choose your VPS package</a> : null}
+              <a href="#questions">Questions about this plan</a>
+              <a href="#popular-uses">Popular uses</a>
+            </nav>
 
-            <section className="description-section">
+            <section className="description-section" id="overview">
               <h2>Full description</h2>
               <p>{product.description}</p>
               {product.details?.map((detail) => (
@@ -464,45 +477,20 @@ export default async function ProductPage({ params }: Props) {
                 </div>
                 <div>
                   <dt>Access type</dt>
-                  <dd>{accessTypeLabel(product)}</dd>
+                  <dd>{product.id === 'p093' ? 'Private plan' : sharedChatGpt ? 'Shared plan' : accessTypeLabel(product)}</dd>
                 </div>
                 <div>
                   <dt>Access period / allocation</dt>
                   <dd>
-                    {product.duration === '-'
-                      ? 'Confirm before purchase'
-                      : product.duration}
+                    {product.duration === '-' ? 'See package options below' : product.duration}
                   </dd>
                 </div>
                 <div>
                   <dt>Order support</dt>
                   <dd>Sasify Solutions on WhatsApp</dd>
                 </div>
-                <div>
-                  <dt>Listing reference</dt>
-                  <dd>{product.id}</dd>
-                </div>
               </dl>
-            </section>
-
-            <section className="description-section product-about-section">
-              <h2>{about.heading}</h2>
-              {about.paragraphs.map((paragraph) => (
-                <p key={paragraph}>{paragraph}</p>
-              ))}
-              <div className="search-intent-terms">
-                <h3>Related searches and use cases</h3>
-                <ul>
-                  {about.searchTerms.map((term) => (
-                    <li key={term}>{term}</li>
-                  ))}
-                </ul>
-              </div>
-              <ul className="about-use-case-list">
-                {about.useCases.map((useCase) => (
-                  <li key={useCase}>{useCase}</li>
-                ))}
-              </ul>
+              {sharedChatGpt ? <p className="shared-account-disclaimer"><strong>Shared-account terms.</strong> Up to four customers use this account. Your data and activity are not private and may be visible to others. Usage is shared, so no individual usage-limit guarantee is provided. After delivery, shared access is not eligible for replacement, warranty or refund if the shared allowance is reached. The email and password are delivered after payment; a one-time 2FA code is shown once on the original checkout device. The authenticator secret is never shared.</p> : null}
             </section>
 
             {product.variants?.length && product.id !== 'p093' ? (
@@ -515,7 +503,7 @@ export default async function ProductPage({ params }: Props) {
                 <p>
                   {product.id === 'p093'
                     ? 'Select the account stability and payment tier that suits you.'
-                    : 'Select a KVM package below. All options include 12-month validity, dedicated resources, NVMe storage, high-speed bandwidth and full VPS access and control.'}
+                    : 'Online checkout is not available for Hostinger VPS. Select a KVM package below and purchase on WhatsApp. All options include 12-month validity, dedicated resources, NVMe storage, high-speed bandwidth and full VPS access and control.'}
                 </p>
                 <div className="vps-variant-grid">
                   {product.variants.map((variant) => {
@@ -589,87 +577,7 @@ export default async function ProductPage({ params }: Props) {
               </section>
             ) : null}
 
-            <section className="description-section">
-              <h2>Payment &amp; warranty</h2>
-              {product.contactOnly ? (
-                <p>
-                  <strong>
-                    Online checkout is not available for Hostinger VPS.
-                  </strong>{' '}
-                  Choose your KVM package above and purchase directly through
-                  WhatsApp. Our team will confirm availability, payment details
-                  and activation.
-                </p>
-              ) : annual ? (
-                <p>
-                  <strong>
-                    Pay <Money amount={product.sellingPricePkr} /> once for the
-                    full year.
-                  </strong>{' '}
-                  This is a one-time payment to Sasify Solutions. No monthly
-                  payments to us are needed during your one-year plan.
-                </p>
-              ) : (
-                <p>
-                  The listed Sasify price is{' '}
-                  <strong>
-                    <Money amount={product.sellingPricePkr} />
-                  </strong>{' '}
-                  for this package. Confirm the access period, activation
-                  requirements and payment details with our team before
-                  ordering.
-                </p>
-              )}
-              {sharedChatGpt ? (
-                <p className="shared-account-disclaimer">
-                  <strong>Shared-account terms.</strong> This ChatGPT Plus
-                  account is shared by up to four customers. Your data and
-                  activity are not private and may be visible to other members.
-                  After payment, the email and password are delivered and one
-                  2FA login code is shown once on the original checkout device;
-                  the authenticator secret is never shared.
-                  Usage is shared, so no individual usage-limit guarantee is
-                  provided. After delivery, this shared access is not eligible
-                  for replacement, warranty or refund if the shared allowance
-                  is reached.
-                </p>
-              ) : product.id === 'p093' ? (
-                <>
-                  <p className="chatgpt-ultra-only">
-                    <strong>Full {appleWarrantyDays}-day warranty included.</strong> This
-                    Apple Pay / Ultra Stable one-month product comes with a
-                    full {appleWarrantyDays}-day warranty from Sasify Solutions. Use the
-                    WhatsApp support button shown with your order if you need
-                    help.
-                  </p>
-                </>
-              ) : (
-                <p>
-                  <strong>Warranty terms are listing-specific.</strong> Review the
-                  warranty shown for this product before payment, then use the
-                  WhatsApp support button shown with your order if you need help.
-                </p>
-              )}
-            </section>
-
-            <section className="description-section">
-              <h2>Before you order</h2>
-              <ul className="order-checks">
-                <li>
-                  <Check className="h-4 w-4" /> Confirm the exact edition,
-                  access type and availability with our team.
-                </li>
-                <li>
-                  <Check className="h-4 w-4" /> Review any account, device or
-                  invitation requirements before payment.
-                </li>
-                <li>
-                  <Check className="h-4 w-4" /> Provider feature and usage
-                  limits still apply to the selected plan.
-                </li>
-              </ul>
-            </section>
-            <section className="description-section">
+            <section className="description-section" id="questions">
               <h2>Questions about this plan</h2>
               <div className="faq-list">
                 {questions.map(({ question, answer }, index) => (
@@ -679,14 +587,8 @@ export default async function ProductPage({ params }: Props) {
                   </details>
                 ))}
               </div>
-              <p>
-                <a href="/buying-guide">Compare plans and access types</a>, read
-                the <a href="/warranty">warranty policy</a> and{' '}
-                <a href="/refunds">refund policy</a>, or{' '}
-                <a href="/about">learn about Sasify Solutions</a> before
-                ordering.
-              </p>
             </section>
+            <ProductUseCases name={product.name} slug={product.slug || product.id} cases={about.useCases} />
           </article>
 
           <aside
@@ -756,9 +658,7 @@ export default async function ProductPage({ params }: Props) {
               </div>
             ) : savings === null ? (
               <p className="price-explanation">
-                A numeric original price and a confirmed plan duration are
-                needed to calculate savings. Ask our team for the current
-                provider reference.
+                A numeric provider reference and plan duration are not available for this comparison.
               </p>
             ) : (
               <div className="price-explanation">
@@ -824,41 +724,40 @@ export default async function ProductPage({ params }: Props) {
               </span>
             </div>
             <PurchaseDisclaimer />
-            {!product.contactOnly && (
-              <StockBuy
-                productId={product.id === 'p093' ? 'p093-ultra' : product.id}
-              />
-            )}
-            {product.contactOnly ? (
-              <a
-                href={whatsappLink(product.name, product.duration)}
-                target="_blank"
-                rel="noreferrer"
-                className="primary-button detail-buy"
-              >
-                <MessageCircle className="h-5 w-5" /> Contact on WhatsApp
-              </a>
-            ) : product.id === 'p093' ? (
-              <a
-                href="/checkout?product=p093-ultra"
-                className="primary-button detail-buy"
-              >
-                <ShoppingCart className="h-5 w-5" /> Buy online
-              </a>
-            ) : (
-              <a
-                href={`/checkout?product=${encodeURIComponent(product.id)}`}
-                className="primary-button detail-buy"
-              >
-                <ShoppingCart className="h-5 w-5" /> Buy online
-              </a>
-            )}
+            <div id="purchase-options" className="detail-purchase-actions">
+              {!product.contactOnly && (
+                <StockBuy
+                  productId={product.id === 'p093' ? 'p093-ultra' : product.id}
+                />
+              )}
+              {product.contactOnly ? (
+                <a
+                  href={whatsappLink(product.name, product.duration)}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="primary-button detail-buy"
+                >
+                  <MessageCircle className="h-5 w-5" /> Contact on WhatsApp
+                </a>
+              ) : product.id === 'p093' ? (
+                <a
+                  href="/checkout?product=p093-ultra"
+                  className="primary-button detail-buy"
+                >
+                  <ShoppingCart className="h-5 w-5" /> Buy online
+                </a>
+              ) : (
+                <a
+                  href={`/checkout?product=${encodeURIComponent(product.id)}`}
+                  className="primary-button detail-buy"
+                >
+                  <ShoppingCart className="h-5 w-5" /> Buy online
+                </a>
+              )}
+            </div>
             {!product.contactOnly && (
               <>
-                <p className="order-footnote">
-                  Availability and activation details are confirmed before
-                  payment.
-                </p>
+                <p className="order-footnote">Review the access and activation details above, then complete checkout online.</p>
                 <button
                   type="button"
                   className="whatsapp-purchase detail-buy"
@@ -904,6 +803,6 @@ export default async function ProductPage({ params }: Props) {
         )}
       </div>
       <SiteFooter />
-    </main>
+    </main></LocalizedContent>
   );
 }

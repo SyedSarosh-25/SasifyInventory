@@ -1,3 +1,5 @@
+
+import { LocalizedContent } from './language';
 import { Tag } from 'lucide-react';
 import {
   supplierProductHref,
@@ -8,7 +10,7 @@ import { supplierLogo, supplierMonogram } from '../supplier-product-utils.ts';
 export function SupplierSeoDirectory() {
   if (!supplierSeoProducts.length) return null;
   return (
-    <section className="supplier-store-section supplier-seo-directory" aria-labelledby="supplier-seo-directory-title">
+    <LocalizedContent><section className="supplier-store-section supplier-seo-directory" aria-labelledby="supplier-seo-directory-title">
       <div className="section-container">
         <div className="supplier-store-heading">
           <div>
@@ -61,6 +63,6 @@ export function SupplierSeoDirectory() {
           })}
         </div>
       </div>
-    </section>
+    </section></LocalizedContent>
   );
 }

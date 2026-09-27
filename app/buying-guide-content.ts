@@ -11,11 +11,11 @@ export const guidePlans = planIds.map((id) => {
 export const guideQuestions = [
   {
     question: 'What are the Claude Team and Hostinger package prices at Sasify Solutions?',
-    answer: `${guidePlans.slice(0, 3).map((p) => `${p.name} costs ${formatPkr(p.sellingPricePkr)} for ${p.duration}`).join('; ')}. These are separate Sasify listings. Confirm the exact access arrangement and usage limits of your chosen listing before payment.`,
+    answer: `${guidePlans.slice(0, 3).map((p) => `${p.name} costs ${formatPkr(p.sellingPricePkr)} for ${p.duration}`).join('; ')}. These are separate Sasify listings. Review the access arrangement and usage limits on your chosen product page before payment.`,
   },
   {
     question: 'What do the Claude Team Standard and Premium listings cost?',
-    answer: `${guidePlans.slice(0, 2).map((p) => `${p.name} costs ${formatPkr(p.sellingPricePkr)} for ${p.duration}`).join('; ')}. These listings describe a team seat, not ownership of an entire team workspace. Ask about workspace requirements and provider usage limits before ordering.`,
+    answer: `${guidePlans.slice(0, 2).map((p) => `${p.name} costs ${formatPkr(p.sellingPricePkr)} for ${p.duration}`).join('; ')}. These listings describe a team seat, not ownership of an entire team workspace. Review the listed workspace requirements and provider usage limits before ordering.`,
   },
   {
     question: 'What Hostinger products are available?',
@@ -23,7 +23,7 @@ export const guideQuestions = [
   },
   {
     question: 'Are shared, team, invite and credit packages interchangeable?',
-    answer: 'No. Shared access is not exclusive to one buyer. A team seat is access within a workspace, and an invite package has invitation requirements. A credit package describes an allocation, not necessarily unlimited use or a fixed subscription period. Follow the specific listing and confirm privacy, device and provider restrictions before choosing.',
+    answer: 'No. Shared access is not exclusive to one buyer. A team seat is access within a workspace, and an invite package has invitation requirements. A credit package describes an allocation, not necessarily unlimited use or a fixed subscription period. Review the specific listing’s privacy, device and provider restrictions before choosing.',
   },
   {
     question: 'What is the warranty on Sasify Solutions products?',

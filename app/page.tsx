@@ -1,4 +1,6 @@
 'use client';
+import { LocalizedContent } from './components/language';
+
 
 import {
   ArrowRight,
@@ -25,6 +27,7 @@ import { productHref } from './product-utils';
 import { orbitTools } from './catalog-selection';
 import { ProductLogo } from './components/product-logo';
 import { TopSupplierProducts } from './components/top-supplier-products';
+import { CategoryDiscovery } from './components/category-discovery';
 import { SiteFooter, SiteHeader } from './components/site-chrome';
 import { Money } from './components/currency';
 import { reviews as fallbackReviews } from './reviews';
@@ -89,20 +92,20 @@ const paymentMethods = [
 
 function HeroTypingTitle() {
   return (
-    <h1>
+    <LocalizedContent><h1>
       <span className="hero-title-line">{heroTitleLead}</span>
       <span className="hero-title-line hero-title-line-accent hero-title-text-accent">{heroTitleAccent}</span>
-    </h1>
+    </h1></LocalizedContent>
   );
 }
 
 function Stars({ rating = 5 }: { rating?: number }) {
   return (
-    <span className="stars" aria-label={`${rating} out of 5 stars`}>
+    <LocalizedContent><span className="stars" aria-label={`${rating} out of 5 stars`}>
       {Array.from({ length: 5 }, (_, index) => (
         <Star key={index} className="h-4 w-4" fill={index < rating ? 'currentColor' : 'none'} />
       ))}
-    </span>
+    </span></LocalizedContent>
   );
 }
 
@@ -141,7 +144,7 @@ function WhySasifyMobile() {
   };
 
   return (
-    <div className="why-sasify-mobile-story">
+    <LocalizedContent><div className="why-sasify-mobile-story">
       <span className="why-sasify-mobile-beam" aria-hidden="true" />
       <div
         ref={trackRef}
@@ -192,7 +195,7 @@ function WhySasifyMobile() {
         </div>
         <button type="button" onClick={() => move(1)} aria-label="Next reason" title="Next reason"><ChevronRight /></button>
       </div>
-    </div>
+    </div></LocalizedContent>
   );
 }
 
@@ -335,7 +338,7 @@ function DealProofGallery() {
   const selectedProof = activeProof === null ? null : dealProofs[activeProof];
 
   return (
-    <section id="deal-proofs" className="deal-proofs-section" aria-labelledby="deal-proofs-title">
+    <LocalizedContent><section id="deal-proofs" className="deal-proofs-section" aria-labelledby="deal-proofs-title">
       <div className="section-inner">
         <div className="section-heading deal-proofs-heading">
           <div>
@@ -396,7 +399,7 @@ function DealProofGallery() {
           </div>
         )}
       </dialog>
-    </section>
+    </section></LocalizedContent>
   );
 }
 
@@ -548,7 +551,7 @@ export default function Home() {
   };
 
   return (
-    <main>
+    <LocalizedContent><main>
       <StructuredData data={websiteData} />
       <SiteHeader />
       <section id="top" className="hero">
@@ -626,6 +629,8 @@ export default function Home() {
           <p className="comparison-note">Savings compare the original price for the full plan duration with our price. Monthly references are multiplied by the number of months. Access and provider billing options may differ.</p>
         </div>
       </section>
+
+      <CategoryDiscovery compact />
 
       <section id="why-sasify" className="why-sasify-section" aria-labelledby="why-sasify-title">
         <div className="section-inner">
@@ -784,7 +789,7 @@ export default function Home() {
           <div>
             <span className="section-kicker">Common questions</span>
             <h2>Simple, direct purchasing</h2>
-            <p>Choose a product and confirm the final availability with our team.</p>
+            <p>Choose a product, review its terms and complete checkout online.</p>
             <a href="/buying-guide" className="back-link">Compare plans, access and warranty <ArrowRight className="h-4 w-4" /></a>
           </div>
           <div className="faq-list">
@@ -806,7 +811,7 @@ export default function Home() {
             </details>
             <details>
               <summary>Is shared access the same as a personal plan?</summary>
-              <p>No. A shared listing is not exclusive personal access. Team, invite, credit and individual packages can also have different limits. Check the exact access type, privacy and provider restrictions with our team before choosing a plan.</p>
+              <p>No. A shared listing is not exclusive personal access. Team, invite, credit and individual packages can also have different limits. Review the exact access type, privacy and provider restrictions on the product page before choosing a plan.</p>
             </details>
             <details>
               <summary>Who operates Sasify Solutions?</summary>
@@ -821,6 +826,6 @@ export default function Home() {
       </section>
 
       <SiteFooter />
-    </main>
+    </main></LocalizedContent>
   );
 }

@@ -1,4 +1,6 @@
 'use client';
+import { LocalizedContent } from './language';
+
 
 import { useEffect, useState } from 'react';
 import { ShoppingCart } from 'lucide-react';
@@ -49,16 +51,16 @@ export function SupplierLivePurchase({ productId, canonicalKey }: Props) {
 
   if (available === true) {
     const checkoutProduct = canonicalKey || productId;
-    return <a href={`/checkout?product=${encodeURIComponent(checkoutProduct)}`} className="primary-button detail-buy"><ShoppingCart className="h-5 w-5" /> Buy online</a>;
+    return <LocalizedContent><a href={`/checkout?product=${encodeURIComponent(checkoutProduct)}`} className="primary-button detail-buy"><ShoppingCart className="h-5 w-5" /> Buy online</a></LocalizedContent>;
   }
 
   return (
-    <span
+    <LocalizedContent><span
       className="detail-buy detail-unavailable"
       role="status"
       aria-live="polite"
     >
       {available === null ? 'Checking availability…' : 'Currently Unavailable'}
-    </span>
+    </span></LocalizedContent>
   );
 }

@@ -1,4 +1,6 @@
 'use client';
+import { LocalizedContent } from './language';
+
 
 import { useState, type SyntheticEvent } from 'react';
 import { ArrowRight, Send, Sparkles } from 'lucide-react';
@@ -38,7 +40,7 @@ export function ToolRequest() {
   }
 
   return (
-    <main className="tool-request-page">
+    <LocalizedContent><main className="tool-request-page">
       <section className="tool-request-card" aria-labelledby="tool-request-title">
         <header className="tool-request-header">
           <span className="tool-request-header-icon" aria-hidden="true"><Sparkles size={22} /></span>
@@ -74,6 +76,6 @@ export function ToolRequest() {
           </div>
         </form>
       </section>
-    </main>
+    </main></LocalizedContent>
   );
 }

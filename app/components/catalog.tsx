@@ -1,4 +1,6 @@
 'use client';
+import { LocalizedContent } from './language';
+
 
 import { Filter, Search, WalletCards, X } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
@@ -49,28 +51,36 @@ function matchesQuery(product: FeaturedProduct, query: string) {
     .includes(normalizedQuery);
 }
 
-export function Catalog({ initialQuery = '' }: { initialQuery?: string }) {
+export function Catalog({ initialQuery = '', initialCategory = 'All', heading = 'Full inventory' }: { initialQuery?: string; initialCategory?: string; heading?: string }) {
   const [query, setQuery] = useState(initialQuery);
-  const [activeCategory, setActiveCategory] = useState('All');
+  const [activeCategory, setActiveCategory] = useState(initialCategory);
+  const [sort, setSort] = useState('featured');
+  const [stockFilter, setStockFilter] = useState('all');
+  const [stockState, setStockState] = useState<'loading' | 'ready' | 'error'>('loading');
   const [liveCatalogProducts, setLiveCatalogProducts] = useState<LiveSupplierProduct[]>([]);
 
   useEffect(() => {
-    const syncQuery = () => setQuery(new URLSearchParams(window.location.search).get('q') ?? initialQuery);
+    const syncQuery = () => {
+      const params = new URLSearchParams(window.location.search);
+      setQuery(params.get('q') ?? initialQuery);
+      setActiveCategory(params.get('category') || initialCategory);
+    };
     syncQuery();
     window.addEventListener('popstate', syncQuery);
     return () => window.removeEventListener('popstate', syncQuery);
-  }, [initialQuery]);
+  }, [initialQuery, initialCategory]);
 
   useEffect(() => {
     let active = true;
     fetch('/api/commerce?action=stock', { cache: 'no-store' })
       .then((response) => response.ok ? response.json() : Promise.reject())
-      .then((data) => {
-        const products = (data as { products?: LiveSupplierProduct[] }).products || [];
+      .then((data: unknown) => {
+        if (!data || typeof data !== 'object' || !('products' in data) || !Array.isArray(data.products)) throw new Error('Invalid stock response');
+        const products = data.products as LiveSupplierProduct[];
         cacheSupplierCatalog(products);
-        if (active) setLiveCatalogProducts(products);
+        if (active) { setLiveCatalogProducts(products); setStockState('ready'); }
       })
-      .catch(() => {})
+      .catch(() => { if (active) setStockState('error'); })
       .finally(() => {
         active = false;
       });
@@ -92,14 +102,15 @@ export function Catalog({ initialQuery = '' }: { initialQuery?: string }) {
     // The generated catalogue is a crawlable fallback. Once the live stock
     // response arrives, use its grouped canonical keys as the source of truth
     // so stale SEO entries cannot reintroduce rejected supplier duplicates.
-    const sourceInventory = liveSupplierProducts.length
+    const sourceInventory = stockState === 'ready'
       ? seoInventory.filter((product) => liveByKey.has(product.canonical_key || product.id))
       : seoInventory;
     const supplierInventory = sourceInventory.map((product) => {
       const live = liveByKey.get(product.canonical_key || product.id);
-      if (!live) return product;
+      if (!live) return { ...product, stockVerified: false };
       return {
         ...product,
+        stockVerified: true,
         price: Number.isFinite(live.price) ? live.price : product.price,
         available: Number.isFinite(live.available) ? live.available : product.available,
         description: live.description || product.description,
@@ -116,9 +127,8 @@ export function Catalog({ initialQuery = '' }: { initialQuery?: string }) {
         price: product.sellingPricePkr,
         available: Number.isFinite(Number(live?.available))
           ? Number(live?.available)
-          : product.contactOnly
-            ? 0
-            : 1,
+          : 0,
+        stockVerified: stockState === 'ready',
         source: 'local',
         category: product.category,
         localProduct: product,
@@ -132,7 +142,7 @@ export function Catalog({ initialQuery = '' }: { initialQuery?: string }) {
         ),
     );
     return [...localInventory, ...visibleSupplierInventory];
-  }, [liveCatalogProducts]);
+  }, [liveCatalogProducts, stockState]);
 
   const categories = useMemo(
     () => ['All', ...new Set(inventory.map((product) => product.category).filter(Boolean) as string[])],
@@ -141,21 +151,22 @@ export function Catalog({ initialQuery = '' }: { initialQuery?: string }) {
 
   const filtered = useMemo(
     () => inventory.filter((product) =>
-      (activeCategory === 'All' || product.category === activeCategory) && matchesQuery(product, query),
-    ),
-    [activeCategory, inventory, query],
+      (activeCategory === 'All' || product.category === activeCategory) && matchesQuery(product, query)
+      && (stockFilter === 'all' || (product.stockVerified && (stockFilter === 'in' ? product.available > 0 : product.available <= 0))),
+    ).sort((left, right) => sort === 'low' ? left.price - right.price : sort === 'high' ? right.price - left.price : sort === 'name' ? left.name.localeCompare(right.name) : 0),
+    [activeCategory, inventory, query, sort, stockFilter],
   );
 
   return (
-    <section id="catalog" className="catalog-section">
+    <LocalizedContent><section id="catalog" className="catalog-section">
       <div className="section-inner">
         <div className="section-heading">
           <div>
             <span className="section-kicker">Sasify Solutions Inventory</span>
-            <h1>Full inventory</h1>
-            <p>Browse our complete SEO product catalog by category, then compare prices and access details.</p>
+            <h1>{heading}</h1>
+            <p>Compare access, duration and pricing in one place.</p>
           </div>
-          <div className="results-badge" role="status"><Filter className="h-4 w-4" /> {filtered.length} products</div>
+          <div className="results-badge" role="status"><Filter className="h-4 w-4" /> {`${filtered.length} products`}</div>
         </div>
 
         <div className="catalog-controls">
@@ -167,6 +178,16 @@ export function Catalog({ initialQuery = '' }: { initialQuery?: string }) {
           </label>
         </div>
 
+        <div className="catalog-filter-row">
+          <label>Sort by <select value={sort} onChange={event => setSort(event.target.value)}>
+            <option value="featured">Featured</option><option value="low">Price: low to high</option><option value="high">Price: high to low</option><option value="name">Name: A–Z</option>
+          </select></label>
+          <label>Availability <select value={stockFilter} onChange={event => setStockFilter(event.target.value)} disabled={stockState !== 'ready'}>
+            <option value="all">All</option><option value="in">In stock</option><option value="out">Out of stock</option>
+          </select></label>
+          <button type="button" className="catalog-reset" onClick={() => { setQuery(''); setActiveCategory(initialCategory); setSort('featured'); setStockFilter('all'); }}>Reset filters</button>
+        </div>
+        {stockState !== 'ready' && <p className="catalog-stock-status" role="status">{stockState === 'loading' ? 'Checking availability…' : 'Live availability could not be checked. Open a product to confirm before ordering.'}</p>}
         <p className="comparison-note">Savings compare the original price for the full plan duration with our price. Monthly references are multiplied by the number of months. Access and provider billing options may differ.</p>
         <p className="wallet-discount-notice">
           <WalletCards className="h-4 w-4" />
@@ -184,6 +205,6 @@ export function Catalog({ initialQuery = '' }: { initialQuery?: string }) {
           <button type="button" onClick={() => { setQuery(''); setActiveCategory('All'); }}>Show all products</button>
         </div>}
       </div>
-    </section>
+    </section></LocalizedContent>
   );
 }

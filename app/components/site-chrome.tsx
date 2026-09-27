@@ -1,9 +1,11 @@
 'use client';
-import { MessageCircle } from 'lucide-react';
+import { LocalizedContent } from './language';
+
 import { useEffect, useState } from 'react';
 import './site-header-actions.css';
-import { favicon, whatsappLink } from '../product-utils';
+import { favicon } from '../product-utils';
 import { CurrencyToggle } from './currency';
+import { LanguageSwitcher } from './language';
 import { founderProfile, socials } from '../site-config';
 
 export function SiteHeader({
@@ -21,7 +23,7 @@ export function SiteHeader({
     return () => { active = false; };
   }, []);
   return (
-    <header
+    <LocalizedContent><header
       className={`site-header${accountMode ? ` site-header-account site-header-account-${accountMode}` : ''}`}
     >
       <nav className="nav-inner" aria-label="Main navigation">
@@ -44,11 +46,13 @@ export function SiteHeader({
         </a>
         <div className="nav-links">
           <a href="/inventory">Full Inventory</a>
+          <a href="/categories">Categories</a>
           <a href="/scammers">Scam reports</a>
           <a href="/#faq">FAQ</a>
           <a href="#contact">Contact Us</a>
         </div>
         <div className="nav-actions header-account-actions">
+          <LanguageSwitcher />
           <CurrencyToggle />
           <span className="header-action-divider" aria-hidden="true" />
           {accountName ? (
@@ -61,13 +65,13 @@ export function SiteHeader({
           )}
         </div>
       </nav>
-    </header>
+    </header></LocalizedContent>
   );
 }
 
 export function SiteFooter() {
   return (
-    <footer id="contact" className="site-footer">
+    <LocalizedContent><footer id="contact" className="site-footer">
       <div className="footer-inner">
         <a
           href="/"
@@ -87,6 +91,7 @@ export function SiteFooter() {
             <span>Your Satisfaction is Our Priority</span>
           </div>
         </a>
+        <nav className="footer-primary-links" aria-label="Explore Sasify">
         <a
           href={founderProfile}
           target="_blank"
@@ -122,26 +127,18 @@ export function SiteFooter() {
         <a href="/scammers" className="founder-link">
           Scam reports
         </a>
+        </nav>
         <a
-          href={whatsappLink()}
-          target="_blank"
-          rel="noreferrer"
-          className="primary-button"
+          href="/inventory"
+          className="primary-button footer-cta"
         >
-          <MessageCircle className="h-4 w-4" /> WhatsApp us
+          Browse products
         </a>
       </div>
       <div
         className="footer-socials"
         aria-label="Sasify Solutions social media"
       >
-        <a href={whatsappLink()} target="_blank" rel="noreferrer">
-          <MessageCircle className="social-logo whatsapp-icon" />
-          <span>
-            <strong>WhatsApp</strong>
-            <small>+923116185711</small>
-          </span>
-        </a>
         {socials.map((social) => (
           <a
             key={social.name}
@@ -172,6 +169,6 @@ export function SiteFooter() {
         <a href="/privacy">Privacy</a>
         <a href="/terms">Terms</a>
       </nav>
-    </footer>
+    </footer></LocalizedContent>
   );
 }

@@ -1,4 +1,6 @@
 'use client';
+import { LocalizedContent } from './language';
+
 
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useEffect, useId, useRef, useState } from 'react';
@@ -43,7 +45,7 @@ export function CategoryNavigation({ categories, activeCategory, onChange }: Pro
     });
   };
 
-  return <div className="category-navigation" role="group" aria-label="Product categories">
+  return <LocalizedContent><div className="category-navigation" role="group" aria-label="Product categories">
     <button type="button" className="category-scroll-button" aria-label="Previous categories"
       title="Previous categories" aria-controls={stripId} disabled={!canScroll.previous} onClick={() => scroll(-1)}>
       <ChevronLeft className="h-5 w-5" aria-hidden="true" />
@@ -57,5 +59,5 @@ export function CategoryNavigation({ categories, activeCategory, onChange }: Pro
       title="Next categories" aria-controls={stripId} disabled={!canScroll.next} onClick={() => scroll(1)}>
       <ChevronRight className="h-5 w-5" aria-hidden="true" />
     </button>
-  </div>;
+  </div></LocalizedContent>;
 }

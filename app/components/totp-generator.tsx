@@ -1,4 +1,6 @@
 'use client';
+import { LocalizedContent } from './language';
+
 
 import { Check, Clipboard, Eye, EyeOff, KeyRound, ShieldCheck, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
@@ -68,7 +70,7 @@ export function TotpGenerator() {
   };
 
   return (
-    <section className="totp-generator" aria-labelledby="totp-generator-title">
+    <LocalizedContent><section className="totp-generator" aria-labelledby="totp-generator-title">
       <div className="totp-generator-heading">
         <span className="totp-generator-icon" aria-hidden="true"><KeyRound /></span>
         <div>
@@ -144,6 +146,6 @@ export function TotpGenerator() {
         <li>Paste the key above and select <strong>Get OTP</strong>.</li>
         <li>Enter the six-digit code in the account login before the timer ends.</li>
       </ol>
-    </section>
+    </section></LocalizedContent>
   );
 }

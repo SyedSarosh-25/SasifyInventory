@@ -1,4 +1,6 @@
 'use client';
+import { LocalizedContent } from './language';
+
 
 import { ArrowRight, Search, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -71,7 +73,7 @@ export function HeroProductSearch() {
     inputRef.current?.focus();
   }
 
-  return <div className="hero-discovery">
+  return <LocalizedContent><div className="hero-discovery">
     <form className="hero-search" role="search" onSubmit={(event) => {
       event.preventDefault();
       if (searching) resultsRef.current?.focus();
@@ -127,5 +129,5 @@ export function HeroProductSearch() {
         </a>)}
       </nav>}
     </div>
-  </div>;
+  </div></LocalizedContent>;
 }

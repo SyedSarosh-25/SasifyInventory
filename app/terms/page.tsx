@@ -12,7 +12,7 @@ export default function TermsPage() {
       <p>PKR is the basis for the listed Sasify price. The USD toggle uses the website&apos;s fixed conversion rate of 1 USD = PKR 285 for display. Provider prices are comparison references and may differ by region, tax, billing option and access arrangement. Savings equal the full-plan reference price minus the Sasify package price.</p>
     </section>
     <section className="policy-section"><h2>Access and provider rules</h2>
-      <p>Shared, single-person, team, invite-based and credit packages are not interchangeable. The selected provider&apos;s usage limits and applicable terms still apply. Confirm account ownership, privacy, devices, invitations, regions, duration and credits before ordering.</p>
+      <p>Shared, single-person, team, invite-based and credit packages are not interchangeable. The selected provider&apos;s usage limits and applicable terms still apply. Review account ownership, privacy, devices, invitations, regions, duration and credits on the listing before ordering.</p>
     </section>
     <section className="policy-section"><h2>Names, logos and references</h2>
       <p>Third-party names and logos identify the relevant tools and belong to their respective owners. Unless a listing expressly states otherwise, their use does not claim that Sasify Solutions is the provider or an official affiliate.</p>

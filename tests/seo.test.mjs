@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { products } from '../app/products.ts';
+import { storefrontCategories } from '../app/categories.ts';
 import { supplierProductHref, supplierSeoProducts } from '../app/supplier-seo.ts';
 import { productHref } from '../app/product-utils.ts';
 import {
@@ -30,7 +31,7 @@ import {
 test('sitemap contains only unique canonical pages at the configured domain', () => {
   assert.equal(defaultSiteOrigin, 'https://www.sasifysolutions.com');
   const entries = sitemapEntries();
-  assert.equal(entries.length, products.length + supplierSeoProducts.length + 10);
+  assert.equal(entries.length, products.length + supplierSeoProducts.length + 11 + storefrontCategories.length);
   assert.equal(new Set(entries.map(({ url }) => url)).size, entries.length);
   assert.deepEqual(
     entries.slice(0, 10).map(({ url }) => url),

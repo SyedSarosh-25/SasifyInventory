@@ -1,3 +1,5 @@
+
+import { LocalizedContent } from '../components/language';
 import type { Metadata } from 'next';
 import { ArrowRight } from 'lucide-react';
 import { guidePlans, guideQuestions } from '../buying-guide-content';
@@ -20,7 +22,7 @@ export const metadata: Metadata = {
 };
 
 export default function BuyingGuidePage() {
-  return <main>
+  return <LocalizedContent><main>
     <SiteHeader />
     <StructuredData data={breadcrumbData([{ name: 'Home', path: '/' }, { name: 'Buying guide', path: '/buying-guide' }])} />
     <StructuredData data={faqData('/buying-guide', guideQuestions)} />
@@ -33,7 +35,7 @@ export default function BuyingGuidePage() {
       <p>Sasify Solutions lists digital tool packages for buyers in Pakistan. Compare the exact access period, account arrangement and warranty details, then choose Buy online. Shared, team, invite and credit packages have different requirements.</p>
       <section className="description-section" id="compare-plans">
         <h2>Popular plans and package prices</h2>
-        <p>These are our listed package totals, not monthly equivalents. Provider reference prices and the full description are on each product page. Availability is confirmed before payment.</p>
+        <p>These are our listed package totals, not monthly equivalents. Provider reference prices, availability and the full description are on each product page.</p>
         <ul className="guide-plans">
           {guidePlans.map((product) => <li key={product.id}>
             <a href={productHref(product)}>
@@ -50,18 +52,18 @@ export default function BuyingGuidePage() {
         <h2>How to choose an access type</h2>
         <p>The access label is as important as the tool name. Use this comparison before choosing a lower-priced or longer-duration listing.</p>
         <dl className="access-comparison">
-          <div><dt>Single-person access</dt><dd>Intended for one buyer. Confirm login ownership, supported devices and provider usage limits.</dd></div>
-          <div><dt>Shared access</dt><dd>Not exclusive to one buyer. Confirm privacy, simultaneous-use and device rules before payment.</dd></div>
-          <div><dt>Team seat or team access</dt><dd>Access is provided inside a managed workspace. Confirm the invite method, workspace requirements and what happens if a seat is removed.</dd></div>
-          <div><dt>Invite-based access</dt><dd>Your eligible account is invited to a provider workspace or plan. Confirm account, region and invitation requirements.</dd></div>
-          <div><dt>Credit allocation</dt><dd>The listing provides a stated usage allocation rather than unlimited access. Confirm the credit amount, supported models and expiry terms.</dd></div>
+          <div><dt>Single-person access</dt><dd>Intended for one buyer. Review login ownership, supported devices and provider usage limits on the listing.</dd></div>
+          <div><dt>Shared access</dt><dd>Not exclusive to one buyer. Review privacy, simultaneous-use and device rules before payment.</dd></div>
+          <div><dt>Team seat or team access</dt><dd>Access is provided inside a managed workspace. Review the invite method and workspace requirements on the listing.</dd></div>
+          <div><dt>Invite-based access</dt><dd>Your eligible account is invited to a provider workspace or plan. Review account, region and invitation requirements.</dd></div>
+          <div><dt>Credit allocation</dt><dd>The listing provides a stated usage allocation rather than unlimited access. Review the credit amount, supported models and expiry terms.</dd></div>
         </dl>
         <h3>Five checks before payment</h3>
         <ol className="guide-checklist">
           <li>Match the exact product name and access duration.</li>
-          <li>Confirm whether access is shared, single-person, team, invite-based or credit-based.</li>
-          <li>Confirm provider limits, account requirements and device rules.</li>
-          <li>Confirm the warranty duration and covered remedy in writing.</li>
+          <li>Review whether access is shared, single-person, team, invite-based or credit-based.</li>
+          <li>Review provider limits, account requirements and device rules.</li>
+          <li>Read the listed warranty duration and coverage.</li>
           <li>Review the final PKR total and activation instructions at secure checkout.</li>
         </ol>
       </section>
@@ -84,5 +86,5 @@ export default function BuyingGuidePage() {
       </section>
     </article>
     <SiteFooter />
-  </main>;
+  </main></LocalizedContent>;
 }

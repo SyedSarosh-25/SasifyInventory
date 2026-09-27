@@ -1,4 +1,6 @@
 'use client';
+import { LocalizedContent } from './language';
+
 
 import { useEffect, useState, type SyntheticEvent } from 'react';
 import {
@@ -264,7 +266,7 @@ export function ScamReports() {
   }
 
   return (
-    <div className="scam-reports-page">
+    <LocalizedContent><div className="scam-reports-page">
       <section className="scam-intro">
         <div className="scam-intro-copy">
           <span className="section-kicker">
@@ -626,6 +628,6 @@ export function ScamReports() {
           </form>
         </section>
       )}
-    </div>
+    </div></LocalizedContent>
   );
 }

@@ -1,4 +1,6 @@
 'use client';
+import { LocalizedContent } from './language';
+
 
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import { formatMoney, formatPriceReference, isCurrency, type Currency } from '../currency-utils';
@@ -39,28 +41,28 @@ export function CurrencyProvider({ children }: { children: ReactNode }) {
     try { localStorage.setItem(preferenceKey, next); } catch { /* Keep the selection for this page. */ }
   }
 
-  return <CurrencyContext.Provider value={{ currency, selectCurrency }}>{children}</CurrencyContext.Provider>;
+  return <LocalizedContent><CurrencyContext.Provider value={{ currency, selectCurrency }}>{children}</CurrencyContext.Provider></LocalizedContent>;
 }
 
 export function CurrencyToggle() {
   const { currency, selectCurrency } = useCurrency();
-  return <div className="currency-toggle" role="group" aria-label="Display currency">
+  return <LocalizedContent><div className="currency-toggle" role="group" aria-label="Display currency">
     {(['PKR', 'USD'] as const).map((option) => (
       <button key={option} type="button" aria-pressed={currency === option} onClick={() => selectCurrency(option)} title={`Show prices in ${option}`}>
         {option}
       </button>
     ))}
-  </div>;
+  </div></LocalizedContent>;
 }
 
 export function Money({ amount }: { amount: number }) {
   const { currency } = useCurrency();
-  return <>{formatMoney(amount, 'PKR', currency)}</>;
+  return <LocalizedContent><>{formatMoney(amount, 'PKR', currency)}</></LocalizedContent>;
 }
 
 export function OriginalPrice({ reference }: { reference: string }) {
   const { currency } = useCurrency();
-  return <>{formatPriceReference(reference, currency)}</>;
+  return <LocalizedContent><>{formatPriceReference(reference, currency)}</></LocalizedContent>;
 }
 
 export function ProductOriginalPrice({ product }: { product: Product }) {

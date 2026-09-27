@@ -13,7 +13,7 @@ test('about sections explain searchable use cases for coding tools', () => {
     available: 3,
     category: 'AI coding tools',
   });
-  assert.equal(about.heading, 'About this subscription');
+  assert.equal(about.heading, 'About Cursor AI');
   assert.ok([
     'Cursor AI price in Pakistan',
     'buy Cursor Pro Pakistan',
@@ -22,9 +22,8 @@ test('about sections explain searchable use cases for coding tools', () => {
     'Cursor coding tool Pakistan',
     'AI coding tool Pakistan',
   ].every((term) => about.searchTerms.includes(term)));
-  assert.match(about.paragraphs.join(' '), /developers, students and teams/);
-  assert.match(about.paragraphs.join(' '), /Cursor AI price in Pakistan/);
-  assert.match(about.paragraphs.join(' '), /Cursor AI subscription Pakistan/);
+  assert.match(about.paragraphs.join(' '), /This Cursor AI subscription is the Cursor AI Pro 1 Month option/);
+  assert.doesNotMatch(about.paragraphs.join(' '), /global search intent|matches what you searched for/i);
   assert.match(about.useCases.join(' '), /writing code, fixing bugs/);
 });
 
@@ -39,7 +38,7 @@ test('about sections explain searchable use cases for streaming plans', () => {
     available: 5,
     category: 'Streaming',
   });
-  assert.equal(about.heading, 'About this subscription');
+  assert.equal(about.heading, 'About Netflix screen');
   assert.ok([
     'Netflix screen price in Pakistan',
     'Netflix account Pakistan',
@@ -48,8 +47,7 @@ test('about sections explain searchable use cases for streaming plans', () => {
     'buy Netflix Pakistan',
     'Netflix streaming Pakistan',
   ].every((term) => about.searchTerms.includes(term)));
-  assert.match(about.paragraphs.join(' '), /Netflix screen price in Pakistan/);
-  assert.match(about.paragraphs.join(' '), /Netflix 4K screen Pakistan/);
+  assert.match(about.paragraphs.join(' '), /This Netflix screen subscription is the Netflix 4K Account 1 Month option/);
   assert.match(about.useCases.join(' '), /watching movies, shows, videos/);
   assert.match(about.useCases.join(' '), /4K or Ultra HD/);
 });
@@ -65,7 +63,7 @@ test('about sections explain searchable use cases for creative subscriptions', (
     available: 20,
     category: 'Design',
   });
-  assert.equal(about.heading, 'About this subscription');
+  assert.equal(about.heading, 'About Canva Pro');
   assert.ok([
     'Canva Pro price in Pakistan',
     'buy Canva Pro Pakistan',
@@ -74,8 +72,7 @@ test('about sections explain searchable use cases for creative subscriptions', (
     'Canva Edu Pakistan',
     'Canva design tool Pakistan',
   ].every((term) => about.searchTerms.includes(term)));
-  assert.match(about.paragraphs.join(' '), /Canva Pro price in Pakistan/);
-  assert.match(about.paragraphs.join(' '), /buy Canva Pro Pakistan/);
+  assert.match(about.paragraphs.join(' '), /This Canva Pro subscription is the Canva Pro 1 Year Invite option/);
   assert.match(about.useCases.join(' '), /social media posts, reels, ads/);
 });
 
@@ -90,18 +87,18 @@ test('about sections use high-intent ChatGPT searches for Pakistan', () => {
     available: 4,
     category: 'AI Assistants',
   });
-  assert.equal(about.heading, 'About this subscription');
+  assert.equal(about.heading, 'About ChatGPT Plus');
   assert.ok([
     'ChatGPT Plus price in Pakistan',
     'buy ChatGPT Plus Pakistan',
     'ChatGPT Plus subscription Pakistan',
-    'ChatGPT Plus account Pakistan',
-    'ChatGPT Plus shared account Pakistan',
+    'ChatGPT Plus price',
+    'ChatGPT subscription',
     'ChatGPT Plus 1 month Pakistan',
   ].every((term) => about.searchTerms.includes(term)));
-  assert.match(about.paragraphs.join(' '), /ChatGPT Plus price in Pakistan/);
-  assert.match(about.paragraphs.join(' '), /buy ChatGPT Plus Pakistan/);
-  assert.match(about.paragraphs.join(' '), /ChatGPT Plus account Pakistan/);
+  assert.ok(!about.searchTerms.includes('ChatGPT Plus shared account Pakistan'));
+  assert.match(about.paragraphs.join(' '), /This ChatGPT Plus subscription is the ChatGPT Plus 1 Month option/);
+  assert.doesNotMatch(about.paragraphs.join(' '), /buy ChatGPT Plus Pakistan|shared account Pakistan/);
 });
 
 test('about sections use exact Adobe product keywords', () => {

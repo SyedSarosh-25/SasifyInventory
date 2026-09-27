@@ -1,4 +1,6 @@
 'use client';
+import { LocalizedContent } from './language';
+
 
 import { ArrowRight, Check, Tag } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
@@ -33,6 +35,7 @@ export type FeaturedProduct = SupplierProduct & {
   displayAvailable?: number;
   category?: string;
   href?: string;
+  stockVerified?: boolean;
 };
 
 export function SupplierFeaturedCard({ product }: { product: FeaturedProduct }) {
@@ -50,6 +53,11 @@ export function SupplierFeaturedCard({ product }: { product: FeaturedProduct }) 
     ? supplierOriginalPriceComparison(product)
     : null;
   const salePrice = product.display_price ?? product.price;
+  const contactOnly = Boolean(product.localProduct?.contactOnly);
+  const packagePrices = product.localProduct?.variants?.map(variant => variant.sellingPricePkr).filter(price => price > 0) || [];
+  const contactPrice = packagePrices.length ? Math.min(...packagePrices) : null;
+  const stockKnown = product.stockVerified !== false;
+  const inStock = stockKnown && product.available > 0;
   const originalPrice = product.display_original_price
     ?? (product.source === 'supplier'
       ? comparison?.totalPkr ?? null
@@ -69,7 +77,7 @@ export function SupplierFeaturedCard({ product }: { product: FeaturedProduct }) 
       ? 'p093-ultra'
       : product.id;
   return (
-    <article className="featured-card supplier-featured-card">
+    <LocalizedContent><article className="featured-card supplier-featured-card">
       <a className="featured-card-main" href={href}>
       <div className="featured-card-topline">
         <div className="featured-logo">
@@ -90,14 +98,14 @@ export function SupplierFeaturedCard({ product }: { product: FeaturedProduct }) 
             </span>
           )}
         </div>
-        <span className="featured-stock-badge"><Check className="h-3 w-3" /> In stock</span>
+        <span className={`featured-stock-badge${inStock ? '' : ' is-unavailable'}`}><Check className="h-3 w-3" /> {contactOnly ? 'Choose package' : !stockKnown ? 'Check availability' : inStock ? 'In stock' : 'Out of stock'}</span>
       </div>
       <div className="featured-copy">
-        <h3>{displayName}</h3>
-        <p>{description}</p>
+        <h3 translate="no">{displayName}</h3>
+        <p translate="no">{description}</p>
       </div>
       <div className="featured-price-block">
-        {originalPrice !== null ? (
+        {!contactOnly && originalPrice !== null ? (
           <div className="featured-original-price">
             <span>Original price</span>
             <del><Money amount={originalPrice} /></del>
@@ -109,21 +117,21 @@ export function SupplierFeaturedCard({ product }: { product: FeaturedProduct }) 
           </div>
         )}
         <div className="featured-our-price">
-          <span><Tag className="h-3 w-3" /> Our price</span>
-          <strong><Money amount={salePrice} /></strong>
+          <span><Tag className="h-3 w-3" /> {contactOnly ? 'From' : 'Our price'}</span>
+          <strong>{contactOnly ? contactPrice === null ? 'Choose package' : <Money amount={contactPrice} /> : <Money amount={salePrice} />}</strong>
         </div>
-        {savings !== null ? <div className="featured-savings">Your savings <strong><Money amount={savings} /></strong></div> : (
+        {!contactOnly && savings !== null ? <div className="featured-savings">Your savings <strong><Money amount={savings} /></strong></div> : (
           <div className="featured-savings featured-savings-muted">Your savings <strong>Price may vary</strong></div>
         )}
       </div>
       </a>
       <div className="featured-card-actions">
         <a className="featured-details-button" href={href}>View details</a>
-        <a className="featured-buy-button" href={`/checkout?product=${encodeURIComponent(checkoutProductId)}`}>
-          Buy now <ArrowRight className="h-4 w-4" />
+        <a className="featured-buy-button" href={contactOnly || !inStock ? href : `/checkout?product=${encodeURIComponent(checkoutProductId)}`}>
+          {contactOnly ? 'Choose package' : inStock ? 'Buy now' : 'View details'} <ArrowRight className="h-4 w-4" />
         </a>
       </div>
-    </article>
+    </article></LocalizedContent>
   );
 }
 
@@ -181,6 +189,7 @@ export function TopSupplierProducts() {
         }));
         setProducts(selectFixedTopProducts([...previewProducts, ...supplierPreviewProducts]).map((product) => ({
           ...product,
+          stockVerified: false,
           source: product.source === 'local' ? 'local' as const : 'supplier' as const,
           localProduct: product.source === 'local'
             ? localProducts.find((item) => item.id === product.id)
@@ -198,21 +207,21 @@ export function TopSupplierProducts() {
   const cards = useMemo(() => products.slice(0, 8), [products]);
   if (loading)
     return (
-      <p className="featured-loading" role="status">
+      <LocalizedContent><p className="featured-loading" role="status">
         Loading supplier products...
-      </p>
+      </p></LocalizedContent>
     );
   if (!cards.length)
     return (
-      <p className="featured-loading" role="status">
+      <LocalizedContent><p className="featured-loading" role="status">
         Supplier products are temporarily unavailable.
-      </p>
+      </p></LocalizedContent>
     );
   return (
-    <div className="featured-grid">
+    <LocalizedContent><div className="featured-grid">
       {cards.map((product) => (
         <SupplierFeaturedCard key={product.id} product={product} />
       ))}
-    </div>
+    </div></LocalizedContent>
   );
 }

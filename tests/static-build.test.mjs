@@ -16,6 +16,7 @@ import {
 } from '../app/seo.ts';
 import { productHref } from '../app/product-utils.ts';
 import { guidePlans, guideQuestions } from '../app/buying-guide-content.ts';
+import { storefrontCategories } from '../app/categories.ts';
 
 const out = fileURLToPath(new URL('../out/', import.meta.url));
 const read = (file) => readFile(path.join(out, file), 'utf8');
@@ -26,6 +27,8 @@ const canonicalPages = [
   'inventory',
   'about',
   'buying-guide',
+  'categories',
+  ...storefrontCategories.map(({ slug }) => `categories/${slug}`),
   'scammers',
   ...policyPages,
   ...products.map((product) => productHref(product).slice(1)),
@@ -90,7 +93,9 @@ test('brand title and standards-compatible favicons are included in exported pag
 });
 
 test('homepage, inventory and every product have populated static HTML', async () => {
-  assert.match(await read('index.html'), /Sasify Solutions/);
+  const homepage = await read('index.html');
+  assert.match(homepage, /Sasify Solutions/);
+  assert.ok(homepage.indexOf('Top 8 products') < homepage.indexOf('Browse by what you want to do'), 'Category discovery must follow the top products');
   const inventory = await read('inventory.html');
   assert.match(inventory, /Full inventory/);
   for (const product of products) {
@@ -104,7 +109,8 @@ test('homepage, inventory and every product have populated static HTML', async (
           ? /Pay online/
           : /Buy online/,
     );
-    assert.match(html, /wa\.me\/923116185711/);
+    if (product.contactOnly) assert.match(html, /wa\.me\/923116185711/);
+    else assert.doesNotMatch(html, /href="https:\/\/wa\.me\/923116185711/, 'Pre-purchase WhatsApp link must be limited to contact-only listings');
     assert.ok(
       html.includes(`${origin}${productPath}`),
       `Canonical URL missing: ${product.id}`,
@@ -229,7 +235,7 @@ test('export includes crawlable sitemap and robots files using the final domain'
   assert.equal(await read('sitemap.xml'), sitemapXml());
   assert.match(await read('llms.txt'), /Sasify Solutions/);
   assert.match(await read('llms.txt'), /\/products\/chatgpt-plus-1-month/);
-  assert.equal((await read('sitemap.xml')).match(/<loc>/g).length, products.length + supplierSeoProducts.length + 10);
+  assert.equal((await read('sitemap.xml')).match(/<loc>/g).length, products.length + supplierSeoProducts.length + 11 + storefrontCategories.length);
 });
 
 test('Vercel export preserves canonical routes without hiding missing pages', async () => {
@@ -367,7 +373,7 @@ test('policy pages are indexable, linked and state only the confirmed commercial
       `Footer policy link missing: ${file}`,
     );
     assert.ok(html.includes(`https://www.sasifysolutions.com/${file}`));
-    assert.match(html, file === 'warranty' ? /Last updated: 14 September 2026/ : /Last updated: 3 September 2026/);
+    assert.match(html, file === 'warranty' ? /Last updated: 14 September 2026/ : file === 'privacy' ? /Last updated: 27 September 2026/ : /Last updated: 3 September 2026/);
     assert.match(html, /\+923116185711|Ask a policy question/);
   }
   assert.match(
@@ -396,6 +402,7 @@ test('policy pages are indexable, linked and state only the confirmed commercial
     privacy,
     /Vercel processes anonymized technical page-view and performance data/,
   );
+  assert.match(privacy, /one-way keyed hash of the IP address/);
   assert.match(await read('terms.html'), /1 USD = PKR 285/);
 });
 
@@ -443,12 +450,11 @@ test('all product offers match visible content and answers exist without running
         `Missing visible answer: ${product.id}`,
       );
     }
-    assert.match(html, /About this (subscription|service|product)/);
-    assert.match(html, /real-world use case/);
-    assert.match(html, /Related searches and use cases/);
-    if (/chatgpt/i.test(product.name)) {
+    assert.match(html, /class="description-section product-use-cases"/);
+    assert.doesNotMatch(html, /For global search intent|Related searches and use cases|This section explains the real-world use case/);
+    if (product.id === 'p093') {
       assert.match(html, /ChatGPT Plus price in Pakistan/);
-      assert.match(html, /buy ChatGPT Plus Pakistan/);
+      assert.match(html, /ChatGPT Plus subscription/);
     }
   }
   for (const product of supplierSeoProducts.slice(0, 25)) {
@@ -461,9 +467,8 @@ test('all product offers match visible content and answers exist without running
     assert.equal(offers[0].offers.priceCurrency, 'PKR');
     assert.equal(offers[0].offers.availability, 'https://schema.org/InStock');
     assert.match(html, /Product description/);
-    assert.match(html, /About this (subscription|service|product)/);
-    assert.match(html, /real-world use case/);
-    assert.match(html, /Related searches and use cases/);
+    assert.match(html, /class="description-section product-use-cases"/);
+    assert.doesNotMatch(html, /For global search intent|Related searches and use cases|This section explains the real-world use case/);
     assert.match(html, /Questions about this product/);
   }
 });
@@ -481,9 +486,10 @@ test('HTML assets and internal navigation targets exist in the upload folder', a
   }
   for (const target of targets) {
     const file = path.join(out, target);
-    const info = await stat(file).catch(() =>
-      stat(`${file}.html`).catch(() => null),
-    );
+    // Static export can contain both categories.html and categories/<slug>.html.
+    // With clean URLs, the .html file takes precedence over its sibling directory.
+    const htmlInfo = await stat(`${file}.html`).catch(() => null);
+    const info = htmlInfo?.isFile() ? htmlInfo : await stat(file).catch(() => null);
     assert.ok(info, `Missing local URL: ${target}`);
     if (info.isDirectory())
       assert.ok(
