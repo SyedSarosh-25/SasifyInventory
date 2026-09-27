@@ -1,6 +1,18 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { readFile, stat } from 'node:fs/promises';
+import { fileURLToPath } from 'node:url';
 import { createWelcomeHandler } from '../commerce/welcome-language.mjs';
+
+test('welcome design includes the Sasify logo, supplied Pakistan icon and two language choices', async () => {
+  const component = await readFile(fileURLToPath(new URL('../app/components/language.tsx', import.meta.url)), 'utf8');
+  assert.match(component, /src="\/favicon-48x48\.png"/);
+  assert.match(component, /src="\/pakistan-welcome\.png"/);
+  assert.match(component, /English<\/button>/);
+  assert.match(component, /Roman Urdu<\/button>/);
+  assert.ok((await stat(fileURLToPath(new URL('../public/pakistan-welcome.png', import.meta.url)))).size > 0);
+  assert.ok((await stat(fileURLToPath(new URL('../out/pakistan-welcome.png', import.meta.url)))).size > 0);
+});
 
 function response() {
   return {

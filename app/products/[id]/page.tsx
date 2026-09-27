@@ -268,38 +268,6 @@ function SupplierSeoProductPage({ product }: { product: SupplierSeoProduct }) {
                   <dd>{product.providerName || 'Automated supplier'}</dd>
                 </div>
               </dl>
-              <h3>Price comparison</h3>
-              <p>
-                Our price is <strong><Money amount={product.price} /></strong>.
-                {comparison ? (
-                  <> The official plan reference for the listed duration is{' '}
-                    <strong><Money amount={comparison.totalPkr} /></strong>.{' '}
-                    {comparison.note}</>
-                ) : (
-                  <> The official equivalent depends on the exact edition, region,
-                  billing term or access arrangement, so the original price may vary.</>
-                )}
-              </p>
-              {comparison && savings !== null ? (
-                <p className="supplier-price-saving">
-                  Estimated savings against that reference: <strong><Money amount={savings} /></strong>.
-                </p>
-              ) : null}
-              {comparison ? (
-                <a href={comparison.sourceUrl} target="_blank" rel="noreferrer" className="price-source">
-                  {comparison.sourceLabel} <ExternalLink className="h-3.5 w-3.5" />
-                </a>
-              ) : null}
-              <h3>How this order works</h3>
-              <p>
-                Pay online through checkout, and keep the order page open
-                while payment is verified.
-              </p>
-              <p>
-                <strong>Check this listing’s warranty terms before paying.</strong>{' '}
-                Review the product description and activation requirements.
-                WhatsApp support is available after payment for order issues.
-              </p>
               {product.requiresCustomerEmail ? (
                 <p>
                   <strong>Customer email required.</strong> This supplier needs

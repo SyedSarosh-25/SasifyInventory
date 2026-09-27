@@ -42,6 +42,12 @@ test('credentials, personal data and source product names are not translated',()
   assert.equal(localizeContent(product,'vi'),product);
   assert.equal(renderToStaticMarkup(localizeContent(createElement('div',null,createElement('button',{type:'submit'},'Log in')),'vi')),'<div><button type="submit">Đăng nhập</button></div>');
 });
+test('checkout language covers the first purchase step and payment choices',()=>{
+  for(const source of ['Select package','How will you send the payment?','Please read before purchasing','Wallet transfer','Bank transfer','Crypto deposit','All banks','Easypaisa, JazzCash, NayaPay, SadaPay and more','Your delivery appears here automatically after the signed NayaPay receipt is matched.']){
+    assert.notEqual(translateText(source,'ur-Latn'),source,source);
+  }
+  assert.match(translateText('Balance: PKR 2,450 · 5% discount on eligible products','ur-Latn'),/2,450/);
+});
 test('admin and team routes are excluded from public theme',()=>{
   for(const route of ['/orders-admin','/orders-admin/a','/team'])assert.equal(isPublicPath(route),false);
   for(const route of ['/','/dashboard','/checkout','/categories'])assert.equal(isPublicPath(route),true);

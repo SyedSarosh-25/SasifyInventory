@@ -82,21 +82,23 @@ function WelcomeLanguageModal() {
 
   if (!visible) return null;
   return <dialog ref={dialog} className="welcome-language-dialog" aria-labelledby="welcome-language-title" aria-describedby="welcome-language-description" onCancel={(event) => { event.preventDefault(); continueToSite(); }}>
-    <div className="welcome-language-mark" aria-hidden="true"><Globe2 size={24} /></div>
-    <p className="welcome-language-kicker">Aap ke liye / Made for you</p>
-    <h2 id="welcome-language-title">Welcome to Sasify Solutions</h2>
-    <p id="welcome-language-description">Viewing from Pakistan? Choose the language that feels most comfortable. You can change it anytime from the top menu.</p>
-    <div className="welcome-language-examples" aria-label="English and Roman Urdu examples">
-      <p className="welcome-language-examples-title">Here’s how the website reads</p>
-      <div><span lang="en">Browse products and compare prices.</span><span lang="ur-Latn">Products dekhein aur prices compare karein.</span></div>
-      <div><span lang="en">Buy online and get support if needed.</span><span lang="ur-Latn">Online khareedein aur zaroorat par support lein.</span></div>
+    <div className="welcome-language-identity">
+      <span className="welcome-language-brand"><img src="/favicon-48x48.png" width={34} height={34} alt="Sasify Solutions logo" /><span>SASIFY <small>SOLUTIONS</small></span></span>
+      <img className="welcome-language-pakistan" src="/pakistan-welcome.png" width={68} height={68} alt="Pakistan flag" />
+    </div>
+    <div className="welcome-language-intro">
+      <h2 id="welcome-language-title">Aap ka store, aap ki zabaan.</h2>
+      <p id="welcome-language-description">Your store, your language. Choose English or Roman Urdu; you can change it anytime.</p>
     </div>
     <fieldset className="welcome-language-choices" aria-label="Choose your website language">
-      <button type="button" className={choice === 'en' ? 'is-selected' : ''} aria-pressed={choice === 'en'} onClick={() => setChoice('en')}><strong>English</strong><span>Continue in English</span></button>
-      <button type="button" className={choice === 'ur-Latn' ? 'is-selected' : ''} aria-pressed={choice === 'ur-Latn'} onClick={() => setChoice('ur-Latn')}><strong>Roman Urdu</strong><span>Roman Urdu mein dekhein</span></button>
+      <button type="button" className={choice === 'en' ? 'is-selected' : ''} aria-pressed={choice === 'en'} onClick={() => setChoice('en')}>English</button>
+      <button type="button" className={choice === 'ur-Latn' ? 'is-selected' : ''} aria-pressed={choice === 'ur-Latn'} onClick={() => setChoice('ur-Latn')}>Roman Urdu</button>
     </fieldset>
+    <div className="welcome-language-examples" aria-label="English and Roman Urdu examples">
+      <p><span lang="en">Browse products</span><span aria-hidden="true">→</span><span lang="ur-Latn">Products dekhein</span></p>
+      <p><span lang="en">Buy online</span><span aria-hidden="true">→</span><span lang="ur-Latn">Online khareedein</span></p>
+    </div>
     <button type="button" className="welcome-language-continue" onClick={continueToSite}>Continue to website</button>
-    <p className="welcome-language-note">Your selection changes website text only. Prices and orders stay the same.</p>
   </dialog>;
 }
 

@@ -2,6 +2,7 @@
 import { LocalizedContent } from './language';
 
 import { useEffect, useState } from 'react';
+import { Menu, X } from 'lucide-react';
 import './site-header-actions.css';
 import { favicon } from '../product-utils';
 import { CurrencyToggle } from './currency';
@@ -14,6 +15,7 @@ export function SiteHeader({
   accountMode?: 'signup' | 'login' | 'recovery';
 } = {}) {
   const [accountName, setAccountName] = useState<string | null>(null);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   useEffect(() => {
     let active = true;
     fetch('/api/commerce?action=account-dashboard', { credentials: 'same-origin', cache: 'no-store' })
@@ -44,12 +46,13 @@ export function SiteHeader({
             <small>SOLUTIONS</small>
           </span>
         </a>
-        <div className="nav-links">
-          <a href="/inventory">Full Inventory</a>
-          <a href="/categories">Categories</a>
-          <a href="/scammers">Scam reports</a>
-          <a href="/#faq">FAQ</a>
-          <a href="#contact">Contact Us</a>
+        {!accountMode && <button type="button" className="mobile-nav-toggle" aria-label={mobileMenuOpen ? 'Close menu' : 'Open menu'} aria-expanded={mobileMenuOpen} aria-controls="storefront-navigation" onClick={() => setMobileMenuOpen(open => !open)}>{mobileMenuOpen ? <X size={22} /> : <Menu size={22} />}</button>}
+        <div className={`nav-links${mobileMenuOpen ? ' is-open' : ''}`} id="storefront-navigation">
+          <a href="/inventory" onClick={() => setMobileMenuOpen(false)}>Full Inventory</a>
+          <a href="/categories" onClick={() => setMobileMenuOpen(false)}>Categories</a>
+          <a href="/scammers" onClick={() => setMobileMenuOpen(false)}>Scam reports</a>
+          <a href="/#faq" onClick={() => setMobileMenuOpen(false)}>FAQ</a>
+          <a href="#contact" onClick={() => setMobileMenuOpen(false)}>Contact Us</a>
         </div>
         <div className="nav-actions header-account-actions">
           <LanguageSwitcher />

@@ -59,6 +59,15 @@ test('every exported product page keeps useful search language without keyword b
   assert.match(chatgpt, /ChatGPT Plus price in Pakistan/);
 });
 
+test('supplier descriptions do not repeat generic price, order or warranty lectures', async () => {
+  const directory = fileURLToPath(new URL('../out/products/', import.meta.url));
+  const pages = (await readdir(directory)).filter(file => file.endsWith('.html'));
+  for (const page of pages) {
+    const html = await readFile(fileURLToPath(new URL(`../out/products/${page}`, import.meta.url)), 'utf8');
+    assert.doesNotMatch(html, /<h3>Price comparison<\/h3>|<h3>How this order works<\/h3>|Check this listing’s warranty terms before paying\./, page);
+  }
+});
+
 test('verified competitor search phrases appear as chips, not sales copy', async () => {
   const chatgpt = await productHtml('chatgpt-plus-1-month');
   const phrases = [...chatgpt.matchAll(/<li data-no-translate="true">([^<]+)<\/li>/g)].map((match) => match[1]);
