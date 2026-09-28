@@ -123,6 +123,36 @@ export function selectFixedTopProducts(catalog: LiveCatalogProduct[]) {
   });
 }
 
+/**
+ * Keeps the curated Top 8 intact and adds one fresh, in-stock product from
+ * the live catalogue. The extra slot changes between page loads without
+ * duplicating a curated product or another equivalent supplier offer.
+ */
+export function selectTopProductsWithRandom(
+  catalog: LiveCatalogProduct[],
+  random: () => number = Math.random,
+) {
+  const fixed = selectFixedTopProducts(catalog);
+  const seenKeys = new Set(
+    fixed.map((product) => product.source === 'supplier'
+      ? product.canonical_key || product.id
+      : product.id),
+  );
+  const fixedNames = fixed.map((product) => product.display_name || product.name);
+  const candidates = catalog.filter((product) => {
+    if (product.price <= 0 || Number(product.available) <= 0) return false;
+    if (product.source === 'supplier' && isChatGptPlusProduct(product.name)) return false;
+    const key = product.source === 'supplier'
+      ? product.canonical_key || product.id
+      : product.id;
+    if (seenKeys.has(key)) return false;
+    if (product.source === 'supplier' && fixedNames.some((name) => supplierEquivalentProductName(name, product.name))) return false;
+    return true;
+  });
+  const randomProduct = shuffleProducts(candidates, random)[0];
+  return randomProduct ? [...fixed, randomProduct] : fixed;
+}
+
 export const heroSupplierShortcuts = [
   {
     label: 'CapCut',

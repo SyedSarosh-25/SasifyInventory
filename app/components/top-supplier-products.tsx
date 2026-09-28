@@ -4,7 +4,7 @@ import { LocalizedContent } from './language';
 
 import { ArrowRight, Tag } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
-import { selectFixedTopProducts } from '../catalog-selection';
+import { selectTopProductsWithRandom } from '../catalog-selection';
 import { products as localProducts, type Product } from '../products';
 import { originalPricePkr, productHref } from '../product-utils';
 import { ProductLogo } from './product-logo';
@@ -178,7 +178,7 @@ export function TopSupplierProducts() {
       .then((data) => {
         cacheSupplierCatalog(data.products || []);
         if (active) {
-          const selected = selectFixedTopProducts(data.products || []);
+          const selected = selectTopProductsWithRandom(data.products || []);
           setProducts(
             selected.map((product) => ({
               ...product,
@@ -217,7 +217,7 @@ export function TopSupplierProducts() {
           canonical_key: product.canonicalKey,
           provider_name: product.providerName,
         }));
-        setProducts(selectFixedTopProducts([...previewProducts, ...supplierPreviewProducts]).map((product) => ({
+        setProducts(selectTopProductsWithRandom([...previewProducts, ...supplierPreviewProducts]).map((product) => ({
           ...product,
           stockVerified: false,
           source: product.source === 'local' ? 'local' as const : 'supplier' as const,
@@ -234,7 +234,7 @@ export function TopSupplierProducts() {
     };
   }, []);
 
-  const cards = useMemo(() => products.slice(0, 8), [products]);
+  const cards = useMemo(() => products.slice(0, 9), [products]);
   if (loading)
     return (
       <LocalizedContent><p className="featured-loading" role="status">

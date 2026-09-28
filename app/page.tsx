@@ -617,7 +617,7 @@ export default function Home() {
           <div className="featured-heading">
             <div>
               <span className="section-kicker">Sasify Solutions Inventory</span>
-              <h2 id="featured-title">Top 8 products</h2>
+              <h2 id="featured-title">Top 9 products</h2>
             </div>
           </div>
           <p className="wallet-discount-notice">

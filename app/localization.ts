@@ -50,7 +50,7 @@ const copy: Array<[string, string, string]> = [
   ['No matching products.', 'Koi matching product nahi mila.', 'Không có sản phẩm phù hợp.'],
   ['Show top products', 'Popular products dekhain', 'Hiển thị sản phẩm nổi bật'],
   ['Sasify Solutions Inventory', 'Sasify Solutions ke products', 'Danh mục Sasify Solutions'],
-  ['Top 8 products', 'Top 8 products', '8 sản phẩm nổi bật'],
+  ['Top 9 products', 'Top 9 products', '9 sản phẩm nổi bật'],
   ['View full inventory', 'Tamam products dekhain', 'Xem tất cả sản phẩm'],
   ['Explore products', 'Products dekhain', 'Khám phá sản phẩm'],
   ['Explore Products', 'Products dekhain', 'Khám phá sản phẩm'],

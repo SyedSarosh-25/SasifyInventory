@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { products } from '../app/products.ts';
 import { accessTypeLabel, has25DayWarranty, isAnnualPlan, originalPriceComparison, originalPricePkr, planMonths, productHref, productLogo, savingsPkr, warrantyDays, whatsappLink } from '../app/product-utils.ts';
-import { featuredProducts, filterProducts, fixedTopProductSpecs, heroProducts, heroSupplierShortcuts, orbitTools, selectFixedTopProducts, selectHeroSupplierShortcut, selectRandomTopProducts, supplierEquivalentProductName } from '../app/catalog-selection.ts';
+import { featuredProducts, filterProducts, fixedTopProductSpecs, heroProducts, heroSupplierShortcuts, orbitTools, selectFixedTopProducts, selectHeroSupplierShortcut, selectRandomTopProducts, selectTopProductsWithRandom, supplierEquivalentProductName } from '../app/catalog-selection.ts';
 import { supplierOriginalPriceComparison, supplierSavingsPkr } from '../app/supplier-price-utils.ts';
 
 test('every inventory variant has a unique detail URL', () => {
@@ -282,6 +282,23 @@ test('homepage CapCut card accepts the restored API identifier without changing 
   assert.equal(selected[0].display_name, 'CapCut Pro Team · 1 Month · 1200 Credits');
   assert.equal(selected[0].price, 999);
   assert.equal(selected[0].available, 6);
+});
+
+test('homepage keeps the curated eight and adds one random in-stock product', () => {
+  const catalog = [
+    { id: 'p093', name: 'ChatGPT Plus', price: 3499, available: 1, source: 'local' },
+    { id: 'p093-shared', name: 'ChatGPT Plus shared', price: 999, available: 1, source: 'local' },
+    { id: 'p013', name: 'Claude Standard', price: 5199, available: 1, source: 'local' },
+    { id: 'p012', name: 'Claude Premium', price: 24999, available: 1, source: 'local' },
+    { id: 'p100', name: 'Hostinger', price: 4500, available: 1, source: 'local' },
+    { id: 'auto:1200-capcut-credits-pro-team-duration-1m', canonical_key: 'auto:1200-capcut-credits-pro-team-duration-1m', name: 'Capcut Pro Team 1 Month 1200 Credits', price: 999, available: 1, source: 'supplier' },
+    { id: 'manual:muse-ai', canonical_key: 'manual:muse-ai', name: 'Muse AI 1 Billion AI Tokens', price: 2499, available: 1, source: 'supplier' },
+    { id: 'auto:education-figma-plan-pro-duration-2y', canonical_key: 'auto:education-figma-plan-pro-duration-2y', name: 'Figma Pro Education Plan 2 Year', price: 4999, available: 1, source: 'supplier' },
+    { id: 'supplier-random', canonical_key: 'manual:supplier-random', name: 'Random in-stock product', price: 1299, available: 4, source: 'supplier' },
+  ];
+  const selected = selectTopProductsWithRandom(catalog, () => 0);
+  assert.equal(selected.length, 9);
+  assert.equal(selected.at(-1).id, 'supplier-random');
 });
 
 test('homepage top ten keeps ChatGPT available and randomizes the remaining live stock', () => {
