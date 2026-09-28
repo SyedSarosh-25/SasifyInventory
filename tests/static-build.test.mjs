@@ -253,10 +253,25 @@ test('Vercel export preserves canonical routes without hiding missing pages', as
     ),
     'Legacy account URL must redirect to the customer dashboard',
   );
+  assert.ok(
+    config.redirects.some(
+      (redirect) =>
+        redirect.source === '/products/:slug-:legacyHash([a-z0-9]{6})' &&
+        redirect.destination === '/products/:slug' &&
+        redirect.permanent === true,
+    ),
+    'Legacy hashed supplier URLs must redirect to stable name-based routes',
+  );
   for (const [from, to] of supplierProductRedirects) {
     assert.ok(config.redirects.some((redirect) =>
       redirect.source === `/products/${from}` && redirect.destination === `/products/${to}` && redirect.permanent === true));
   }
+  assert.ok(
+    supplierProductRedirects.some(([from, to]) =>
+      from === 'capcut-pro-1-month-full-warranty-1gq1hr' &&
+      to === 'capcut-pro-30d-with-a-30-day-warranty'),
+    'Known historical CapCut URL must redirect to its current stable plan route',
+  );
   for (const product of products) {
     assert.ok(
       config.redirects.some(

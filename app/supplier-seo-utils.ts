@@ -3,6 +3,7 @@ type SupplierSlugInput = {
   canonical_key?: string | null;
   canonicalKey?: string | null;
   name?: string | null;
+  slug?: string | null;
 };
 
 export function stableSupplierHash(value: string) {
@@ -29,12 +30,14 @@ export function slugifySupplierName(value: string) {
 }
 
 export function supplierProductSlug(product: SupplierSlugInput) {
-  const key = String(product.canonical_key || product.canonicalKey || product.id || product.name || 'supplier-product');
-  return `${slugifySupplierName(String(product.name || 'digital-product'))}-${stableSupplierHash(key)}`;
+  // Supplier canonical keys are synchronization data, not a durable product
+  // identity. Providers can rebuild them during a catalog refresh, so they
+  // must never be part of the canonical public URL.
+  return slugifySupplierName(String(product.name || 'digital-product'));
 }
 
 export function supplierProductHref(product: SupplierSlugInput) {
-  return `/products/${supplierProductSlug(product)}`;
+  return `/products/${String(product.slug || supplierProductSlug(product))}`;
 }
 
 /**
