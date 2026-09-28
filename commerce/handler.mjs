@@ -3235,6 +3235,60 @@ async function completeManualActivationOrder(db, orderId, deliveryContent = '') 
   );
   return { orderId: order.id, delivery: { content } };
 }
+async function updateClaudePreorderStatus(db, orderId, decision) {
+  const order = (
+    await db.query('SELECT * FROM commerce_orders WHERE id=$1 FOR UPDATE', [
+      orderId,
+    ])
+  ).rows[0];
+  if (!order) throw fail(404, 'Order not found.');
+  if (order.supplier_status !== 'preorder_confirmed' || order.status !== 'delivered')
+    throw fail(409, 'Only confirmed pre-orders can be completed or rejected.');
+  const completed = decision === 'complete';
+  const supplierStatus = completed ? 'preorder_completed' : 'preorder_rejected';
+  await db.query(
+    completed
+      ? "UPDATE commerce_orders SET supplier_status='preorder_completed',delivered_at=COALESCE(delivered_at,now()) WHERE id=$1"
+      : "UPDATE commerce_orders SET status='cancelled',supplier_status='preorder_rejected',delivered_at=NULL WHERE id=$1",
+    [order.id],
+  );
+  await db.query(
+    'INSERT INTO commerce_audit(action,object_id,details) VALUES($1,$2,$3::jsonb)',
+    [
+      completed ? 'preorder_completed' : 'preorder_rejected',
+      order.id,
+      JSON.stringify({ supplierStatus }),
+    ],
+  );
+  let emailSent = false;
+  if (order.customer_email) {
+    try {
+      const productName = order.product_id === 'p013'
+        ? 'Claude Team Plan Standard'
+        : 'Claude Team Plan Premium';
+      const subject = completed
+        ? 'Your Claude Team pre-order is complete'
+        : 'Your order has been rejected';
+      const text = completed
+        ? `Your ${productName} pre-order is now complete. Claude has sent an email to the address you provided. Please open it, accept the NDA, and you will be added to the team.`
+        : 'Your order has been rejected.';
+      await sendAccountEmail({
+        to: order.customer_email,
+        subject,
+        text,
+        html: `<div style="font-family:Arial,sans-serif;max-width:680px;margin:0 auto;padding:24px;color:#173b73"><div style="border:1px solid #d9e4f3;border-radius:16px;padding:24px;background:#f8fbff"><div style="font-size:12px;font-weight:800;letter-spacing:.12em;color:#285cff;text-transform:uppercase;margin-bottom:18px">Sasify Solutions</div><h2 style="margin:0 0 16px;color:#173b73">${completed ? 'Pre-order completed' : 'Order rejected'}</h2><p style="line-height:1.65;color:#334d74">${escapeEmailHtml(text)}</p></div></div>`,
+      });
+      emailSent = true;
+    } catch (error) {
+      console.error(`[preorder] ${completed ? 'completion' : 'rejection'} email failed`, error?.message || error);
+    }
+  }
+  await db.query(
+    "INSERT INTO commerce_audit(action,object_id,details) VALUES('preorder_decision_email',$1,$2::jsonb)",
+    [order.id, JSON.stringify({ decision: completed ? 'complete' : 'reject', sent: emailSent, email: Boolean(order.customer_email) })],
+  );
+  return { ok: true, orderId: order.id, supplierStatus, emailSent };
+}
 async function attachPaymentForManualApproval(db, orderId, paymentId) {
   const order = (
     await db.query('SELECT * FROM commerce_orders WHERE id=$1 FOR UPDATE', [
@@ -5465,7 +5519,7 @@ export function createHandler(
                   output.delivery.instructions,
                   { id: order.product_id, name: orderProduct },
                 );
-            } else if (order.supplier_status !== 'preorder_confirmed') {
+            } else if (!String(order.supplier_status || '').startsWith('preorder_')) {
               const item = (
                 await db.query(
                   'SELECT credentials FROM commerce_inventory WHERE id=$1',
@@ -6958,6 +7012,14 @@ export function createHandler(
           body.orderId,
           key,
           publicTelegramMessages,
+        );
+      } else if (action === 'admin-preorder-complete' || action === 'admin-preorder-reject') {
+        if (!idOk(body.orderId) || body.confirmed !== true)
+          throw fail(400, 'Confirm the pre-order decision first.');
+        output = await updateClaudePreorderStatus(
+          db,
+          body.orderId,
+          action === 'admin-preorder-complete' ? 'complete' : 'reject',
         );
       } else if (action === 'admin-cancel') {
         if (!idOk(body.orderId) || body.confirmed !== true)
