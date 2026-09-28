@@ -3607,7 +3607,7 @@ export function createHandler(
               FROM commerce_supplier_products WHERE enabled=true AND selling_price IS NOT NULL AND provider_id<>'elitetools'
               ORDER BY cost_pkr ASC NULLS LAST,wholesale_price ASC,id`)).rows;
             const supplier = selectLowestSupplierOffers(rows).filter((product) => !isChatGptPlusProduct(product.name));
-            return json(res, 200, { ready: true, products: [...catalog.map((p) => ({ ...customerProduct(p), source: 'local' })), ...supplier.map(({ cost_pkr, wholesale_price, canonical_manual, available, ...p }) => ({ ...customerProduct(p), id: canonical_manual && !String(p.canonical_key || '').startsWith('auto:') ? p.canonical_key : supplierProductKey(p.name) || p.canonical_key, source: 'supplier', available: Number(available || 0) }))] });
+            return json(res, 200, { ready: true, products: [...catalog.map((p) => ({ ...customerProduct(p), source: 'local' })), ...supplier.map(({ cost_pkr: _cost_pkr, wholesale_price: _wholesale_price, canonical_manual, available, ...p }) => ({ ...customerProduct(p), id: canonical_manual && !String(p.canonical_key || '').startsWith('auto:') ? p.canonical_key : supplierProductKey(p.name) || p.canonical_key, source: 'supplier', available: Number(available || 0) }))] });
           }
           const local = catalog.find((p) => p.id === productId);
           if (local) {

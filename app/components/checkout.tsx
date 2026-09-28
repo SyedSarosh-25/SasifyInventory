@@ -146,7 +146,7 @@ const LOCAL_ADMIN_PREVIEW_DATA = {
   supplierProducts: [{ id: 'manual:preview-product', provider_id: 'manual', provider_name: 'Sasify manual catalog', name: 'AI Credits Starter', description: 'Demo product for local UI review', canonical_key: 'demo-product', selling_price: 1499, cost_pkr: 900, enabled: true }],
   paymentReceivers: [], coupons: [], inventory: [], sharedAccounts: [], scamReports: [], toolRequests: [], blockedUsers: [], providerStates: [], supplierAlerts: [], supplierKeys: [], commissions: [], dailyFinancials: [], profitBreakdown: [], teamAccess: { configured: false, email: null }, metrics: { orders: 1, delivered: 1, pending: 0, revenue: 1499, profit: 599 }, stock: [], supplierUsdPkrRate: 280, supplierUsdtPkrRate: 280,
 };
-export function StockBuy({ productId }: { productId: string }) {
+export function StockBuy({ productId: _productId }: { productId: string }) {
   return null;
 }
 export function Checkout() {

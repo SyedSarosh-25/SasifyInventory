@@ -2,7 +2,7 @@
 import { LocalizedContent } from './language';
 
 
-import { ArrowRight, Check, Tag } from 'lucide-react';
+import { ArrowRight, Tag } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { selectFixedTopProducts } from '../catalog-selection';
 import { products as localProducts, type Product } from '../products';
@@ -136,7 +136,19 @@ export function SupplierFeaturedCard({ product }: { product: FeaturedProduct }) 
   </>;
   return (
     <LocalizedContent><article className={`featured-card supplier-featured-card${isSupplier && !canOpen ? ' is-stock-blocked' : ''}`}>
-      {canOpen ? <a className="featured-card-main" href={href}>{cardContent}</a> : <div className="featured-card-main is-disabled" aria-disabled="true">{cardContent}</div>}
+      {/*
+       * Keep supplier detail pages crawlable even while the live stock check is
+       * still pending (or reports no stock). The purchase actions below remain
+       * disabled, but the card itself should still take a visitor to the detail
+       * page and satisfy the static inventory link contract.
+       */}
+      <a
+        className={`featured-card-main${canOpen ? '' : ' is-disabled'}`}
+        href={href}
+        aria-disabled={!canOpen || undefined}
+      >
+        {cardContent}
+      </a>
       <div className="featured-card-actions">
         {canOpen ? <>
           <a className="featured-details-button" href={href}>View details</a>
@@ -182,7 +194,7 @@ export function TopSupplierProducts() {
       })
       .catch(async () => {
         if (!active || !previewOnly) return;
-        const { supplierSeoProducts } = await import('../supplier-seo-products.generated');
+        const { supplierSeoProducts } = await import('../supplier-seo');
         const previewProducts = localProducts
           .filter((product) => product.sellingPricePkr > 0)
           .map((product) => ({
