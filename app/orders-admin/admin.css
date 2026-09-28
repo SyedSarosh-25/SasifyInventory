@@ -1313,6 +1313,15 @@
 .ops-shell .supplier-provider-tabs { gap: 8px; padding-bottom: 16px; }
 .ops-shell .supplier-catalog-toolbar { background: #f8fafc; border-color: var(--admin-border); border-radius: 12px; }
 .ops-shell .supplier-admin-list { gap: 20px; align-items: start; }
+.ops-shell .manual-orders-list { display: grid; gap: 14px; }
+.ops-shell .manual-order-card { padding: 18px; border: 1px solid var(--admin-border); border-radius: 14px; background: #fff; box-shadow: 0 2px 6px rgb(15 39 71 / 3%); }
+.ops-shell .manual-order-card-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.ops-shell .manual-order-card-heading h3 { margin: 4px 0; font-size: 17px; color: #13294b; }
+.ops-shell .manual-order-card-heading p { margin: 0; color: var(--admin-muted); font-size: 13px; overflow-wrap: anywhere; }
+.ops-shell .manual-order-card-meta { display: flex; flex-wrap: wrap; gap: 18px; margin: 16px 0; padding-top: 14px; border-top: 1px solid var(--admin-border); color: var(--admin-muted); font-size: 13px; }
+.ops-shell .manual-order-card-meta span { display: grid; gap: 3px; }
+.ops-shell .manual-order-card-meta strong { color: #526685; font-size: 11px; letter-spacing: .05em; text-transform: uppercase; }
+.ops-shell .manual-order-note { margin: 0 0 14px; padding: 10px 12px; border-radius: 9px; background: #f3f7ff; color: #315b90; font-size: 13px; line-height: 1.5; }
 .ops-shell .supplier-admin-row {
   padding: 20px;
   border: 1px solid var(--admin-border);
@@ -1404,3 +1413,4 @@
   .ops-shell .ops-visitor-summary { grid-template-columns: 1fr; }
   .ops-shell .ops-quick-links { grid-template-columns: 1fr; }
 }
+

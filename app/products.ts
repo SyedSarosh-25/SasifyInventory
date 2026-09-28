@@ -13,6 +13,12 @@ export type Product = {
   /** Used by the storefront's new-products ticker for locally published offers. */
   publishedAt?: string;
   contactOnly?: boolean;
+  /** Storefront availability rules for locally managed products. */
+  availabilityMode?: 'live' | 'preorder' | 'manual';
+  requiresCustomerEmail?: boolean;
+  activationSla?: string;
+  preorderDate?: string;
+  stockLabel?: string;
   variants?: ProductVariant[];
   details?: string[];
   sourceUrl: string;
@@ -41,6 +47,7 @@ const catalogProducts: Product[] = [
     originalPricePkr: 5700,
     publishedAt: '2026-09-14T18:35:53+05:00',
     sourceUrl: 'https://openai.com/chatgpt/pricing/',
+    availabilityMode: 'live',
     description:
       'One-month ChatGPT Plus access through a shared account. Each account is shared by up to four members, with the email and password delivered after payment verification and a one-time 2FA login code available on the original checkout device.',
     details: [
@@ -63,6 +70,7 @@ const catalogProducts: Product[] = [
     sourceUrl: 'https://openai.com/chatgpt/pricing/',
     description:
       'One-month ChatGPT Plus access for advanced models, higher limits, file analysis, image generation and productivity workflows.',
+    availabilityMode: 'live',
     variants: [
       {
         id: 'p093-ultra',
@@ -95,6 +103,9 @@ const catalogProducts: Product[] = [
     sourceUrl: 'https://claude.com/pricing',
     description:
       'One-month Claude Team Premium seat for demanding writing, research, coding and document-analysis workflows, with higher usage capacity than a Standard seat.',
+    availabilityMode: 'preorder',
+    requiresCustomerEmail: true,
+    preorderDate: '2026-10-02',
     details: [
       'Premium is the higher-usage seat type within Claude Team, not an API credit package.',
       'Claude Team includes Claude Code and Cowork. Feature access remains subject to the workspace settings and provider limits.',
@@ -115,6 +126,9 @@ const catalogProducts: Product[] = [
     sourceUrl: 'https://claude.com/pricing',
     description:
       'One-month Claude Team Standard seat for AI-assisted writing, research, document analysis and coding in a team workspace.',
+    availabilityMode: 'preorder',
+    requiresCustomerEmail: true,
+    preorderDate: '2026-10-02',
     details: [
       'Standard is the entry seat type within Claude Team, with usage limits set by Anthropic.',
       "This is a totally private seat delivered to the client's email, not a shared login.",
@@ -135,6 +149,10 @@ const catalogProducts: Product[] = [
     sourceUrl: 'https://www.hostinger.com/web-hosting',
     description:
       'Hostinger Unlimited web hosting for 12 months with generous website resources for personal and business sites.',
+    availabilityMode: 'manual',
+    requiresCustomerEmail: true,
+    activationSla: 'Within 6 hours',
+    stockLabel: 'In stock · 999',
   },
   {
     id: 'p101',
@@ -185,3 +203,4 @@ const catalogProducts: Product[] = [
 ];
 
 export const products: Product[] = catalogProducts.map(customerProduct);
+

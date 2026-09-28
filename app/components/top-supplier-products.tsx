@@ -27,6 +27,11 @@ type SupplierProduct = {
   display_name?: string;
   display_price?: number;
   display_original_price?: number;
+  availability_mode?: 'live' | 'preorder' | 'manual';
+  requires_customer_email?: boolean;
+  activation_sla?: string;
+  preorder_date?: string;
+  stock_label?: string;
 };
 
 export type FeaturedProduct = SupplierProduct & {
@@ -75,15 +80,36 @@ export function SupplierFeaturedCard({ product }: { product: FeaturedProduct }) 
       ? 'p093-ultra'
       : product.id;
   const isSupplier = product.source === 'supplier';
+  const availabilityMode = product.availability_mode || (isSupplier ? 'live' : 'live');
   const stockVerified = !isSupplier || product.stockVerified === true;
-  const inStock = !isSupplier || (stockVerified && Number(product.available) > 0);
-  const stockLabel = !isSupplier
-    ? ''
-    : !stockVerified
-      ? 'Checking stock…'
-      : inStock
-        ? `In stock${Number.isFinite(Number(product.available)) ? ` · ${Number(product.available).toLocaleString('en-PK')}` : ''}`
-        : 'Out of stock';
+  const inStock = availabilityMode === 'preorder' || availabilityMode === 'manual'
+    ? true
+    : !isSupplier
+      ? Number(product.available) > 0
+      : stockVerified && Number(product.available) > 0;
+  const stockLabel = product.stock_label ?? (
+    availabilityMode === 'preorder'
+      ? 'Taking pre-orders'
+      : !isSupplier && availabilityMode === 'manual'
+        ? 'In stock · 999'
+        : !isSupplier
+          ? `In stock${Number.isFinite(Number(product.available)) ? ` · ${Number(product.available).toLocaleString('en-PK')}` : ''}`
+          : !stockVerified
+            ? 'Checking stock…'
+            : inStock
+              ? `In stock${Number.isFinite(Number(product.available)) ? ` · ${Number(product.available).toLocaleString('en-PK')}` : ''}`
+              : 'Out of stock'
+  );
+  const availabilityClass = availabilityMode === 'preorder'
+    ? 'is-preorder'
+    : availabilityMode === 'manual'
+      ? 'is-manual'
+      : !stockVerified
+        ? 'is-checking'
+        : inStock
+          ? 'is-available'
+          : 'is-unavailable';
+  const showStockBadge = Boolean(stockLabel);
   const canOpen = !isSupplier || inStock;
   const cardContent = <>
     <div className="featured-card-topline">
@@ -105,7 +131,7 @@ export function SupplierFeaturedCard({ product }: { product: FeaturedProduct }) 
           </span>
         )}
       </div>
-      {isSupplier && <span className={`featured-stock-badge ${!stockVerified ? 'is-checking' : inStock ? 'is-available' : 'is-unavailable'}`} role="status">
+      {showStockBadge && <span className={`featured-stock-badge ${availabilityClass}`} role="status">
         <i aria-hidden="true" /> {stockLabel}
       </span>}
     </div>
@@ -170,7 +196,7 @@ export function TopSupplierProducts() {
   useEffect(() => {
     let active = true;
     const previewOnly = new URLSearchParams(window.location.search).has('top10Preview');
-    fetch('/api/commerce?action=catalog', { cache: 'no-store' })
+    const loadCatalog = () => fetch('/api/commerce?action=catalog', { cache: 'no-store' })
       .then(async (response) => {
         if (!response.ok) throw new Error('Could not load supplier products.');
         return (await response.json()) as { products?: SupplierProduct[] };
@@ -229,8 +255,13 @@ export function TopSupplierProducts() {
       .finally(() => {
         if (active) setLoading(false);
       });
+    void loadCatalog();
+    const refreshTimer = window.setInterval(() => {
+      if (document.visibilityState === 'visible') void loadCatalog();
+    }, 30000);
     return () => {
       active = false;
+      window.clearInterval(refreshTimer);
     };
   }, []);
 
@@ -255,3 +286,4 @@ export function TopSupplierProducts() {
     </div></LocalizedContent>
   );
 }
+

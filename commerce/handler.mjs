@@ -466,6 +466,59 @@ function localProductSellingPrice(productId) {
 }
 const SHARED_CHATGPT_PRODUCT_ID = 'p093-shared';
 const SHARED_CHATGPT_MAX_SLOTS = 4;
+const CLAUDE_PREORDER_PRODUCT_IDS = new Set(['p012', 'p013']);
+const MANUAL_ACTIVATION_PRODUCT_IDS = new Set(['p100']);
+const PREORDER_DELIVERY_DATE = '2026-10-02';
+function isClaudePreorderProduct(productId) {
+  return CLAUDE_PREORDER_PRODUCT_IDS.has(String(productId || ''));
+}
+function isManualActivationProduct(productId) {
+  return MANUAL_ACTIVATION_PRODUCT_IDS.has(String(productId || ''));
+}
+function localProductPresentation(product, available, sharedAvailability) {
+  const id = String(product.id || '');
+  const base = {
+    ...customerProduct(product),
+    source: 'local',
+  };
+  if (isClaudePreorderProduct(id)) {
+    return {
+      ...base,
+      availability_mode: 'preorder',
+      available: 0,
+      requires_customer_email: true,
+      preorder_date: PREORDER_DELIVERY_DATE,
+      stock_label: 'Taking pre-orders',
+    };
+  }
+  if (isManualActivationProduct(id)) {
+    return {
+      ...base,
+      availability_mode: 'manual',
+      available: 999,
+      requires_customer_email: true,
+      activation_sla: 'Within 6 hours',
+      stock_label: 'In stock · 999',
+    };
+  }
+  return {
+    ...base,
+    availability_mode: 'live',
+    available: id === SHARED_CHATGPT_PRODUCT_ID
+      ? Number(sharedAvailability?.available || 0)
+      : id === 'p093'
+        ? available
+            .filter((row) => ['p093', 'p093-ultra'].includes(row.product_id))
+            .reduce((total, row) => total + Number(row.available || 0), 0)
+        : Number(available.find((row) => row.product_id === id)?.available || 0),
+    ...(id === SHARED_CHATGPT_PRODUCT_ID
+      ? {
+          shared_slots_filled: Number(sharedAvailability?.slots_filled || 0),
+          shared_slots_total: Number(sharedAvailability?.slots_total || 0),
+        }
+      : {}),
+  };
+}
 function isSharedChatGptProduct(productId) {
   return String(productId || '') === SHARED_CHATGPT_PRODUCT_ID;
 }
@@ -2624,6 +2677,36 @@ async function fulfill(
       409,
       'Multiple orders claim this transaction. Manual review required.',
     );
+  if (isClaudePreorderProduct(order.product_id)) {
+    await db.query(
+      'UPDATE commerce_payments SET order_id=$1,verification_reason=$3 WHERE id=$2',
+      [order.id, payment.id, manual ? 'manually_approved' : 'verified_preorder'],
+    );
+    await db.query(
+      "UPDATE commerce_orders SET status='delivered',delivered_at=now(),fulfillment_cost_pkr=0,supplier_status='preorder_confirmed' WHERE id=$1",
+      [order.id],
+    );
+    await db.query(
+      "INSERT INTO commerce_audit(action,object_id,details) VALUES('preorder_payment_confirmed',$1,$2::jsonb)",
+      [order.id, JSON.stringify({ preorderDate: PREORDER_DELIVERY_DATE })],
+    );
+    return;
+  }
+  if (isManualActivationProduct(order.product_id)) {
+    await db.query(
+      'UPDATE commerce_payments SET order_id=$1,verification_reason=$3 WHERE id=$2',
+      [order.id, payment.id, manual ? 'manually_approved' : 'verified_manual_activation'],
+    );
+    await db.query(
+      "UPDATE commerce_orders SET status='review',supplier_status='manual_activation_pending',supplier_cost_pkr=0,fulfillment_cost_pkr=0 WHERE id=$1",
+      [order.id],
+    );
+    await db.query(
+      "INSERT INTO commerce_audit(action,object_id) VALUES('manual_activation_order_ready',$1)",
+      [order.id],
+    );
+    return { manualPending: true };
+  }
   if (order.supplier_product_id) {
     const selected = (
       await db.query(
@@ -3091,6 +3174,40 @@ async function manualDeliverLocalOrder(db, orderId, inventoryId, key, deliveryCo
     credentials: decrypt(item.credentials, key),
   };
 }
+async function completeManualActivationOrder(db, orderId, deliveryContent = '') {
+  const order = (
+    await db.query('SELECT * FROM commerce_orders WHERE id=$1 FOR UPDATE', [
+      orderId,
+    ])
+  ).rows[0];
+  if (!order) throw fail(404, 'Order not found.');
+  if (order.supplier_status !== 'manual_activation_pending')
+    throw fail(409, 'This order is not waiting for manual activation.');
+  if (!['pending', 'review'].includes(order.status))
+    throw fail(409, 'Only an unpaid or payment-verified manual order can be completed.');
+  const verifiedPayment = (
+    await db.query(
+      'SELECT id FROM commerce_payments WHERE order_id=$1 AND verified=true ORDER BY received_at DESC LIMIT 1',
+      [order.id],
+    )
+  ).rows[0];
+  if (!verifiedPayment)
+    throw fail(409, 'Verify the customer payment before completing this activation.');
+  const content = String(deliveryContent || '').trim();
+  if (!content || content.length > 20000)
+    throw fail(400, 'Enter the activation details before marking this order done.');
+  await db.query(
+    `UPDATE commerce_orders SET status='delivered',delivered_at=now(),
+       supplier_status='manually_completed',supplier_cost_pkr=0,
+       fulfillment_cost_pkr=0,supplier_delivery=$1 WHERE id=$2`,
+    [encrypt({ content }, process.env.COMMERCE_ENCRYPTION_KEY), order.id],
+  );
+  await db.query(
+    "INSERT INTO commerce_audit(action,object_id) VALUES('manual_activation_completed',$1)",
+    [order.id],
+  );
+  return { orderId: order.id, delivery: { content } };
+}
 async function attachPaymentForManualApproval(db, orderId, paymentId) {
   const order = (
     await db.query('SELECT * FROM commerce_orders WHERE id=$1 FOR UPDATE', [
@@ -3464,6 +3581,13 @@ async function queueTelegramDelivery(db, orderId, key, queue) {
   const delivery = row.supplier_delivery
     ? decrypt(row.supplier_delivery, key)
     : null;
+  if (row.supplier_status === 'preorder_confirmed') {
+    queue.push({
+      chatId: row.telegram_chat_id,
+      text: `✅ Pre-order confirmed\n\n${row.product_name}\nYour order is confirmed. You will be notified about your Claude Team Plan on 2 October 2026.`,
+    });
+    return;
+  }
   const localInstructions = row.supplier_product_id
     ? ''
     : row.shared_account_id
@@ -3607,7 +3731,19 @@ export function createHandler(
               FROM commerce_supplier_products WHERE enabled=true AND selling_price IS NOT NULL AND provider_id<>'elitetools'
               ORDER BY cost_pkr ASC NULLS LAST,wholesale_price ASC,id`)).rows;
             const supplier = selectLowestSupplierOffers(rows).filter((product) => !isChatGptPlusProduct(product.name));
-            return json(res, 200, { ready: true, products: [...catalog.map((p) => ({ ...customerProduct(p), source: 'local' })), ...supplier.map(({ cost_pkr: _cost_pkr, wholesale_price: _wholesale_price, canonical_manual, available, ...p }) => ({ ...customerProduct(p), id: canonical_manual && !String(p.canonical_key || '').startsWith('auto:') ? p.canonical_key : supplierProductKey(p.name) || p.canonical_key, source: 'supplier', available: Number(available || 0) }))] });
+            const counts = (await connection.query(
+              "SELECT i.product_id,count(*)::int AS available FROM commerce_inventory i WHERE i.state='available' AND NOT EXISTS (SELECT 1 FROM commerce_shared_accounts sa WHERE sa.inventory_id=i.id) GROUP BY i.product_id",
+            )).rows;
+            const sharedAvailability = (await connection.query(
+              `SELECT COALESCE(SUM(sa.max_slots-sa.slots_filled),0)::int AS available,
+                      COALESCE(SUM(sa.slots_filled),0)::int AS slots_filled,
+                      COALESCE(SUM(sa.max_slots),0)::int AS slots_total
+               FROM commerce_shared_accounts sa
+               INNER JOIN commerce_inventory i ON i.id=sa.inventory_id
+               WHERE sa.status='active' AND sa.slots_filled<sa.max_slots
+                 AND i.state IN ('available','reserved','delivered')`,
+            )).rows[0] || { available: 0, slots_filled: 0, slots_total: 0 };
+            return json(res, 200, { ready: true, products: [...catalog.map((p) => localProductPresentation(p, counts, sharedAvailability)), ...supplier.map(({ cost_pkr: _cost_pkr, wholesale_price: _wholesale_price, canonical_manual, available, ...p }) => ({ ...customerProduct(p), id: canonical_manual && !String(p.canonical_key || '').startsWith('auto:') ? p.canonical_key : supplierProductKey(p.name) || p.canonical_key, source: 'supplier', available: Number(available || 0) }))] });
           }
           const local = catalog.find((p) => p.id === productId);
           if (local) {
@@ -4083,7 +4219,7 @@ export function createHandler(
             );
             output = {
               ok: true,
-              status: 'delivered',
+              status: result?.manualPending ? 'review' : 'delivered',
               discount: walletDiscount,
               paid: payableAmount,
               balance: Number(debited.rows[0].balance),
@@ -4174,7 +4310,7 @@ export function createHandler(
                 captureSupplierExchange,
                 supplierApiKeys,
               );
-              if (!fulfillment?.cancelled)
+              if (!fulfillment?.cancelled && !fulfillment?.manualPending)
                 await queueTelegramDelivery(
                   db,
                   order.id,
@@ -4183,7 +4319,7 @@ export function createHandler(
                 );
               output = fulfillment?.cancelled
                 ? { ok: true, status: 'cancelled', reason: fulfillment.reason }
-                : { ok: true, status: 'delivered' };
+                : { ok: true, status: fulfillment?.manualPending ? 'review' : 'delivered' };
             }
             telegramCallbacks.push({
               id: callback.callback.id,
@@ -4558,31 +4694,7 @@ export function createHandler(
         );
         output = {
           products: [
-            ...localCatalog.map((p) => ({
-              ...customerProduct(p),
-              source: 'local',
-              ...(p.publishedAt ? { publishedAt: p.publishedAt } : {}),
-              available:
-                p.id === SHARED_CHATGPT_PRODUCT_ID
-                  ? Number(sharedAvailability.available || 0)
-                  : p.id === 'p093'
-                    ? counts
-                        .filter((r) =>
-                          ['p093', 'p093-ultra'].includes(r.product_id),
-                        )
-                        .reduce((total, row) => total + row.available, 0)
-                    : counts.find((r) => r.product_id === p.id)?.available || 0,
-              ...(p.id === SHARED_CHATGPT_PRODUCT_ID
-                ? {
-                    shared_slots_filled: Number(
-                      sharedAvailability.slots_filled || 0,
-                    ),
-                    shared_slots_total: Number(
-                      sharedAvailability.slots_total || 0,
-                    ),
-                  }
-                : {}),
-            })),
+            ...localCatalog.map((p) => localProductPresentation(p, counts, sharedAvailability)),
             ...supplierProducts.map((p) => ({
               ...customerProduct(p),
               id: p.canonical_key,
@@ -4728,6 +4840,8 @@ export function createHandler(
             };
         }
         const sharedProduct = isSharedChatGptProduct(product?.id);
+        const preorderProduct = isClaudePreorderProduct(product?.id);
+        const manualActivationProduct = isManualActivationProduct(product?.id);
         const requestedCouponCode = normalizeCouponCode(body.couponCode);
         const usingSasifyWallet = body.useSasifyWallet === true;
         if (usingSasifyWallet && requestedCouponCode)
@@ -4761,12 +4875,14 @@ export function createHandler(
         if (supplierProduct && isChatGptPlusProduct(supplierProduct.name))
           throw fail(409, 'ChatGPT Plus is sold from local inventory only.');
         const requiresCustomerEmail = Boolean(
-          supplierProduct &&
-          (supplierProduct.requires_customer_email ||
-            supplierRequiresCustomerEmail(
-              supplierProduct,
-              supplierProduct.provider_id,
-            )),
+          (supplierProduct &&
+            (supplierProduct.requires_customer_email ||
+              supplierRequiresCustomerEmail(
+                supplierProduct,
+                supplierProduct.provider_id,
+              ))) ||
+            preorderProduct ||
+            manualActivationProduct,
         );
         const customerEmail = requiresCustomerEmail
           ? (() => {
@@ -4827,6 +4943,11 @@ export function createHandler(
           const shared = await reserveSharedAccount(db);
           item = { id: shared.inventoryId };
           sharedAccount = { id: shared.id, slot: shared.slot };
+        } else if (preorderProduct || manualActivationProduct) {
+          // Claude preorders and Hostinger activation orders are intentionally
+          // accepted without local credential inventory. They remain visible
+          // in the admin manual-order queue after payment verification.
+          item = null;
         } else {
           item = (
             await db.query(
@@ -4907,6 +5028,16 @@ export function createHandler(
             'UPDATE commerce_orders SET account_id=$1 WHERE id=$2',
             [customerAccount.id, id],
           );
+        if (preorderProduct || manualActivationProduct)
+          await db.query(
+            "UPDATE commerce_orders SET supplier_status=$1 WHERE id=$2",
+            [
+              preorderProduct
+                ? 'preorder_pending'
+                : 'manual_activation_pending',
+              id,
+            ],
+          );
         if (isTeamCoupon && paymentAmount === 0) await fulfillFreeOrder(db, id);
         if (paymentAmount > 0)
           telegramMessages.push({
@@ -4936,6 +5067,11 @@ export function createHandler(
           paymentCurrency: quote.currency,
           paymentAmount: quote.amount,
           paymentWindowMinutes,
+          ...(preorderProduct
+            ? { fulfillmentMode: 'preorder', preorderDate: PREORDER_DELIVERY_DATE }
+            : manualActivationProduct
+              ? { fulfillmentMode: 'manual', activationSla: 'Within 6 hours' }
+              : {}),
         };
       } else if (action === 'shared-2fa-code') {
         if (!idOk(body.id)) throw fail(400, 'Invalid order ID.');
@@ -5127,8 +5263,8 @@ export function createHandler(
                     },
                     'claim',
                   );
-                automaticallyDelivered = !fulfillment?.cancelled;
-                if (!fulfillment?.cancelled)
+                automaticallyDelivered = !fulfillment?.cancelled && !fulfillment?.manualPending;
+                if (!fulfillment?.cancelled && !fulfillment?.manualPending)
                   await queueTelegramDelivery(
                     db,
                     id,
@@ -5143,12 +5279,16 @@ export function createHandler(
                     paymentMethod: order.payment_method,
                     status: fulfillment?.cancelled
                       ? 'auto-delivery failed'
-                      : 'auto-delivered',
+                      : fulfillment?.manualPending
+                        ? 'manual activation queued'
+                        : 'auto-delivered',
                     transactionId: payment.transaction_id,
                     paymentState: fulfillment?.cancelled
                       ? 'verified receipt; supplier fulfillment failed'
-                      : 'verified receipt',
-                    autoDelivered: !fulfillment?.cancelled,
+                      : fulfillment?.manualPending
+                        ? 'verified receipt; manual activation queued'
+                        : 'verified receipt',
+                    autoDelivered: !fulfillment?.cancelled && !fulfillment?.manualPending,
                   }),
                 });
               } catch (error) {
@@ -5281,6 +5421,11 @@ export function createHandler(
                     : 'Binance Pay')
                 : order.receiver_title || paymentReceiver?.title,
             },
+            ...(isClaudePreorderProduct(order.product_id)
+              ? { preorderDate: PREORDER_DELIVERY_DATE }
+              : isManualActivationProduct(order.product_id)
+                ? { activationSla: 'Within 6 hours' }
+                : {}),
           };
           if (order.status === 'delivered') {
             if (order.supplier_delivery) {
@@ -5290,7 +5435,7 @@ export function createHandler(
                   output.delivery.instructions,
                   { id: order.product_id, name: orderProduct },
                 );
-            } else {
+            } else if (order.supplier_status !== 'preorder_confirmed') {
               const item = (
                 await db.query(
                   'SELECT credentials FROM commerce_inventory WHERE id=$1',
@@ -5567,7 +5712,7 @@ export function createHandler(
                   },
                   'inbound-email',
                 );
-              if (!fulfillment?.cancelled)
+              if (!fulfillment?.cancelled && !fulfillment?.manualPending)
                 await queueTelegramDelivery(
                   db,
                   orders[0].id,
@@ -5582,12 +5727,16 @@ export function createHandler(
                   paymentMethod: orders[0].payment_method,
                   status: fulfillment?.cancelled
                     ? 'auto-delivery failed'
-                    : 'auto-delivered',
+                    : fulfillment?.manualPending
+                      ? 'manual activation queued'
+                      : 'auto-delivered',
                   transactionId: parsed.transaction,
                   paymentState: fulfillment?.cancelled
                     ? 'verified receipt; supplier fulfillment failed'
-                    : 'verified receipt',
-                  autoDelivered: !fulfillment?.cancelled,
+                    : fulfillment?.manualPending
+                      ? 'verified receipt; manual activation queued'
+                      : 'verified receipt',
+                  autoDelivered: !fulfillment?.cancelled && !fulfillment?.manualPending,
                 }),
               });
             } catch (error) {
@@ -6740,7 +6889,7 @@ export function createHandler(
           captureSupplierExchange,
           supplierApiKeys,
         );
-        if (!fulfillment?.cancelled)
+        if (!fulfillment?.cancelled && !fulfillment?.manualPending)
           await queueTelegramDelivery(
             db,
             body.orderId,
@@ -6749,7 +6898,7 @@ export function createHandler(
           );
         output = fulfillment?.cancelled
           ? { ok: true, status: 'cancelled', reason: fulfillment.reason }
-          : { ok: true };
+          : { ok: true, status: fulfillment?.manualPending ? 'review' : 'delivered' };
       } else if (action === 'admin-manual-delivery') {
         if (!idOk(body.orderId) || body.confirmed !== true)
           throw fail(400, 'Confirm manual credential delivery first.');
@@ -6758,6 +6907,20 @@ export function createHandler(
           body.orderId,
           body.inventoryId,
           key,
+          body.deliveryContent,
+        );
+        await queueTelegramDelivery(
+          db,
+          body.orderId,
+          key,
+          publicTelegramMessages,
+        );
+      } else if (action === 'admin-manual-order-complete') {
+        if (!idOk(body.orderId) || body.confirmed !== true)
+          throw fail(400, 'Confirm manual activation completion first.');
+        output = await completeManualActivationOrder(
+          db,
+          body.orderId,
           body.deliveryContent,
         );
         await queueTelegramDelivery(
@@ -6861,3 +7024,4 @@ export function createHandler(
 }
 export { summarizeProfit };
 export default createHandler();
+

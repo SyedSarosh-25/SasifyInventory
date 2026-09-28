@@ -55,6 +55,10 @@ type Stock = {
   provider_id?: string;
   provider_name?: string;
   requires_customer_email?: boolean;
+  availability_mode?: 'live' | 'preorder' | 'manual';
+  activation_sla?: string;
+  preorder_date?: string;
+  stock_label?: string;
   shared_slots_filled?: number;
   shared_slots_total?: number;
 };
@@ -92,6 +96,8 @@ type Order = {
   sharedSlotsFilled?: number;
   sharedSlotsTotal?: number;
   sharedAccountStatus?: string | null;
+  preorderDate?: string;
+  activationSla?: string;
   twoFactorCodeAvailable?: boolean;
   payment: { number: string; title: string; provider: string };
   credentials?: AccountCredentials;
@@ -321,7 +327,12 @@ export function Checkout() {
     setShowTwoFactorStep(false);
   }
   const product = products.find((p) => p.id === selected);
-  const productUnavailable = product?.source === 'supplier' && Number(product.available) <= 0;
+  const productUnavailable = Boolean(
+    product &&
+    product.availability_mode !== 'preorder' &&
+    product.availability_mode !== 'manual' &&
+    Number(product.available) <= 0,
+  );
   const selectedPayment = PAYMENT_METHOD_OPTIONS.find((option) => option.value === paymentMethod) || PAYMENT_METHOD_OPTIONS[0];
   const walletDiscount = product && useSasifyWallet
     ? Math.floor(Math.max(0, Number(product.price)) * 0.05)
@@ -429,15 +440,19 @@ export function Checkout() {
           <strong>
             {order?.amount === 0
               ? 'Free coupon delivery'
-              : product?.provider_id === 'manual'
-                ? 'Manual processing after payment'
-              : 'Automatic credential delivery'}
+              : product?.availability_mode === 'preorder'
+                ? 'Claude Team pre-order'
+                : product?.availability_mode === 'manual' || product?.provider_id === 'manual'
+                  ? 'Manual activation after payment'
+                  : 'Automatic credential delivery'}
           </strong>
           <p>
             {order?.amount === 0
               ? 'HOR covered the full price. Your account credentials are ready below.'
-              : product?.provider_id === 'manual'
-                ? 'After payment, our team will process your personal email manually and deliver access from the admin panel.'
+              : product?.availability_mode === 'preorder'
+                ? 'Pay now and your order will be confirmed. You will be notified about your Claude Team Plan on 2 October 2026.'
+                : product?.availability_mode === 'manual' || product?.provider_id === 'manual'
+                  ? `Send your email with payment. Our team will activate access ${product.activation_sla?.toLowerCase() || 'within 6 hours'} and complete the order from the admin panel.`
               : order?.paymentMethod === 'bank'
                 ? 'Your delivery appears here automatically after the signed NayaPay receipt is matched.'
                 : ['binance', 'crypto'].includes(order?.paymentMethod || '')
@@ -445,7 +460,7 @@ export function Checkout() {
                   : 'Pay here and your account credentials will appear on this screen automatically after verification, usually within one minute. No manual delivery delays.'}
           </p>
         </div>
-        <span className="instant-badge">{product?.provider_id === 'manual' ? 'Manual' : 'Instant'}</span>
+        <span className="instant-badge">{product?.availability_mode === 'preorder' ? 'Pre-order' : product?.availability_mode === 'manual' || product?.provider_id === 'manual' ? 'Manual' : 'Instant'}</span>
       </div>
       {error && (
         <p role="alert" className="commerce-error">
@@ -505,6 +520,18 @@ export function Checkout() {
                 </div>
               </div>
             )}
+            {product?.availability_mode === 'preorder' && (
+              <div className="checkout-fulfillment-notice preorder" role="status">
+                <strong>Taking pre-orders</strong>
+                <span>Your Claude Team Plan will be arranged for 2 October 2026. Enter the email where you want activation.</span>
+              </div>
+            )}
+            {product?.availability_mode === 'manual' && (
+              <div className="checkout-fulfillment-notice manual" role="status">
+                <strong>In stock · 999 · email required</strong>
+                <span>Hostinger activation is completed manually within 6 hours after payment.</span>
+              </div>
+            )}
             {product?.id === 'p093-shared' && (
               <section className="description-section shared-account-checkout-notice">
                 <h2>Shared account · 4 members</h2>
@@ -522,7 +549,7 @@ export function Checkout() {
             )}
             {product?.requires_customer_email && (
               <label>
-                Customer email (required by this supplier)
+                Activation email (required)
                 <input
                   type="email"
                   value={customerEmail}
@@ -533,8 +560,9 @@ export function Checkout() {
                   required
                 />
                 <small>
-                  The supplier will use this email to process and deliver your
-                  purchase.
+                  {product.availability_mode === 'preorder'
+                    ? 'Your Claude Team Plan will be activated on this email.'
+                    : 'We will use this email to process and activate your purchase.'}
                 </small>
               </label>
             )}
@@ -725,6 +753,24 @@ export function Checkout() {
               </p>
             </section>
           )}
+          {order.supplierStatus === 'preorder_confirmed' && order.status === 'delivered' && (
+            <section className="verification-state manual-order-confirmed" role="status">
+              <Check size={24} />
+              <div>
+                <strong>Pre-order confirmed</strong>
+                <p>Your payment was verified. You will be notified about your Claude Team Plan on 2 October 2026.</p>
+              </div>
+            </section>
+          )}
+          {order.supplierStatus === 'manual_activation_pending' && (
+            <section className="verification-state manual-order-pending" role="status">
+              <RefreshCw size={24} />
+              <div>
+                <strong>Activation queued</strong>
+                <p>Your payment was verified. Our team will activate Hostinger within 6 hours using the email you provided.</p>
+              </div>
+            </section>
+          )}
           {order.status === 'pending' && !order.paymentSubmittedAt && (
             <section className="description-section">
               <h2>
@@ -871,9 +917,11 @@ export function Checkout() {
               <RefreshCw size={24} />
               <div>
                 <strong>Checking your payment</strong>
-                <p>
+                  <p>
                   Keep this page open. It refreshes automatically and{' '}
-                  {order.paymentMethod === 'bank'
+                  {order.supplierStatus === 'manual_activation_pending'
+                    ? 'will show your activation details here once the admin completes the order.'
+                    : order.paymentMethod === 'bank'
                     ? 'will deliver after the bank receipt reaches and matches NayaPay.'
                     : ['binance', 'crypto'].includes(order.paymentMethod || '')
                       ? 'will deliver after the authenticated Binance receipt reaches and matches this order.'
@@ -1335,6 +1383,7 @@ export function CommerceAdmin() {
       | 'inventory'
       | 'supplier'
       | 'orders'
+      | 'manualOrders'
       | 'payments'
       | 'paymentAccounts'
       | 'coupons'
@@ -1683,6 +1732,9 @@ export function CommerceAdmin() {
   };
   const orderRows = (data?.orders || []).filter(orderMatchesFilter);
   const orderView = useRecordView(orderRows, (row: any) => `${row.id} ${row.product_id} ${row.supplier_product_name || ''} ${row.supplier_name || ''} ${row.payer_name || ''} ${row.status}`);
+  const manualOrderRows = (data?.orders || []).filter((row: any) =>
+    ['preorder_pending', 'preorder_confirmed', 'manual_activation_pending', 'manually_completed'].includes(String(row.supplier_status || '')),
+  );
   const paymentReceivers = data?.paymentReceivers || [];
   const activePaymentReceiver = paymentReceivers.find((receiver: any) => receiver.active);
   const paymentReceiverLabel = (receiverId: string) =>
@@ -3435,6 +3487,73 @@ export function CommerceAdmin() {
           )}
         </section>
       )}
+      {tab === 'manualOrders' && (
+        <div className="admin-workspace">
+          <section className="admin-panel">
+            <div className="panel-heading">
+              <div>
+                <span className="admin-eyebrow">Manual fulfilment queue</span>
+                <h2>Manual &amp; preorder orders</h2>
+                <p>
+                  Claude Team pre-orders are confirmed for 2 October 2026.
+                  Hostinger orders stay here until you activate them manually
+                  using the customer email.
+                </p>
+              </div>
+              <span className="admin-state available">{manualOrderRows.length} queued</span>
+            </div>
+            {!manualOrderRows.length ? (
+              <p>No manual or preorder orders are waiting.</p>
+            ) : (
+              <div className="manual-orders-list">
+                {manualOrderRows.map((row: any) => (
+                  <article className="manual-order-card" key={row.id}>
+                    <div className="manual-order-card-heading">
+                      <div>
+                        <span className="admin-eyebrow">Order {row.id.slice(0, 8)}</span>
+                        <h3>{row.supplier_product_name || row.product_id}</h3>
+                        <p>{row.customer_email || 'Customer email not supplied'} · {new Date(row.created_at).toLocaleString()}</p>
+                      </div>
+                      <span className={`admin-state ${row.status}`}>{String(row.supplier_status || row.status).replaceAll('_', ' ')}</span>
+                    </div>
+                    <div className="manual-order-card-meta">
+                      <span><strong>Amount</strong>{money(row.amount)}</span>
+                      <span><strong>Payment</strong>{row.payment_submitted_at ? 'Verified / submitted' : 'Awaiting payment'}</span>
+                      <span><strong>Route</strong>{row.payment_method === 'binance' ? 'Binance Pay' : row.payment_method === 'crypto' ? 'Crypto USDT' : row.payment_method === 'bank' ? 'Bank transfer' : 'Wallet transfer'}</span>
+                    </div>
+                    {row.supplier_status === 'preorder_confirmed' && <p className="manual-order-note">Customer has been confirmed. Notify them about the Claude Team Plan on 2 October 2026.</p>}
+                    {row.supplier_status === 'manual_activation_pending' && (
+                      <button
+                        className="primary-button compact"
+                        disabled={busy}
+                        onClick={() => {
+                          const deliveryContent = window.prompt('Enter the Hostinger activation details for the customer:');
+                          if (!deliveryContent?.trim()) return;
+                          if (!window.confirm('Mark this Hostinger order as activated and send the details to the customer?')) return;
+                          void run(async () => {
+                            const result = await api('admin-manual-order-complete', key, {
+                              orderId: row.id,
+                              confirmed: true,
+                              deliveryContent: deliveryContent.trim(),
+                            });
+                            setOrderId(row.id);
+                            setOrderDelivery(await api('admin-order-delivery', key, { orderId: result.orderId }));
+                            setNotice('Manual activation completed and delivery sent.');
+                            await refresh();
+                          });
+                        }}
+                      >
+                        <KeyRound size={16} /> Mark activation complete
+                      </button>
+                    )}
+                  </article>
+                ))}
+              </div>
+            )}
+          </section>
+        </div>
+      )}
+
       {tab === 'orders' && (
         <div className="admin-workspace">
           <section className="admin-panel">
@@ -3989,3 +4108,4 @@ export function CommerceAdmin() {
     </AdminShell>
   );
 }
+

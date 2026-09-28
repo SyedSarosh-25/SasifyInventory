@@ -35,6 +35,7 @@ import {
 export const adminSections = [
   ['overview', 'Overview', LayoutDashboard],
   ['orders', 'Orders', ClipboardList],
+  ['manualOrders', 'Manual orders', ClipboardCheck],
   ['customers', 'Registered users', Users],
   ['userDetail', 'User detail', Users],
   ['emailCampaign', 'Email campaigns', Mail],
@@ -64,7 +65,7 @@ export type AdminSection =
 const adminSectionGroups: { label: string; items: AdminSection[] }[] = [
   {
     label: 'Workspace',
-    items: ['overview', 'orders', 'customers', 'userDetail', 'emailCampaign'],
+    items: ['overview', 'orders', 'manualOrders', 'customers', 'userDetail', 'emailCampaign'],
   },
   {
     label: 'Payments & finance',
@@ -87,6 +88,7 @@ const adminSectionGroups: { label: string; items: AdminSection[] }[] = [
 const sectionDescriptions: Record<string, string> = {
   overview: 'Your business at a glance. Every order, every day.',
   orders: 'Track purchases, review order details and manage delivery.',
+  manualOrders: 'Handle Claude pre-orders and manual Hostinger activations.',
   customers: 'Customer and reseller accounts, wallet balances and purchase activity.',
   userDetail: 'Complete customer history and wallet controls.',
   emailCampaign: 'Send a controlled announcement to registered Sasify users.',
@@ -330,3 +332,4 @@ export function AdminShell({
     </div>
   );
 }
+
