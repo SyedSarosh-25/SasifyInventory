@@ -12,6 +12,9 @@ async function request(action, rows, productId = '') {
     query: async (sql) => {
       queries.push(sql);
       if (sql.includes('commerce_limits')) return { rows: [{ hits: 1 }] };
+      if (sql.includes('GROUP BY i.product_id')) return { rows: [] };
+      if (sql.includes('commerce_shared_accounts')) return { rows: [{ available: 0, slots_filled: 0, slots_total: 0 }] };
+      if (sql.includes('commerce_inventory') && sql.includes('count(*)')) return { rows: [{ available: 0 }] };
       if (sql.includes('commerce_supplier_products')) return { rows };
       if (sql.includes('commerce_supplier_secrets')) return { rows: [] };
       throw new Error('Unexpected transactional query');
@@ -34,7 +37,7 @@ test('catalog reads expose supplier stock without supplier cost or checkout main
   assert.equal(item.cost_pkr, undefined);
   assert.equal(item.wholesale_price, undefined);
   assert.equal(item.available, 44);
-  assert.equal(result.queries.length, 2);
+  assert.equal(result.queries.length, 4);
 });
 
 test('unconfigured supplier is unknown and server rejects order before transaction', async () => {
@@ -46,6 +49,15 @@ test('unconfigured supplier is unknown and server rejects order before transacti
   const order = await request('create', rows, 'missing:one');
   assert.equal(order.status, 503);
   assert.match(order.body.error, /verify availability/);
+});
+
+test('pre-order checkout bypasses live supplier availability checks', async () => {
+  const result = await request('checkout-availability', [], 'p013');
+  assert.equal(result.status, 200);
+  assert.equal(result.body.status, 'available');
+  assert.equal(result.body.available, 0);
+  assert.equal(result.released, true);
+  assert.equal(result.queries.some((query) => query.includes('commerce_supplier_secrets')), false);
 });
 
 test('durations, access modes and credit allocations remain distinct', () => {

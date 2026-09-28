@@ -290,6 +290,13 @@ export function Checkout() {
     const timer = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(timer);
   }, [orderStatus, orderExpiresAt, orderPaymentSubmittedAt]);
+  useEffect(() => {
+    if (order?.supplierStatus !== 'preorder_confirmed' || order.status !== 'delivered') return;
+    const noticeKey = `sasify-preorder-confirmed-${order.id}`;
+    if (sessionStorage.getItem(noticeKey)) return;
+    sessionStorage.setItem(noticeKey, '1');
+    window.alert('Your pre-order has been received. Your order will be completed on 2 October 2026. You will receive an email at the address you provided us.');
+  }, [order?.id, order?.status, order?.supplierStatus]);
   async function run(action: () => Promise<void>) {
     setBusy(true);
     setError('');
@@ -757,8 +764,8 @@ export function Checkout() {
             <section className="verification-state manual-order-confirmed" role="status">
               <Check size={24} />
               <div>
-                <strong>Pre-order confirmed</strong>
-                <p>Your payment was verified. You will be notified about your Claude Team Plan on 2 October 2026.</p>
+                <strong>Pre-order received</strong>
+                <p>Your payment was verified. Your order will be completed on 2 October 2026. You will receive an email at the address you provided us.</p>
               </div>
             </section>
           )}
@@ -3512,7 +3519,7 @@ export function CommerceAdmin() {
                       <div>
                         <span className="admin-eyebrow">Order {row.id.slice(0, 8)}</span>
                         <h3>{row.supplier_product_name || row.product_id}</h3>
-                        <p>{row.customer_email || 'Customer email not supplied'} · {new Date(row.created_at).toLocaleString()}</p>
+                        <p><strong>Customer email:</strong> {row.customer_email || 'Not supplied'} · {new Date(row.created_at).toLocaleString()}</p>
                       </div>
                       <span className={`admin-state ${row.status}`}>{String(row.supplier_status || row.status).replaceAll('_', ' ')}</span>
                     </div>
