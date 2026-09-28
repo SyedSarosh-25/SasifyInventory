@@ -760,12 +760,12 @@ export function Checkout() {
               </p>
             </section>
           )}
-          {['preorder_confirmed', 'preorder_completed'].includes(order.supplierStatus || '') && order.status === 'delivered' && (
+          {order.supplierStatus === 'preorder_confirmed' && order.status === 'delivered' && (
             <section className="verification-state manual-order-confirmed" role="status">
               <Check size={24} />
               <div>
-                <strong>{order.supplierStatus === 'preorder_completed' ? 'Pre-order completed' : 'Pre-order received'}</strong>
-                <p>{order.supplierStatus === 'preorder_completed' ? 'Your Claude Team pre-order is complete. Please accept the NDA in the email from Claude to be added to the team.' : 'Your payment was verified. Your order will be completed on 2 October 2026. You will receive an email at the address you provided us.'}</p>
+                <strong>Pre-order received</strong>
+                <p>Your payment was verified. Your order will be completed on 2 October 2026. You will receive an email at the address you provided us.</p>
               </div>
             </section>
           )}
@@ -3528,39 +3528,7 @@ export function CommerceAdmin() {
                       <span><strong>Payment</strong>{row.payment_submitted_at ? 'Verified / submitted' : 'Awaiting payment'}</span>
                       <span><strong>Route</strong>{row.payment_method === 'binance' ? 'Binance Pay' : row.payment_method === 'crypto' ? 'Crypto USDT' : row.payment_method === 'bank' ? 'Bank transfer' : 'Wallet transfer'}</span>
                     </div>
-                    {row.supplier_status === 'preorder_confirmed' && <>
-                      <p className="manual-order-note">Customer has been confirmed. Complete or reject this pre-order when ready.</p>
-                      <div className="manual-order-actions">
-                        <button
-                          className="primary-button compact"
-                          disabled={busy}
-                          onClick={() => {
-                            if (!window.confirm('Mark this pre-order as completed and email the customer?')) return;
-                            void run(async () => {
-                              const result = await api('admin-preorder-complete', key, { orderId: row.id, confirmed: true });
-                              setNotice(result.emailSent ? 'Pre-order completed and customer email sent.' : 'Pre-order completed, but the customer email could not be sent.');
-                              await refresh();
-                            });
-                          }}
-                        >
-                          <Check size={16} /> Order completed
-                        </button>
-                        <button
-                          className="secondary-button compact danger-action"
-                          disabled={busy}
-                          onClick={() => {
-                            if (!window.confirm('Reject this pre-order and email the customer?')) return;
-                            void run(async () => {
-                              const result = await api('admin-preorder-reject', key, { orderId: row.id, confirmed: true });
-                              setNotice(result.emailSent ? 'Order rejected and customer email sent.' : 'Order rejected, but the customer email could not be sent.');
-                              await refresh();
-                            });
-                          }}
-                        >
-                          <X size={16} /> Reject order
-                        </button>
-                      </div>
-                    </>}
+                    {row.supplier_status === 'preorder_confirmed' && <p className="manual-order-note">Customer has been confirmed. Notify them about the Claude Team Plan on 2 October 2026.</p>}
                     {row.supplier_status === 'manual_activation_pending' && (
                       <button
                         className="primary-button compact"

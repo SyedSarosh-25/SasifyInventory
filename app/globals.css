@@ -2505,7 +2505,6 @@ svg { flex-shrink: 0; }
 .instant-delivery { display: grid; grid-template-columns: auto minmax(0,1fr) auto; gap: 14px; align-items: center; padding: 16px 18px; border: 1px solid #c9d9ef; border-left: 4px solid #18b99a; border-radius: 6px; background: #eef4ff; box-shadow: 0 12px 30px rgba(37,67,118,.1); }
 .manual-order-confirmed { border-color: #b9e4d1; background: #effbf5; color: #176445; }
 .manual-order-pending { border-color: #bfd8ef; background: #f1f8ff; color: #245b89; }
-.manual-order-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
 .instant-delivery strong { color: #172237; font-size: 17px; }
 .instant-delivery p { margin: 4px 0 0; color: #53647c; line-height: 1.5; font-size: 14px; }
 .instant-icon { display: grid; place-items: center; width: 42px; height: 42px; border-radius: 50%; color: #fff; background: #285cff; }
