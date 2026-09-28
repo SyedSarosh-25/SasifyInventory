@@ -354,6 +354,7 @@ export function sitemapEntries() {
     '/privacy',
     '/terms',
     '/categories',
+    '/tools',
     ...knownToolFamilySlugs.map((slug) => `/tools/${slug}`),
     ...storefrontCategories.map(category => `/categories/${category.slug}`),
     ...products.map(productHref),
