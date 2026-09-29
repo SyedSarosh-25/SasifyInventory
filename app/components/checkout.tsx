@@ -356,7 +356,8 @@ export function Checkout() {
     Number(product.available) <= 0,
   );
   const selectedPayment = PAYMENT_METHOD_OPTIONS.find((option) => option.value === paymentMethod) || PAYMENT_METHOD_OPTIONS[0];
-  const walletDiscount = product && useSasifyWallet
+  const walletDiscountExcluded = product?.id === 'p012' || product?.id === 'p013';
+  const walletDiscount = product && useSasifyWallet && !walletDiscountExcluded
     ? Math.floor(Math.max(0, Number(product.price)) * 0.05)
     : 0;
   const walletPayable = product
@@ -669,8 +670,8 @@ export function Checkout() {
             {useSasifyWallet && product && product.price > 0 && (
               <div className="wallet-discount-preview" role="status">
                 <div>
-                  <span>Wallet discount (5%)</span>
-                  <strong>−PKR {walletDiscount.toLocaleString('en-PK')}</strong>
+                  <span>{walletDiscountExcluded ? 'Sorry,5% discount does not apply on this product' : 'Wallet discount (5%)'}</span>
+                  {!walletDiscountExcluded && <strong>−PKR {walletDiscount.toLocaleString('en-PK')}</strong>}
                 </div>
                 <small>Final amount with Sasify Wallet: <strong>PKR {walletPayable.toLocaleString('en-PK')}</strong></small>
               </div>

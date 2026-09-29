@@ -4228,7 +4228,9 @@ export function createHandler(
               409,
               'Coupons cannot be combined with Sasify Wallet payments. Start a new order without a coupon.',
             );
-          const walletDiscount = Math.floor(Number(order.amount) * 0.05);
+          const walletDiscount = isClaudePreorderProduct(order.product_id)
+            ? 0
+            : Math.floor(Number(order.amount) * 0.05);
           const payableAmount = Math.max(
             0,
             Number(order.amount) - walletDiscount,
@@ -4283,7 +4285,7 @@ export function createHandler(
                 account.id,
                 -payableAmount,
                 order.id,
-                'Order purchase · 5% wallet discount',
+                walletDiscount > 0 ? 'Order purchase · 5% wallet discount' : 'Order purchase · Sasify Wallet',
               ],
             );
             output = {
