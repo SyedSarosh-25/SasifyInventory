@@ -242,3 +242,10 @@ body[data-storefront="true"] .footer-policy-links a { color: #44536e; font-size:
 .welcome-language-examples p span:last-child { color: #205c47; font-weight: 650; }
 .welcome-language-continue { width: 100%; min-height: 48px; margin-top: 17px; border: 0; border-radius: 12px; background: linear-gradient(110deg,#2e63f2,#6d47e8); color: #fff; font-weight: 750; cursor: pointer; }
 @media (max-width: 480px) { .welcome-language-dialog { padding: 20px; border-radius: 19px; } .welcome-language-identity { margin-bottom: 16px; } .welcome-language-pakistan { width: 60px; height: 60px; } }
+
+/* Tool plan directory on /tools and the per-product link to a tool's plans. */
+.tool-directory { padding-top: 8px; padding-bottom: 48px; }
+.tool-directory h2 { margin: 0 0 14px; font-size: 1.25rem; }
+.tool-directory ul { display: flex; flex-wrap: wrap; gap: 10px; margin: 0; padding: 0; list-style: none; }
+.tool-directory .catalog-family-link { margin: 0; }
+.detail-tool-plans-link { display: inline-flex; align-items: center; gap: 6px; margin-top: 12px; }

@@ -9,7 +9,7 @@ export function generateStaticParams() { return storefrontCategories.map(({ slug
 export async function generateMetadata({ params }: { params: Promise<{slug: string}> }): Promise<Metadata> {
   const category = findStorefrontCategory((await params).slug);
   if (!category) return {};
-  const title = `${category.title} plans and prices in Pakistan | Sasify Solutions`;
+  const title = `${category.title} plans and prices in Pakistan | Sasify`;
   const description = `${category.description} Compare available digital plans, PKR prices, access types and warranty details before ordering online.`;
   const url = `${siteOrigin}/categories/${category.slug}`;
   return {

@@ -218,7 +218,7 @@ export function AccountAuth({ signup = false }: { signup?: boolean }) {
             secure space built around you.
           </p>
           {signup && <div className="account-hero-art account-hero-art-image" aria-hidden="true">
-            <video className="account-hero-video" autoPlay muted loop playsInline preload="metadata" poster="/sasify-signup-hero.png">
+            <video className="account-hero-video" autoPlay muted loop playsInline preload="metadata" poster="/sasify-signup-hero.webp">
               <source src="/wallet-video.mp4" type="video/mp4" />
             </video>
           </div>}

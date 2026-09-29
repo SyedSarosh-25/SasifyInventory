@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { SiteFooter, SiteHeader } from '../components/site-chrome';
 import { ToolPlans } from './tool-plans';
 import { siteOrigin } from '../site-config';
+import { knownToolFamilySlugs, toolFamilyLabel } from '../tool-families';
 import { shareImage, shareImageUrl } from '../share-metadata';
 
 const title = 'Browse tool plans and prices | Sasify Solutions';
@@ -15,5 +16,15 @@ export const metadata: Metadata = {
 };
 
 export default function ToolsPage() {
-  return <main><SiteHeader /><ToolPlans /><SiteFooter /></main>;
+  return <main>
+    <SiteHeader />
+    <ToolPlans />
+    <nav className="section-inner tool-directory" aria-label="Plans by tool">
+      <h2>Plans by tool</h2>
+      <ul>
+        {knownToolFamilySlugs.map((slug) => <li key={slug}><a className="catalog-family-link" href={`/tools/${slug}`}>{toolFamilyLabel(slug)} plans</a></li>)}
+      </ul>
+    </nav>
+    <SiteFooter />
+  </main>;
 }

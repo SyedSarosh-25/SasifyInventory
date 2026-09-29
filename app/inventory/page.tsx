@@ -6,8 +6,8 @@ import { breadcrumbData } from '../seo';
 import { StructuredData } from '../components/structured-data';
 import { shareImage, shareImageUrl } from '../share-metadata';
 
-const title = 'Digital Tools & Subscription Prices in Pakistan | Sasify Solutions';
-const description = 'Browse the full Sasify Solutions inventory: AI, coding, design and productivity tools. Compare PKR prices, plan durations and access types, then buy online with automatic delivery after payment verification.';
+const title = 'Digital Tools & Subscription Prices in Pakistan | Sasify';
+const description = 'Browse every AI, coding, design and productivity plan at Sasify Solutions. Compare PKR prices, durations and access types, then buy online.';
 
 export const metadata: Metadata = {
   title,

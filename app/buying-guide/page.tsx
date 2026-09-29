@@ -12,7 +12,7 @@ import { breadcrumbData, faqData } from '../seo';
 import { siteOrigin } from '../site-config';
 import { shareImage, shareImageUrl } from '../share-metadata';
 
-const title = 'Digital Tool Buying Guide | Prices, Access & Warranty | Sasify Solutions';
+const title = 'Digital Tool Buying Guide: Prices, Access & Warranty | Sasify';
 const description = 'Compare Sasify Claude Team and Hostinger packages in Pakistan. Check listed prices, access details, one-time yearly payments and warranty terms.';
 export const metadata: Metadata = {
   title, description,
@@ -29,7 +29,7 @@ export default function BuyingGuidePage() {
     <article className="detail-shell about-page buying-guide">
       <nav className="breadcrumbs" aria-label="Breadcrumb"><a href="/">Home</a><span aria-hidden="true">/</span><span aria-current="page">Buying guide</span></nav>
       <div className="about-identity">
-        <img src="/sasify-logo.png" alt="Sasify Solutions logo" width={80} height={80} decoding="async" />
+        <img src="/sasify-logo-200.webp" alt="Sasify Solutions logo" width={80} height={80} decoding="async" />
         <div><span className="section-kicker">Sasify Solutions</span><h1>Digital tool buying guide</h1></div>
       </div>
       <p>Sasify Solutions lists digital tool packages for buyers in Pakistan. Compare the exact access period, account arrangement and warranty details, then choose Buy online. Shared, team, invite and credit packages have different requirements.</p>

@@ -614,7 +614,7 @@ export function Checkout() {
                     }
                   }}
                 />
-                <span className="sasify-wallet-logo" aria-hidden="true"><img src="/sasify-wallet.png" alt="" /></span>
+                <span className="sasify-wallet-logo" aria-hidden="true"><img src="/sasify-wallet-96.webp" alt="" width={42} height={42} /></span>
                 <span>
                   <strong>Sasify Wallet{useSasifyWallet ? ' · Selected' : ''}</strong>
                   <small>{checkoutAccount ? `Balance: PKR ${Number(checkoutAccount.balance || 0).toLocaleString()} · 5% discount on eligible products` : 'Sign up to unlock · 5% discount on eligible products'}</small>

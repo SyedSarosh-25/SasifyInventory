@@ -537,6 +537,15 @@ const copy: Array<[string, string, string]> = [
   ['Need help with this order?', 'Is order mein madad chahiye?', 'Cần hỗ trợ đơn hàng này?'],
   ['If your credentials do not work or you have any delivery or activation issue, contact our support team on WhatsApp. Your order reference is included automatically.', 'Agar login details kaam na karain ya delivery ya activation mein masla ho to WhatsApp support se rabta karain. Order reference khud shamil ho jayega.', 'Nếu thông tin đăng nhập không hoạt động hoặc gặp vấn đề giao hàng hay kích hoạt, hãy liên hệ hỗ trợ WhatsApp. Mã đơn hàng sẽ được đính kèm tự động.'],
   ['Start a new order', 'Naya order shuru karain', 'Tạo đơn hàng mới'],
+  ['See top plans and prices', 'Top plans aur prices dekhain', 'Xem các gói nổi bật và giá'],
+  ['Request a missing tool', 'Jo tool na mile, uski request karain', 'Yêu cầu công cụ còn thiếu'],
+  ['Get your 2FA code', 'Apna 2FA code lein', 'Lấy mã 2FA của bạn'],
+  ['See price and buy', 'Price dekhain aur khareedain', 'Xem giá và mua'],
+  ['Every plan shows its access type, length and PKR price.', 'Har plan par access type, muddat aur PKR price likhi hai.', 'Mỗi gói hiển thị loại quyền truy cập, thời hạn và giá PKR.'],
+  ['Available plans', 'Available plans', 'Các gói hiện có'],
+  ['Plans by tool', 'Tool ke hisab se plans', 'Các gói theo công cụ'],
+  ['Save 5% with Sasify Wallet on eligible products. Claude Team preorders are excluded.', 'Eligible products par Sasify Wallet se 5% bachayen. Claude Team preorders par yeh discount nahi milta.', 'Tiết kiệm 5% với Sasify Wallet cho sản phẩm đủ điều kiện. Không áp dụng cho đơn đặt trước Claude Team.'],
+  ['Browse all tool plans', 'Tamam tools ke plans dekhain', 'Xem tất cả các gói công cụ'],
 ];
 
 export const translations = Object.fromEntries(copy.map(([english, ur, vi]) => [english, { 'ur-Latn': ur, vi }])) as Record<string, Record<Exclude<Language, 'en'>, string>>;
@@ -550,6 +559,7 @@ export function translateText(value: string, language: Language): string {
   if (direct) return value.replace(value.trim(), direct);
   // Presentation-only number patterns; preserve the exact original numbers.
   const patterns: Array<[RegExp, string, string]> = [
+    [/^Compare all (.+) plans and prices$/, '$1 ke tamam plans aur prices compare karain', 'So sánh tất cả các gói và giá $1'],
     [/^(\d+) products$/, '$1 products', '$1 sản phẩm'],
     [/^(\d+) products in catalog$/, 'Catalog mein $1 products', '$1 sản phẩm trong danh mục'],
     [/^(\d+) products? found$/, '$1 products milay', 'Tìm thấy $1 sản phẩm'],

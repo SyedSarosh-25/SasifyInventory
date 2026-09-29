@@ -23,7 +23,7 @@ export default function AboutPage() {
     <article className="detail-shell about-page">
       <nav className="breadcrumbs" aria-label="Breadcrumb"><a href="/">Home</a><span aria-hidden="true">/</span><span aria-current="page">About</span></nav>
       <div className="about-identity">
-        <img src="/sasify-logo.png" alt="Sasify Solutions logo" width={80} height={80} decoding="async" />
+        <img src="/sasify-logo-200.webp" alt="Sasify Solutions logo" width={80} height={80} decoding="async" />
         <div><span className="section-kicker">Your Satisfaction is Our Priority</span><h1>About Sasify Solutions</h1></div>
       </div>
       <p>Sasify Solutions is a digital tools and services marketplace founded by <a href={founderProfile} target="_blank" rel="noreferrer">Syed Sarosh</a>. Our inventory brings together AI, coding, design, productivity and other digital packages for buyers in Pakistan, with listed PKR prices, online checkout and automatic delivery after payment verification.</p>

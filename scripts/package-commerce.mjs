@@ -11,6 +11,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { products } from '../app/products.ts';
 import { productHref } from '../app/product-utils.ts';
+import { defaultSiteOrigin } from '../app/site-config.ts';
 
 const root = await realpath(fileURLToPath(new URL('../', import.meta.url)));
 const target = path.join(root, '.vercel/output');
@@ -130,6 +131,26 @@ const productRedirectRoutes = products
     headers: { Location: productHref(product) },
   }))
   .filter((route) => route.src !== route.headers.Location);
+// One canonical host over HTTPS. The bare domain used to serve every page as
+// a duplicate of www; it now redirects permanently. API routes are left alone
+// so payment webhooks that post to the bare domain keep working.
+const canonicalHost = new URL(defaultSiteOrigin).host;
+const bareHost = canonicalHost.replace(/^www\./, '');
+const canonicalHostRoutes = [
+  {
+    src: '/(.*)',
+    headers: { 'Strict-Transport-Security': 'max-age=63072000' },
+    continue: true,
+  },
+  ...(bareHost !== canonicalHost
+    ? [{
+        src: '/((?!api/).*)',
+        has: [{ type: 'host', value: bareHost }],
+        status: 308,
+        headers: { Location: `https://${canonicalHost}/$1` },
+      }]
+    : []),
+];
 await writeFile(
   path.join(target, 'config.json'),
   JSON.stringify(
@@ -137,6 +158,7 @@ await writeFile(
       version: 3,
       overrides,
       routes: [
+        ...canonicalHostRoutes,
         {
           src: '/account/?$',
           status: 308,

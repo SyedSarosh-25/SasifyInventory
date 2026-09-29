@@ -82,7 +82,7 @@ const whyChooseItems = [
   },
 ];
 const paymentMethods = [
-  { name: 'Easypaisa', region: 'Pakistan', logo: '/payment-methods/easypaisa.png' },
+  { name: 'Easypaisa', region: 'Pakistan', logo: '/payment-methods/easypaisa.webp' },
   { name: 'All Pakistani Banks', region: 'Pakistan', logo: null },
   { name: 'NayaPay', region: 'Pakistan', logo: '/payment-methods/nayapay.svg', dark: true },
   { name: 'SadaPay', region: 'Pakistan', logo: '/payment-methods/sadapay.webp' },
@@ -571,13 +571,13 @@ export default function Home() {
 
             <div className="hero-actions">
               <a href="#catalog" className="primary-button">
-                Explore top products <ArrowRight className="h-4 w-4" />
+                See top plans and prices <ArrowRight className="h-4 w-4" />
               </a>
               <a href="/request-tool" className="secondary-button">
-                Request a tool <ArrowRight className="h-4 w-4" />
+                Request a missing tool <ArrowRight className="h-4 w-4" />
               </a>
               <a href="/otp" className="secondary-button otp-hero-button">
-                <KeyRound className="h-4 w-4" /> Get OTP
+                <KeyRound className="h-4 w-4" /> Get your 2FA code
               </a>
             </div>
           </div>
@@ -586,7 +586,7 @@ export default function Home() {
             <div className="constellation-ring ring-one" aria-hidden="true" />
             <div className="constellation-ring ring-two" aria-hidden="true" />
             <div className="center-logo">
-              <img src="/sasify-logo.png" alt="Sasify Solutions" width={200} height={200} decoding="async" />
+              <img src="/sasify-logo-200.webp" alt="Sasify Solutions" width={200} height={200} decoding="async" />
             </div>
             {orbitTools.map((tool) => (
               <div key={tool.name} className={`orbit-tool ${tool.className}`}>
@@ -622,7 +622,7 @@ export default function Home() {
           </div>
           <p className="wallet-discount-notice">
             <WalletCards className="h-4 w-4" />
-            <span>5% discount applies on all products when you pay with Sasify Wallet.</span>
+            <span>Save 5% with Sasify Wallet on eligible products. Claude Team preorders are excluded.</span>
           </p>
           <TopSupplierProducts />
           <div className="inventory-action"><a href="/inventory" className="primary-button">View full inventory <ArrowRight className="h-4 w-4" /></a></div>
@@ -669,7 +669,7 @@ export default function Home() {
               <div className="why-sasify-emblem">
                 <span className="why-sasify-rim" />
                 <div className="why-sasify-emblem-face">
-                  <img src="/sasify-logo.png" alt="" width={200} height={200} />
+                  <img src="/sasify-logo-200.webp" alt="" width={200} height={200} loading="lazy" />
                   <strong>Sasify Solutions</strong>
                   <span>Trust at every step</span>
                 </div>

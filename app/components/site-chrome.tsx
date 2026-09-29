@@ -35,7 +35,7 @@ export function SiteHeader({
           title="Sasify Solutions | Digital Tools and Services Marketplace"
         >
           <img
-            src="/sasify-logo.png"
+            src="/sasify-logo-96.webp"
             alt="Sasify Solutions logo"
             width={46}
             height={46}
@@ -82,7 +82,7 @@ export function SiteFooter() {
           title="Sasify Solutions | Digital Tools and Services Marketplace"
         >
           <img
-            src="/sasify-logo.png"
+            src="/sasify-logo-96.webp"
             alt="Sasify Solutions logo"
             width={50}
             height={50}
@@ -120,6 +120,9 @@ export function SiteFooter() {
         </a>
         <a href="/buying-guide" className="founder-link">
           Buying guide
+        </a>
+        <a href="/tools" className="founder-link">
+          Plans by tool
         </a>
         <a href="/request-tool" className="founder-link">
           Request a tool

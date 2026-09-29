@@ -195,7 +195,7 @@ export function Catalog({ initialQuery = '', initialCategory = 'All', heading = 
           <div>
             <span className="section-kicker">Sasify Solutions Inventory</span>
             <h1>{heading}</h1>
-            <p>Compare access, duration and pricing in one place.</p>
+            <p>Every plan shows its access type, length and PKR price.</p>
           </div>
           <div className="results-badge" role="status"><Filter className="h-4 w-4" /> {`${filtered.length} products`}</div>
         </div>
@@ -220,9 +220,10 @@ export function Catalog({ initialQuery = '', initialCategory = 'All', heading = 
         <p className="comparison-note">Savings compare the original price for the full plan duration with our price. Monthly references are multiplied by the number of months. Access and provider billing options may differ.</p>
         <p className="wallet-discount-notice">
           <WalletCards className="h-4 w-4" />
-          <span>5% discount applies on all products when you pay with Sasify Wallet.</span>
+          <span>Save 5% with Sasify Wallet on eligible products. Claude Team preorders are excluded.</span>
         </p>
 
+        <h2 className="sr-only">Available plans</h2>
         <div className="featured-grid catalog-featured-grid">
           {filtered.map((product) => <SupplierFeaturedCard key={product.id} product={product} />)}
         </div>

@@ -41,6 +41,7 @@ import {
   type SupplierSeoProduct,
 } from '../../supplier-seo';
 import { supplierLogo, supplierMonogram } from '../../supplier-product-utils';
+import { toolFamilyHref, toolFamilyLabel, toolFamilySlug } from '../../tool-families';
 import {
   accessTypeLabel,
   isAnnualPlan,
@@ -60,6 +61,12 @@ type Props = { params: Promise<{ id: string }> };
 
 function findLocalProduct(routeId: string) {
   return products.find((item) => item.slug === routeId || item.id === routeId);
+}
+
+function ToolPlansLink({ name }: { name: string }) {
+  const href = toolFamilyHref(name);
+  if (!href.startsWith('/tools/')) return null;
+  return <a className="catalog-family-link detail-tool-plans-link" href={href}>Compare all {toolFamilyLabel(toolFamilySlug(name))} plans and prices <ArrowRight className="h-4 w-4" /></a>;
 }
 
 function PurchaseDisclaimer() {
@@ -227,7 +234,8 @@ function SupplierSeoProductPage({ product }: { product: SupplierSeoProduct }) {
                   <CalendarDays className="h-4 w-4" /> Instant delivery
                 </span>
                 <p className="detail-hero-summary">Review the product requirements and availability before ordering.</p>
-                <a className="detail-hero-action" href="#purchase-options">See price &amp; purchase options <ArrowRight className="h-4 w-4" /></a>
+                <a className="detail-hero-action" href="#purchase-options">See price and buy <ArrowRight className="h-4 w-4" /></a>
+                <ToolPlansLink name={product.name} />
               </div>
             </div>
             <nav className="detail-jump-links" aria-label="Product sections">
@@ -415,7 +423,8 @@ export default async function ProductPage({ params }: Props) {
                     : product.duration}
                 </span>
                 <p className="detail-hero-summary">{product.description}</p>
-                <a className="detail-hero-action" href="#purchase-options">See price &amp; purchase options <ArrowRight className="h-4 w-4" /></a>
+                <a className="detail-hero-action" href="#purchase-options">See price and buy <ArrowRight className="h-4 w-4" /></a>
+                <ToolPlansLink name={product.name} />
               </div>
             </div>
             <nav className="detail-jump-links" aria-label="Product sections">
