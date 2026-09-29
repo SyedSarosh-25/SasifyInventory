@@ -6,6 +6,12 @@ const page = readFileSync(new URL('../app/products/[id]/page.tsx', import.meta.u
 const css = readFileSync(new URL('../app/premium-ui.css', import.meta.url), 'utf8');
 const terms = readFileSync(new URL('../app/components/purchase-terms.tsx', import.meta.url), 'utf8');
 
+test('product heroes omit the redundant purchase jump link while keeping purchase actions', () => {
+  assert.doesNotMatch(page, /See price and buy/);
+  assert.match(page, /id="purchase-options"/);
+  assert.match(page, /Browse current plans/);
+});
+
 test('local and supplier purchase cards share the mobile terms accordion', () => {
   assert.equal((page.match(/<PurchaseTerms>/g) || []).length, 2);
   assert.match(terms, /<details className="purchase-terms-mobile">/);

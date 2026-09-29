@@ -235,7 +235,7 @@ function SupplierSeoProductPage({ product }: { product: SupplierSeoProduct }) {
                   <CalendarDays className="h-4 w-4" /> {product.archived ? 'Currently unavailable' : 'Instant delivery'}
                 </span>
                 <p className="detail-hero-summary">{product.archived ? 'This previous listing is currently unavailable and retained for reference.' : 'Review the product requirements and availability before ordering.'}</p>
-                <a className="detail-hero-action" href={product.archived ? '/inventory' : '#purchase-options'}>{product.archived ? 'Browse current plans' : 'See price and buy'} <ArrowRight className="h-4 w-4" /></a>
+                {product.archived && <a className="detail-hero-action" href="/inventory">Browse current plans <ArrowRight className="h-4 w-4" /></a>}
                 <ToolPlansLink name={product.name} />
               </div>
             </div>
@@ -424,7 +424,6 @@ export default async function ProductPage({ params }: Props) {
                     : product.duration}
                 </span>
                 <p className="detail-hero-summary">{product.description}</p>
-                <a className="detail-hero-action" href="#purchase-options">See price and buy <ArrowRight className="h-4 w-4" /></a>
                 <ToolPlansLink name={product.name} />
               </div>
             </div>
