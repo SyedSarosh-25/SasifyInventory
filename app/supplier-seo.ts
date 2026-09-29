@@ -21,6 +21,7 @@ export type SupplierSeoProduct = {
   logoUrl?: string;
   category: string;
   requiresCustomerEmail?: boolean;
+  archived?: boolean;
 };
 
 export const supplierSeoCatalogGeneratedAt = supplierSeoGeneratedAt;

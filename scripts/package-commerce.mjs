@@ -12,6 +12,9 @@ import { fileURLToPath } from 'node:url';
 import { products } from '../app/products.ts';
 import { productHref } from '../app/product-utils.ts';
 import { defaultSiteOrigin } from '../app/site-config.ts';
+import { supplierUrlRegistry } from '../app/supplier-url-registry.generated.mjs';
+import { supplierUrlRedirects } from '../app/supplier-url-registry-core.mjs';
+import { supplierSeoProducts } from '../app/supplier-seo.ts';
 
 const root = await realpath(fileURLToPath(new URL('../', import.meta.url)));
 const target = path.join(root, '.vercel/output');
@@ -131,6 +134,12 @@ const productRedirectRoutes = products
     headers: { Location: productHref(product) },
   }))
   .filter((route) => route.src !== route.headers.Location);
+const supplierRedirectRoutes = supplierUrlRedirects(supplierUrlRegistry, supplierSeoProducts.map((product) => product.slug))
+  .map(([from, to]) => ({
+    src: `/products/${from.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/?$`,
+    status: 308,
+    headers: { Location: `/products/${to}` },
+  }));
 // One canonical host over HTTPS. The bare domain used to serve every page as
 // a duplicate of www; it now redirects permanently. API routes are left alone
 // so payment webhooks that post to the bare domain keep working.
@@ -165,6 +174,7 @@ await writeFile(
           headers: { Location: '/dashboard' },
         },
         ...productRedirectRoutes,
+        ...supplierRedirectRoutes,
         {
           src: '/api/google-reviews-sync',
           dest: '/api/commerce?action=google-reviews-sync',

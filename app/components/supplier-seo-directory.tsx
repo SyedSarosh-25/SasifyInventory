@@ -8,7 +8,8 @@ import {
 import { supplierLogo, supplierMonogram } from '../supplier-product-utils.ts';
 
 export function SupplierSeoDirectory() {
-  if (!supplierSeoProducts.length) return null;
+  const currentProducts = supplierSeoProducts.filter((product) => !product.archived);
+  if (!currentProducts.length) return null;
   return (
     <LocalizedContent><section className="supplier-store-section supplier-seo-directory" aria-labelledby="supplier-seo-directory-title">
       <div className="section-container">
@@ -22,11 +23,11 @@ export function SupplierSeoDirectory() {
             </p>
           </div>
           <span className="secure-delivery">
-            {supplierSeoProducts.length.toLocaleString('en-PK')} SEO pages
+            {currentProducts.length.toLocaleString('en-PK')} SEO pages
           </span>
         </div>
         <div className="supplier-product-grid">
-          {supplierSeoProducts.map((product) => {
+          {currentProducts.map((product) => {
             const logo = supplierLogo(product.name, product.logoUrl);
             return (
               <a

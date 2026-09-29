@@ -14,6 +14,9 @@ import {
 } from './supplier-seo.ts';
 import { supplierLogo } from './supplier-product-utils.ts';
 import { knownToolFamilySlugs } from './tool-families.ts';
+import { supplierUrlRegistry } from './supplier-url-registry.generated.mjs';
+
+const supplierListingLabels = new Map(supplierUrlRegistry.map((entry, index) => [entry.slug, `Plan ${index + 1}`]));
 import {
   founderProfile,
   siteDescription,
@@ -261,7 +264,7 @@ export function productData(product: Product) {
 export function supplierProductTitle(product: SupplierSeoProduct) {
   const baseTitle = compactProductTitle(product.name);
   const disambiguator = duplicateSupplierNames.has(product.name) || duplicateSupplierTitles.has(baseTitle)
-    ? product.slug.slice(-6)
+    ? supplierListingLabels.get(product.slug)
     : undefined;
   return disambiguator ? compactProductTitle(product.name, disambiguator) : baseTitle;
 }
@@ -271,7 +274,7 @@ export function supplierProductDescription(product: SupplierSeoProduct) {
   if (!duplicateSupplierDescriptions.has(trimSeoText(base, SEO_DESCRIPTION_LIMIT))) {
     return trimSeoText(base, SEO_DESCRIPTION_LIMIT);
   }
-  const suffix = `Listing ${product.slug.slice(-6)}`;
+  const suffix = supplierListingLabels.get(product.slug) || product.slug;
   return `${trimSeoText(base, SEO_DESCRIPTION_LIMIT - suffix.length - 3)} · ${suffix}`;
 }
 
@@ -312,7 +315,7 @@ export function supplierProductData(product: SupplierSeoProduct) {
       url,
       price: product.price,
       priceCurrency: 'PKR',
-      availability: 'https://schema.org/InStock',
+      availability: product.archived ? 'https://schema.org/OutOfStock' : 'https://schema.org/InStock',
       seller: { '@id': `${siteOrigin}/#organization` },
     },
   };

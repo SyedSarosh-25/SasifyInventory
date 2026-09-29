@@ -1,8 +1,12 @@
+import { supplierUrlRegistry } from './supplier-url-registry.generated.mjs';
+import { findSupplierUrl } from './supplier-url-registry-core.mjs';
+
 type SupplierSlugInput = {
   id?: string | null;
   canonical_key?: string | null;
   canonicalKey?: string | null;
   name?: string | null;
+  slug?: string | null;
 };
 
 export function stableSupplierHash(value: string) {
@@ -28,9 +32,13 @@ export function slugifySupplierName(value: string) {
   return slug || 'digital-product';
 }
 
-export function supplierProductSlug(product: SupplierSlugInput) {
+export function legacySupplierProductSlug(product: SupplierSlugInput) {
   const key = String(product.canonical_key || product.canonicalKey || product.id || product.name || 'supplier-product');
   return `${slugifySupplierName(String(product.name || 'digital-product'))}-${stableSupplierHash(key)}`;
+}
+
+export function supplierProductSlug(product: SupplierSlugInput) {
+  return findSupplierUrl(product, supplierUrlRegistry)?.slug || legacySupplierProductSlug(product);
 }
 
 export function supplierProductHref(product: SupplierSlugInput) {

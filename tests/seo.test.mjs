@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { products } from '../app/products.ts';
 import { storefrontCategories } from '../app/categories.ts';
+import { knownToolFamilySlugs } from '../app/tool-families.ts';
 import { supplierProductHref, supplierSeoProducts } from '../app/supplier-seo.ts';
 import { productHref } from '../app/product-utils.ts';
 import {
@@ -31,7 +32,7 @@ import {
 test('sitemap contains only unique canonical pages at the configured domain', () => {
   assert.equal(defaultSiteOrigin, 'https://www.sasifysolutions.com');
   const entries = sitemapEntries();
-  assert.equal(entries.length, products.length + supplierSeoProducts.length + 12 + storefrontCategories.length);
+  assert.equal(entries.length, products.length + supplierSeoProducts.length + 12 + storefrontCategories.length + knownToolFamilySlugs.length);
   assert.equal(new Set(entries.map(({ url }) => url)).size, entries.length);
   assert.deepEqual(
     entries.slice(0, 10).map(({ url }) => url),
@@ -143,7 +144,7 @@ test('supplier SEO products have canonical titles and crawlable Product offers',
     assert.equal(data.sku, product.id);
     assert.equal(data.offers.price, product.price);
     assert.equal(data.offers.priceCurrency, 'PKR');
-    assert.equal(data.offers.availability, 'https://schema.org/InStock');
+    assert.equal(data.offers.availability, product.archived ? 'https://schema.org/OutOfStock' : 'https://schema.org/InStock');
     assert.equal(data.offers.seller['@id'], organizationData['@id']);
     assert.ok(!('aggregateRating' in data));
     assert.ok(!('review' in data));

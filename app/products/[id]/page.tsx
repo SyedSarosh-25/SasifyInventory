@@ -231,10 +231,10 @@ function SupplierSeoProductPage({ product }: { product: SupplierSeoProduct }) {
                 <span className="section-kicker">{product.category}</span>
                 <h1>{product.name}</h1>
                 <span className="detail-duration">
-                  <CalendarDays className="h-4 w-4" /> Instant delivery
+                  <CalendarDays className="h-4 w-4" /> {product.archived ? 'Currently unavailable' : 'Instant delivery'}
                 </span>
-                <p className="detail-hero-summary">Review the product requirements and availability before ordering.</p>
-                <a className="detail-hero-action" href="#purchase-options">See price and buy <ArrowRight className="h-4 w-4" /></a>
+                <p className="detail-hero-summary">{product.archived ? 'This previous listing is currently unavailable and retained for reference.' : 'Review the product requirements and availability before ordering.'}</p>
+                <a className="detail-hero-action" href={product.archived ? '/inventory' : '#purchase-options'}>{product.archived ? 'Browse current plans' : 'See price and buy'} <ArrowRight className="h-4 w-4" /></a>
                 <ToolPlansLink name={product.name} />
               </div>
             </div>
@@ -298,7 +298,7 @@ function SupplierSeoProductPage({ product }: { product: SupplierSeoProduct }) {
             className="purchase-summary"
             aria-label="Product pricing and purchase"
           >
-            <span className="section-kicker">Ready to order</span>
+            <span className="section-kicker">{product.archived ? 'Currently unavailable' : 'Ready to order'}</span>
             <div className="purchase-heading">
               <h2>{product.name}</h2>
             </div>
@@ -309,7 +309,7 @@ function SupplierSeoProductPage({ product }: { product: SupplierSeoProduct }) {
               </div>
               <div className="selling-price">
                 <dt>
-                  <Tag className="h-4 w-4" /> Our price
+                  <Tag className="h-4 w-4" /> {product.archived ? 'Last listed price' : 'Our price'}
                 </dt>
                 <dd>
                   <Money amount={product.price} />
@@ -321,7 +321,7 @@ function SupplierSeoProductPage({ product }: { product: SupplierSeoProduct }) {
               </div>
               <div>
                 <dt>Delivery</dt>
-                <dd>Automatic after payment verification</dd>
+                <dd>{product.archived ? 'Currently unavailable' : 'Automatic after payment verification'}</dd>
               </div>
             </dl>
             <div className="plan-notice">
@@ -333,11 +333,11 @@ function SupplierSeoProductPage({ product }: { product: SupplierSeoProduct }) {
             </div>
             <PurchaseDisclaimer />
             <div id="purchase-options" className="detail-purchase-actions">
-              <SupplierLivePurchase
+              {product.archived ? <p role="status">Currently Unavailable. This listing is retained for reference. <a href="/inventory">Browse current plans</a>.</p> : <SupplierLivePurchase
                 productId={product.id}
                 canonicalKey={product.canonicalKey}
                 name={product.name}
-              />
+              />}
             </div>
             <p className="order-footnote">
               WhatsApp support is available after successful payment.

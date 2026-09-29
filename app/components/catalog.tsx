@@ -29,7 +29,7 @@ type LiveSupplierProduct = {
   source?: string;
 };
 
-const seoInventory: FeaturedProduct[] = supplierSeoProducts.map((product) => ({
+const seoInventory: FeaturedProduct[] = supplierSeoProducts.filter((product) => !product.archived).map((product) => ({
   id: product.id,
   name: product.name,
   description: product.description,
