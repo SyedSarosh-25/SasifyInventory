@@ -1,5 +1,6 @@
 'use client';
 import { LanguageSwitcher, LocalizedContent } from './language';
+import { CustomerOrdersList } from './customer-orders-list';
 
 import { useEffect, useState, type SyntheticEvent } from 'react';
 import {
@@ -919,10 +920,11 @@ export function CustomerDashboard() {
                   </div>
                 )}
             {tab === 'orders' && (
-              <section className="account-card">
+              <section className="account-card minimal-orders-panel">
                 <div className="account-heading">
                   <h2>My orders</h2>
                   <button disabled={busy} onClick={() => run(refresh)}>
+                    <RefreshCw size={16} aria-hidden="true" />
                     Refresh
                   </button>
                 </div>
@@ -939,37 +941,7 @@ export function CustomerDashboard() {
                     </a>
                   </div>
                 ) : (
-                  data.orders.map((order) => (
-                    <article className="account-order" key={order.id}>
-                      <div>
-                        <strong>{order.product}</strong>
-                        <small>
-                          {new Date(order.created_at).toLocaleString()} ·{' '}
-                          {order.id.slice(0, 8)}
-                        </small>
-                      </div>
-                      <span>{money(order.amount)}</span>
-                      <span className="account-status">
-                        {order.status === 'pending'
-                          ? 'Awaiting payment'
-                          : order.status}
-                      </span>
-                      <button
-                        disabled={busy}
-                        onClick={() =>
-                          run(async () =>
-                            setDetail(
-                              await request('status', undefined, order.id),
-                            ),
-                          )
-                        }
-                      >
-                        {order.status === 'delivered'
-                          ? 'View credentials'
-                          : 'View order'}
-                      </button>
-                    </article>
-                  ))
+                  <CustomerOrdersList orders={data.orders} busy={busy} onView={(order) => run(async () => setDetail(await request('status', undefined, order.id)))} />
                 )}
                 {detail && (
                   <section className="account-detail">

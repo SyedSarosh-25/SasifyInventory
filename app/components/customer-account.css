@@ -1603,6 +1603,45 @@
 .wallet-instructions-note { margin-top: 13px !important; font-size: 11px !important; }
 .wallet-credit-note { display: flex; align-items: center; gap: 6px; margin: 13px 0 0 !important; color: #087d53 !important; font-size: 12px !important; font-weight: 700; }
 @keyframes wallet-check-spin { to { transform: rotate(360deg); } }
+/* Minimal order list: shared column tracks prevent title lengths moving amounts. */
+.minimal-orders-panel { min-width: 0; border-radius: 16px; box-shadow: none; }
+.minimal-orders-panel .account-heading { align-items: center; gap: 16px; }
+.minimal-orders-panel .account-heading h2 { margin: 0; }
+.minimal-orders-panel .account-heading > button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; color: #285bd7; background: #f8f9ff; font-size: 14px; }
+.minimal-orders-panel > p { margin: 12px 0 28px; font-size: 14px; line-height: 1.6; color: #65748a; }
+.minimal-orders-group + .minimal-orders-group { margin-top: 26px; }
+.minimal-orders-date { margin: 0 0 8px; color: #65748a; font-size: 13px; font-weight: 650; }
+.minimal-orders-group > ul { padding: 0; margin: 0; list-style: none; }
+.minimal-order-row { display: grid; grid-template-columns: 40px minmax(0,1fr) 140px 150px; align-items: center; gap: 16px; padding: 20px 0; border-bottom: 1px solid #edf0f5; }
+.minimal-order-row:last-child { border-bottom: 0; }
+.minimal-order-icon { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 10px; color: #4d46bb; background: #f0effb; font-size: 14px; font-weight: 700; }
+.minimal-order-copy { min-width: 0; }
+.minimal-order-copy > strong { display: block; color: #142942; font-size: 14px; line-height: 1.5; overflow-wrap: anywhere; }
+.minimal-order-copy > small { margin-top: 5px; color: #78869b; font-size: 12px; line-height: 1.5; }
+.minimal-order-total { display: grid; gap: 6px; min-width: 0; justify-items: start; }
+.minimal-order-total > strong { font-size: 14px; font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.minimal-order-status { display: inline-flex; align-items: center; gap: 6px; color: #53647c; font-size: 12px; text-transform: capitalize; line-height: 1.4; }
+.minimal-order-status svg { flex-shrink: 0; }
+.minimal-order-status.delivered { color: #176b50; }
+.minimal-order-status.expired { color: #995b0c; }
+.minimal-order-status.cancelled { color: #65748a; }
+.minimal-order-status.pending { color: #285bd7; }
+.account-card .minimal-order-action { width: 150px; min-height: 44px; padding: 10px 12px; border: 1px solid #e3e8ff; border-radius: 9px; color: #285bd7; background: #f5f7ff; font-size: 13px; font-weight: 600; }
+.account-card .minimal-order-action:hover:not(:disabled) { border-color: #a9bafd; background: #edf1ff; }
+.minimal-orders-panel button:focus-visible { outline: 2px solid #285bd7; outline-offset: 3px; }
+@media (max-width: 1100px) {
+  .minimal-order-row { grid-template-columns: 36px minmax(0,1fr) 120px 138px; gap: 12px; }
+  .minimal-order-icon { width: 36px; height: 36px; }
+  .account-card .minimal-order-action { width: 138px; }
+}
+@media (max-width: 760px) {
+  .minimal-orders-panel { padding: 20px 16px; }
+  .minimal-order-row { grid-template-columns: 36px minmax(0,1fr) auto; gap: 8px 12px; padding: 18px 0; }
+  .minimal-order-icon { grid-column: 1; grid-row: 1; align-self: start; }
+  .minimal-order-copy { grid-column: 2 / -1; grid-row: 1; }
+  .minimal-order-total { grid-column: 1 / 3; grid-row: 2; gap: 5px; margin-top: 4px; }
+  .account-card .minimal-order-action { grid-column: 3; grid-row: 2; width: auto; min-width: 120px; max-width: 140px; margin-top: 4px; font-size: 12px; }
+}
 @media (max-width: 760px) {
   .wallet-funding-header { flex-direction: column; }
   .wallet-balance-pill { width: 100%; }
