@@ -13,7 +13,7 @@ async function request(action, rows, productId = '') {
       queries.push(sql);
       if (sql.includes('commerce_limits')) return { rows: [{ hits: 1 }] };
       if (sql.includes('GROUP BY i.product_id')) return { rows: [] };
-      if (sql.includes('commerce_shared_accounts')) return { rows: [{ available: 0, slots_filled: 0, slots_total: 0 }] };
+      if (sql.includes('SUM(sa.max_slots')) return { rows: [{ available: 0, slots_filled: 0, slots_total: 0 }] };
       if (sql.includes('commerce_inventory') && sql.includes('count(*)')) return { rows: [{ available: 0 }] };
       if (sql.includes('commerce_supplier_products')) return { rows };
       if (sql.includes('commerce_supplier_secrets')) return { rows: [] };
@@ -40,11 +40,13 @@ test('catalog reads expose supplier stock without supplier cost or checkout main
   assert.equal(result.queries.length, 4);
 });
 
-test('unconfigured supplier is unknown and server rejects order before transaction', async () => {
+test('preview uses saved stock without secrets, but submission rejects an unconfigured supplier', async () => {
   const rows = [{ id: 'missing:one', provider_id: 'missing', external_product_id: 'one', canonical_key: 'auto:test', name: 'Figma Pro 1 year', selling_price: 999, supplier_stock: 44 }];
   const check = await request('checkout-availability', rows, 'missing:one');
   assert.equal(check.status, 200);
-  assert.equal(check.body.status, 'unknown');
+  assert.equal(check.body.status, 'available');
+  assert.equal(check.body.available, 44);
+  assert.equal(check.queries.some(query => query.includes('commerce_supplier_secrets')), false);
   assert.equal(check.released, true);
   const order = await request('create', rows, 'missing:one');
   assert.equal(order.status, 503);

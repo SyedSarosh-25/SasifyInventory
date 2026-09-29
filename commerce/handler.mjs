@@ -1,5 +1,6 @@
 import pg from 'pg';
 import { checkSupplierPlan } from './checkout-availability.mjs';
+import { createCatalogCache, parallelCatalogReads } from './catalog-cache.mjs';
 import {
   accountSchema,
   accountForRequest,
@@ -3679,6 +3680,7 @@ export function createHandler(
     }),
 ) {
   let pool;
+  const publicCatalogCache = createCatalogCache();
   let accountSchemaReady;
   const ensureAccountSchema = async (db) => {
     if (!accountSchemaReady) {
@@ -3743,8 +3745,39 @@ export function createHandler(
     const captureSupplierExchange = (exchange) => supplierLogs.push(exchange);
     try {
       pool ||= poolFactory();
+      if (action === 'catalog') {
+        const payload = await publicCatalogCache.read(async () => {
+          const connection = await pool.connect();
+          try {
+            await rate(connection, hash(`catalog:${req.headers['x-vercel-forwarded-for'] || req.socket?.remoteAddress || 'unknown'}`), 60);
+          } finally { connection.release(); }
+          const [offers, inventory, shared] = await parallelCatalogReads(pool, [
+            `SELECT id,canonical_key,canonical_manual,name,description,delivery_instruction,logo_url,requires_customer_email,selling_price AS price,cost_pkr,wholesale_price,supplier_stock AS available,first_seen_at
+             FROM commerce_supplier_products WHERE enabled=true AND selling_price IS NOT NULL AND provider_id<>'elitetools'
+             ORDER BY cost_pkr ASC NULLS LAST,wholesale_price ASC,id`,
+            "SELECT i.product_id,count(*)::int AS available FROM commerce_inventory i WHERE i.state='available' AND NOT EXISTS (SELECT 1 FROM commerce_shared_accounts sa WHERE sa.inventory_id=i.id) GROUP BY i.product_id",
+            `SELECT COALESCE(SUM(sa.max_slots-sa.slots_filled),0)::int AS available,
+                    COALESCE(SUM(sa.slots_filled),0)::int AS slots_filled,
+                    COALESCE(SUM(sa.max_slots),0)::int AS slots_total
+             FROM commerce_shared_accounts sa INNER JOIN commerce_inventory i ON i.id=sa.inventory_id
+             WHERE sa.status='active' AND sa.slots_filled<sa.max_slots AND i.state IN ('available','reserved','delivered')`,
+          ]);
+          const supplier = selectLowestSupplierOffers(offers.rows).filter((p) => !isChatGptPlusProduct(p.name));
+          const sharedAvailability = shared.rows[0] || { available: 0, slots_filled: 0, slots_total: 0 };
+          return { ready: true, products: [
+            ...catalog.map((p) => localProductPresentation(p, inventory.rows, sharedAvailability)),
+            ...supplier.map(({ cost_pkr: _cost, wholesale_price: _wholesale, canonical_manual, available, ...p }) => ({
+              ...customerProduct(p), id: canonical_manual && !String(p.canonical_key || '').startsWith('auto:') ? p.canonical_key : supplierProductKey(p.name) || p.canonical_key,
+              source: 'supplier', available: Number(available || 0),
+            })),
+          ] };
+        });
+        // GET catalog is public; every authenticated/payment response stays no-store.
+        if (req.method === 'GET') res.setHeader('Cache-Control', 'public, max-age=0, s-maxage=5, must-revalidate');
+        return json(res, 200, payload);
+      }
       // Catalog reads and supplier network calls must not hold checkout locks.
-      if (['catalog', 'checkout-availability', 'create'].includes(action)) {
+      if (['checkout-availability', 'create'].includes(action)) {
         const input = typeof req.body === 'string' ? JSON.parse(req.body) : req.body || {};
         if (JSON.stringify(input).length > 200000) throw fail(413, 'Request too large.');
         const productId = String(input.productId || req.query?.productId || new URL(req.url, 'https://www.sasifysolutions.com').searchParams.get('productId') || '');
@@ -3754,25 +3787,6 @@ export function createHandler(
         let offers = [], providers = [];
         try {
           await rate(connection, hash(`${action}:${req.headers['x-vercel-forwarded-for'] || req.socket?.remoteAddress || 'unknown'}`), 60);
-          if (action === 'catalog') {
-            const rows = (await connection.query(`SELECT id,canonical_key,canonical_manual,name,description,delivery_instruction,logo_url,requires_customer_email,selling_price AS price,cost_pkr,wholesale_price,supplier_stock AS available,first_seen_at
-              FROM commerce_supplier_products WHERE enabled=true AND selling_price IS NOT NULL AND provider_id<>'elitetools'
-              ORDER BY cost_pkr ASC NULLS LAST,wholesale_price ASC,id`)).rows;
-            const supplier = selectLowestSupplierOffers(rows).filter((product) => !isChatGptPlusProduct(product.name));
-            const counts = (await connection.query(
-              "SELECT i.product_id,count(*)::int AS available FROM commerce_inventory i WHERE i.state='available' AND NOT EXISTS (SELECT 1 FROM commerce_shared_accounts sa WHERE sa.inventory_id=i.id) GROUP BY i.product_id",
-            )).rows;
-            const sharedAvailability = (await connection.query(
-              `SELECT COALESCE(SUM(sa.max_slots-sa.slots_filled),0)::int AS available,
-                      COALESCE(SUM(sa.slots_filled),0)::int AS slots_filled,
-                      COALESCE(SUM(sa.max_slots),0)::int AS slots_total
-               FROM commerce_shared_accounts sa
-               INNER JOIN commerce_inventory i ON i.id=sa.inventory_id
-               WHERE sa.status='active' AND sa.slots_filled<sa.max_slots
-                 AND i.state IN ('available','reserved','delivered')`,
-            )).rows[0] || { available: 0, slots_filled: 0, slots_total: 0 };
-            return json(res, 200, { ready: true, products: [...catalog.map((p) => localProductPresentation(p, counts, sharedAvailability)), ...supplier.map(({ cost_pkr: _cost_pkr, wholesale_price: _wholesale_price, canonical_manual, available, ...p }) => ({ ...customerProduct(p), id: canonical_manual && !String(p.canonical_key || '').startsWith('auto:') ? p.canonical_key : supplierProductKey(p.name) || p.canonical_key, source: 'supplier', available: Number(available || 0) }))] });
-          }
           const local = catalog.find((p) => p.id === productId);
           if (local) {
             const available = availabilityBypass
@@ -3786,7 +3800,11 @@ export function createHandler(
             const planKey = (p) => p.canonical_manual && !p.canonical_key.startsWith('auto:') ? p.canonical_key : supplierProductKey(p.name) || p.canonical_key;
             const requested = allOffers.find((p) => p.id === productId || planKey(p) === productId) || allOffers.find((p) => p.canonical_key === productId);
             offers = requested ? allOffers.filter((p) => planKey(p) === planKey(requested)) : [];
-            providers = supplierProviders(await readSupplierApiKeys(connection, key));
+            if (action === 'create') providers = supplierProviders(await readSupplierApiKeys(connection, key));
+            else {
+              const available = offers.reduce((sum, offer) => sum + Math.max(0, Number(offer.supplier_stock || 0)), 0);
+              checkoutAvailability = { status: offers.length ? available > 0 ? 'available' : 'unavailable' : 'unknown', available: offers.length ? available : null };
+            }
           }
         } finally { connection.release(); }
         if (!checkoutAvailability && !availabilityBypass) checkoutAvailability = { ...await checkSupplierPlan(offers, providers), listedPrice: offers[0]?.selling_price };
@@ -6995,6 +7013,7 @@ export function createHandler(
       if (supplierIssue)
         telegramMessages.push(supplierIssueMessage(supplierIssue));
       await db.query('COMMIT');
+      if (req.method === 'POST') publicCatalogCache.invalidate();
       for (const message of telegramMessages) await notifyTelegram(message);
       for (const message of publicTelegramMessages)
         await notifyPublicTelegram(message.chatId, message.text);

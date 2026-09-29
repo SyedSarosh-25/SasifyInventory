@@ -416,7 +416,7 @@ export default function Home() {
 
   useEffect(() => {
     let active = true;
-    fetch('/api/commerce?action=catalog', { cache: 'no-store' })
+    fetch('/api/commerce?action=catalog')
       .then((response) => response.ok ? response.json() : Promise.reject())
       .then((data: any) => {
         if (active && Number.isSafeInteger(data.productCount)) setLiveProductCount(data.productCount);

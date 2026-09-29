@@ -75,7 +75,7 @@ export function NewProductsTicker() {
   useEffect(() => {
     let active = true;
     const load = () => {
-      fetch('/api/commerce?action=catalog', { cache: 'no-store' })
+      fetch('/api/commerce?action=catalog')
         .then(async (response) => {
           if (!response.ok) throw new Error('Could not load stock.');
           return await response.json() as { products?: StockProduct[] };

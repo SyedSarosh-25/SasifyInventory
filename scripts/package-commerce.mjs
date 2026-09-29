@@ -35,6 +35,7 @@ for (const entry of await readdir(path.join(root, 'out'), {
 for (const name of [
   'handler.mjs',
   'checkout-availability.mjs',
+  'catalog-cache.mjs',
   'accounts.mjs',
   'core.mjs',
   'binance-email.mjs',

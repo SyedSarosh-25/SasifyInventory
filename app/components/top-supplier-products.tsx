@@ -196,7 +196,7 @@ export function TopSupplierProducts() {
   useEffect(() => {
     let active = true;
     const previewOnly = new URLSearchParams(window.location.search).has('top10Preview');
-    const loadCatalog = () => fetch('/api/commerce?action=catalog', { cache: 'no-store' })
+    const loadCatalog = () => fetch('/api/commerce?action=catalog')
       .then(async (response) => {
         if (!response.ok) throw new Error('Could not load supplier products.');
         return (await response.json()) as { products?: SupplierProduct[] };

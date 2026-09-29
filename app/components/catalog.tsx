@@ -73,7 +73,7 @@ export function Catalog({ initialQuery = '', initialCategory = 'All', heading = 
 
   useEffect(() => {
     let active = true;
-    fetch('/api/commerce?action=catalog', { cache: 'no-store' })
+    fetch('/api/commerce?action=catalog')
       .then((response) => response.ok ? response.json() : Promise.reject())
       .then((data: unknown) => {
         if (!data || typeof data !== 'object' || !('products' in data) || !Array.isArray(data.products)) throw new Error('Invalid stock response');

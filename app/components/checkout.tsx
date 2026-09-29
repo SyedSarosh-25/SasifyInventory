@@ -127,7 +127,7 @@ async function api(
         ...extraHeaders,
       },
       body: body ? JSON.stringify(body) : undefined,
-      cache: 'no-store',
+      cache: action === 'catalog' ? 'default' : 'no-store',
       credentials: 'same-origin',
     },
   );
