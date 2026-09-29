@@ -3,6 +3,7 @@ import { LocalizedContent } from './language';
 import { LanguageSwitcher } from './language';
 
 import { useEffect, useRef, useState } from 'react';
+import { loadPublicCatalog, invalidatePublicCatalog } from '../public-catalog';
 import { AdminShell } from './admin-shell';
 import { AdminOperations } from './admin-operations';
 import { AdminDailyChart } from './admin-daily-chart';
@@ -117,6 +118,7 @@ async function api(
   id = '',
   extraHeaders: Record<string, string> = {},
 ) {
+  if (action === 'catalog' && !body) return loadPublicCatalog<Stock>();
   const response = await fetch(
     `/api/commerce?action=${action}${id ? `&id=${encodeURIComponent(id)}` : ''}`,
     {
@@ -137,6 +139,7 @@ async function api(
       new Error(data.error || 'Request failed. Please retry.'),
       { status: response.status },
     );
+  if (body) invalidatePublicCatalog();
   return data;
 }
 
@@ -240,8 +243,12 @@ export function Checkout() {
   useEffect(() => {
     if (!id || !key) return;
     let active = true;
-    const refresh = () =>
-      api('status', key, undefined, id)
+    let pending = false;
+    let completed = false;
+    const refresh = () => {
+      if (!active || pending || completed || document.visibilityState !== 'visible') return;
+      pending = true;
+      return api('status', key, undefined, id)
         .then((data) => {
           if (!active) return;
           if (data.status === 'expired' && !data.transactionId) {
@@ -257,17 +264,25 @@ export function Checkout() {
           }
           setOrder(data);
           setError('');
+          if (['delivered', 'cancelled'].includes(data.status)) {
+            completed = true;
+            clearInterval(timer);
+          }
         })
         .catch((e) => {
           if (active) setError(e.message);
-        });
-    void refresh();
+        }).finally(() => { pending = false; });
+    };
     const timer = setInterval(() => {
       if (document.visibilityState === 'visible') void refresh();
-    }, 4000);
+    }, 8000);
+    const onVisible = () => { if (document.visibilityState === 'visible') void refresh(); };
+    document.addEventListener('visibilitychange', onVisible);
+    void refresh();
     return () => {
       active = false;
       clearInterval(timer);
+      document.removeEventListener('visibilitychange', onVisible);
     };
   }, [id, key]);
   useEffect(() => {

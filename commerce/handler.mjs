@@ -1,6 +1,8 @@
 import pg from 'pg';
 import { checkSupplierPlan } from './checkout-availability.mjs';
 import { createCatalogCache, parallelCatalogReads } from './catalog-cache.mjs';
+import { catalogResponse } from './catalog-presentation.mjs';
+import { refreshSupplierStock } from './supplier-stock-sync.mjs';
 import {
   accountSchema,
   accountForRequest,
@@ -3745,6 +3747,21 @@ export function createHandler(
     const captureSupplierExchange = (exchange) => supplierLogs.push(exchange);
     try {
       pool ||= poolFactory();
+      if (action === 'supplier-stock-sync') {
+        if (req.method !== 'GET') return json(res, 405, { error: 'Method not allowed.' });
+        const syncSecret = String(process.env.SUPPLIER_STOCK_SYNC_SECRET || '');
+        if (!syncSecret || !same(bearer(req), syncSecret)) return json(res, 401, { error: 'Invalid schedule authentication.' });
+        const params = new URL(req.url, 'https://www.sasifysolutions.com').searchParams;
+        const providerId = String(req.query?.provider || params.get('provider') || '');
+        if (!['dodi', 'qamify', 'mke', 'fatbunny', 'piggyai', 'zoomstore'].includes(providerId)) throw fail(400, 'Select a valid supplier.');
+        const connection = await pool.connect();
+        try {
+          const providers = supplierProviders(await readSupplierApiKeys(connection, key));
+          const result = await refreshSupplierStock(connection, providers.find(provider => provider.id === providerId));
+          publicCatalogCache.invalidate();
+          return json(res, 200, { ok: true, ...result });
+        } finally { connection.release(); }
+      }
       if (action === 'catalog') {
         const payload = await publicCatalogCache.read(async () => {
           const connection = await pool.connect();
@@ -3774,7 +3791,11 @@ export function createHandler(
         });
         // GET catalog is public; every authenticated/payment response stays no-store.
         if (req.method === 'GET') res.setHeader('Cache-Control', 'public, max-age=0, s-maxage=5, must-revalidate');
-        return json(res, 200, payload);
+        const params = new URL(req.url, 'https://www.sasifysolutions.com').searchParams;
+        return json(res, 200, catalogResponse(payload, {
+          view: req.query?.view || params.get('view') || '',
+          productId: req.query?.productId || params.get('productId') || '',
+        }));
       }
       // Catalog reads and supplier network calls must not hold checkout locks.
       if (['checkout-availability', 'create'].includes(action)) {

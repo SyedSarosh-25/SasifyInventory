@@ -36,6 +36,8 @@ for (const name of [
   'handler.mjs',
   'checkout-availability.mjs',
   'catalog-cache.mjs',
+  'catalog-presentation.mjs',
+  'supplier-stock-sync.mjs',
   'accounts.mjs',
   'core.mjs',
   'binance-email.mjs',

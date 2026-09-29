@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { products } from './products';
+import { loadPublicCatalog } from './public-catalog';
 import { productHref } from './product-utils';
 import { orbitTools } from './catalog-selection';
 import { ProductLogo } from './components/product-logo';
@@ -416,8 +417,7 @@ export default function Home() {
 
   useEffect(() => {
     let active = true;
-    fetch('/api/commerce?action=catalog')
-      .then((response) => response.ok ? response.json() : Promise.reject())
+    loadPublicCatalog()
       .then((data: any) => {
         if (active && Number.isSafeInteger(data.productCount)) setLiveProductCount(data.productCount);
       })

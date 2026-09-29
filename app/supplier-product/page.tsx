@@ -4,14 +4,14 @@ import { ArrowLeft, MessageCircle, ShoppingCart, Tag } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { SiteFooter, SiteHeader } from '../components/site-chrome';
 import { supplierLogo, supplierMonogram } from '../supplier-product-utils';
-import { cacheSupplierCatalog, readSupplierCatalogProduct } from '../supplier-catalog-cache';
+import { readSupplierCatalogProduct } from '../supplier-catalog-cache';
 
 type SupplierProduct = { id:string; name:string; description?:string; warranty?:string; price:number; available:number; provider_name?:string; logo_url?:string };
 
 export default function SupplierProductPage() {
   const [product,setProduct] = useState<SupplierProduct|null>(null);
   const [loading,setLoading] = useState(true);
-  useEffect(() => { const id = new URLSearchParams(window.location.search).get('product'); if (!id) { setLoading(false); return; } const cached = readSupplierCatalogProduct<SupplierProduct>(id); if (cached) { setProduct(cached); setLoading(false); } let active = true; fetch('/api/commerce?action=catalog',{cache:'no-store'}).then((response) => response.ok ? response.json() : Promise.reject()).then((data:any) => { cacheSupplierCatalog(data.products || []); if (active) setProduct((data.products || []).find((item:SupplierProduct) => item.id === id) || null); }).catch(() => {}).finally(() => { if (active) setLoading(false); }); return () => { active = false; }; }, []);
+  useEffect(() => { const id = new URLSearchParams(window.location.search).get('product'); if (!id) { setLoading(false); return; } const cached = readSupplierCatalogProduct<SupplierProduct>(id); if (cached) { setProduct(cached); setLoading(false); } let active = true; fetch(`/api/commerce?action=catalog&productId=${encodeURIComponent(id)}`).then((response) => response.ok ? response.json() : Promise.reject()).then((data:any) => { if (active) setProduct((data.products || [])[0] || null); }).catch(() => {}).finally(() => { if (active) setLoading(false); }); return () => { active = false; }; }, []);
 
   const description = product?.description || 'The supplier did not provide a product description for this listing.';
   const logo = product ? supplierLogo(product.name, product.logo_url) : '';

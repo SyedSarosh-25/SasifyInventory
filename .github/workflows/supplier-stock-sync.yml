@@ -1,0 +1,33 @@
+name: Hourly supplier stock sync
+
+on:
+  schedule:
+    - cron: '17 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: supplier-stock-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+        provider: [dodi, qamify, mke, fatbunny, piggyai, zoomstore]
+    steps:
+      - name: Refresh saved supplier stock
+        env:
+          STOCK_SYNC_SECRET: ${{ secrets.SUPPLIER_STOCK_SYNC_SECRET }}
+          PROVIDER: ${{ matrix.provider }}
+        run: |
+          test -n "$STOCK_SYNC_SECRET" || { echo 'Stock sync secret is missing'; exit 1; }
+          curl --fail-with-body --silent --show-error --max-time 35 \
+            -H "Authorization: Bearer $STOCK_SYNC_SECRET" \
+            "https://www.sasifysolutions.com/api/commerce?action=supplier-stock-sync&provider=$PROVIDER"

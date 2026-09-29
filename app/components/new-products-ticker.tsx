@@ -8,6 +8,7 @@ import { supplierLogo, supplierMonogram } from '../supplier-product-utils';
 import { supplierCatalogHref } from '../supplier-seo';
 import { Money } from './currency';
 import { ProductLogo } from './product-logo';
+import { loadPublicCatalog } from '../public-catalog';
 
 type NewProduct = {
   id: string;
@@ -75,11 +76,8 @@ export function NewProductsTicker() {
   useEffect(() => {
     let active = true;
     const load = () => {
-      fetch('/api/commerce?action=catalog')
-        .then(async (response) => {
-          if (!response.ok) throw new Error('Could not load stock.');
-          return await response.json() as { products?: StockProduct[] };
-        })
+      if (document.visibilityState !== 'visible') return;
+      loadPublicCatalog<StockProduct>()
         .then((data) => {
           if (active) setStock(Array.isArray(data.products) ? data.products : []);
         })

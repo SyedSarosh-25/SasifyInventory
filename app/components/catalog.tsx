@@ -12,6 +12,7 @@ import { products as localProducts } from '../products';
 import { supplierCatalogHref, supplierProductHref, supplierSeoProducts } from '../supplier-seo';
 import { toolFamilyHref, toolFamilyLabel, toolFamilySlug } from '../tool-families';
 import { cacheSupplierCatalog } from '../supplier-catalog-cache';
+import { loadPublicCatalog } from '../public-catalog';
 import { CategoryNavigation } from './category-navigation';
 import { SupplierFeaturedCard, type FeaturedProduct } from './top-supplier-products';
 
@@ -73,8 +74,7 @@ export function Catalog({ initialQuery = '', initialCategory = 'All', heading = 
 
   useEffect(() => {
     let active = true;
-    fetch('/api/commerce?action=catalog')
-      .then((response) => response.ok ? response.json() : Promise.reject())
+    loadPublicCatalog<LiveSupplierProduct>()
       .then((data: unknown) => {
         if (!data || typeof data !== 'object' || !('products' in data) || !Array.isArray(data.products)) throw new Error('Invalid stock response');
         const products = data.products as LiveSupplierProduct[];

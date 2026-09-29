@@ -11,6 +11,7 @@ import { ProductLogo } from './product-logo';
 import { Money } from './currency';
 import { supplierLogo, supplierMonogram } from '../supplier-product-utils';
 import { cacheSupplierCatalog } from '../supplier-catalog-cache';
+import { loadPublicCatalog } from '../public-catalog';
 import { supplierCatalogHref } from '../supplier-seo';
 import { supplierOriginalPriceComparison } from '../supplier-price-utils';
 
@@ -196,11 +197,7 @@ export function TopSupplierProducts() {
   useEffect(() => {
     let active = true;
     const previewOnly = new URLSearchParams(window.location.search).has('top10Preview');
-    const loadCatalog = () => fetch('/api/commerce?action=catalog')
-      .then(async (response) => {
-        if (!response.ok) throw new Error('Could not load supplier products.');
-        return (await response.json()) as { products?: SupplierProduct[] };
-      })
+    const loadCatalog = () => loadPublicCatalog<SupplierProduct>()
       .then((data) => {
         cacheSupplierCatalog(data.products || []);
         if (active) {

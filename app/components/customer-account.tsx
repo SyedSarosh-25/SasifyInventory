@@ -655,7 +655,8 @@ export function CustomerDashboard() {
     }
     let active = true;
     const checkDeposits = async () => {
-      if (document.visibilityState !== 'visible') return;
+      if (!active || pending || document.visibilityState !== 'visible') return;
+      pending = true;
       setCheckingDeposits(true);
       try {
         const latest = await request('account-dashboard');
@@ -663,14 +664,18 @@ export function CustomerDashboard() {
       } catch {
         // The next automatic check will retry without interrupting the user.
       } finally {
+        pending = false;
         if (active) setCheckingDeposits(false);
       }
     };
-    void checkDeposits();
-    const timer = window.setInterval(() => void checkDeposits(), 5000);
+    let pending = false;
+    const timer = window.setInterval(() => void checkDeposits(), 8000);
+    const onVisible = () => { if (document.visibilityState === 'visible') void checkDeposits(); };
+    document.addEventListener('visibilitychange', onVisible);
     return () => {
       active = false;
       window.clearInterval(timer);
+      document.removeEventListener('visibilitychange', onVisible);
     };
   }, [hasOpenDeposits]);
   async function run(task: () => Promise<void>) {

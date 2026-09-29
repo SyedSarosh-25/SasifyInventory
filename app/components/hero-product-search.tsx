@@ -11,6 +11,7 @@ import { supplierLogo, supplierMonogram } from '../supplier-product-utils';
 import { Money } from './currency';
 import { ProductLogo } from './product-logo';
 import { cacheSupplierCatalog } from '../supplier-catalog-cache';
+import { loadPublicCatalog } from '../public-catalog';
 import { supplierCatalogHref } from '../supplier-seo';
 import { toolFamilyHref, toolFamilyLabel, toolFamilySlug } from '../tool-families';
 
@@ -69,7 +70,7 @@ export function HeroProductSearch() {
     return () => clearTimeout(timer);
   }, []);
 
-  useEffect(() => { let active = true; fetch('/api/commerce?action=catalog',{cache:'no-store'}).then((response) => response.ok ? response.json() : Promise.reject()).then((data:any) => { cacheSupplierCatalog(data.products || []); if (active) setSupplierProducts((data.products || []).filter((product:LiveSupplierResult & {source?:string}) => product.source === 'supplier')); }).catch(() => {}); return () => { active = false; }; }, []);
+  useEffect(() => { let active = true; loadPublicCatalog<LiveSupplierResult & { source?: string }>().then((data) => { cacheSupplierCatalog(data.products); if (active) setSupplierProducts(data.products.filter(product => product.source === 'supplier')); }).catch(() => {}); return () => { active = false; }; }, []);
 
   function clearSearch() {
     setQuery('');
