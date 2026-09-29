@@ -91,7 +91,7 @@ export function SiteFooter() {
           />
           <div>
             <strong>Sasify Solutions</strong>
-            <span>Your Satisfaction is Our Priority</span>
+            <span className="footer-tagline">Your Satisfaction is Our Priority</span>
           </div>
         </a>
         <nav className="footer-primary-links" aria-label="Explore Sasify">

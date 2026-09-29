@@ -3,14 +3,16 @@
   flex-shrink: 0;
 }
 .site-header .header-account-actions .currency-toggle {
-  height: 36px;
-  grid-template-columns: repeat(2, 40px);
+  height: 48px;
+  grid-template-columns: repeat(2, 44px);
   padding: 3px;
   border: 1px solid #e7eaf0;
   border-radius: 9px;
   background: #f3f5f8;
 }
 .site-header .header-account-actions .currency-toggle button {
+  min-width: 44px;
+  min-height: 44px;
   border-radius: 6px;
   font-size: 11px;
   font-weight: 650;
@@ -87,7 +89,7 @@
     padding: 0 2px;
   }
   .site-header .header-account-actions .currency-toggle {
-    grid-template-columns: repeat(2, 34px);
+    grid-template-columns: repeat(2, 44px);
   }
 }
 @media (max-width: 420px) {
@@ -95,8 +97,8 @@
     gap: 6px;
   }
   .site-header .header-account-actions .currency-toggle {
-    grid-template-columns: repeat(2, 29px);
-    height: 34px;
+    grid-template-columns: repeat(2, 44px);
+    height: 48px;
     padding: 2px;
   }
   .site-header .header-account-actions .currency-toggle button {
@@ -114,12 +116,11 @@
 @media (max-width: 360px) {
   .site-header .header-account-actions { gap: 4px; }
   /* Currency selection remains available in account and checkout views; keep the public header uncluttered. */
-  .site-header .header-account-actions .currency-toggle { display: none; }
   .site-header .header-account-actions .currency-toggle {
-    grid-template-columns: repeat(2, 25px);
-    height: 32px;
+    grid-template-columns: repeat(2, 44px);
+    height: 48px;
   }
-  .site-header .header-account-actions .currency-toggle button { font-size: 9px; }
+  .site-header .header-account-actions .currency-toggle button { font-size: 10px; }
   .site-header .header-login,
   .site-header .header-signup { font-size: 10px; min-height: 34px; }
   .site-header .header-login { padding-inline: 1px; }

@@ -11,7 +11,6 @@ import {
   ExternalLink,
   Headphones,
   HeartHandshake,
-  KeyRound,
   Landmark,
   Maximize2,
   RotateCcw,
@@ -84,10 +83,10 @@ const whyChooseItems = [
 const paymentMethods = [
   { name: 'Easypaisa', region: 'Pakistan', logo: '/payment-methods/easypaisa.webp' },
   { name: 'All Pakistani Banks', region: 'Pakistan', logo: null },
-  { name: 'NayaPay', region: 'Pakistan', logo: '/payment-methods/nayapay.svg', dark: true },
+  { name: 'NayaPay', region: 'Pakistan', logo: '/payment-methods/nayapay.svg' },
   { name: 'SadaPay', region: 'Pakistan', logo: '/payment-methods/sadapay.webp' },
   { name: 'Binance Pay', region: 'International', logo: '/payment-methods/binance.svg' },
-  { name: 'USDT Crypto', region: 'International', logo: '/payment-methods/binance.svg' },
+  { name: 'USDT Crypto', region: 'International', logo: null, symbol: '₮' },
   { name: 'Payoneer', region: 'International', logo: '/payment-methods/payoneer.svg' },
 ];
 
@@ -230,39 +229,10 @@ function DealProofGallery() {
     window.addEventListener('pointerup', endInteraction, { passive: true });
     window.addEventListener('pointercancel', endInteraction, { passive: true });
 
-    let depthFrame = 0;
-    const updateCardDepth = () => {
-      const trackRect = track.getBoundingClientRect();
-      const viewportCenter = trackRect.left + trackRect.width / 2;
-      const mobile = window.matchMedia('(max-width: 640px)').matches;
-      const depthRange = Math.max(trackRect.width * 0.55, 1);
-
-      track.querySelectorAll<HTMLElement>('.deal-proof-card').forEach((card) => {
-        const cardRect = card.getBoundingClientRect();
-        const cardCenter = cardRect.left + cardRect.width / 2;
-        const offset = Math.max(-1, Math.min(1, (cardCenter - viewportCenter) / depthRange));
-        const distance = Math.abs(offset);
-        card.style.setProperty('--proof-rotate-y', `${offset * (mobile ? -7 : -13)}deg`);
-        card.style.setProperty('--proof-rotate-z', `${offset * (mobile ? 0.8 : 1.8)}deg`);
-        card.style.setProperty('--proof-lift', `${distance * (mobile ? 8 : 16)}px`);
-        card.style.setProperty('--proof-scale', String(1 - distance * (mobile ? 0.035 : 0.075)));
-      });
-    };
-    const queueCardDepth = () => {
-      window.cancelAnimationFrame(depthFrame);
-      depthFrame = window.requestAnimationFrame(updateCardDepth);
-    };
-    track.addEventListener('scroll', queueCardDepth, { passive: true });
-    window.addEventListener('resize', queueCardDepth, { passive: true });
-    queueCardDepth();
-
     const removeInteractionListeners = () => {
       track.removeEventListener('pointerdown', startInteraction);
       window.removeEventListener('pointerup', endInteraction);
       window.removeEventListener('pointercancel', endInteraction);
-      track.removeEventListener('scroll', queueCardDepth);
-      window.removeEventListener('resize', queueCardDepth);
-      window.cancelAnimationFrame(depthFrame);
     };
     const isPaused = () => {
       const focused = document.activeElement as HTMLElement | null;
@@ -337,6 +307,17 @@ function DealProofGallery() {
   };
 
   const selectedProof = activeProof === null ? null : dealProofs[activeProof];
+  const moveGallery = (direction: -1 | 1) => {
+    const track = trackRef.current;
+    const card = track?.querySelector<HTMLElement>('.deal-proof-card');
+    if (!track || !card) return;
+    const gap = Number.parseFloat(window.getComputedStyle(track).columnGap || '0');
+    manualPauseUntilRef.current = performance.now() + 2400;
+    track.scrollBy({
+      left: direction * (card.getBoundingClientRect().width + gap),
+      behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
+    });
+  };
 
   return (
     <LocalizedContent><section id="deal-proofs" className="deal-proofs-section" aria-labelledby="deal-proofs-title">
@@ -358,6 +339,10 @@ function DealProofGallery() {
         <div className="deal-proofs-stage">
           <div className="deal-proofs-toolbar">
             <span>Successful delivery screenshots</span>
+            <div className="deal-proofs-controls" aria-label="Screenshot gallery controls">
+              <button type="button" onClick={() => moveGallery(-1)} aria-label="Previous delivery screenshots"><ChevronLeft aria-hidden="true" /></button>
+              <button type="button" onClick={() => moveGallery(1)} aria-label="Next delivery screenshots"><ChevronRight aria-hidden="true" /></button>
+            </div>
           </div>
 
           <div className="deal-proofs-viewport">
@@ -559,8 +544,8 @@ export default function Home() {
           <div className="hero-copy">
             <span className="hero-kicker">
               <ShieldCheck className="h-4 w-4" />
-              <span className="hero-kicker-desktop">Pakistan&apos;s 1st fully automated digital store</span>
-              <span className="hero-kicker-mobile">Pakistan&apos;s 1st automated digital store</span>
+              <span className="hero-kicker-desktop">Pakistan&apos;s first fully automated digital store</span>
+              <span className="hero-kicker-mobile">Pakistan&apos;s first automated digital store</span>
             </span>
             <HeroTypingTitle />
             <p>
@@ -573,12 +558,6 @@ export default function Home() {
               <a href="#catalog" className="primary-button">
                 See top plans and prices <ArrowRight className="h-4 w-4" />
               </a>
-              <a href="/request-tool" className="secondary-button">
-                Request a missing tool <ArrowRight className="h-4 w-4" />
-              </a>
-              <a href="/otp" className="secondary-button otp-hero-button">
-                <KeyRound className="h-4 w-4" /> Get your 2FA code
-              </a>
             </div>
           </div>
 
@@ -588,7 +567,7 @@ export default function Home() {
             <div className="center-logo">
               <img src="/sasify-logo-200.webp" alt="Sasify Solutions" width={200} height={200} decoding="async" />
             </div>
-            {orbitTools.map((tool) => (
+            {orbitTools.slice(0, 3).map((tool) => (
               <div key={tool.name} className={`orbit-tool ${tool.className}`}>
                 <div className="orbit-position">
                   <a className="orbit-content" href={tool.product ? productHref(tool.product) : `/inventory?q=${encodeURIComponent(tool.searchQuery)}`} aria-label={`View ${tool.name}`}>
@@ -769,11 +748,13 @@ export default function Home() {
           <div className="payment-methods-grid">
             {paymentMethods.map((method) => (
               <article key={method.name} className="payment-method">
-                <div className={`payment-logo${method.dark ? ' payment-logo-dark' : ''}`}>
+                <div className="payment-logo">
                   {method.logo ? (
                     <img src={method.logo} alt={`${method.name} logo`} width={160} height={52} loading="lazy" decoding="async" />
+                  ) : method.symbol ? (
+                    <span className="payment-method-symbol" aria-hidden="true">{method.symbol}</span>
                   ) : (
-                    <Landmark aria-label="Bank transfer" />
+                    <Landmark aria-hidden="true" />
                   )}
                 </div>
                 <h3>{method.name}</h3>

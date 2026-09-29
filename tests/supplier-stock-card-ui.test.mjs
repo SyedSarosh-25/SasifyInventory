@@ -12,11 +12,14 @@ test('supplier cards show live stock state and block unavailable offers', () => 
   assert.match(cardSource, /In stock/);
   assert.match(cardSource, /Out of stock/);
   assert.match(cardSource, /is-stock-blocked/);
-  assert.match(cardSource, /aria-disabled="true"/);
+  assert.match(cardSource, /className="featured-buy-button is-disabled" disabled/);
 });
 
-test('supplier cards mark catalog API results as verified while they keep local cards unchanged', () => {
+test('purchase availability uses stock for local and supplier cards while details stay accessible', () => {
   assert.match(cardSource, /stockVerified: true/);
   assert.match(cardSource, /const isSupplier = product\.source === 'supplier'/);
-  assert.match(cardSource, /const canOpen = !isSupplier \|\| inStock/);
+  assert.match(cardSource, /const canPurchase = inStock \|\| contactOnly/);
+  assert.match(cardSource, /<a className="featured-details-button" href=\{href\}>View details<\/a>/);
+  assert.match(cardSource, /className="featured-buy-button is-disabled" disabled/);
+  assert.doesNotMatch(cardSource, /aria-disabled=\{!canOpen/);
 });

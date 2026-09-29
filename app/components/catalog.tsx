@@ -223,7 +223,7 @@ export function Catalog({ initialQuery = '', initialCategory = 'All', heading = 
           <span>Save 5% with Sasify Wallet on eligible products. Claude Team preorders are excluded.</span>
         </p>
 
-        <h2 className="sr-only">Available plans</h2>
+        <h2 className="catalog-plans-title">Available plans</h2>
         <div className="featured-grid catalog-featured-grid">
           {filtered.map((product) => <SupplierFeaturedCard key={product.id} product={product} />)}
         </div>

@@ -9,7 +9,7 @@ import { products as localProducts, type Product } from '../products';
 import { originalPricePkr, productHref } from '../product-utils';
 import { ProductLogo } from './product-logo';
 import { Money } from './currency';
-import { supplierLogo, supplierMonogram } from '../supplier-product-utils';
+import { supplierLogo } from '../supplier-product-utils';
 import { cacheSupplierCatalog } from '../supplier-catalog-cache';
 import { loadPublicCatalog } from '../public-catalog';
 import { supplierCatalogHref } from '../supplier-seo';
@@ -54,7 +54,9 @@ export function SupplierFeaturedCard({ product }: { product: FeaturedProduct }) 
       ? supplierCatalogHref(product)
       : productHref(product.localProduct!)
   );
-  const displayName = product.display_name || product.name;
+  const displayName = (product.display_name || product.name)
+    .replace(/\(*can be monetized\)*\s*/gi, '').trim()
+    .replace(/^\$500 API CLAUDE 30D \(FW\)$/i, 'Claude API · $500 credits · 30 days (FW)');
   const comparison = product.source === 'supplier'
     ? supplierOriginalPriceComparison(product)
     : null;
@@ -71,7 +73,10 @@ export function SupplierFeaturedCard({ product }: { product: FeaturedProduct }) 
   const savings = originalPrice === null
     ? null
     : Math.round((originalPrice - salePrice) * 100) / 100;
-  const description = String(product.description || '')
+  const sourceDescription = product.canonical_key === 'manual:muse-ai'
+    ? 'Muse AI — 1 billion AI tokens'
+    : String(product.description || '').replace(/PERPLEXITY PRO\s*[–—-]\s*1 MONTH\s*\|\s*ACTIVATION CDK/i, 'Perplexity Pro — 1-month activation code');
+  const description = String(sourceDescription || '')
     .split(/\n+/)
     .map((line) => line.replace(/^[^\p{L}\p{N}]+/u, '').trim())
     .find(Boolean) || 'Review access, duration and requirements before ordering.';
@@ -88,14 +93,12 @@ export function SupplierFeaturedCard({ product }: { product: FeaturedProduct }) 
     : !isSupplier
       ? Number(product.available) > 0
       : stockVerified && Number(product.available) > 0;
-  const stockLabel = product.stock_label ?? (
+  const stockLabel = (
     availabilityMode === 'preorder'
       ? 'Taking pre-orders'
       : !isSupplier && availabilityMode === 'manual'
         ? 'In stock · 999'
-        : !isSupplier
-          ? `In stock${Number.isFinite(Number(product.available)) ? ` · ${Number(product.available).toLocaleString('en-PK')}` : ''}`
-          : !stockVerified
+        : !stockVerified
             ? 'Checking stock…'
             : inStock
               ? `In stock${Number.isFinite(Number(product.available)) ? ` · ${Number(product.available).toLocaleString('en-PK')}` : ''}`
@@ -111,7 +114,7 @@ export function SupplierFeaturedCard({ product }: { product: FeaturedProduct }) 
           ? 'is-available'
           : 'is-unavailable';
   const showStockBadge = Boolean(stockLabel);
-  const canOpen = !isSupplier || inStock;
+  const canPurchase = inStock || contactOnly;
   const cardContent = <>
     <div className="featured-card-topline">
       <div className="featured-logo">
@@ -127,9 +130,7 @@ export function SupplierFeaturedCard({ product }: { product: FeaturedProduct }) 
             decoding="async"
           />
         ) : (
-          <span className="product-monogram" aria-label={product.name}>
-            {supplierMonogram(displayName)}
-          </span>
+          <Tag aria-hidden="true" />
         )}
       </div>
       {showStockBadge && <span className={`featured-stock-badge ${availabilityClass}`} role="status">
@@ -156,35 +157,31 @@ export function SupplierFeaturedCard({ product }: { product: FeaturedProduct }) 
         <span><Tag className="h-3 w-3" /> {contactOnly ? 'From' : 'Our price'}</span>
         <strong>{contactOnly ? contactPrice === null ? 'Choose package' : <Money amount={contactPrice} /> : <Money amount={salePrice} />}</strong>
       </div>
-      {!contactOnly && savings !== null ? <div className="featured-savings">Your savings <strong><Money amount={savings} /></strong></div> : (
-        <div className="featured-savings featured-savings-muted">Your savings <strong>Price may vary</strong></div>
-      )}
+      {!contactOnly && savings !== null && <div className="featured-savings">Your savings <strong><Money amount={savings} /></strong></div>}
     </div>
   </>;
   return (
-    <LocalizedContent><article className={`featured-card supplier-featured-card${isSupplier && !canOpen ? ' is-stock-blocked' : ''}`}>
+    <LocalizedContent><article className={`featured-card supplier-featured-card${!canPurchase ? ' is-stock-blocked' : ''}`}>
       {/*
        * Keep supplier detail pages crawlable even while the live stock check is
-       * still pending (or reports no stock). The purchase actions below remain
-       * disabled, but the card itself should still take a visitor to the detail
+       * still pending (or reports no stock). The purchase action remains
+       * disabled, while the card and details action take a visitor to the detail
        * page and satisfy the static inventory link contract.
        */}
       <a
-        className={`featured-card-main${canOpen ? '' : ' is-disabled'}`}
+        className="featured-card-main"
         href={href}
-        aria-disabled={!canOpen || undefined}
       >
         {cardContent}
       </a>
       <div className="featured-card-actions">
-        {canOpen ? <>
-          <a className="featured-details-button" href={href}>View details</a>
+        <a className="featured-details-button" href={href}>View details</a>
+        {canPurchase ? <>
           <a className="featured-buy-button" href={contactOnly ? href : `/checkout?product=${encodeURIComponent(checkoutProductId)}`}>
             {contactOnly ? 'Choose package' : 'Buy now'} <ArrowRight className="h-4 w-4" />
           </a>
         </> : <>
-          <span className="featured-details-button is-disabled" aria-disabled="true">{stockVerified ? 'Out of stock' : 'Checking stock…'}</span>
-          <span className="featured-buy-button is-disabled" aria-disabled="true">Unavailable</span>
+          <button type="button" className="featured-buy-button is-disabled" disabled>{stockVerified ? 'Unavailable' : 'Checking stock…'}</button>
         </>}
       </div>
     </article></LocalizedContent>

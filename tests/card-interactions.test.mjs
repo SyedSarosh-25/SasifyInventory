@@ -70,9 +70,10 @@ test('delivery proofs render in a swipeable carousel with a full-size dialog', (
   assert.match(page, /dialog\.showModal\(\)/);
   assert.match(page, /isInteractingRef/);
   assert.match(page, /pointerdown/);
-  assert.match(page, /--proof-rotate-y/);
-  assert.match(page, /--proof-rotate-z/);
-  assert.match(page, /const updateCardDepth/);
+  assert.doesNotMatch(page, /--proof-rotate-y/);
+  assert.doesNotMatch(page, /--proof-rotate-z/);
+  assert.match(page, /aria-label="Previous delivery screenshots"/);
+  assert.match(page, /aria-label="Next delivery screenshots"/);
   assert.doesNotMatch(page, /delivery proofs<\/span>/);
   assert.doesNotMatch(page, /Successful delivery proof/);
   assert.match(page, /Successfully delivered/);
