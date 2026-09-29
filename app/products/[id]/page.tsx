@@ -20,6 +20,7 @@ import {
 import { ProductLogo } from '../../components/product-logo';
 import { StockBuy } from '../../components/checkout';
 import { SupplierLivePurchase } from '../../components/supplier-live-purchase';
+import { PurchaseTerms } from '../../components/purchase-terms';
 import { SiteFooter, SiteHeader } from '../../components/site-chrome';
 import { Money, OriginalPrice } from '../../components/currency';
 import { StructuredData } from '../../components/structured-data';
@@ -303,7 +304,7 @@ function SupplierSeoProductPage({ product }: { product: SupplierSeoProduct }) {
               <h2>{product.name}</h2>
             </div>
             <dl className="detail-prices">
-              <div>
+              <div className={comparison ? undefined : 'price-unknown'}>
                 <dt>Original price</dt>
                 <dd>{comparison ? <Money amount={comparison.totalPkr} /> : 'Price may vary'}</dd>
               </div>
@@ -315,23 +316,23 @@ function SupplierSeoProductPage({ product }: { product: SupplierSeoProduct }) {
                   <Money amount={product.price} />
                 </dd>
               </div>
-              <div>
+              <div className={savings !== null ? undefined : 'price-unknown'}>
                 <dt>Your savings</dt>
                 <dd>{savings !== null ? <Money amount={savings} /> : 'Price may vary'}</dd>
               </div>
-              <div>
+              <div className="purchase-delivery-row">
                 <dt>Delivery</dt>
                 <dd>{product.archived ? 'Currently unavailable' : 'Automatic after payment verification'}</dd>
               </div>
             </dl>
-            <div className="plan-notice">
+            <PurchaseTerms><div className="plan-notice">
               <ShieldCheck className="h-5 w-5" />
               <span>
                 <strong>Listing-specific terms</strong>
                 Review the product requirements before payment.
               </span>
             </div>
-            <PurchaseDisclaimer />
+            <PurchaseDisclaimer /></PurchaseTerms>
             <div id="purchase-options" className="detail-purchase-actions">
               {product.archived ? <p role="status">Currently Unavailable. This listing is retained for reference. <a href="/inventory">Browse current plans</a>.</p> : <SupplierLivePurchase
                 productId={product.id}
@@ -575,7 +576,7 @@ export default async function ProductPage({ params }: Props) {
               </p>
             )}
             <dl className="detail-prices">
-              <div>
+              <div className={!product.contactOnly && original === null ? 'price-unknown' : undefined}>
                 <dt>
                   {product.contactOnly
                     ? 'Pricing'
@@ -601,7 +602,7 @@ export default async function ProductPage({ params }: Props) {
                   )}
                 </dd>
               </div>
-              <div className="savings-price">
+              <div className={`savings-price${!product.contactOnly && savings === null ? ' price-unknown' : ''}`}>
                 <dt>{product.contactOnly ? 'Packages' : 'Your Savings'}</dt>
                 <dd>
                   {product.contactOnly ? (
@@ -614,7 +615,8 @@ export default async function ProductPage({ params }: Props) {
                 </dd>
               </div>
             </dl>
-            {product.contactOnly ? (
+            <p className="purchase-mobile-delivery">{product.contactOnly ? 'Choose a package and contact us to order.' : product.availabilityMode === 'preorder' ? `Pre-order · Activation on ${product.preorderDate}` : product.availabilityMode === 'manual' ? `Activation ${product.activationSla || 'after verification'} · Your email is required` : 'Automatic delivery after payment verification'}</p>
+            <PurchaseTerms>{product.contactOnly ? (
               <p className="price-explanation">
                 Choose a KVM package above, then contact us on WhatsApp for
                 availability, payment and activation details.
@@ -693,7 +695,7 @@ export default async function ProductPage({ params }: Props) {
                 )}
               </span>
             </div>
-            <PurchaseDisclaimer />
+            <PurchaseDisclaimer /></PurchaseTerms>
             <div id="purchase-options" className="detail-purchase-actions">
               {!product.contactOnly && (
                 <StockBuy

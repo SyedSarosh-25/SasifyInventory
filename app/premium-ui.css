@@ -251,6 +251,7 @@ body[data-storefront="true"] .footer-policy-links a { color: #44536e; font-size:
 .detail-tool-plans-link { display: inline-flex; align-items: center; gap: 6px; margin-top: 12px; }
 
 /* Shared catalog controls and readable cards, including mobile overrides. */
+.purchase-terms-mobile, .purchase-mobile-delivery { display: none; }
 body[data-storefront="true"] .catalog-section .section-kicker { font-size: var(--type-xs); letter-spacing: .06em; }
 body[data-storefront="true"] .comparison-note { color: var(--text-muted); font-size: var(--type-sm); }
 body[data-storefront="true"] .catalog-reset { margin-left: 0; width: auto; min-height: 44px; padding: 8px 12px; border-radius: var(--radius-control); color: var(--text-link); }
@@ -295,4 +296,43 @@ body[data-storefront="true"] .footer-policy-links { padding-top: 0; padding-bott
   body[data-storefront="true"] .featured-grid { grid-template-columns: 1fr; }
   body[data-storefront="true"] .featured-stock-badge { text-align: left; }
   body[data-storefront="true"] .footer-socials { justify-items: center; }
+}
+
+/* Compact mobile purchase cards; desktop presentation and payment actions stay unchanged. */
+@media (max-width: 640px) {
+  body[data-storefront="true"] .purchase-summary { padding: 18px; border-radius: 16px; }
+  body[data-storefront="true"] .purchase-heading { margin-bottom: 12px; }
+  body[data-storefront="true"] .purchase-heading h2,
+  body[data-storefront="true"] .purchase-summary > h2 { font-size: 1.125rem; line-height: 1.4; }
+  body[data-storefront="true"] .purchase-summary .section-kicker { font-size: .6875rem; letter-spacing: .1em; }
+  body[data-storefront="true"] .purchase-summary .detail-prices { display: flex; flex-direction: column; gap: 0; }
+  body[data-storefront="true"] .purchase-summary .detail-prices > div { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 8px 0; border: 0; border-radius: 0; background: none; }
+  body[data-storefront="true"] .purchase-summary .detail-prices .selling-price { order: -1; padding: 14px 0; border-block: 1px solid var(--line); }
+  body[data-storefront="true"] .purchase-summary .detail-prices dt { font-size: .8125rem; }
+  body[data-storefront="true"] .purchase-summary .detail-prices dd { margin: 0; font-size: .8125rem; text-align: right; }
+  body[data-storefront="true"] .purchase-summary .detail-prices .selling-price dd { font-size: 1.75rem; line-height: 1.2; }
+  body[data-storefront="true"] .purchase-summary .detail-prices .selling-price dt svg { display: none; }
+  body[data-storefront="true"] .purchase-summary .detail-prices .price-unknown { display: none; }
+  body[data-storefront="true"] .purchase-summary .detail-prices .purchase-delivery-row { justify-content: flex-start; align-items: center; padding: 12px 0; }
+  body[data-storefront="true"] .purchase-summary .purchase-delivery-row dt { display: none; }
+  body[data-storefront="true"] .purchase-summary .purchase-delivery-row dd { text-align: left; font-size: .875rem; }
+  .purchase-mobile-delivery { display: block; margin: 12px 0; color: var(--copy); font-size: .875rem; line-height: 1.5; }
+  .purchase-terms-desktop { display: none; }
+  .purchase-terms-mobile { display: block; margin-top: 12px; border: 1px solid var(--line); border-radius: 12px; background: #f8faff; }
+  .purchase-terms-mobile > summary { display: flex; align-items: center; gap: 10px; padding: 12px; cursor: pointer; list-style: none; }
+  .purchase-terms-mobile > summary::-webkit-details-marker { display: none; }
+  .purchase-terms-mobile > summary:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; border-radius: 12px; }
+  .purchase-terms-mobile summary > svg { width: 20px; height: 20px; color: #176653; }
+  .purchase-terms-mobile summary > span { min-width: 0; flex: 1; }
+  .purchase-terms-mobile strong { display: block; font-size: .875rem; line-height: 1.4; }
+  .purchase-terms-mobile small { display: block; margin-top: 3px; color: var(--copy); font-size: .75rem; line-height: 1.4; }
+  .purchase-terms-mobile .purchase-terms-chevron { color: var(--copy); transition: transform .15s; }
+  .purchase-terms-mobile[open] .purchase-terms-chevron { transform: rotate(180deg); }
+  .purchase-terms-body { padding: 0 12px 12px; }
+  body[data-storefront="true"] .purchase-terms-body .plan-notice { margin-top: 8px; padding: 0; border: 0; background: none; }
+  body[data-storefront="true"] .purchase-terms-body .purchase-disclaimer { margin-top: 12px; padding: 0; border: 0; background: none; }
+  body[data-storefront="true"] .purchase-summary .detail-purchase-actions { margin-top: 14px; }
+  body[data-storefront="true"] .purchase-summary .detail-buy { min-height: 46px; font-size: .875rem; }
+  body[data-storefront="true"] .purchase-summary .whatsapp-purchase:disabled { display: none; }
+  body[data-storefront="true"] .purchase-summary .order-footnote { margin-top: 10px; font-size: .75rem; }
 }
