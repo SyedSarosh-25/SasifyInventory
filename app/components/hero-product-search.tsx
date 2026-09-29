@@ -101,7 +101,7 @@ export function HeroProductSearch() {
       <button type="submit" aria-label="Show matching products" title="Show matching products"><ArrowRight className="h-5 w-5" /></button>
     </form>
 
-    <p className="hero-discovery-label">{searching ? 'Search results' : 'Top selling products'}</p>
+    <p className="hero-discovery-label">{searching ? `${resultCount} ${resultCount === 1 ? 'product' : 'products'} found` : 'Top selling products'}</p>
     <p className="sr-only" role="status" aria-live="polite" aria-atomic="true">
       {searching ? `${resultCount} ${resultCount === 1 ? 'product' : 'products'} found` : ''}
     </p>
@@ -130,7 +130,7 @@ export function HeroProductSearch() {
           <button type="button" onClick={clearSearch}>Show top products</button>
         </div>}
       </div> : <nav className="hero-top-products" aria-label="Top selling products">
-        {(topSelling.length ? topSelling : heroProducts.map((product) => ({ kind: 'local' as const, label: product.name, product }))).slice(0, 3).map((item) => <a key={item.kind === 'supplier' ? item.product.id : item.product.id} href={toolFamilyHref(item.product.name)}>
+        {(topSelling.length ? topSelling : heroProducts.map((product) => ({ kind: 'local' as const, label: product.name, product }))).map((item) => <a key={item.kind === 'supplier' ? item.product.id : item.product.id} href={toolFamilyHref(item.product.name)}>
           <span className="hero-mini-logo">{item.kind === 'supplier' ? (supplierLogo(item.product.name, item.product.logo_url) ? <img src={supplierLogo(item.product.name, item.product.logo_url)} alt={`${item.product.name} logo`} /> : supplierMonogram(item.product.name)) : <ProductLogo product={item.product} />}</span>
           <span>{item.label}</span>
         </a>)}

@@ -11,6 +11,7 @@ import {
   ExternalLink,
   Headphones,
   HeartHandshake,
+  KeyRound,
   Landmark,
   Maximize2,
   RotateCcw,
@@ -544,8 +545,8 @@ export default function Home() {
           <div className="hero-copy">
             <span className="hero-kicker">
               <ShieldCheck className="h-4 w-4" />
-              <span className="hero-kicker-desktop">Pakistan&apos;s first fully automated digital store</span>
-              <span className="hero-kicker-mobile">Pakistan&apos;s first automated digital store</span>
+              <span className="hero-kicker-desktop">Pakistan&apos;s 1st fully automated digital store</span>
+              <span className="hero-kicker-mobile">Pakistan&apos;s 1st automated digital store</span>
             </span>
             <HeroTypingTitle />
             <p>
@@ -558,6 +559,12 @@ export default function Home() {
               <a href="#catalog" className="primary-button">
                 See top plans and prices <ArrowRight className="h-4 w-4" />
               </a>
+              <a href="/request-tool" className="secondary-button">
+                Request a missing tool <ArrowRight className="h-4 w-4" />
+              </a>
+              <a href="/otp" className="secondary-button otp-hero-button">
+                <KeyRound className="h-4 w-4" /> Get your 2FA code
+              </a>
             </div>
           </div>
 
@@ -567,7 +574,7 @@ export default function Home() {
             <div className="center-logo">
               <img src="/sasify-logo-200.webp" alt="Sasify Solutions" width={200} height={200} decoding="async" />
             </div>
-            {orbitTools.slice(0, 3).map((tool) => (
+            {orbitTools.map((tool) => (
               <div key={tool.name} className={`orbit-tool ${tool.className}`}>
                 <div className="orbit-position">
                   <a className="orbit-content" href={tool.product ? productHref(tool.product) : `/inventory?q=${encodeURIComponent(tool.searchQuery)}`} aria-label={`View ${tool.name}`}>
