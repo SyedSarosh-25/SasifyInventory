@@ -438,6 +438,7 @@ export function Checkout() {
   }
   return (
     <LocalizedContent><div className="commerce-shell">
+      <div className="checkout-topbar">
       <div className="checkout-language-bar"><LanguageSwitcher /></div>
       <a href="/" className="brand">
         <img
@@ -448,12 +449,14 @@ export function Checkout() {
         />
         <strong>Sasify Solutions</strong>
       </a>
+      </div>
       <a href="/inventory" className="back-link">
         All products
       </a>
       <h1>
         {order ? (order.amount === 0 ? 'Your free order' : 'Complete your payment') : 'Buy online'}
       </h1>
+      {!order && !id && <p className="checkout-intro">Choose your package and payment method.</p>}
       <CheckoutAccount orderId={order?.status === 'pending' ? id : ''} onWalletBalanceChange={(balance) => setCheckoutAccount((current) => current ? { ...current, balance } : current)} onInsufficientWallet={() => { clear(); setError('Insufficient wallet balance. Add funds first, then try again.'); }} onPaid={() => { void api('status',key,undefined,id).then(setOrder).catch(e=>setError(e.message)); }} />
       <div className="instant-delivery">
         <span className="instant-icon">
@@ -467,7 +470,7 @@ export function Checkout() {
                 ? 'Claude Team pre-order'
                 : product?.availability_mode === 'manual' || product?.provider_id === 'manual'
                   ? 'Manual activation after payment'
-                  : 'Automatic credential delivery'}
+                  : 'Automatic delivery'}
           </strong>
           <p>
             {order?.amount === 0
@@ -480,7 +483,7 @@ export function Checkout() {
                 ? 'Your delivery appears here automatically after the signed NayaPay receipt is matched.'
                 : ['binance', 'crypto'].includes(order?.paymentMethod || '')
                   ? 'Your delivery appears here automatically after the authenticated Binance receipt is matched.'
-                  : 'Pay here and your account credentials will appear on this screen automatically after verification, usually within one minute. No manual delivery delays.'}
+                  : 'Your login details appear here after payment verification, usually within one minute.'}
           </p>
         </div>
         <span className="instant-badge">{product?.availability_mode === 'preorder' ? 'Pre-order' : product?.availability_mode === 'manual' || product?.provider_id === 'manual' ? 'Manual' : 'Instant'}</span>
@@ -589,6 +592,8 @@ export function Checkout() {
                 </small>
               </label>
             )}
+            <details className="checkout-terms">
+              <summary><ShieldCheck size={20} aria-hidden="true" /><span><strong>Read before purchasing</strong><small>Activation, duration and warranty terms</small></span><ChevronDown size={18} aria-hidden="true" /></summary>
             <aside className="purchase-disclaimer" role="note">
               <strong>Please read before purchasing</strong>
               <p>
@@ -598,6 +603,7 @@ export function Checkout() {
                 read or followed, Sasify Solutions cannot be held responsible.
               </p>
             </aside>
+            </details>
             <fieldset className="payment-method-picker">
               <legend>How will you send the payment?</legend>
               <label className={`sasify-wallet-card${checkoutAccount ? '' : ' disabled'}${useSasifyWallet ? ' selected' : ''}`}>
@@ -614,7 +620,7 @@ export function Checkout() {
                     }
                   }}
                 />
-                <span className="sasify-wallet-logo" aria-hidden="true"><img src="/sasify-wallet-96.webp" alt="" width={42} height={42} /></span>
+                <span className="sasify-wallet-logo" aria-hidden="true"><img src="/sasify-wallet-user-96.webp" alt="" width={42} height={42} /></span>
                 <span>
                   <strong>Sasify Wallet{useSasifyWallet ? ' · Selected' : ''}</strong>
                   <small>{checkoutAccount ? `Balance: PKR ${Number(checkoutAccount.balance || 0).toLocaleString()} · 5% discount on eligible products` : 'Sign up to unlock · 5% discount on eligible products'}</small>
@@ -630,6 +636,7 @@ export function Checkout() {
                   aria-expanded={paymentMenuOpen}
                   onClick={() => setPaymentMenuOpen((open) => !open)}
                 >
+                  <WalletCards size={20} aria-hidden="true" className="payment-method-current-icon" />
                   <span className="payment-method-trigger-copy">
                     <strong>{useSasifyWallet ? 'Select another payment method' : selectedPayment.label}</strong>
                     <small>{useSasifyWallet ? 'Sasify Wallet is selected above' : selectedPayment.description}</small>
@@ -676,6 +683,8 @@ export function Checkout() {
                 <small>Final amount with Sasify Wallet: <strong>PKR {walletPayable.toLocaleString('en-PK')}</strong></small>
               </div>
             )}
+            <details className="checkout-coupon">
+            <summary><span>{useSasifyWallet ? 'Coupons are unavailable with Sasify Wallet' : 'Have a reseller coupon?'}</span><ChevronDown size={18} aria-hidden="true" /></summary>
             <label className={useSasifyWallet ? 'disabled-field' : undefined}>
               Reseller coupon {useSasifyWallet ? '(not available with Sasify Wallet)' : '(optional)'}
               <input
@@ -688,6 +697,7 @@ export function Checkout() {
               />
               {useSasifyWallet && <small>Coupons cannot be combined with Sasify Wallet payments.</small>}
             </label>
+            </details>
             <button
               className="primary-button"
               disabled={

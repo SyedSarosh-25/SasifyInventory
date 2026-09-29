@@ -22,8 +22,8 @@ test('local and supplier product pages link to the corresponding tool hub', () =
 });
 
 test('small images are used without restoring removed login artwork', () => {
-  assert.match(read('app/components/checkout.tsx'), /src="\/sasify-wallet-96.webp"/);
-  assert.ok(statSync(new URL('../public/sasify-wallet-96.webp', import.meta.url)).size < 6000);
+  assert.match(read('app/components/checkout.tsx'), /src="\/sasify-wallet-user-96.webp"/);
+  assert.ok(statSync(new URL('../public/sasify-wallet-user-96.webp', import.meta.url)).size < 6000);
   assert.match(read('out/index.html'), /sasify-logo-200.webp/);
   assert.match(read('out/index.html'), /sasify-logo-96.webp/);
   assert.doesNotMatch(read('out/login.html'), /sasify-account-hero\.(png|webp)/);
