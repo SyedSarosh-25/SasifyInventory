@@ -212,9 +212,6 @@ export function AccountAuth({ signup = false }: { signup?: boolean }) {
       <main className="account-auth">
         <section className={`account-intro${signup ? ' account-intro-signup' : ''}`}>
           <span className="account-eyebrow">YOUR SASIFY ACCOUNT</span>
-          {!signup && <div className="account-hero-art account-hero-art-image" aria-hidden="true">
-            <img src="/sasify-account-hero.png" alt="" />
-          </div>}
           <h1>{signup ? 'Your digital world, together.' : 'Welcome back.'}</h1>
           <p>
             Keep your purchases, credentials and wallet together in one calm,
