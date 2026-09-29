@@ -4,7 +4,6 @@ ErrorDocument 404 /404.html
 <IfModule mod_rewrite.c>
   RewriteEngine On
   RewriteRule ^account/?$ /dashboard [R=301,L]
-  RewriteRule ^products/(.+)-[a-z0-9]{6}/?$ /products/$1 [R=301,L,NE]
   RewriteCond %{REQUEST_FILENAME} !-f
   RewriteCond %{REQUEST_FILENAME} !-d
   RewriteCond %{DOCUMENT_ROOT}/$1.html -f

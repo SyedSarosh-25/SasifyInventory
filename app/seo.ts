@@ -13,7 +13,6 @@ import {
   supplierSeoProducts,
 } from './supplier-seo.ts';
 import { supplierLogo } from './supplier-product-utils.ts';
-import { stableSupplierHash } from './supplier-seo-utils.ts';
 import { knownToolFamilySlugs } from './tool-families.ts';
 import {
   founderProfile,
@@ -262,7 +261,7 @@ export function productData(product: Product) {
 export function supplierProductTitle(product: SupplierSeoProduct) {
   const baseTitle = compactProductTitle(product.name);
   const disambiguator = duplicateSupplierNames.has(product.name) || duplicateSupplierTitles.has(baseTitle)
-    ? stableSupplierHash(product.name)
+    ? product.slug.slice(-6)
     : undefined;
   return disambiguator ? compactProductTitle(product.name, disambiguator) : baseTitle;
 }
@@ -272,7 +271,7 @@ export function supplierProductDescription(product: SupplierSeoProduct) {
   if (!duplicateSupplierDescriptions.has(trimSeoText(base, SEO_DESCRIPTION_LIMIT))) {
     return trimSeoText(base, SEO_DESCRIPTION_LIMIT);
   }
-  const suffix = `Listing ${stableSupplierHash(product.name)}`;
+  const suffix = `Listing ${product.slug.slice(-6)}`;
   return `${trimSeoText(base, SEO_DESCRIPTION_LIMIT - suffix.length - 3)} · ${suffix}`;
 }
 

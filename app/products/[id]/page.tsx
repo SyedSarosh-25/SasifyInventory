@@ -37,7 +37,6 @@ import {
 import {
   findSupplierSeoProduct,
   supplierProductHref,
-  supplierProductSlug,
   supplierSeoProducts,
   type SupplierSeoProduct,
 } from '../../supplier-seo';
@@ -56,22 +55,11 @@ import {
 import { productShareImage, productShareImageUrl } from '../../share-metadata';
 import { supplierOriginalPriceComparison, supplierSavingsPkr } from '../../supplier-price-utils';
 import { productSearchTags } from '../../product-search-tags';
-import { supplierProductRedirects } from '../../supplier-product-redirects.mjs';
 
 type Props = { params: Promise<{ id: string }> };
 
 function findLocalProduct(routeId: string) {
   return products.find((item) => item.slug === routeId || item.id === routeId);
-}
-
-function findLegacySupplierProduct(routeId: string) {
-  const match = routeId.match(/^(.*)-[a-z0-9]{6}$/i);
-  if (!match) return null;
-  return supplierSeoProducts.find((product) => supplierProductSlug(product) === match[1]) || null;
-}
-
-function legacySupplierRedirect(routeId: string) {
-  return supplierProductRedirects.find(([from]) => from === routeId)?.[1] || null;
 }
 
 function PurchaseDisclaimer() {
@@ -368,10 +356,6 @@ export default async function ProductPage({ params }: Props) {
   if (!product) {
     const supplierProduct = findSupplierSeoProduct(id);
     if (supplierProduct) return <LocalizedContent><SupplierSeoProductPage product={supplierProduct} /></LocalizedContent>;
-    const legacyTarget = legacySupplierRedirect(id);
-    if (legacyTarget) redirect(`/products/${legacyTarget}`);
-    const legacySupplierProduct = findLegacySupplierProduct(id);
-    if (legacySupplierProduct) redirect(supplierProductHref(legacySupplierProduct));
     notFound();
   }
   if (id === product.id && product.slug && product.slug !== product.id)

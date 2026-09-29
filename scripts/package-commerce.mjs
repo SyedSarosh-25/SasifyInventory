@@ -11,7 +11,6 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { products } from '../app/products.ts';
 import { productHref } from '../app/product-utils.ts';
-import { supplierProductRedirects } from '../app/supplier-product-redirects.mjs';
 
 const root = await realpath(fileURLToPath(new URL('../', import.meta.url)));
 const target = path.join(root, '.vercel/output');
@@ -128,11 +127,6 @@ const productRedirectRoutes = products
     headers: { Location: productHref(product) },
   }))
   .filter((route) => route.src !== route.headers.Location);
-const supplierProductRedirectRoutes = supplierProductRedirects.map(([from, to]) => ({
-  src: `/products/${from}`,
-  status: 308,
-  headers: { Location: `/products/${to}` },
-}));
 await writeFile(
   path.join(target, 'config.json'),
   JSON.stringify(
@@ -146,7 +140,6 @@ await writeFile(
           headers: { Location: '/dashboard' },
         },
         ...productRedirectRoutes,
-        ...supplierProductRedirectRoutes,
         {
           src: '/api/google-reviews-sync',
           dest: '/api/commerce?action=google-reviews-sync',

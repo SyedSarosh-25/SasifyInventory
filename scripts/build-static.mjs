@@ -66,15 +66,6 @@ const productRedirects = [
     destination: `/products/${to}`,
     permanent: true,
   })),
-  // Old supplier URLs used a six-character suffix derived from a provider
-  // key. The key changed on refresh; strip that legacy suffix and let the
-  // stable name-based route serve the canonical page. This stays after the
-  // explicit aliases above so renamed plans keep their reviewed destination.
-  {
-    source: '/products/:slug-:legacyHash([a-z0-9]{6})',
-    destination: '/products/:slug',
-    permanent: true,
-  },
   ...products
   .map((product) => ({
     source: `/products/${product.id}`,

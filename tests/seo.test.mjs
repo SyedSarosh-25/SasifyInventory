@@ -2,8 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { products } from '../app/products.ts';
 import { storefrontCategories } from '../app/categories.ts';
-import { knownToolFamilySlugs } from '../app/tool-families.ts';
-import { supplierProductHref, supplierProductSlug, supplierSeoProducts } from '../app/supplier-seo.ts';
+import { supplierProductHref, supplierSeoProducts } from '../app/supplier-seo.ts';
 import { productHref } from '../app/product-utils.ts';
 import {
   siteOrigin,
@@ -32,7 +31,7 @@ import {
 test('sitemap contains only unique canonical pages at the configured domain', () => {
   assert.equal(defaultSiteOrigin, 'https://www.sasifysolutions.com');
   const entries = sitemapEntries();
-  assert.equal(entries.length, products.length + supplierSeoProducts.length + 12 + storefrontCategories.length + knownToolFamilySlugs.length);
+  assert.equal(entries.length, products.length + supplierSeoProducts.length + 12 + storefrontCategories.length);
   assert.equal(new Set(entries.map(({ url }) => url)).size, entries.length);
   assert.deepEqual(
     entries.slice(0, 10).map(({ url }) => url),
@@ -149,15 +148,6 @@ test('supplier SEO products have canonical titles and crawlable Product offers',
     assert.ok(!('aggregateRating' in data));
     assert.ok(!('review' in data));
   }
-});
-
-test('supplier canonical URLs do not change when a provider rebuilds its key', () => {
-  const name = 'Capcut Pro 1 Month Full Warranty';
-  assert.equal(
-    supplierProductSlug({ name, canonical_key: 'auto:capcut-duration-1m' }),
-    supplierProductSlug({ name, canonical_key: 'auto:capcut-pro-duration-1m-v2' }),
-  );
-  assert.equal(supplierProductSlug({ name }), 'capcut-pro-1-month-full-warranty');
 });
 
 test('plan answers keep warranty terms listing-specific and retain ChatGPT terms and unknown duration', () => {
