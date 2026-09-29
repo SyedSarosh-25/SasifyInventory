@@ -154,6 +154,11 @@ export function Catalog({ initialQuery = '', initialCategory = 'All', heading = 
         source: 'local',
         category: product.category,
         localProduct: product,
+        availability_mode: product.availabilityMode,
+        requires_customer_email: product.requiresCustomerEmail,
+        activation_sla: product.activationSla,
+        preorder_date: product.preorderDate,
+        stock_label: product.stockLabel,
       };
     });
     const visibleSupplierInventory = supplierInventory.filter(

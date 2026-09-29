@@ -58,3 +58,10 @@ test('checkout no longer performs or displays a supplier availability check', ()
   assert.doesNotMatch(checkoutSource, /Checking availability/);
   assert.doesNotMatch(checkoutSource, /Supplier availability/);
 });
+
+test('pre-order confirmation explains the completion date, email and popup', () => {
+  assert.match(checkoutSource, /Your pre-order has been received/);
+  assert.match(checkoutSource, /Your order will be completed on 2 October 2026/);
+  assert.match(checkoutSource, /You will receive an email at the address you provided us/);
+  assert.match(checkoutSource, /sasify-preorder-confirmed-\$\{order\.id\}/);
+});

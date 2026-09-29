@@ -2678,6 +2678,9 @@ async function fulfill(
       'Multiple orders claim this transaction. Manual review required.',
     );
   if (isClaudePreorderProduct(order.product_id)) {
+    const preorderProductName = order.product_id === 'p013'
+      ? 'Claude Team Plan Standard'
+      : 'Claude Team Plan Premium';
     await db.query(
       'UPDATE commerce_payments SET order_id=$1,verification_reason=$3 WHERE id=$2',
       [order.id, payment.id, manual ? 'manually_approved' : 'verified_preorder'],
@@ -2689,6 +2692,30 @@ async function fulfill(
     await db.query(
       "INSERT INTO commerce_audit(action,object_id,details) VALUES('preorder_payment_confirmed',$1,$2::jsonb)",
       [order.id, JSON.stringify({ preorderDate: PREORDER_DELIVERY_DATE })],
+    );
+    let confirmationEmailSent = false;
+    if (order.customer_email) {
+      try {
+        const deliveryDate = new Date(`${PREORDER_DELIVERY_DATE}T00:00:00Z`).toLocaleDateString('en-GB', {
+          day: 'numeric',
+          month: 'long',
+          year: 'numeric',
+          timeZone: 'UTC',
+        });
+        await sendAccountEmail({
+          to: order.customer_email,
+          subject: 'Your Sasify pre-order has been received',
+          text: `Your pre-order for ${preorderProductName} has been received. Your order will be completed on ${deliveryDate}. We will continue updates at the email address you provided us.`,
+          html: `<div style="font-family:Arial,sans-serif;max-width:680px;margin:0 auto;padding:24px;color:#173b73"><div style="border:1px solid #d9e4f3;border-radius:16px;padding:24px;background:#f8fbff"><div style="font-size:12px;font-weight:800;letter-spacing:.12em;color:#285cff;text-transform:uppercase;margin-bottom:18px">Sasify Solutions</div><h2 style="margin:0 0 16px;color:#173b73">Pre-order received</h2><p style="line-height:1.65;color:#334d74">Your pre-order for <strong>${escapeEmailHtml(preorderProductName)}</strong> has been received.</p><p style="line-height:1.65;color:#334d74">Your order will be completed on <strong>${escapeEmailHtml(deliveryDate)}</strong>. We will continue updates at this email address.</p></div></div>`,
+        });
+        confirmationEmailSent = true;
+      } catch (error) {
+        console.error('[preorder] confirmation email failed', error?.message || error);
+      }
+    }
+    await db.query(
+      "INSERT INTO commerce_audit(action,object_id,details) VALUES('preorder_confirmation_email',$1,$2::jsonb)",
+      [order.id, JSON.stringify({ sent: confirmationEmailSent, email: Boolean(order.customer_email) })],
     );
     return;
   }
@@ -3721,6 +3748,7 @@ export function createHandler(
         const input = typeof req.body === 'string' ? JSON.parse(req.body) : req.body || {};
         if (JSON.stringify(input).length > 200000) throw fail(413, 'Request too large.');
         const productId = String(input.productId || req.query?.productId || new URL(req.url, 'https://www.sasifysolutions.com').searchParams.get('productId') || '');
+        const availabilityBypass = isClaudePreorderProduct(productId) || isManualActivationProduct(productId);
         if (action !== 'catalog' && (!productId || productId.length > 200)) throw fail(400, 'Select a valid product.');
         const connection = await pool.connect();
         let offers = [], providers = [];
@@ -3747,10 +3775,12 @@ export function createHandler(
           }
           const local = catalog.find((p) => p.id === productId);
           if (local) {
-            const available = productId === SHARED_CHATGPT_PRODUCT_ID
+            const available = availabilityBypass
+              ? 0
+              : productId === SHARED_CHATGPT_PRODUCT_ID
               ? Number((await connection.query(`SELECT COALESCE(SUM(sa.max_slots-sa.slots_filled),0)::int AS available FROM commerce_shared_accounts sa JOIN commerce_inventory i ON i.id=sa.inventory_id WHERE sa.status='active' AND sa.slots_filled<sa.max_slots AND i.state IN ('available','reserved','delivered')`)).rows[0]?.available || 0)
               : Number((await connection.query(`SELECT count(*)::int AS available FROM commerce_inventory i WHERE i.product_id=$1 AND i.state='available' AND NOT EXISTS (SELECT 1 FROM commerce_shared_accounts sa WHERE sa.inventory_id=i.id)`, [productId])).rows[0]?.available || 0);
-            checkoutAvailability = { status: available > 0 ? 'available' : 'unavailable', available };
+            checkoutAvailability = { status: availabilityBypass ? 'available' : available > 0 ? 'available' : 'unavailable', available };
           } else {
             const allOffers = (await connection.query(`SELECT * FROM commerce_supplier_products WHERE enabled=true AND selling_price IS NOT NULL AND provider_id<>'elitetools' ORDER BY cost_pkr ASC NULLS LAST,wholesale_price ASC,id`)).rows;
             const planKey = (p) => p.canonical_manual && !p.canonical_key.startsWith('auto:') ? p.canonical_key : supplierProductKey(p.name) || p.canonical_key;
@@ -3759,10 +3789,10 @@ export function createHandler(
             providers = supplierProviders(await readSupplierApiKeys(connection, key));
           }
         } finally { connection.release(); }
-        if (!checkoutAvailability) checkoutAvailability = { ...await checkSupplierPlan(offers, providers), listedPrice: offers[0]?.selling_price };
+        if (!checkoutAvailability && !availabilityBypass) checkoutAvailability = { ...await checkSupplierPlan(offers, providers), listedPrice: offers[0]?.selling_price };
         if (action === 'checkout-availability') return json(res, 200, { productId, status: checkoutAvailability.status, available: checkoutAvailability.available, checkedAt: new Date().toISOString() });
-        if (checkoutAvailability.status === 'unknown') throw fail(503, 'We couldn’t verify availability. Please retry.');
-        if (checkoutAvailability.status !== 'available') throw fail(409, 'Sorry, this product is currently unavailable from the supplier.');
+        if (!availabilityBypass && checkoutAvailability.status === 'unknown') throw fail(503, 'We couldn’t verify availability. Please retry.');
+        if (!availabilityBypass && checkoutAvailability.status !== 'available') throw fail(409, 'Sorry, this product is currently unavailable from the supplier.');
       }
       db = await pool.connect();
       let body = req.body || {};
