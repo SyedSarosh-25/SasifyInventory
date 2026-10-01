@@ -45,3 +45,15 @@ test('listing summaries retain purchase fields while detail responses retain ful
   assert.deepEqual(catalogResponse(full, { productId: 'unknown' }).products, []);
   assert.equal(full.products[0].delivery_instruction, 'Private activation instructions');
 });
+
+test('internal test listings are excluded before public catalog caching', async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => ({ok:true,json:async()=>({ready:true,productCount:3,products:[{id:'test',name:'API Test Product'},{id:'real',name:'API testing software'},{id:'normal',name:'Gemini AI Pro'}]})});
+  try {
+    invalidatePublicCatalog();
+    const data = await loadPublicCatalog();
+    assert.deepEqual(data.products.map(p=>p.id), ['real','normal']);
+    assert.equal(data.productCount, 2);
+    assert.deepEqual(await loadPublicCatalog(), data);
+  } finally { invalidatePublicCatalog(); globalThis.fetch = originalFetch; }
+});

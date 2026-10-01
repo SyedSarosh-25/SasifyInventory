@@ -16,6 +16,7 @@ import { canonicalStorefrontRoute } from './canonical-storefront-route.mjs';
 import { supplierUrlRegistry } from '../app/supplier-url-registry.generated.mjs';
 import { supplierUrlRedirects } from '../app/supplier-url-registry-core.mjs';
 import { supplierSeoProducts } from '../app/supplier-seo.ts';
+import { verifiedHistoricalProductRedirects } from '../app/historical-product-redirects.mjs';
 
 const root = await realpath(fileURLToPath(new URL('../', import.meta.url)));
 const target = path.join(root, '.vercel/output');
@@ -137,6 +138,11 @@ const productRedirectRoutes = products
     headers: { Location: productHref(product) },
   }))
   .filter((route) => route.src !== route.headers.Location);
+const historicalRedirectRoutes = verifiedHistoricalProductRedirects(supplierSeoProducts).map(([from, to]) => ({
+  src: `/products/${from}/?$`,
+  status: 308,
+  headers: { Location: `/products/${to}` },
+}));
 const supplierRedirectRoutes = supplierUrlRedirects(supplierUrlRegistry, supplierSeoProducts.map((product) => product.slug))
   .map(([from, to]) => ({
     src: `/products/${from.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/?$`,
@@ -173,6 +179,7 @@ await writeFile(
           headers: { Location: '/dashboard' },
         },
         ...productRedirectRoutes,
+        ...historicalRedirectRoutes,
         ...supplierRedirectRoutes,
         {
           src: '/api/google-reviews-sync',

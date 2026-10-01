@@ -1,0 +1,17 @@
+.tool-buying-guide { margin: 24px 0 32px; padding: 24px; border: 1px solid var(--line); border-radius: 16px; background: var(--page); }
+.tool-buying-guide h2 { margin: 0 0 12px; font-size: 1.2rem; line-height: 1.4; }
+.tool-buying-guide p, .tool-buying-guide li { color: var(--copy); font-size: .9rem; line-height: 1.7; }
+.tool-buying-guide a { color: var(--blue); }
+.tool-comparison-scroll { overflow-x: auto; margin: 20px 0; border: 1px solid var(--line); border-radius: 12px; }
+.tool-comparison-scroll:focus-visible { outline: 2px solid var(--blue); outline-offset: 3px; }
+.tool-comparison-table { width: 100%; min-width: 760px; border-collapse: collapse; text-align: left; font-size: .84rem; line-height: 1.6; }
+.tool-comparison-table caption { caption-side: bottom; padding: 14px; text-align: left; color: var(--muted); }
+.tool-comparison-table th, .tool-comparison-table td { width: 25%; padding: 16px; vertical-align: top; border-bottom: 1px solid var(--line); overflow-wrap: anywhere; }
+.tool-comparison-table thead { background: var(--surface); }
+.tool-comparison-table td { color: var(--copy); }
+.tool-comparison-price { display: block; margin-top: 10px; color: var(--ink); white-space: nowrap; }
+.tool-guide-details { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 24px; }
+.tool-guide-details ol { padding-left: 22px; }
+.tool-guide-details li { margin: 10px 0; }
+.tool-guide-links { display: flex; flex-wrap: wrap; gap: 12px 24px; margin-top: 18px; font-size: .9rem; }
+@media (max-width: 700px) { .tool-buying-guide { padding: 16px; } .tool-guide-details { grid-template-columns: minmax(0, 1fr); } }

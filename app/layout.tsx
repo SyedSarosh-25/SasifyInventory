@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import { Geist, Plus_Jakarta_Sans } from 'next/font/google';
 import './globals.css';
 import './premium-ui.css';
+import './tool-buying-guides.css';
 import { LanguageProvider } from './components/language';
 import { siteDescription, siteOrigin, siteTitle } from './site-config';
 import { CurrencyProvider } from './components/currency';

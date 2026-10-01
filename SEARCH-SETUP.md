@@ -122,6 +122,24 @@ For Vercel production deployments, store the same value in the production enviro
 
 ## Ongoing search quality
 
+### Focused SEO improvements — 2 October 2026
+
+- Homepage title: `AI Tools & Digital Subscriptions in Pakistan | Sasify Solutions`.
+- `/tools/chatgpt`, `/tools/cursor` and `/tools/gemini` include server-rendered
+  comparisons, activation guidance and buyer questions. Prices come from the
+  existing catalogue; warranty/access wording remains listing-specific.
+- `/products/p016` permanently redirects to the equivalent Gemini AI Pro
+  18-month listing. The shared historical redirect mapping is checked against
+  the current catalogue in both static and commerce packaging; missing or
+  mismatched destinations fail the build rather than silently changing plans.
+- Exact internal test fixtures are excluded from public catalogue discovery and
+  the sitemap. Previously published fixture detail pages remain crawlable with
+  `noindex, nofollow`; real archived products are not blanket-deindexed.
+- The public catalogue cache version changed so old browser caches cannot
+  restore a fixture listing. No provider records or payment settings changed.
+- Search Console will reflect these changes only after Google recrawls/processes
+  them; deployment does not guarantee indexing, ranking or a specific deadline.
+
 - Keep each public product page accurate, useful and distinct.
 - Add original buyer guidance and support content based on real customer questions.
 - Monitor indexed/not-indexed reasons, search queries, impressions, clicks and Core Web Vitals in the official dashboards.

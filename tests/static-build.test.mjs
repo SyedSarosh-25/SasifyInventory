@@ -40,7 +40,7 @@ test('brand title and standards-compatible favicons are included in exported pag
   const home = await read('index.html');
   assert.match(
     home,
-    /<title>Sasify Solutions \| Digital Tools and Services Marketplace<\/title>/,
+    /<title>AI Tools &amp; Digital Subscriptions in Pakistan \| Sasify Solutions<\/title>/,
   );
   for (const file of [
     'index.html',

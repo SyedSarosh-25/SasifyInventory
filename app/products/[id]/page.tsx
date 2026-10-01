@@ -38,7 +38,7 @@ import {
 import {
   findSupplierSeoProduct,
   supplierProductHref,
-  supplierSeoProducts,
+  supplierSeoPageProducts,
   type SupplierSeoProduct,
 } from '../../supplier-seo';
 import { supplierLogo, supplierMonogram } from '../../supplier-product-utils';
@@ -57,6 +57,7 @@ import {
 import { productShareImage, productShareImageUrl } from '../../share-metadata';
 import { supplierOriginalPriceComparison, supplierSavingsPkr } from '../../supplier-price-utils';
 import { productSearchTags } from '../../product-search-tags';
+import { isInternalTestListing } from '../../product-visibility';
 
 type Props = { params: Promise<{ id: string }> };
 
@@ -116,7 +117,7 @@ function ProductUseCases({ name, slug, cases }: { name: string; slug: string; ca
 export function generateStaticParams() {
   return [
     ...products.map((product) => ({ id: product.slug || product.id })),
-    ...supplierSeoProducts.map((product) => ({ id: product.slug })),
+    ...supplierSeoPageProducts.map((product) => ({ id: product.slug })),
   ];
 }
 
@@ -131,6 +132,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       return {
         title,
         description,
+        ...(isInternalTestListing(supplierProduct) ? { robots: { index: false, follow: false } } : {}),
         alternates: {
           canonical: `${siteOrigin}${supplierProductHref(supplierProduct)}`,
         },

@@ -1,5 +1,7 @@
+import { isInternalTestListing } from './product-visibility.ts';
+
 type CatalogResponse<T> = { ready: boolean; products: T[]; productCount: number };
-const storageKey = 'sasify-public-catalog-v1';
+const storageKey = 'sasify-public-catalog-v2';
 const ttlMs = 30_000;
 let cached: { expiresAt: number; data: CatalogResponse<unknown> } | null = null;
 let pending: Promise<CatalogResponse<unknown>> | null = null;
@@ -30,6 +32,8 @@ export async function loadPublicCatalog<T>(): Promise<CatalogResponse<T>> {
       if (!response.ok) throw new Error('Could not load product catalog.');
       const data = await response.json() as CatalogResponse<unknown>;
       if (!Array.isArray(data.products)) throw new Error('Invalid catalog response.');
+      data.products = data.products.filter((product) => !isInternalTestListing(product as { name?: string; slug?: string }));
+      data.productCount = data.products.length;
       if (version === generation) {
         cached = { expiresAt: Date.now() + ttlMs, data };
         if (typeof window !== 'undefined') {

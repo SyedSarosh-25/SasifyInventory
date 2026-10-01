@@ -6,6 +6,7 @@ import {
   supplierProductHref,
   supplierProductSlug,
 } from './supplier-seo-utils.ts';
+import { isInternalTestListing } from './product-visibility.ts';
 
 export type SupplierSeoProduct = {
   id: string;
@@ -26,12 +27,14 @@ export type SupplierSeoProduct = {
 
 export const supplierSeoCatalogGeneratedAt = supplierSeoGeneratedAt;
 
-export const supplierSeoProducts =
+// Retain fixture detail pages for noindex responses, not public discovery.
+export const supplierSeoPageProducts =
   generatedSupplierSeoProducts as SupplierSeoProduct[];
+export const supplierSeoProducts = supplierSeoPageProducts.filter((product) => !isInternalTestListing(product));
 
-const bySlug = new Map(supplierSeoProducts.map((product) => [product.slug, product]));
+const bySlug = new Map(supplierSeoPageProducts.map((product) => [product.slug, product]));
 const byCheckoutId = new Map(
-  supplierSeoProducts.flatMap((product) => [
+  supplierSeoPageProducts.flatMap((product) => [
     [product.id, product] as const,
     [product.canonicalKey, product] as const,
   ]),

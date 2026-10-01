@@ -4,6 +4,7 @@ import { LocalizedContent } from './language';
 
 import { Filter, Search, WalletCards, X } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
+import type { ReactNode } from 'react';
 import {
   isChatGptPlusProduct,
   supplierEquivalentProductName,
@@ -53,7 +54,7 @@ function matchesQuery(product: FeaturedProduct, query: string) {
     .includes(normalizedQuery);
 }
 
-export function Catalog({ initialQuery = '', initialCategory = 'All', heading = 'Full inventory', family = '' }: { initialQuery?: string; initialCategory?: string; heading?: string; family?: string }) {
+export function Catalog({ initialQuery = '', initialCategory = 'All', heading = 'Full inventory', family = '', introduction }: { initialQuery?: string; initialCategory?: string; heading?: string; family?: string; introduction?: ReactNode }) {
   const [query, setQuery] = useState(initialQuery);
   const [activeCategory, setActiveCategory] = useState(initialCategory);
   const [sort, setSort] = useState('featured');
@@ -200,6 +201,7 @@ export function Catalog({ initialQuery = '', initialCategory = 'All', heading = 
           <div className="results-badge" role="status"><Filter className="h-4 w-4" /> {`${filtered.length} products`}</div>
         </div>
 
+        {introduction}
         <div className="catalog-controls">
           <CategoryNavigation categories={categories} activeCategory={activeCategory} onChange={setActiveCategory} />
           <label className="catalog-search">
