@@ -1296,7 +1296,6 @@ export function CustomerDashboard() {
                       Payment method
                       <select name="method" value={depositMethod} onChange={(event) => setDepositMethod(event.target.value)}>
                         <option value="wallet">Wallet transfer</option>
-                        <option value="bank">Meezan Bank</option>
                         <option value="binance">Binance Pay</option>
                         <option value="crypto">
                           Crypto USDT · BEP20 · minimum USDT 6
@@ -1305,11 +1304,9 @@ export function CustomerDashboard() {
                       <small className="wallet-payment-method-note">
                         {depositMethod === 'wallet'
                           ? 'Transfer from any Easypaisa/JazzCash/SadaPay to our NayaPay account'
-                          : depositMethod === 'bank'
-                            ? 'Transfer to our Meezan Bank account'
-                            : depositMethod === 'binance'
-                              ? 'Transfer through your Binance account'
-                              : 'Send USDT through the displayed BEP20 network'}
+                          : depositMethod === 'binance'
+                            ? 'Transfer through your Binance account'
+                            : 'Send USDT through the displayed BEP20 network'}
                       </small>
                     </label>
                     <button className="primary-button wallet-funding-submit" disabled={busy}>

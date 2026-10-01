@@ -1401,9 +1401,7 @@ async function ensurePaymentWorkflowSchema(db) {
       );
       await db.query(
         `INSERT INTO commerce_payment_receivers(id,label,title,account_number,receiver_marker)
-         VALUES
-           ('primary','Syed Adeen Sarosh',$1,$2,$1),
-           ('secondary','Sohail Ahmed Khatri',$3,$4,$3)
+         VALUES ('primary','NayaPay',$1,$2,$1)
          ON CONFLICT(id) DO UPDATE SET
            label=EXCLUDED.label,
            title=EXCLUDED.title,
@@ -1414,13 +1412,19 @@ async function ensurePaymentWorkflowSchema(db) {
         [
           process.env.PAYMENT_ACCOUNT_TITLE || 'Syed Adeen Sarosh',
           process.env.PAYMENT_ACCOUNT_NUMBER || '03450485711',
-          process.env.PAYMENT_SECONDARY_TITLE || 'Sohail Ahmed Khatri',
-          process.env.PAYMENT_SECONDARY_NUMBER || '03333163059',
         ],
+      );
+      // Retain historical receipts and orders, but stop offering the retired
+      // secondary receiver for new wallet top-ups or purchases.
+      await db.query(
+        "UPDATE commerce_payment_receivers SET enabled=false,updated_at=now() WHERE id='secondary' AND enabled=true",
       );
       await db.query(
         `INSERT INTO commerce_payment_receiver_state(id,active_receiver_id)
          VALUES(true,'primary') ON CONFLICT(id) DO NOTHING`,
+      );
+      await db.query(
+        "UPDATE commerce_payment_receiver_state SET active_receiver_id='primary',updated_at=now() WHERE id=true AND active_receiver_id='secondary'",
       );
       await db.query(
         "UPDATE commerce_orders SET receiver_id='primary' WHERE receiver_id IS NULL",

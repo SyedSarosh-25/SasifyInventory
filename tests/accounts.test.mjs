@@ -4,7 +4,7 @@ import { randomBytes, randomUUID } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { PGlite } from '@electric-sql/pglite';
 import { createHandler } from '../commerce/handler.mjs';
-import { passwordHash, passwordMatches } from '../commerce/accounts.mjs';
+import { accountSchema, passwordHash, passwordMatches } from '../commerce/accounts.mjs';
 
 test('password hashes use random salts and reject invalid credentials', async () => {
   const a = await passwordHash('strong-test-password'),
@@ -16,15 +16,23 @@ test('password hashes use random salts and reject invalid credentials', async ()
 });
 test('accounts isolate purchases, verified deposits credit once, wallet pays once and logout revokes access', async () => {
   const database = new PGlite();
+  // The commerce schema has account foreign keys; create those tables first.
+  await database.exec(accountSchema.split('ALTER TABLE commerce_orders')[0]);
   await database.exec(
     await readFile(new URL('../commerce/schema.sql', import.meta.url), 'utf8'),
   );
+  await database.exec(`
+    INSERT INTO commerce_payment_receivers(id,label,title,account_number,receiver_marker)
+    VALUES ('secondary','Retired account','Retired Receiver','03000000000','Retired Receiver');
+    INSERT INTO commerce_payment_receiver_state(id,active_receiver_id) VALUES(true,'secondary');
+  `);
   const previous = { ...process.env };
   Object.assign(process.env, {
     DATABASE_URL: 'test',
     COMMERCE_ENCRYPTION_KEY: randomBytes(32).toString('hex'),
     COMMERCE_ADMIN_KEY: randomBytes(32).toString('hex'),
     PAYMENT_ACCOUNT_TITLE: 'Test Receiver',
+    PAYMENT_ACCOUNT_NUMBER: '03450485711',
     GMAIL_SENDER_EMAIL: 'sender@gmail.test',
     GMAIL_OAUTH_CLIENT_ID: 'test-client-id',
     GMAIL_OAUTH_CLIENT_SECRET: 'test-client-secret',
@@ -106,6 +114,18 @@ test('accounts isolate purchases, verified deposits credit once, wallet pays onc
   }
   try {
     assert.equal((await request('account-dashboard')).code, 401);
+    assert.deepEqual(
+      (await database.query('SELECT active_receiver_id FROM commerce_payment_receiver_state')).rows,
+      [{ active_receiver_id: 'primary' }],
+    );
+    assert.equal(
+      (await database.query("SELECT enabled FROM commerce_payment_receivers WHERE id='secondary'")).rows[0].enabled,
+      false,
+    );
+    assert.equal(
+      (await request('admin-payment-receiver-switch', { receiverId: 'secondary' }, '', '', true)).code,
+      404,
+    );
     assert.equal(
       (
         await request('account-signup', {
@@ -292,12 +312,19 @@ test('accounts isolate purchases, verified deposits credit once, wallet pays onc
       ).code,
       200,
     );
+    assert.equal(
+      (await request('account-deposit', { amount: 5000, method: 'bank' }, cookie)).code,
+      400,
+    );
     const deposit = await request(
       'account-deposit',
-      { amount: 5000, method: 'bank' },
+      { amount: 5000, method: 'wallet' },
       cookie,
     );
     assert.equal(deposit.code, 200, JSON.stringify(deposit));
+    assert.equal(deposit.data.receiver.title, 'Test Receiver');
+    assert.equal(deposit.data.receiver.number, '03450485711');
+    assert.equal(deposit.data.deposit.receiver_id, 'primary');
     const depositId = deposit.data.deposit.id;
     assert.ok(
       new Date(deposit.data.deposit.expires_at).getTime() -
@@ -306,7 +333,7 @@ test('accounts isolate purchases, verified deposits credit once, wallet pays onc
     );
     const duplicateDeposit = await request(
       'account-deposit',
-      { amount: 5000, method: 'bank' },
+      { amount: 5000, method: 'wallet' },
       cookie,
     );
     assert.equal(duplicateDeposit.data.reused, true);
@@ -354,7 +381,7 @@ test('accounts isolate purchases, verified deposits credit once, wallet pays onc
     );
     const expiringDeposit = await request(
       'account-deposit',
-      { amount: 6000, method: 'bank' },
+      { amount: 6000, method: 'wallet' },
       cookie,
     );
     await database.query(
@@ -363,7 +390,7 @@ test('accounts isolate purchases, verified deposits credit once, wallet pays onc
     );
     const renewedDeposit = await request(
       'account-deposit',
-      { amount: 6000, method: 'bank' },
+      { amount: 6000, method: 'wallet' },
       cookie,
     );
     assert.equal(renewedDeposit.data.reused, false);
@@ -381,7 +408,7 @@ test('accounts isolate purchases, verified deposits credit once, wallet pays onc
     );
     const order = await request(
       'create',
-      { productId: 'p093', paymentMethod: 'bank' },
+      { productId: 'p093', paymentMethod: 'wallet' },
       cookie,
     );
     assert.equal(order.code, 200, JSON.stringify(order));
