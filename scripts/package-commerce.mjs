@@ -43,6 +43,7 @@ for (const name of [
   'catalog-presentation.mjs',
   'supplier-stock-sync.mjs',
   'accounts.mjs',
+  'refund-date.mjs',
   'core.mjs',
   'binance-email.mjs',
   'meezan-email.mjs',

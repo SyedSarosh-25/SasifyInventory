@@ -1,6 +1,7 @@
 'use client';
 import { LanguageSwitcher, LocalizedContent } from './language';
 import { CustomerOrdersList } from './customer-orders-list';
+import { normalizeRefundDate, refundActivationDatePattern } from '../../commerce/refund-date.mjs';
 
 import { useEffect, useRef, useState, type SyntheticEvent } from 'react';
 import {
@@ -804,14 +805,25 @@ export function CustomerDashboard() {
       setError('Select the activation date and enter the price you paid first.');
       return;
     }
-    const start = new Date(`${refundForm.activationDate}T00:00:00Z`).getTime();
+    const activationDate = normalizeRefundDate(refundForm.activationDate);
+    if (!activationDate) {
+      setError('Enter a valid activation date as DD/MM/YYYY, for example 12/09/2026 for 12 September 2026.');
+      setRefundPreview(null);
+      return;
+    }
+    const start = new Date(`${activationDate}T00:00:00Z`).getTime();
     const end = new Date(`${data.refundConfig.deactivationDate}T00:00:00Z`).getTime();
+    if (!Number.isFinite(end)) {
+      setError('The refund deactivation date is unavailable. Please refresh or contact support.');
+      setRefundPreview(null);
+      return;
+    }
     const elapsedDays = Math.floor((end - start) / 86400000) + 1;
     const remainingDays = Math.max(0, data.refundConfig.warrantyDays - Math.max(elapsedDays, 0));
     const perDayCost = Number(refundForm.purchasePrice) / data.refundConfig.billingDays;
     const refundAmount = Math.round(perDayCost * remainingDays);
     if (!Number.isFinite(start) || start > end || remainingDays <= 0 || refundAmount <= 0) {
-      setError('Enter an activation date on or before the deactivation date.');
+      setError(`Activation date was read as ${formatDateOnly(activationDate)}. It must be on or before the deactivation date ${formatDateOnly(data.refundConfig.deactivationDate)} and within the 25-day warranty. Use DD/MM/YYYY, for example 12/09/2026 for 12 September 2026.`);
       setRefundPreview(null);
       return;
     }
@@ -844,8 +856,12 @@ export function CustomerDashboard() {
   async function submitRefundRequest(event: SyntheticEvent<HTMLFormElement>) {
     event.preventDefault();
     await run(async () => {
+      const activationDate = normalizeRefundDate(refundForm.activationDate);
+      if (!activationDate)
+        throw new Error('Enter a valid activation date as DD/MM/YYYY.');
       const result = await request('account-refund-request', {
         ...refundForm,
+        activationDate,
         inviteScreenshotDataUrl: inviteScreenshot?.dataUrl,
       });
       setRefundPreview(null);
@@ -1078,9 +1094,9 @@ export function CustomerDashboard() {
                     <small>(Kindly check the renewal date of the account from the message that we sent you to select the accurate workspace of your account.)</small>
                   </label>
                   <label>
-                    Your actual activation date
-                    <input type="date" value={refundForm.activationDate} onChange={(event) => { setRefundForm((current) => ({ ...current, activationDate: event.target.value })); setRefundPreview(null); }} required />
-                    <small>If you were added later than the workspace cycle, enter the actual date you received access.</small>
+                    Your actual activation date (DD/MM/YYYY)
+                    <input type="text" inputMode="numeric" autoComplete="off" placeholder="12/09/2026" pattern={refundActivationDatePattern} value={refundForm.activationDate} onChange={(event) => { setRefundForm((current) => ({ ...current, activationDate: event.target.value })); setRefundPreview(null); }} required />
+                    <small>If you were added later than the workspace cycle, enter the actual date you received access. Refunds use the fixed deactivation date of 30 September 2026.</small>
                   </label>
                   <label>
                     Seat type

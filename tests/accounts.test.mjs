@@ -5,6 +5,7 @@ import { readFile } from 'node:fs/promises';
 import { PGlite } from '@electric-sql/pglite';
 import { createHandler } from '../commerce/handler.mjs';
 import { accountSchema, passwordHash, passwordMatches } from '../commerce/accounts.mjs';
+import { normalizeRefundDate } from '../commerce/refund-date.mjs';
 
 test('password hashes use random salts and reject invalid credentials', async () => {
   const a = await passwordHash('strong-test-password'),
@@ -471,6 +472,29 @@ test('accounts isolate purchases, verified deposits credit once, wallet pays onc
     assert.equal(Number(stats.total_deposited), 5000);
     assert.ok(stats.email_verified_at);
     assert.equal(stats.password_hash, undefined);
+    const refundPayload = {
+      workspaceCohort: '11', seatType: 'standard', purchasePrice: 5000,
+      activationDate: normalizeRefundDate('12/09/2026'),
+      activatedClaudeEmail: 'claude-user@gmail.com',
+      inviteScreenshotDataUrl: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aVioAAAAASUVORK5CYII=',
+    };
+    const invalidRefund = await request('account-refund-request', {
+      ...refundPayload, activationDate: '2026-09-31',
+    }, cookie);
+    assert.equal(invalidRefund.code, 400);
+    const refund = await request('account-refund-request', refundPayload, cookie);
+    assert.equal(refund.code, 200, JSON.stringify(refund));
+    assert.equal(refund.data.request.status, 'pending');
+    assert.equal(refund.data.request.elapsed_days, 19);
+    assert.equal(refund.data.request.remaining_days, 6);
+    assert.equal(refund.data.request.refund_amount, 1000);
+    assert.equal(refund.data.request.encrypted_invite_screenshot, undefined);
+    const savedRefund = (await database.query(
+      "SELECT activation_date::text,deactivation_date::text FROM commerce_refund_replacement_requests WHERE id=$1",
+      [refund.data.request.id],
+    )).rows[0];
+    assert.deepEqual(savedRefund, { activation_date: '2026-09-12', deactivation_date: '2026-09-30' });
+    assert.equal((await request('account-dashboard', undefined, cookie)).data.account.balance, balance);
     const locked = await request('account-send-otp', {
       name: 'Locked',
       username: 'locked_user',

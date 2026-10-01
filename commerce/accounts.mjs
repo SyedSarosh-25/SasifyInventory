@@ -8,6 +8,7 @@ import {
   randomInt,
 } from 'node:crypto';
 import { promisify } from 'node:util';
+import { normalizeRefundDate } from './refund-date.mjs';
 
 const scrypt = promisify(derive);
 const error = (status, message) =>
@@ -214,21 +215,18 @@ CREATE TABLE IF NOT EXISTS commerce_wallet_ledger (
 ALTER TABLE commerce_wallet_ledger ADD COLUMN IF NOT EXISTS refund_request_id uuid UNIQUE REFERENCES commerce_refund_replacement_requests(id);
 `;
 
-const refundDatePattern = /^\d{4}-\d{2}-\d{2}$/;
-const padDatePart = (value) => String(value).padStart(2, '0');
+// This refund campaign concerns accounts deactivated on this fixed date.
+// Opening the form in a later month must not move the calculation cutoff.
+const cloudAccountDeactivationDate = '2026-09-30';
 export function cloudRefundConfiguration() {
-  const configured = String(process.env.CLOUD_ACCOUNT_DEACTIVATION_DATE || '').trim();
-  if (refundDatePattern.test(configured))
-    return { warrantyDays: 25, billingDays: 30, deactivationDate: configured };
-  const now = new Date();
   return {
     warrantyDays: 25,
     billingDays: 30,
-    deactivationDate: `${now.getUTCFullYear()}-${padDatePart(now.getUTCMonth() + 1)}-30`,
+    deactivationDate: cloudAccountDeactivationDate,
   };
 }
 export function calculateCloudRefund({ activationDate, purchasePrice, deactivationDate, warrantyDays = 25, billingDays = 30 }) {
-  if (!refundDatePattern.test(String(activationDate)) || !refundDatePattern.test(String(deactivationDate)))
+  if (!activationDate || !deactivationDate || normalizeRefundDate(activationDate) !== activationDate || normalizeRefundDate(deactivationDate) !== deactivationDate)
     throw new Error('Enter valid activation and deactivation dates.');
   const start = Date.parse(`${activationDate}T00:00:00Z`);
   const end = Date.parse(`${deactivationDate}T00:00:00Z`);
