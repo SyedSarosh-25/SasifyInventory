@@ -19,6 +19,7 @@ import { supplierUrlRegistry } from './supplier-url-registry.generated.mjs';
 const supplierListingLabels = new Map(supplierUrlRegistry.map((entry, index) => [entry.slug, `Plan ${index + 1}`]));
 import {
   founderProfile,
+  googleBusinessProfile,
   siteDescription,
   siteOrigin,
   socials,
@@ -170,7 +171,7 @@ export const organizationData = {
   '@type': 'Organization',
   '@id': `${siteOrigin}/#organization`,
   name: 'Sasify Solutions',
-  alternateName: ['Sasify', 'Sasify Digital Solutions'],
+  alternateName: ['Sasify', 'S-A-S-I-F-Y', 'Sasify Digital Solutions'],
   url: `${siteOrigin}/`,
   logo: {
     '@type': 'ImageObject',
@@ -179,9 +180,11 @@ export const organizationData = {
     height: 200,
   },
   description: siteDescription,
+  disambiguatingDescription: 'Sasify Solutions is spelled S-A-S-I-F-Y and is a Pakistan-based digital tools marketplace, distinct from similarly named SaaSify companies.',
   telephone: '+923116185711',
   founder: { '@type': 'Person', name: 'Syed Sarosh', url: founderProfile },
-  sameAs: socials.map(({ href }) => href),
+  areaServed: { '@type': 'Country', name: 'Pakistan' },
+  sameAs: [...socials.map(({ href }) => href), googleBusinessProfile],
 };
 
 export const websiteData = {
@@ -190,7 +193,7 @@ export const websiteData = {
   '@id': `${siteOrigin}/#website`,
   url: `${siteOrigin}/`,
   name: 'Sasify Solutions',
-  alternateName: 'Sasify Solutions Inventory',
+  alternateName: ['Sasify', 'S-A-S-I-F-Y', 'Sasify Solutions Inventory'],
   inLanguage: 'en-PK',
   publisher: { '@id': `${siteOrigin}/#organization` },
 };

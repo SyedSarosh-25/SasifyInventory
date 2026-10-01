@@ -63,6 +63,40 @@ test('accepts Postmark payloads without RawEmail only with NayaPay DKIM and DMAR
   assert.equal(result.email.messageId, 'postmark-message');
 });
 
+test('NayaPay falls back to Postmark evidence when Gmail forwarding changes RawEmail', async () => {
+  const payload = {
+    FromFull: { Name: 'NayaPay', Email: 'service@nayapay.com' },
+    ToFull: [{ Email: 'inbound@example.invalid' }],
+    Subject: 'You got Rs. 100 from Syed Adeen Sarosh 🎉',
+    TextBody: 'Amount Received\nRs. 100\nTransaction ID\nNAYAPAY-100',
+    RawEmail: [
+      'From: NayaPay <service@nayapay.com>',
+      'To: inbound@example.invalid',
+      'Subject: You got Rs. 100 from Syed Adeen Sarosh 🎉',
+      `Date: ${new Date().toUTCString()}`,
+      '',
+      'The forwarded MIME no longer carries the original DKIM signature.',
+    ].join('\r\n'),
+    Headers: [
+      {
+        Name: 'Authentication-Results',
+        Value: 'mx.google.com; dkim=pass header.i=@nayapay.com header.s=default; dmarc=pass (p=REJECT)',
+      },
+      {
+        Name: 'DKIM-Signature',
+        Value: 'v=1; a=rsa-sha256; d=nayapay.com; s=default; h=Date:From:Reply-To:To:Subject; bh=test; b=test',
+      },
+    ],
+  };
+  const result = await authenticateInboundEmail(payload, 'service@nayapay.com', {
+    signingDomain: 'nayapay.com',
+    requireDmarc: true,
+    allowPostmarkEvidenceFallback: true,
+  });
+  assert.equal(result.authenticated, true, JSON.stringify(result));
+  assert.equal(result.reason, 'postmark_dkim_evidence');
+});
+
 test('accepts the short NayaPay template only when the authenticated recipient matches the payment mailbox', () => {
   const email = {
     subject: 'You got Rs. 2,999 from Abdullah Razzaq 🎉',

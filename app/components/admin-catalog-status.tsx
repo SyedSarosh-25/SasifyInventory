@@ -25,21 +25,25 @@ function money(value: unknown) {
 function GroupRow({
   group,
   onManage,
-  onSaveGroupPrice,
+  onSaveOfferPrice,
   busy,
 }: {
   group: SupplierCatalogGroup;
   onManage?: (product: SupplierCatalogStatusProduct) => void;
-  onSaveGroupPrice?: (group: SupplierCatalogGroup, price: number, description?: string) => Promise<void>;
+  onSaveOfferPrice?: (product: SupplierCatalogStatusProduct, price: number, enabled: boolean) => Promise<void>;
   busy?: boolean;
 }) {
-  const [price, setPrice] = useState(group.groupSellingPrice ? String(group.groupSellingPrice) : '');
-  const [description, setDescription] = useState(group.groupDescription || '');
+  const [offerPrices, setOfferPrices] = useState<Record<string, string>>(() =>
+    Object.fromEntries(group.products.map((product) => [product.id, product.selling_price ? String(product.selling_price) : ''])),
+  );
+  const [offerEnabled, setOfferEnabled] = useState<Record<string, boolean>>(() =>
+    Object.fromEntries(group.products.map((product) => [product.id, product.enabled === true])),
+  );
   useEffect(() => {
-    setPrice(group.groupSellingPrice ? String(group.groupSellingPrice) : '');
-    setDescription(group.groupDescription || '');
-  }, [group.groupSellingPrice, group.groupDescription]);
-  const [priceError, setPriceError] = useState('');
+    setOfferPrices(Object.fromEntries(group.products.map((product) => [product.id, product.selling_price ? String(product.selling_price) : ''])));
+    setOfferEnabled(Object.fromEntries(group.products.map((product) => [product.id, product.enabled === true])));
+  }, [group.products]);
+  const [priceErrors, setPriceErrors] = useState<Record<string, string>>({});
   const Icon = group.listed ? CircleCheck : TriangleAlert;
   return (
     <article className="catalog-group-row">
@@ -56,62 +60,25 @@ function GroupRow({
         <span><b>Storefront winner</b>{group.winner?.provider_name || 'Needs setup'}</span>
         <span><b>Customer price</b>{group.groupSellingPrice ? money(group.groupSellingPrice) : 'Mixed / not set'}</span>
       </div>
-      <div className="catalog-group-price-editor">
-        <label>
-          Set customer price for all offers in this group
-          <input
-            type="number"
-            min="1"
-            step="1"
-            value={price}
-            placeholder="e.g. 2499"
-            onChange={(event) => { setPrice(event.target.value); setPriceError(''); }}
-          />
-        </label>
-        <button
-          type="button"
-          className="secondary-button compact"
-          disabled={busy || !onSaveGroupPrice}
-          onClick={() => {
-            const value = Number(price);
-            if (!Number.isSafeInteger(value) || value < 1) {
-              setPriceError('Enter a whole PKR amount greater than zero.');
-              return;
-            }
-            setPriceError('');
-            void onSaveGroupPrice?.(group, value);
-          }}
-        >
-          <Save size={15} /> Save group price
-        </button>
-        {priceError && <small className="catalog-group-error">{priceError}</small>}
+      <div className="catalog-group-offer-intro">
+        <strong>Individual supplier pricing</strong>
+        <span>Set each supplier’s customer price separately. The lowest-cost eligible offer becomes Primary automatically.</span>
       </div>
-      <details className="catalog-group-copy-editor">
-        <summary>Edit customer description for all offers</summary>
-        <p>Apply shared copy only when every supplier offer has the same access and delivery terms. Use “Edit” below for offer-specific requirements.</p>
-        <label>Customer-facing description
-          <textarea rows={4} maxLength={20000} value={description} onChange={(event) => setDescription(event.target.value)} />
-        </label>
-        <button type="button" className="secondary-button compact" disabled={busy || !onSaveGroupPrice} onClick={() => {
-          const value = Number(price);
-          if (!Number.isSafeInteger(value) || value < 1) { setPriceError('Set a valid group price before saving the description.'); return; }
-          void onSaveGroupPrice?.(group, value, description.trim());
-        }}><Save size={15} /> Save description</button>
-      </details>
-      <details className="catalog-group-offers">
-        <summary><ChevronDown size={15} /> View supplier offers and fallback order</summary>
-        <div className="catalog-group-offer-list"><table><thead><tr><th>Priority</th><th>Supplier offer</th><th>Stock</th><th>Cost</th><th>Customer price</th><th>Status</th></tr></thead><tbody>
+      <details className="catalog-group-offers" open>
+        <summary><ChevronDown size={15} /> Supplier offers and fallback order</summary>
+        <div className="catalog-group-offer-list mobile-records"><table><thead><tr><th>Priority</th><th>Supplier offer</th><th>Stock</th><th>Supplier cost</th><th>Individual customer price</th><th>Live</th><th>Action</th></tr></thead><tbody>
           {group.products
             .slice()
             .sort((left, right) => Number(left.cost_pkr ?? Number.POSITIVE_INFINITY) - Number(right.cost_pkr ?? Number.POSITIVE_INFINITY))
             .map((product) => (
               <tr className={group.winner?.id === product.id ? 'is-winner' : ''} key={product.id}>
-                <td>{group.winner?.id === product.id ? 'Primary' : 'Backup'}</td>
-                <td><strong>{product.provider_name || product.provider_id || 'Supplier'}</strong><small>{product.name} · {product.external_product_id || product.id}</small></td>
-                <td>{Number(product.supplier_stock || 0).toLocaleString('en-PK')}</td>
-                <td>{money(product.cost_pkr)}</td>
-                <td>{money(product.selling_price)}</td>
-                <td>{product.enabled === true ? 'Enabled' : 'Disabled'} {onManage && <button type="button" className="secondary-button compact" onClick={() => onManage(product)}>Edit <ArrowRight size={14} /></button>}</td>
+                <td data-label="Priority"><strong>{group.winner?.id === product.id ? 'Primary' : 'Backup'}</strong></td>
+                <td data-label="Supplier offer"><strong>{product.provider_name || product.provider_id || 'Supplier'}</strong><small>{product.name} · {product.external_product_id || product.id}</small></td>
+                <td data-label="Stock">{Number(product.supplier_stock || 0).toLocaleString('en-PK')}</td>
+                <td data-label="Supplier cost">{money(product.cost_pkr)}</td>
+                <td data-label="Customer price"><input className="catalog-offer-price-input" type="number" min="1" step="1" aria-label={`Customer price for ${product.name} from ${product.provider_name || product.provider_id || 'supplier'}`} value={offerPrices[product.id] || ''} placeholder="e.g. 2499" onChange={(event) => { setOfferPrices((current) => ({ ...current, [product.id]: event.target.value })); setPriceErrors((current) => ({ ...current, [product.id]: '' })); }} /></td>
+                <td data-label="Live"><label className="catalog-offer-live"><input type="checkbox" checked={offerEnabled[product.id] === true} onChange={(event) => setOfferEnabled((current) => ({ ...current, [product.id]: event.target.checked }))} /> Live</label></td>
+                <td data-label="Action"><button type="button" className="secondary-button compact" disabled={busy || !onSaveOfferPrice} onClick={() => { const value = Number(offerPrices[product.id]); if (!Number.isSafeInteger(value) || value < 1) { setPriceErrors((current) => ({ ...current, [product.id]: 'Enter a whole PKR amount.' })); return; } setPriceErrors((current) => ({ ...current, [product.id]: '' })); void onSaveOfferPrice?.(product, value, offerEnabled[product.id] === true); }}> <Save size={14} /> Save</button>{onManage && <button type="button" className="icon-command" onClick={() => onManage(product)} aria-label={`Advanced edit ${product.name}`}><ArrowRight size={14} /></button>}{priceErrors[product.id] && <small className="catalog-group-error">{priceErrors[product.id]}</small>}</td>
               </tr>
             ))}
         </tbody></table></div>
@@ -123,12 +90,12 @@ function GroupRow({
 export function AdminCatalogStatus({
   products,
   onManage,
-  onSaveGroupPrice,
+  onSaveOfferPrice,
   busy,
 }: {
   products: SupplierCatalogStatusProduct[];
   onManage?: (product: SupplierCatalogStatusProduct) => void;
-  onSaveGroupPrice?: (group: SupplierCatalogGroup, price: number, description?: string) => Promise<void>;
+  onSaveOfferPrice?: (product: SupplierCatalogStatusProduct, price: number, enabled: boolean) => Promise<void>;
   busy?: boolean;
 }) {
   const [query, setQuery] = useState('');
@@ -200,7 +167,7 @@ export function AdminCatalogStatus({
         {activeGroups.length ? (
           <div className="catalog-group-list">
             {activeGroups.map((group) => (
-              <GroupRow key={group.key} group={group} onManage={onManage} onSaveGroupPrice={onSaveGroupPrice} busy={busy} />
+              <GroupRow key={group.key} group={group} onManage={onManage} onSaveOfferPrice={onSaveOfferPrice} busy={busy} />
             ))}
           </div>
         ) : (

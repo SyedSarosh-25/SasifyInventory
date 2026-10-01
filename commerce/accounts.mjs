@@ -189,11 +189,59 @@ ALTER TABLE commerce_wallet_deposits ADD CONSTRAINT commerce_wallet_deposits_sta
 ALTER TABLE commerce_wallet_deposits ADD COLUMN IF NOT EXISTS expires_at timestamptz NOT NULL DEFAULT now()+interval '5 minutes';
 UPDATE commerce_wallet_deposits SET expires_at=created_at+interval '5 minutes' WHERE expires_at>created_at+interval '5 minutes';
 ALTER TABLE commerce_payments ADD COLUMN IF NOT EXISTS wallet_deposit_id uuid UNIQUE REFERENCES commerce_wallet_deposits(id);
+CREATE TABLE IF NOT EXISTS commerce_refund_replacement_requests (
+ id uuid PRIMARY KEY, account_id uuid NOT NULL REFERENCES commerce_accounts(id) ON DELETE CASCADE,
+ workspace_cohort text NOT NULL CHECK(workspace_cohort IN ('2','11','18')),
+ activation_date date NOT NULL, seat_type text NOT NULL CHECK(seat_type IN ('standard','premium')),
+ purchase_price integer NOT NULL CHECK(purchase_price>0), deactivation_date date NOT NULL,
+ warranty_days integer NOT NULL DEFAULT 25 CHECK(warranty_days>0), billing_days integer NOT NULL DEFAULT 30 CHECK(billing_days>0),
+ elapsed_days integer NOT NULL CHECK(elapsed_days>=0), remaining_days integer NOT NULL CHECK(remaining_days>=0),
+ per_day_cost numeric(12,4) NOT NULL CHECK(per_day_cost>0), refund_amount integer NOT NULL CHECK(refund_amount>0),
+ status text NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','approved','rejected')),
+ review_note text, created_at timestamptz NOT NULL DEFAULT now(), reviewed_at timestamptz,
+ approved_at timestamptz, rejected_at timestamptz
+);
+ALTER TABLE commerce_refund_replacement_requests ADD COLUMN IF NOT EXISTS activated_claude_email text;
+ALTER TABLE commerce_refund_replacement_requests ADD COLUMN IF NOT EXISTS invite_screenshot_mime text;
+ALTER TABLE commerce_refund_replacement_requests ADD COLUMN IF NOT EXISTS encrypted_invite_screenshot text;
+CREATE UNIQUE INDEX IF NOT EXISTS commerce_refund_request_cycle_unique
+ ON commerce_refund_replacement_requests(account_id,workspace_cohort);
 CREATE TABLE IF NOT EXISTS commerce_wallet_ledger (
  id uuid PRIMARY KEY, account_id uuid NOT NULL REFERENCES commerce_accounts(id), amount integer NOT NULL,
  order_id uuid UNIQUE REFERENCES commerce_orders(id), deposit_id uuid UNIQUE REFERENCES commerce_wallet_deposits(id),
  description text NOT NULL, created_at timestamptz NOT NULL DEFAULT now()
-);`;
+);
+ALTER TABLE commerce_wallet_ledger ADD COLUMN IF NOT EXISTS refund_request_id uuid UNIQUE REFERENCES commerce_refund_replacement_requests(id);
+`;
+
+const refundDatePattern = /^\d{4}-\d{2}-\d{2}$/;
+const padDatePart = (value) => String(value).padStart(2, '0');
+export function cloudRefundConfiguration() {
+  const configured = String(process.env.CLOUD_ACCOUNT_DEACTIVATION_DATE || '').trim();
+  if (refundDatePattern.test(configured))
+    return { warrantyDays: 25, billingDays: 30, deactivationDate: configured };
+  const now = new Date();
+  return {
+    warrantyDays: 25,
+    billingDays: 30,
+    deactivationDate: `${now.getUTCFullYear()}-${padDatePart(now.getUTCMonth() + 1)}-30`,
+  };
+}
+export function calculateCloudRefund({ activationDate, purchasePrice, deactivationDate, warrantyDays = 25, billingDays = 30 }) {
+  if (!refundDatePattern.test(String(activationDate)) || !refundDatePattern.test(String(deactivationDate)))
+    throw new Error('Enter valid activation and deactivation dates.');
+  const start = Date.parse(`${activationDate}T00:00:00Z`);
+  const end = Date.parse(`${deactivationDate}T00:00:00Z`);
+  if (!Number.isFinite(start) || !Number.isFinite(end) || start > end)
+    throw new Error('Activation date cannot be after the deactivation date.');
+  const elapsedDays = Math.floor((end - start) / 86400000) + 1;
+  const remainingDays = Math.max(0, Number(warrantyDays) - elapsedDays);
+  const perDayCost = Number(purchasePrice) / Number(billingDays);
+  const refundAmount = Math.round(perDayCost * remainingDays);
+  if (!Number.isSafeInteger(refundAmount) || refundAmount <= 0)
+    throw new Error('The calculated refund amount is invalid.');
+  return { elapsedDays, remainingDays, perDayCost, refundAmount };
+}
 export async function accountForRequest(db, req) {
   const token = String(req.headers.cookie || '').match(
     /(?:^|;\s*)sasify_account=([a-f0-9]{64})(?:;|$)/,

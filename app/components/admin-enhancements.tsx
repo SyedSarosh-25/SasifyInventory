@@ -1,11 +1,17 @@
 'use client';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, Check, Pencil, Plus, Save, Trash2, WalletCards, X } from 'lucide-react';
+import { ArrowLeft, Check, Eye, EyeOff, Pencil, Plus, Save, Trash2, WalletCards, X } from 'lucide-react';
 
 type AdminApi = (action: string, token?: string, body?: object) => Promise<any>;
 type Account = { id: string; name: string; email: string; username?: string | null; balance: number; role: string; reseller_status?: string };
 
 const money = (value: number | string) => `PKR ${Number(value || 0).toLocaleString('en-PK')}`;
+const formatDateOnly = (value: unknown) => {
+  const date = value instanceof Date ? value : typeof value === 'string' ? new Date(value) : null;
+  return date && Number.isFinite(date.getTime())
+    ? date.toLocaleDateString(undefined, { timeZone: 'UTC' })
+    : '—';
+};
 const card = 'admin-panel admin-enhancement-card';
 
 export function AdminUserDetail({ accountId, accounts, api, token, busy, onBack, onRefresh }: { accountId: string; accounts: Account[]; api: AdminApi; token: string; busy: boolean; onBack: () => void; onRefresh: () => Promise<void> }) {
@@ -39,6 +45,50 @@ export function AdminUserDetail({ accountId, accounts, api, token, busy, onBack,
         <article className="admin-subpanel"><h3>Deposits</h3>{detail.deposits.length ? <div className="admin-mini-list">{detail.deposits.map((row: any) => <div key={row.id}><span><strong>{money(row.amount)}</strong><small>{row.method} · {new Date(row.created_at).toLocaleString()}</small></span><span className={`admin-state ${row.status}`}>{row.status}</span></div>)}</div> : <p>No deposits yet.</p>}</article>
       </div>
     </div>}
+  </section>;
+}
+
+export function AdminRefundRequests({ requests, api, token, busy, onRefresh }: { requests: any[]; api: AdminApi; token: string; busy: boolean; onRefresh: () => Promise<void> }) {
+  const [notes, setNotes] = useState<Record<string, string>>({});
+  const [evidence, setEvidence] = useState<Record<string, { dataUrl?: string; error?: string; loading?: boolean }>>({});
+  const [visibleEvidence, setVisibleEvidence] = useState<Record<string, boolean>>({});
+  async function review(requestId: string, status: 'approved' | 'rejected') {
+    const label = status === 'approved' ? 'approve and credit this refund' : 'reject this refund';
+    if (!window.confirm(`Are you sure you want to ${label}?`)) return;
+    await api('admin-refund-review', token, { requestId, status, reviewNote: notes[requestId] || undefined });
+    await onRefresh();
+  }
+  async function toggleEvidence(requestId: string) {
+    if (evidence[requestId]?.dataUrl) {
+      setVisibleEvidence((current) => ({ ...current, [requestId]: !current[requestId] }));
+      return;
+    }
+    setEvidence((current) => ({ ...current, [requestId]: { loading: true } }));
+    try {
+      const result = await api('admin-refund-evidence', token, { requestId });
+      setEvidence((current) => ({ ...current, [requestId]: { dataUrl: result.dataUrl } }));
+      setVisibleEvidence((current) => ({ ...current, [requestId]: true }));
+    } catch (error) {
+      setEvidence((current) => ({ ...current, [requestId]: { error: (error as Error).message } }));
+    }
+  }
+  return <section className={card}>
+    <div className="admin-enhancement-heading"><div><span className="admin-eyebrow">Claude account resolution</span><h2>Refund / replacement requests</h2><p>Approve a request to credit the customer wallet. Rejecting it does not change the customer balance.</p></div><span className="admin-count-badge">{requests.filter((request) => request.status === 'pending').length} pending</span></div>
+    {!requests.length ? <div className="admin-empty-state"><h3>No refund requests yet</h3><p>Customer refund and replacement calculations will appear here.</p></div> : <div className="admin-refund-list">{requests.map((request) => <article className={`admin-refund-card ${request.status}`} key={request.id}>
+      <div className="admin-refund-heading"><div><span className={`admin-state ${request.status}`}>{request.status}</span><h3>{request.name || 'Unknown customer'}</h3><p>{request.email} {request.username ? `· @${request.username}` : ''}</p></div><strong>{money(request.refund_amount)}</strong></div>
+      <div className="admin-refund-grid"><div><span>Workspace cycle</span><strong>{request.workspace_cohort}th of month</strong></div><div><span>Seat</span><strong>{request.seat_type === 'premium' ? 'Claude Premium' : 'Claude Standard'}</strong></div><div><span>Activation date</span><strong>{formatDateOnly(request.activation_date)}</strong></div><div><span>Purchase price</span><strong>{money(request.purchase_price)}</strong></div><div><span>Days used / remaining</span><strong>{request.elapsed_days} / {request.remaining_days}</strong></div><div><span>Per-day cost</span><strong>PKR {Number(request.per_day_cost).toFixed(2)}</strong></div><div><span>Deactivation date</span><strong>{formatDateOnly(request.deactivation_date)}</strong></div><div><span>Requested</span><strong>{new Date(request.created_at).toLocaleString()}</strong></div><div><span>Gmail used for Claude</span><strong>{request.activated_claude_email || 'Not provided'}</strong></div></div>
+      <div className="admin-refund-evidence">
+        <div><strong>Claude team plan invitation</strong><span>{request.has_invite_screenshot ? 'Screenshot attached' : 'No screenshot attached'}</span></div>
+        {request.has_invite_screenshot && <button type="button" className="secondary-button compact" disabled={evidence[request.id]?.loading} onClick={() => void toggleEvidence(request.id)}>
+          {visibleEvidence[request.id] ? <EyeOff size={14} /> : <Eye size={14} />}
+          {evidence[request.id]?.loading ? 'Loading…' : visibleEvidence[request.id] ? 'Hide screenshot' : 'View screenshot'}
+        </button>}
+        {evidence[request.id]?.error && <span className="admin-refund-evidence-error">{evidence[request.id].error}</span>}
+        {visibleEvidence[request.id] && evidence[request.id]?.dataUrl && <img src={evidence[request.id].dataUrl} alt={`Claude invitation screenshot from ${request.name || 'customer'}`} />}
+      </div>
+      {request.status === 'pending' && <div className="admin-refund-actions"><input value={notes[request.id] || ''} onChange={(event) => setNotes((current) => ({ ...current, [request.id]: event.target.value }))} placeholder="Optional review note" maxLength={500} /><button className="primary-button compact" disabled={busy} onClick={() => void review(request.id, 'approved')}><Check size={14} /> Approve & credit wallet</button><button className="secondary-button compact danger-action" disabled={busy} onClick={() => void review(request.id, 'rejected')}><X size={14} /> Disapprove</button></div>}
+      {request.review_note && <p className="admin-refund-note">Admin note: {request.review_note}</p>}
+    </article>)}</div>}
   </section>;
 }
 
@@ -80,6 +130,6 @@ export function AdminTransactionHistory({ payments, orders }: { payments: any[];
   return <section className={card}>
     <div className="admin-enhancement-heading"><div><span className="admin-eyebrow">Money movement</span><h2>Transaction history</h2><p>Search every incoming payment and connect it to its order, verification state, and receiver.</p></div><span className="admin-count-badge">{rows.length} shown</span></div>
     <div className="admin-history-toolbar"><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search transaction, payer, order or receiver" /><select value={filter} onChange={(e) => setFilter(e.target.value)}><option value="all">All transactions</option><option value="verified">Verified</option><option value="pending">Needs review</option></select></div>
-    <div className="commerce-table admin-history-table"><table><thead><tr><th>Transaction</th><th>Payer</th><th>Amount</th><th>Receiver</th><th>Order / state</th><th>Received</th></tr></thead><tbody>{rows.length ? rows.map((payment) => { const order = orderMap.get(payment.order_id); return <tr key={payment.id}><td><strong>{payment.transaction_id || payment.id}</strong><small>{payment.currency || 'PKR'} · {payment.verified ? 'Verified' : payment.verification_reason || 'Pending review'}</small></td><td>{payment.payer_name || 'Unknown'}<small>{payment.subject || '—'}</small></td><td><strong>PKR {Number(payment.amount || payment.payment_amount || 0).toLocaleString('en-PK')}</strong></td><td>{payment.receiver_id || '—'}</td><td>{order ? <><strong>{order.id}</strong><small>{order.status}</small></> : <><strong>{payment.order_id || 'Unlinked'}</strong><small>Payment record</small></>}</td><td>{payment.received_at || payment.created_at ? new Date(payment.received_at || payment.created_at).toLocaleString() : '—'}</td></tr>; }) : <tr><td colSpan={6}><div className="admin-empty-state"><h3>No transactions match</h3><p>Try a different search or filter.</p></div></td></tr>}</tbody></table></div>
+    <div className="commerce-table admin-history-table mobile-records"><table><thead><tr><th>Transaction</th><th>Payer</th><th>Amount</th><th>Receiver</th><th>Order / state</th><th>Received</th></tr></thead><tbody>{rows.length ? rows.map((payment) => { const order = orderMap.get(payment.order_id); return <tr key={payment.id}><td data-label="Transaction"><strong>{payment.transaction_id || payment.id}</strong><small>{payment.currency || 'PKR'} · {payment.verified ? 'Verified' : payment.verification_reason || 'Pending review'}</small></td><td data-label="Payer">{payment.payer_name || 'Unknown'}<small>{payment.subject || '—'}</small></td><td data-label="Amount"><strong>PKR {Number(payment.amount || payment.payment_amount || 0).toLocaleString('en-PK')}</strong></td><td data-label="Receiver">{payment.receiver_id || '—'}</td><td data-label="Order / state">{order ? <><strong>{order.id}</strong><small>{order.status}</small></> : <><strong>{payment.order_id || 'Unlinked'}</strong><small>Payment record</small></>}</td><td data-label="Received">{payment.received_at || payment.created_at ? new Date(payment.received_at || payment.created_at).toLocaleString() : '—'}</td></tr>; }) : <tr><td colSpan={6}><div className="admin-empty-state"><h3>No transactions match</h3><p>Try a different search or filter.</p></div></td></tr>}</tbody></table></div>
   </section>;
 }

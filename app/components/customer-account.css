@@ -369,6 +369,8 @@
 }
 .account-status.status-delivered { color: #137454; background: #e8f8f0; }
 .account-status.status-pending { color: #916017; background: #fff5df; }
+.account-status.status-approved { color: #137454; background: #e8f8f0; }
+.account-status.status-rejected { color: #963b3b; background: #ffe8e8; }
 .dashboard-empty { padding: 30px 14px; }
 .dashboard-empty-icon {
   display: grid;
@@ -896,6 +898,70 @@
 .account-notice {
   background: #ecfdf5;
   color: #17644b;
+}
+.account-credit-toast {
+  position: fixed;
+  top: 24px;
+  right: 24px;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: min(420px, calc(100vw - 32px));
+  padding: 14px 16px;
+  border: 1px solid #b7e8d0;
+  border-radius: 13px;
+  background: #f0fff7;
+  color: #087d53;
+  box-shadow: 0 16px 36px rgba(20, 91, 63, .18);
+  font-size: 13px;
+  font-weight: 700;
+  animation: account-credit-toast-in 220ms ease-out;
+}
+.account-credit-toast span { line-height: 1.4; }
+.account-credit-toast button {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  margin-left: 4px;
+  border: 0;
+  color: #087d53;
+  background: transparent;
+  font-size: 20px;
+  line-height: 1;
+}
+
+.refund-calculation-panel { display: grid; gap: 22px; }
+.refund-calculation-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.refund-calculation-form label { display: grid; gap: 7px; color: #23395e; font-size: 13px; font-weight: 700; }
+.refund-calculation-form input, .refund-calculation-form select { width: 100%; min-height: 44px; padding: 10px 12px; border: 1px solid #d7e1f0; border-radius: 10px; color: #172b55; background: #fff; font: inherit; }
+.refund-calculation-form small { color: #718097; font-size: 11px; font-weight: 500; line-height: 1.45; }
+.refund-upload-field { display: grid; grid-column: 1 / -1; gap: 8px; }
+.refund-upload-field > label { color: #23395e; font-size: 13px; font-weight: 700; }
+.refund-upload-field > input[type=file] { width: 100%; min-height: 48px; padding: 8px; border: 1px dashed #9db1cc; border-radius: 10px; background: #f8faff; color: #465d7d; font: inherit; font-size: 13px; }
+.refund-upload-field > input[type=file]::file-selector-button { min-height: 32px; margin-right: 10px; padding: 6px 11px; border: 1px solid #cbd8e9; border-radius: 7px; background: #fff; color: #244b9a; font: inherit; font-weight: 700; cursor: pointer; }
+.refund-upload-preview { display: grid; grid-template-columns: minmax(0, 180px) minmax(0, 1fr); align-items: center; gap: 12px; padding: 10px; border: 1px solid #dce5f1; border-radius: 11px; background: #f8faff; }
+.refund-upload-preview img { display: block; width: 100%; max-height: 160px; border-radius: 7px; object-fit: contain; background: #e9eef6; }
+.refund-upload-preview > div { display: grid; min-width: 0; justify-items: start; gap: 9px; color: #536782; font-size: 12px; overflow-wrap: anywhere; }
+.refund-preview { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; padding: 15px; border: 1px solid #b9e8d6; border-radius: 13px; background: #effcf6; }
+.refund-preview div { display: grid; gap: 5px; }
+.refund-preview span { color: #718097; font-size: 11px; }
+.refund-preview { border-color: #b9e8d6; background: #effcf6; }
+.refund-preview strong { color: #087951; font-size: 18px; }
+.refund-form-actions { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 10px; }
+.refund-request-history { display: grid; gap: 10px; padding-top: 4px; border-top: 1px solid #edf0f5; }
+.refund-request-history h3 { margin: 0; color: #172b55; font-size: 17px; }
+.refund-request-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 13px 0; border-bottom: 1px solid #edf0f5; }
+.refund-request-row > div { display: grid; gap: 5px; }
+.refund-request-row > div:last-child { justify-items: end; }
+.refund-request-row small { color: #718097; font-size: 11px; }
+.refund-request-row .account-status { width: fit-content; }
+@media (max-width: 700px) { .refund-calculation-form { grid-template-columns: 1fr; } .refund-preview { grid-template-columns: 1fr; } .refund-request-row { align-items: flex-start; flex-direction: column; } .refund-request-row > div:last-child { justify-items: start; } .refund-upload-preview { grid-template-columns: minmax(0, 1fr); } .refund-upload-preview img { max-height: 220px; } }
+@keyframes account-credit-toast-in {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 .account-heading {
   display: flex;
@@ -1569,6 +1635,7 @@
 .wallet-funding-steps b { display: grid; place-items: center; flex: 0 0 19px; width: 19px; height: 19px; border-radius: 50%; background: #e0e9ff; color: #315fe9; font-size: 10px; }
 .wallet-funding-card form { position: relative; z-index: 1; }
 .wallet-funding-card form label { margin-bottom: 14px; }
+.wallet-payment-method-note { display: block; margin: -6px 0 12px; color: #687a92; font-size: 11px; line-height: 1.4; }
 .wallet-amount-presets { display: flex; flex-wrap: wrap; gap: 7px; margin: -4px 0 3px; }
 .wallet-amount-presets button { padding: 7px 9px; border-color: #d6e1f3; border-radius: 8px; background: #fff; color: #52627a; font-size: 11px; font-weight: 700; }
 .wallet-amount-presets button:hover,
@@ -1600,6 +1667,9 @@
 .wallet-receiver-row small { color: #7b89a0; font-size: 10px; }
 .wallet-receiver-row strong { overflow: hidden; color: #253b5f; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
 .wallet-receiver-row code { padding: 5px 7px; border-radius: 6px; background: #f1f4fa; color: #1d3f81; font-size: 11px; overflow-wrap: anywhere; }
+.wallet-receiver-value { display: flex; align-items: center; justify-content: flex-end; gap: 7px; min-width: 0; }
+.wallet-copy-button { display: inline-flex; align-items: center; gap: 4px; padding: 6px 8px !important; border: 1px solid #cbd9f2 !important; border-radius: 7px !important; color: #285bd7; background: #f7f9ff !important; font-size: 11px !important; font-weight: 700; white-space: nowrap; }
+.wallet-copy-button:hover { border-color: #8eaaf0 !important; background: #edf2ff !important; }
 .wallet-instructions-note { margin-top: 13px !important; font-size: 11px !important; }
 .wallet-credit-note { display: flex; align-items: center; gap: 6px; margin: 13px 0 0 !important; color: #087d53 !important; font-size: 12px !important; font-weight: 700; }
 @keyframes wallet-check-spin { to { transform: rotate(360deg); } }
@@ -1647,5 +1717,6 @@
   .wallet-balance-pill { width: 100%; }
   .wallet-funding-steps { grid-template-columns: 1fr; gap: 8px; }
   .wallet-receiver-row { align-items: flex-start; flex-direction: column; }
-  .wallet-receiver-row code { width: 100%; }
+  .wallet-receiver-value { width: 100%; justify-content: space-between; }
+  .wallet-receiver-value code { width: auto; flex: 1 1 auto; }
 }

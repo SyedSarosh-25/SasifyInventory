@@ -50,7 +50,7 @@ export default defineConfig(async () => {
   process.env.MINIFLARE_REGISTRY_PATH ??= '.wrangler/registry';
   const commerceEnv=loadEnv('development',process.cwd(),'');
   for(const [name,value] of Object.entries(commerceEnv)) {
-    if (/^(DATABASE_URL|COMMERCE_|POSTMARK_|PAYMENT_|NAYAPAY_|BINANCE_|CRYPTO_)/.test(name)) process.env[name]??=value;
+    if (/^(DATABASE_URL|COMMERCE_|POSTMARK_|PAYMENT_|NAYAPAY_|MEEZAN_|BINANCE_|CRYPTO_)/.test(name)) process.env[name]??=value;
   }
 
   // Wrangler snapshots its log path while the Cloudflare plugin is imported.

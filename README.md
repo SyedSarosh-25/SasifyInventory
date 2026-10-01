@@ -6,7 +6,7 @@ Production storefront and commerce administration system for [sasifysolutions.co
 
 - Static, crawlable storefront with home, inventory, buying guide, policy, scam-report and product pages.
 - ChatGPT Plus Ultra Stable Account inventory with Apple Pay checkout at PKR 3,499.
-- NayaPay checkout, payment-reference submission, payment review and controlled account delivery.
+- NayaPay wallet and Meezan Bank checkout, authenticated payment review and controlled account delivery.
 - Admin authentication, stock import/withdrawal, order management, supplier catalog controls and financial summaries.
 - DODI and Qamify supplier adapters, explicit offer mapping and guarded supplier fulfilment.
 - PostgreSQL schema bootstrap/migrations, encrypted credentials and audit records.
@@ -56,6 +56,10 @@ Keep values in local or Vercel environment configuration, never in source contro
 - `PAYMENT_RECEIVER_EMAIL`
 - `NAYAPAY_INBOUND_BASIC_USER` and `NAYAPAY_INBOUND_BASIC_PASSWORD`
 - `NAYAPAY_AUTO_VERIFY`
+- `MEEZAN_ACCOUNT_TITLE`, `MEEZAN_ACCOUNT_NUMBER`, `MEEZAN_IBAN`, `MEEZAN_BENEFICIARY` (display only)
+- `MEEZAN_RECEIVER_EMAIL`, `MEEZAN_SENDER`, `MEEZAN_DKIM_DOMAIN`
+- `MEEZAN_INBOUND_BASIC_USER` and `MEEZAN_INBOUND_BASIC_PASSWORD`
+- `MEEZAN_AUTO_VERIFY` (keep disabled until a real authenticated Meezan alert is verified)
 - `BINANCE_RECEIVER_ID`, `BINANCE_RECEIVER_TITLE`, `BINANCE_USDT_PKR_RATE`
 - `CRYPTO_RECEIVER_ID`, `CRYPTO_RECEIVER_TITLE`, `CRYPTO_USDT_NETWORK`
 - `BINANCE_RECEIVER_EMAIL`, `BINANCE_SENDER`, `BINANCE_DKIM_DOMAIN`

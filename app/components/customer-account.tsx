@@ -2,13 +2,14 @@
 import { LanguageSwitcher, LocalizedContent } from './language';
 import { CustomerOrdersList } from './customer-orders-list';
 
-import { useEffect, useState, type SyntheticEvent } from 'react';
+import { useEffect, useRef, useState, type SyntheticEvent } from 'react';
 import {
   ArrowDownToLine,
   ArrowRight,
   BadgePercent,
   CircleDollarSign,
   ClipboardList,
+  Copy,
   Eye,
   EyeOff,
   LayoutDashboard,
@@ -73,10 +74,36 @@ type Dashboard = {
   savings?: number;
   deposits: Deposit[];
   ledger: { amount: number; description: string; created_at: string }[];
+  refundConfig: { warrantyDays: number; billingDays: number; deactivationDate: string };
+  refundRequests: RefundRequest[];
   requirements: { id: string; tool_name: string; description: string; status: string; response_contact?: string | null; responded_at?: string | null; created_at: string }[];
+};
+type RefundRequest = {
+  id: string;
+  workspace_cohort: string;
+  activation_date: string;
+  activated_claude_email?: string | null;
+  seat_type: 'standard' | 'premium';
+  purchase_price: number;
+  deactivation_date: string;
+  warranty_days: number;
+  billing_days: number;
+  elapsed_days: number;
+  remaining_days: number;
+  per_day_cost: number;
+  refund_amount: number;
+  status: 'pending' | 'approved' | 'rejected';
+  review_note?: string | null;
+  created_at: string;
 };
 const money = (amount: number) =>
   `PKR ${Number(amount).toLocaleString('en-US')}`;
+const formatDateOnly = (value: unknown) => {
+  const date = value instanceof Date ? value : typeof value === 'string' ? new Date(value) : null;
+  return date && Number.isFinite(date.getTime())
+    ? date.toLocaleDateString(undefined, { timeZone: 'UTC' })
+    : '—';
+};
 const emailPattern =
   /^[^\s@]+@(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z0-9][a-z0-9-]{0,61}[a-z0-9]$/i;
 const usernamePattern = /^[a-z0-9](?:[a-z0-9._-]{1,22}[a-z0-9])$/;
@@ -623,12 +650,19 @@ export function CustomerDashboard() {
     [receiver, setReceiver] = useState<{
       number: string;
       title: string;
+      iban?: string;
     } | null>(null);
   const [depositAmount, setDepositAmount] = useState('1000');
-  const [depositMethod, setDepositMethod] = useState('bank');
+  const [depositMethod, setDepositMethod] = useState('wallet');
   const [checkingDeposits, setCheckingDeposits] = useState(false);
+  const [creditNotice, setCreditNotice] = useState('');
+  const previousDepositStatuses = useRef<Record<string, string> | null>(null);
   const [requirementContacts, setRequirementContacts] = useState<Record<string, string>>({});
   const [detail, setDetail] = useState<any>(null);
+  const [refundForm, setRefundForm] = useState({ workspaceCohort: '11', activationDate: '', seatType: 'premium', purchasePrice: '', activatedClaudeEmail: '' });
+  const [inviteScreenshot, setInviteScreenshot] = useState<{ name: string; dataUrl: string } | null>(null);
+  const inviteScreenshotInput = useRef<HTMLInputElement>(null);
+  const [refundPreview, setRefundPreview] = useState<{ elapsedDays: number; remainingDays: number; perDayCost: number; refundAmount: number } | null>(null);
   const [clock, setClock] = useState(Date.now());
   useEffect(() => {
     const timer = window.setInterval(() => setClock(Date.now()), 1000);
@@ -643,6 +677,34 @@ export function CustomerDashboard() {
       else setError(e.message);
     });
   }, []);
+  useEffect(() => {
+    if (!data) return;
+    const currentStatuses = Object.fromEntries(
+      data.deposits.map((item) => [item.id, item.status]),
+    );
+    const previousStatuses = previousDepositStatuses.current;
+    const creditedDeposit = previousStatuses
+      ? data.deposits.find(
+          (item) =>
+            item.status === 'credited' &&
+            previousStatuses[item.id] !== 'credited',
+        )
+      : null;
+    if (creditedDeposit) {
+      setCreditNotice(
+        `Payment credited successfully! ${money(creditedDeposit.amount)} has been added to your wallet.`,
+      );
+      setDeposit((current) =>
+        current?.id === creditedDeposit.id ? null : current,
+      );
+    }
+    previousDepositStatuses.current = currentStatuses;
+  }, [data]);
+  useEffect(() => {
+    if (!creditNotice) return;
+    const timer = window.setTimeout(() => setCreditNotice(''), 7000);
+    return () => window.clearTimeout(timer);
+  }, [creditNotice]);
   const hasOpenDeposits = Boolean(
     data?.deposits.some((item) => ['pending', 'review'].includes(item.status)),
   );
@@ -704,6 +766,14 @@ export function CustomerDashboard() {
         );
     });
   }
+  async function copyPaymentValue(value: string, label: string) {
+    try {
+      await navigator.clipboard.writeText(value);
+      setNotice(`${label} copied.`);
+    } catch {
+      setNotice(`Select the ${label.toLowerCase()} and copy it.`);
+    }
+  }
   function cancelDepositRequest(depositId: string) {
     if (!window.confirm('Cancel this deposit request? Any payment sent after cancellation will not be matched to it.')) return;
     void run(async () => {
@@ -729,8 +799,76 @@ export function CustomerDashboard() {
       setRequirementContacts((current) => ({ ...current, [requirementId]: '' }));
     });
   }
+  function calculateRefundPreview() {
+    if (!data || !refundForm.activationDate || !Number(refundForm.purchasePrice)) {
+      setError('Select the activation date and enter the price you paid first.');
+      return;
+    }
+    const start = new Date(`${refundForm.activationDate}T00:00:00Z`).getTime();
+    const end = new Date(`${data.refundConfig.deactivationDate}T00:00:00Z`).getTime();
+    const elapsedDays = Math.floor((end - start) / 86400000) + 1;
+    const remainingDays = Math.max(0, data.refundConfig.warrantyDays - Math.max(elapsedDays, 0));
+    const perDayCost = Number(refundForm.purchasePrice) / data.refundConfig.billingDays;
+    const refundAmount = Math.round(perDayCost * remainingDays);
+    if (!Number.isFinite(start) || start > end || remainingDays <= 0 || refundAmount <= 0) {
+      setError('Enter an activation date on or before the deactivation date.');
+      setRefundPreview(null);
+      return;
+    }
+    setError('');
+    setRefundPreview({ elapsedDays, remainingDays, perDayCost, refundAmount });
+  }
+  function chooseInviteScreenshot(file?: File) {
+    setError('');
+    setInviteScreenshot(null);
+    if (!file) return;
+    if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type)) {
+      setError('Choose a PNG, JPG, or WebP screenshot.');
+      if (inviteScreenshotInput.current) inviteScreenshotInput.current.value = '';
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      setError('The invitation screenshot must be 2 MB or smaller.');
+      if (inviteScreenshotInput.current) inviteScreenshotInput.current.value = '';
+      return;
+    }
+    const reader = new FileReader();
+    reader.onerror = () => setError('We could not read that image. Please choose it again.');
+    reader.onload = () => {
+      if (typeof reader.result === 'string')
+        setInviteScreenshot({ name: file.name, dataUrl: reader.result });
+      else setError('We could not read that image. Please choose it again.');
+    };
+    reader.readAsDataURL(file);
+  }
+  async function submitRefundRequest(event: SyntheticEvent<HTMLFormElement>) {
+    event.preventDefault();
+    await run(async () => {
+      const result = await request('account-refund-request', {
+        ...refundForm,
+        inviteScreenshotDataUrl: inviteScreenshot?.dataUrl,
+      });
+      setRefundPreview(null);
+      setInviteScreenshot(null);
+      if (inviteScreenshotInput.current) inviteScreenshotInput.current.value = '';
+      setNotice(`Refund request submitted for ${money(result.request.refund_amount)}. It is waiting for admin review.`);
+    });
+  }
   return (
     <LocalizedContent><main className="account-dashboard account-dashboard-clean">
+        {creditNotice && (
+          <div className="account-credit-toast" role="status" aria-live="polite">
+            <ShieldCheck size={20} />
+            <span>{creditNotice}</span>
+            <button
+              type="button"
+              aria-label="Dismiss payment credited message"
+              onClick={() => setCreditNotice('')}
+            >
+              ×
+            </button>
+          </div>
+        )}
         <div className="customer-dashboard-layout">
           <aside className="customer-dashboard-sidebar">
             <div className="dashboard-user-card">
@@ -749,6 +887,7 @@ export function CustomerDashboard() {
                 { id: 'overview', label: 'Overview', Icon: LayoutDashboard },
                 { id: 'orders', label: 'My orders', Icon: ShoppingBag },
                 { id: 'wallet', label: 'Wallet & deposits', Icon: CircleDollarSign },
+                { id: 'refunds', label: 'Refund / replacement', Icon: RefreshCw },
                 { id: 'profile', label: 'Profile', Icon: ShieldCheck },
               ].map(({ id, label, Icon }) => (
                 <button
@@ -919,6 +1058,107 @@ export function CustomerDashboard() {
                     )}
                   </div>
                 )}
+            {tab === 'refunds' && (
+              <section className="account-card refund-calculation-panel">
+                <div className="account-heading">
+                  <div>
+                    <span className="account-eyebrow">CLAUDE ACCOUNT SUPPORT</span>
+                    <h2>Refund / replacement calculations</h2>
+                    <p>Tell us which workspace you received and the amount you paid. Your request will be reviewed by the Sasify team.</p>
+                  </div>
+                </div>
+                <form className="refund-calculation-form" onSubmit={submitRefundRequest}>
+                  <label>
+                    Workspace renewal cycle
+                    <select value={refundForm.workspaceCohort} onChange={(event) => setRefundForm((current) => ({ ...current, workspaceCohort: event.target.value }))}>
+                      <option value="2">2nd of the month</option>
+                      <option value="11">11th of the month</option>
+                      <option value="18">18th of the month</option>
+                    </select>
+                    <small>(Kindly check the renewal date of the account from the message that we sent you to select the accurate workspace of your account.)</small>
+                  </label>
+                  <label>
+                    Your actual activation date
+                    <input type="date" value={refundForm.activationDate} onChange={(event) => { setRefundForm((current) => ({ ...current, activationDate: event.target.value })); setRefundPreview(null); }} required />
+                    <small>If you were added later than the workspace cycle, enter the actual date you received access.</small>
+                  </label>
+                  <label>
+                    Seat type
+                    <select value={refundForm.seatType} onChange={(event) => setRefundForm((current) => ({ ...current, seatType: event.target.value }))}>
+                      <option value="premium">Claude Premium</option>
+                      <option value="standard">Claude Standard</option>
+                    </select>
+                  </label>
+                  <label>
+                    Price you paid (PKR)
+                    <input type="number" min="1" max="1000000" step="1" value={refundForm.purchasePrice} onChange={(event) => { setRefundForm((current) => ({ ...current, purchasePrice: event.target.value })); setRefundPreview(null); }} placeholder="e.g. 5000" required />
+                  </label>
+                  <label>
+                    Email used to activate Claude
+                    <input
+                      type="email"
+                      value={refundForm.activatedClaudeEmail}
+                      onChange={(event) => setRefundForm((current) => ({ ...current, activatedClaudeEmail: event.target.value }))}
+                      placeholder="you@gmail.com"
+                      autoComplete="email"
+                      maxLength={254}
+                      required
+                    />
+                    <small>Please enter the email on which you activated Claude. This must be the exact Gmail address you used.</small>
+                  </label>
+                  <div className="refund-upload-field">
+                    <label htmlFor="refund-invite-screenshot">Claude team plan invitation screenshot</label>
+                    <input
+                      ref={inviteScreenshotInput}
+                      id="refund-invite-screenshot"
+                      type="file"
+                      accept="image/png,image/jpeg,image/webp"
+                      onChange={(event) => chooseInviteScreenshot(event.currentTarget.files?.[0])}
+                      required
+                    />
+                    <small>Open Gmail, find the team plan invitation email from Claude, and attach a screenshot. PNG, JPG, or WebP up to 2 MB.</small>
+                    {inviteScreenshot && (
+                      <div className="refund-upload-preview">
+                        <img src={inviteScreenshot.dataUrl} alt="Preview of the Claude team plan invitation screenshot" />
+                        <div>
+                          <span>{inviteScreenshot.name}</span>
+                          <button
+                            type="button"
+                            className="secondary-button compact"
+                            onClick={() => {
+                              setInviteScreenshot(null);
+                              if (inviteScreenshotInput.current) inviteScreenshotInput.current.value = '';
+                            }}
+                          >
+                            Remove screenshot
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  {refundPreview && (
+                    <div className="refund-preview" role="status">
+                      <div><span>Per-day cost</span><strong>PKR {refundPreview.perDayCost.toFixed(2)}</strong></div>
+                      <div><span>Refundable days</span><strong>{refundPreview.remainingDays}</strong></div>
+                      <div><span>Estimated refund</span><strong>{money(refundPreview.refundAmount)}</strong></div>
+                    </div>
+                  )}
+                  <div className="refund-form-actions">
+                    <button type="button" className="secondary-button" disabled={busy} onClick={calculateRefundPreview}>Calculate your refund</button>
+                    <button type="submit" className="primary-button" disabled={busy || !refundPreview}>Request the refund</button>
+                  </div>
+                </form>
+                <div className="refund-request-history">
+                  <h3>Your requests</h3>
+                  {!data.refundRequests.length ? <p>No refund or replacement requests yet.</p> : data.refundRequests.map((request) => (
+                    <article key={request.id} className="refund-request-row">
+                      <div><strong>{request.seat_type === 'premium' ? 'Claude Premium' : 'Claude Standard'} · {request.workspace_cohort}th workspace</strong><small>Activated {formatDateOnly(request.activation_date)} · {request.remaining_days} refundable days</small>{request.activated_claude_email && <small>Claude Gmail: {request.activated_claude_email}</small>}</div>
+                      <div><strong>{money(request.refund_amount)}</strong><span className={`account-status status-${request.status}`}>{request.status}</span></div>
+                    </article>
+                  ))}
+                </div>
+              </section>
+            )}
             {tab === 'orders' && (
               <section className="account-card minimal-orders-panel">
                 <div className="account-heading">
@@ -1055,12 +1295,22 @@ export function CustomerDashboard() {
                     <label>
                       Payment method
                       <select name="method" value={depositMethod} onChange={(event) => setDepositMethod(event.target.value)}>
-                        <option value="bank">NayaPay</option>
+                        <option value="wallet">Wallet transfer</option>
+                        <option value="bank">Meezan Bank</option>
                         <option value="binance">Binance Pay</option>
                         <option value="crypto">
                           Crypto USDT · BEP20 · minimum USDT 6
                         </option>
                       </select>
+                      <small className="wallet-payment-method-note">
+                        {depositMethod === 'wallet'
+                          ? 'Transfer from any Easypaisa/JazzCash/SadaPay to our NayaPay account'
+                          : depositMethod === 'bank'
+                            ? 'Transfer to our Meezan Bank account'
+                            : depositMethod === 'binance'
+                              ? 'Transfer through your Binance account'
+                              : 'Send USDT through the displayed BEP20 network'}
+                      </small>
                     </label>
                     <button className="primary-button wallet-funding-submit" disabled={busy}>
                       {busy ? 'Preparing instructions…' : 'Continue to payment'} <ArrowRight size={17} />
@@ -1093,9 +1343,37 @@ export function CustomerDashboard() {
                         <span>{deposit.currency}</span>
                       </div>
                       <div className="wallet-receiver-row">
-                        <div><small>Send to</small><strong>{receiver.title}</strong></div>
-                        <code>{receiver.number}</code>
+                        <div><small>{deposit.method === 'bank' ? 'Meezan Bank account' : deposit.method === 'wallet' ? 'NayaPay account' : 'Send to'}</small><strong>{receiver.title}</strong></div>
+                        <div className="wallet-receiver-value">
+                          <code>{receiver.number}</code>
+                          <button
+                            type="button"
+                            className="wallet-copy-button"
+                            title="Copy account number"
+                            aria-label="Copy account number"
+                            onClick={() => void copyPaymentValue(receiver.number, 'Account number')}
+                          >
+                            <Copy size={14} /> Copy
+                          </button>
+                        </div>
                       </div>
+                      {deposit.method === 'bank' && receiver.iban && (
+                        <div className="wallet-receiver-row">
+                          <div><small>IBAN</small></div>
+                          <div className="wallet-receiver-value">
+                            <code>{receiver.iban}</code>
+                            <button
+                              type="button"
+                              className="wallet-copy-button"
+                              title="Copy IBAN"
+                              aria-label="Copy IBAN"
+                              onClick={() => void copyPaymentValue(receiver.iban || '', 'IBAN')}
+                            >
+                              <Copy size={14} /> Copy
+                            </button>
+                          </div>
+                        </div>
+                      )}
                       {deposit.method === 'crypto' && (
                         <p className="wallet-instructions-note">
                           BEP20 only. Your deposit must arrive as{' '}

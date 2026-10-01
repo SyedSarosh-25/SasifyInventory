@@ -79,7 +79,7 @@ export function AdminCustomers({
           </button>
         </div>
       </div>
-      <div className="admin-customers-table-wrap">
+      <div className="admin-customers-table-wrap mobile-records">
         <table className="admin-customers-table">
           <thead>
             <tr>
@@ -100,7 +100,7 @@ export function AdminCustomers({
           <tbody>
             {rows.map((a) => (
               <tr key={a.id}>
-                <td>
+                <td data-label="User">
                   <strong>{a.name}</strong>
                   <br />
                   {a.username ? `@${a.username}` : 'No username'}
@@ -118,23 +118,23 @@ export function AdminCustomers({
                     </button>
                   )}
                 </td>
-                <td>
+                <td data-label="Type">
                   {a.role === 'reseller'
                     ? 'Reseller'
                     : a.reseller_status !== 'none'
                       ? 'Reseller applicant'
                       : 'Customer'}
                 </td>
-                <td>{a.email_verified_at ? 'Verified' : 'Not verified'}</td>
-                <td>{money(a.balance)}</td>
-                <td>{a.total_orders}</td>
-                <td>{a.delivered_orders}</td>
-                <td>{a.pending_orders}</td>
-                <td>{money(a.total_spent)}</td>
-                <td>{money(a.total_deposited)}</td>
-                <td>{a.review_deposits}</td>
-                <td>{new Date(a.created_at).toLocaleString()}</td>
-                <td>
+                <td data-label="Email status">{a.email_verified_at ? 'Verified' : 'Not verified'}</td>
+                <td data-label="Current balance">{money(a.balance)}</td>
+                <td data-label="Orders">{a.total_orders}</td>
+                <td data-label="Delivered">{a.delivered_orders}</td>
+                <td data-label="Pending / review">{a.pending_orders}</td>
+                <td data-label="Total spent">{money(a.total_spent)}</td>
+                <td data-label="Deposited">{money(a.total_deposited)}</td>
+                <td data-label="Deposits to review">{a.review_deposits}</td>
+                <td data-label="Joined">{new Date(a.created_at).toLocaleString()}</td>
+                <td data-label="Last order">
                   {a.last_order_at
                     ? new Date(a.last_order_at).toLocaleString()
                     : '—'}

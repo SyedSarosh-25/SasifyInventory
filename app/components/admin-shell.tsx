@@ -38,6 +38,7 @@ export const adminSections = [
   ['manualOrders', 'Manual orders', ClipboardCheck],
   ['customers', 'Registered users', Users],
   ['userDetail', 'User detail', Users],
+  ['refunds', 'Refunds / replacements', RefreshCw],
   ['emailCampaign', 'Email campaigns', Mail],
   ['resellerRequests', 'Reseller requests', ClipboardCheck],
   ['payments', 'Payments', WalletCards],
@@ -65,7 +66,7 @@ export type AdminSection =
 const adminSectionGroups: { label: string; items: AdminSection[] }[] = [
   {
     label: 'Workspace',
-    items: ['overview', 'orders', 'manualOrders', 'customers', 'userDetail', 'emailCampaign'],
+    items: ['overview', 'orders', 'manualOrders', 'customers', 'userDetail', 'refunds', 'emailCampaign'],
   },
   {
     label: 'Payments & finance',
@@ -91,6 +92,7 @@ const sectionDescriptions: Record<string, string> = {
   manualOrders: 'Handle Claude pre-orders and manual Hostinger activations.',
   customers: 'Customer and reseller accounts, wallet balances and purchase activity.',
   userDetail: 'Complete customer history and wallet controls.',
+  refunds: 'Review cloud account refund and replacement calculations.',
   emailCampaign: 'Send a controlled announcement to registered Sasify users.',
   resellerRequests: 'Review applications to join Sasify as a reseller.',
   payments: 'Review incoming receipts and their verification status.',
@@ -129,6 +131,7 @@ export function AdminShell({
   const [collapsed, setCollapsed] = useState(false);
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
+  const [mobileSearch, setMobileSearch] = useState('');
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>(
     Object.fromEntries(
       adminSectionGroups.map(({ label }, index) => [label, index < 2]),
@@ -159,14 +162,18 @@ export function AdminShell({
     onNavigate(value);
     setOpen(false);
     setSearch('');
+    setMobileSearch('');
   }
-  const navigation = (
+  const navigation = (filter = '') => (
     <nav aria-label="Admin sections" className="ops-navigation">
       {adminSectionGroups.map((group) => {
         const sections = group.items
           .map((value) => adminSections.find((section) => section[0] === value))
-          .filter((section): section is (typeof adminSections)[number] => Boolean(section));
-        const expanded = expandedGroups[group.label];
+          .filter((section): section is (typeof adminSections)[number] =>
+            Boolean(section && section[1].toLowerCase().includes(filter.toLowerCase().trim())),
+          );
+        if (!sections.length) return null;
+        const expanded = Boolean(filter.trim()) || expandedGroups[group.label];
         return (
           <div className="ops-navigation-group" key={group.label}>
             <button
@@ -204,6 +211,9 @@ export function AdminShell({
           </div>
         );
       })}
+      {filter.trim() && !adminSections.some(([, label]) =>
+        label.toLowerCase().includes(filter.toLowerCase().trim()),
+      ) && <p className="ops-navigation-empty">No matching sections.</p>}
     </nav>
   );
   const title =
@@ -223,7 +233,7 @@ export function AdminShell({
           </span>
         </a>
         <p className="ops-nav-caption">WORKSPACE</p>
-        {navigation}
+        {navigation()}
         <div className="ops-sidebar-bottom">
           <a href="/" title="Open storefront">
             <ArrowUpRight size={18} />
@@ -256,7 +266,16 @@ export function AdminShell({
             <SheetContent side="left" className="ops-mobile-drawer">
               <SheetTitle>Sasify operations</SheetTitle>
               <SheetDescription>Choose a workspace</SheetDescription>
-              {navigation}
+              <label className="ops-mobile-search">
+                <Search size={17} aria-hidden="true" />
+                <input
+                  aria-label="Search admin sections"
+                  placeholder="Find a section…"
+                  value={mobileSearch}
+                  onChange={(event) => setMobileSearch(event.target.value)}
+                />
+              </label>
+              {navigation(mobileSearch)}
             </SheetContent>
           </Sheet>
           <div className="ops-breadcrumb">

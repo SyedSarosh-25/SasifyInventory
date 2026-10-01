@@ -19,7 +19,9 @@ fallback only when automatic fulfilment of an authenticated receipt fails.
    using the configured HTTP Basic Auth credentials.
 4. The backend authenticates the Postmark request and validates the preserved
    NayaPay DKIM/DMARC evidence. When Postmark includes `RawEmail`, the backend
-   also verifies the original signed MIME message.
+   verifies the original signed MIME message when possible and can safely fall
+   back to Postmark's preserved DKIM/DMARC evidence when Gmail forwarding has
+   changed the raw signature.
 5. The backend parses the receipt, checks the active payment receiver, amount,
    transaction, payment window and duplicate state.
 6. If exactly one eligible order is found, the backend automatically fulfils it

@@ -14,7 +14,7 @@ export function devCommerce() {
           let body = '';
           for await (const chunk of req) {
             body += chunk;
-            if (Buffer.byteLength(body) > 2000000) {
+            if (Buffer.byteLength(body) > 3500000) {
               res.statusCode = 413;
               res.end(JSON.stringify({ error: 'Request too large.' }));
               return;

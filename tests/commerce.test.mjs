@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { randomBytes } from 'node:crypto';
 import { encrypt,decrypt,parseEmail,parseInventory,normalizeTransaction,paymentAmountMatchesOrder,same,totpCode } from '../commerce/core.mjs';
+import { parseMeezanEmail } from '../commerce/meezan-email.mjs';
 import { normalizeQamifyProduct, qamifyDelivery, qamifyOrderId } from '../commerce/qamify.mjs';
 import { providerDescription } from '../commerce/description.mjs';
 test('credentials are authenticated ciphertext and wrong keys cannot decrypt',()=>{
@@ -36,6 +37,13 @@ test('NayaPay format needs exact source, receiver, date and transaction before a
   assert.equal(parseEmail(receipt,config).transaction,'247854');assert.equal(parseEmail(receipt,config).amount,3500);assert.equal(parseEmail(receipt,config).verified,true);
   assert.equal(parseEmail(receipt).verified,false);
   for(const changed of [{from:'fake@example.com'},{date:'2020-01-01'},{text:'Transaction ID 247854'},{subject:'Fwd: '+receipt.subject},{text:receipt.text+'\nTransaction ID 999999'}]) assert.equal(parseEmail({...receipt,...changed},config).verified,false);
+});
+test('NayaPay subjects with the Pakistan flag still parse the amount and payer',()=>{
+  const receipt={subject:'You got Rs. 100 from Syed Adeen Sarosh 🇵🇰',text:'Amount Received\nRs. 100\nTransaction ID\nABC123456\nSource Acc. Number\n****0388\nDestination Acc. Title\nSyed Adeen Sarosh',from:'service@nayapay.com',date:new Date().toISOString()};
+  const result=parseEmail(receipt,{enabled:true,sender:'service@nayapay.com',receiver:'Syed Adeen Sarosh'});
+  assert.equal(result.amount,100);
+  assert.equal(result.payer,'Syed Adeen Sarosh');
+  assert.equal(result.transaction,'ABC123456');
 });
 test('transaction identifiers and authentication fail closed',()=>{
   assert.equal(normalizeTransaction(' abc123 '),'ABC123');assert.throws(()=>normalizeTransaction('<script>'));assert.equal(same('',undefined),false);assert.equal(same('a','b'),false);
@@ -77,6 +85,70 @@ test('NayaPay bank receipt sample parses the HTML table layout and masked Raast 
   assert.equal(result.sourceLast4,'0015');
   assert.equal(result.verified,true);
   assert.equal(result.reason,'verified');
+});
+test('Meezan credit alerts parse the masked account and transaction date/time',()=>{
+  const date = new Date(Date.now() - 60_000);
+  const pakistan = new Date(date.getTime() + 5 * 60 * 60 * 1000);
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const dateText = `${String(pakistan.getUTCDate()).padStart(2, '0')}-${months[pakistan.getUTCMonth()]}-${pakistan.getUTCFullYear()}`;
+  const timeText = `${String(pakistan.getUTCHours()).padStart(2, '0')}:${String(pakistan.getUTCMinutes()).padStart(2, '0')}`;
+  const receipt = {
+    subject: 'Credit Transaction Alert',
+    from: 'Meezan Bank Alert <no-reply@meezanbank.com>',
+    to: 'payments@example.invalid',
+    messageId: '<meezan-receipt-1@meezanbank.com>',
+    date: date.toISOString(),
+    text: `Dear Customer,\n\nPKR 25.00 received to your account xxx1103 with the following details:\n\nBeneficiary Account : S. ADEEN AC# RAAST PYMT PK76TMFB00000\nBranch : SIR SYED ROAD BR KHI\nTransaction Date : ${dateText}\nTransaction Time : ${timeText}`,
+  };
+  const result = parseMeezanEmail(receipt, {
+    enabled: true,
+    sender: 'no-reply@meezanbank.com',
+    receiverMailbox: 'payments@example.invalid',
+    receiver: 'A deliberately different display-only value',
+    receiverAccount: '1234561103',
+  });
+  assert.equal(result.amount, 25);
+  assert.equal(result.sourceLast4, '1103');
+  assert.match(result.transaction, /^MEEZAN-[A-F0-9]{32}$/);
+  assert.equal(result.verified, true);
+  assert.equal(parseMeezanEmail({ ...receipt, text: receipt.text.replace('xxx1103', 'xxx9999') }, {
+    enabled: true,
+    sender: 'no-reply@meezanbank.com',
+    receiverMailbox: 'payments@example.invalid',
+    receiver: 'A deliberately different display-only value',
+    receiverAccount: '1234561103',
+  }).verified, false);
+  assert.equal(parseMeezanEmail({ ...receipt, subject: '' }, {
+    enabled: true,
+    sender: 'no-reply@meezanbank.com',
+    receiverMailbox: 'payments@example.invalid',
+    receiverAccount: '1234561103',
+  }).verified, true);
+  assert.equal(parseMeezanEmail({ ...receipt, subject: '(no subject)' }, {
+    enabled: true,
+    sender: 'no-reply@meezanbank.com',
+    receiverMailbox: 'payments@example.invalid',
+    receiverAccount: '1234561103',
+  }).verified, true);
+  const newTemplate = {
+    subject: '',
+    from: receipt.from,
+    to: receipt.to,
+    messageId: '<meezan-receipt-new-template@meezanbank.com>',
+    date: date.toISOString(),
+    text: `Dear Customer,\n\nAssalam o Alaikum,\n\nPKR 10,000.00 has been received in your MBL account xxx1103. Please find the details of this transaction below:\n\nBranch : SIR SYED ROAD BR KHI\n\nReceived from TANVEER HUSSAIN (MBL AC xxx4124)\n\nTransaction Date : ${dateText}\n\nTransaction Time : ${timeText}\n\nTID:181813`,
+  };
+  const newResult = parseMeezanEmail(newTemplate, {
+    enabled: true,
+    sender: 'no-reply@meezanbank.com',
+    receiverMailbox: 'payments@example.invalid',
+    receiverAccount: '1234561103',
+  });
+  assert.equal(newResult.amount, 10000);
+  assert.equal(newResult.sourceLast4, '1103');
+  assert.equal(newResult.transaction, '181813');
+  assert.equal(newResult.payer, 'TANVEER HUSSAIN');
+  assert.equal(newResult.verified, true);
 });
 test('Qamify products and order delivery are normalized defensively',()=>{
   assert.deepEqual(normalizeQamifyProduct({id:42,name:'Test license',unit_price:'3.50',stock:2,slug:'test-license'},'USD'),{

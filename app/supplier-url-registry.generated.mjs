@@ -1161,14 +1161,16 @@ export const supplierUrlRegistry = [
     ],
     "names": [
       "cdk super grok 1 month",
-      "grok super 1 month"
+      "grok super 1 month",
+      "cdk supergrok 1m"
     ],
     "aliases": [
       "cdk-super-grok-1-month-13iaro",
       "cdk-super-grok-1-month-1vx6xy",
       "grok-super-1-month-13iaro",
       "cdk-super-grok-1-month-wfxtmh",
-      "grok-super-1-month-jul8fs"
+      "grok-super-1-month-jul8fs",
+      "cdk-supergrok-1m-13iaro"
     ]
   },
   {
@@ -3393,13 +3395,15 @@ export const supplierUrlRegistry = [
   {
     "slug": "admin-canva-edu-3-years-1-month-warranty",
     "keys": [
-      "auto:admin-canva-edu-1m-3y"
+      "auto:admin-canva-edu-1m-3y",
+      "auto:admin-canva-edu-duration-3y"
     ],
     "names": [
       "admin canva edu 3 years - 1 month warranty"
     ],
     "aliases": [
-      "admin-canva-edu-3-years-1-month-warranty-dh4bxs"
+      "admin-canva-edu-3-years-1-month-warranty-dh4bxs",
+      "admin-canva-edu-3-years-1-month-warranty-72oe06"
     ]
   },
   {
@@ -3803,13 +3807,15 @@ export const supplierUrlRegistry = [
   {
     "slug": "icloud-slot-2tb-1-month-full-warranty",
     "keys": [
-      "auto:icloud-slot-2tb-1-month-full-warranty"
+      "auto:icloud-slot-2tb-1-month-full-warranty",
+      "auto:2tb-icloud-slot-duration-1m"
     ],
     "names": [
       "icloud slot 2tb – 1 month (full warranty)"
     ],
     "aliases": [
-      "icloud-slot-2tb-1-month-full-warranty-1pr6i9"
+      "icloud-slot-2tb-1-month-full-warranty-1pr6i9",
+      "icloud-slot-2tb-1-month-full-warranty-fh1h1u"
     ]
   },
   {
@@ -4386,6 +4392,78 @@ export const supplierUrlRegistry = [
     ],
     "aliases": [
       "factory-12m-pro-nzaloc"
+    ]
+  },
+  {
+    "slug": "chatgpt-business-1m-account-w1d",
+    "keys": [
+      "auto:account-business-chatgpt-w1d-duration-1m"
+    ],
+    "names": [
+      "chatgpt business 1m account (w1d)"
+    ],
+    "aliases": [
+      "chatgpt-business-1m-account-w1d-l0r10r"
+    ]
+  },
+  {
+    "slug": "gpt-k12-edu-2-years",
+    "keys": [
+      "auto:edu-gpt-k12-duration-2y"
+    ],
+    "names": [
+      "gpt k12 edu 2 years"
+    ],
+    "aliases": [
+      "gpt-k12-edu-2-years-1i052z"
+    ]
+  },
+  {
+    "slug": "wisper-flow-12m-student-plan",
+    "keys": [
+      "auto:flow-plan-student-wisper-duration-12m"
+    ],
+    "names": [
+      "wisper flow 12m student plan"
+    ],
+    "aliases": [
+      "wisper-flow-12m-student-plan-3w9wtv"
+    ]
+  },
+  {
+    "slug": "icloud-2tb-slot-3-months-full-warranty",
+    "keys": [
+      "auto:2tb-icloud-slot-duration-3m"
+    ],
+    "names": [
+      "icloud 2tb slot – 3 months (full warranty)"
+    ],
+    "aliases": [
+      "icloud-2tb-slot-3-months-full-warranty-n8wnh0"
+    ]
+  },
+  {
+    "slug": "icloud-2tb-slot-6-months-full-warranty",
+    "keys": [
+      "auto:2tb-icloud-slot-duration-6m"
+    ],
+    "names": [
+      "icloud 2tb slot – 6 months (full warranty)"
+    ],
+    "aliases": [
+      "icloud-2tb-slot-6-months-full-warranty-fhh8jp"
+    ]
+  },
+  {
+    "slug": "icloud-slot-2tb-12-months-full-warranty",
+    "keys": [
+      "auto:2tb-icloud-slot-duration-12m"
+    ],
+    "names": [
+      "icloud slot 2tb – 12 months (full warranty)"
+    ],
+    "aliases": [
+      "icloud-slot-2tb-12-months-full-warranty-1jod3h"
     ]
   }
 ];

@@ -84,6 +84,16 @@ test('grouped supplier catalogue exposes one price target and the cheapest live 
   assert.equal(groups[0].groupSellingPrice, 1999);
 });
 
+test('individual customer prices do not override the lowest-cost primary supplier', () => {
+  const groups = supplierCatalogGroups([
+    product({ id: 'piggyai:grok', name: 'Grok 1 Month', cost_pkr: 1500, selling_price: 2500 }),
+    product({ id: 'mke:grok', name: 'Grok 30D full warranty', cost_pkr: 1200, selling_price: 2900 }),
+  ]);
+  assert.equal(groups.length, 1);
+  assert.equal(groups[0].winner?.id, 'mke:grok');
+  assert.equal(groups[0].groupSellingPrice, null);
+});
+
 test('group is not listed when stock exists but no offer is enabled and priced', () => {
   const groups = supplierCatalogGroups([
     product({ id: 'mke:setup', name: 'Setup Product 1 Month', selling_price: null, enabled: false }),

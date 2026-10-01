@@ -18,12 +18,13 @@ import { AdminEmailCampaign } from './admin-email-campaign';
 import {
   AdminAuditLogs,
   AdminProducts,
+  AdminRefundRequests,
   AdminSettings,
   AdminSupport,
   AdminTransactionHistory,
   AdminUserDetail,
 } from './admin-enhancements';
-import { supplierOfferDecision, type SupplierCatalogGroup } from './admin-catalog-status-model';
+import { supplierOfferDecision } from './admin-catalog-status-model';
 import {
   Check,
   ChevronDown,
@@ -64,8 +65,8 @@ type Stock = {
   shared_slots_total?: number;
 };
 const PAYMENT_METHOD_OPTIONS = [
-  { value: 'wallet' as const, label: 'Wallet transfer', description: 'Easypaisa, JazzCash, NayaPay, SadaPay and more', icon: WalletCards },
-  { value: 'bank' as const, label: 'Bank transfer', description: 'All banks', icon: Landmark },
+  { value: 'wallet' as const, label: 'Wallet transfer', description: 'Transfer from Easypaisa, JazzCash or SadaPay to our NayaPay account', icon: WalletCards },
+  { value: 'bank' as const, label: 'Meezan Bank', description: 'Transfer to our Meezan Bank account', icon: Landmark },
   { value: 'binance' as const, label: 'Binance Pay', description: 'Binance Pay in USDT', icon: WalletCards },
   { value: 'crypto' as const, label: 'Crypto deposit', description: 'Send USDT on the displayed network', icon: WalletCards },
 ];
@@ -100,7 +101,7 @@ type Order = {
   preorderDate?: string;
   activationSla?: string;
   twoFactorCodeAvailable?: boolean;
-  payment: { number: string; title: string; provider: string };
+  payment: { number: string; title: string; provider: string; iban?: string | null };
   credentials?: AccountCredentials;
   delivery?: { content: string; instructions?: string };
 };
@@ -479,8 +480,8 @@ export function Checkout() {
                 ? 'Pay now and your order will be confirmed. You will be notified about your Claude Team Plan on 2 October 2026.'
                 : product?.availability_mode === 'manual' || product?.provider_id === 'manual'
                   ? `Send your email with payment. Our team will activate access ${product.activation_sla?.toLowerCase() || 'within 6 hours'} and complete the order from the admin panel.`
-              : order?.paymentMethod === 'bank'
-                ? 'Your delivery appears here automatically after the signed NayaPay receipt is matched.'
+                : order?.paymentMethod === 'bank'
+                ? 'Your delivery appears here automatically after the authenticated Meezan Bank receipt is matched.'
                 : ['binance', 'crypto'].includes(order?.paymentMethod || '')
                   ? 'Your delivery appears here automatically after the authenticated Binance receipt is matched.'
                   : 'Your login details appear here after payment verification, usually within one minute.'}
@@ -826,7 +827,9 @@ export function Checkout() {
                   ? 'USDT wallet address'
                   : order.paymentMethod === 'binance'
                     ? 'Binance Pay account'
-                    : 'NayaPay account'} below.
+                    : order.paymentMethod === 'bank'
+                      ? 'Meezan Bank account'
+                      : 'NayaPay account'} below.
               </p>
               <p className="payment-source-note">
                 <strong>
@@ -834,7 +837,9 @@ export function Checkout() {
                     ? order.paymentMethod === 'crypto'
                       ? 'Send from your crypto wallet on the displayed network.'
                       : 'Send from your Binance account.'
-                    : 'This number belongs to NayaPay.'}
+                    : order.paymentMethod === 'bank'
+                      ? 'This is the configured Meezan Bank account.'
+                      : 'This number belongs to NayaPay.'}
                 </strong>{' '}
                 {order.paymentMethod === 'crypto'
                   ? `Send via BEP20. The displayed amount includes the USDT ${CRYPTO_NETWORK_FEE_USDT.toFixed(2)} network fee. We expect to receive net USDT ${Number(order.paymentAmount || 0).toFixed(2)} and cover the fee for you.`
@@ -861,7 +866,9 @@ export function Checkout() {
                   ? 'USDT wallet address'
                   : order.paymentMethod === 'binance'
                     ? 'Binance Pay account'
-                    : 'NayaPay number'}</dt>
+                    : order.paymentMethod === 'bank'
+                      ? 'Meezan Bank account'
+                      : 'NayaPay number'}</dt>
                 <dd>
                   <strong>{order.payment.number}</strong>{' '}
                   <button
@@ -872,6 +879,21 @@ export function Checkout() {
                     <Copy size={16} />
                   </button>
                 </dd>
+                {order.paymentMethod === 'bank' && order.payment.iban ? (
+                  <>
+                    <dt>IBAN</dt>
+                    <dd>
+                      <strong>{order.payment.iban}</strong>{' '}
+                      <button
+                        title="Copy IBAN"
+                        aria-label="Copy IBAN"
+                        onClick={() => void copy(order.payment.iban || '')}
+                      >
+                        <Copy size={16} />
+                      </button>
+                    </dd>
+                  </>
+                ) : null}
                 <dt>Payment timer</dt>
                 <dd>
                   <strong className="payment-timer">{countdown}</strong>
@@ -955,7 +977,7 @@ export function Checkout() {
                   {order.supplierStatus === 'manual_activation_pending'
                     ? 'will show your activation details here once the admin completes the order.'
                     : order.paymentMethod === 'bank'
-                    ? 'will deliver after the bank receipt reaches and matches NayaPay.'
+                    ? 'will deliver after the Meezan Bank receipt reaches and matches this order.'
                     : ['binance', 'crypto'].includes(order.paymentMethod || '')
                       ? 'will deliver after the authenticated Binance receipt reaches and matches this order.'
                       : 'normally delivers within one minute.'}
@@ -1429,6 +1451,7 @@ export function CommerceAdmin() {
       | 'resellerRequests'
       | 'catalogStatus'
       | 'userDetail'
+      | 'refunds'
       | 'products'
       | 'support'
       | 'auditLogs'
@@ -1621,15 +1644,13 @@ export function CommerceAdmin() {
     );
     await refresh();
   };
-  const saveSupplierGroupPrice = async (group: SupplierCatalogGroup, sellingPrice: number, productDescription?: string) => {
-    const result = await api('admin-supplier-group-update', key, {
-      productIds: group.products.map((product) => product.id),
+  const saveSupplierOfferPrice = async (product: any, sellingPrice: number, enabled: boolean) => {
+    await api('admin-supplier-offer-update', key, {
+      productId: product.id,
       sellingPrice,
-      ...(productDescription !== undefined ? { productDescription } : {}),
+      enabled,
     });
-    setNotice(
-      `${group.name} price saved for ${result.updated || group.products.length} supplier offer${result.updated === 1 ? '' : 's'}.`,
-    );
+    setNotice(`${product.provider_name || 'Supplier'} pricing saved. Primary supplier selection recalculated.`);
     await refresh();
   };
   const addSharedAccount = async (item: any) => {
@@ -2494,6 +2515,7 @@ export function CommerceAdmin() {
       {tab === 'userDetail' && selectedAccountId && (
         <AdminUserDetail accountId={selectedAccountId} accounts={data.accounts || []} api={api} token={key} busy={busy} onBack={() => setTab('customers')} onRefresh={refresh} />
       )}
+      {tab === 'refunds' && <AdminRefundRequests requests={data.refundRequests || []} api={api} token={key} busy={busy} onRefresh={refresh} />}
       {tab === 'products' && <AdminProducts products={data.supplierProducts || []} api={api} token={key} busy={busy} onRefresh={refresh} />}
       {tab === 'support' && <AdminSupport tickets={data.supportTickets || []} api={api} token={key} busy={busy} onRefresh={refresh} />}
       {tab === 'auditLogs' && <AdminAuditLogs logs={data.auditLogs || []} />}
@@ -3311,8 +3333,8 @@ export function CommerceAdmin() {
                 setTab('supplier');
                 window.setTimeout(() => document.querySelector('.supplier-raw-offers')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 0);
               }}
-              onSaveGroupPrice={(group, sellingPrice, description) =>
-                run(() => saveSupplierGroupPrice(group, sellingPrice, description))
+              onSaveOfferPrice={(product, sellingPrice, enabled) =>
+                run(() => saveSupplierOfferPrice(product, sellingPrice, enabled))
               }
             />
             <details className="supplier-raw-offers" open={Boolean(selectedSupplierId) || undefined}>
@@ -3621,7 +3643,7 @@ export function CommerceAdmin() {
             </p>
             <AdminRecordControls view={orderView} label="orders" />
             {!orderView.count && <p>No orders match these filters. Try another status or search.</p>}
-            <div className="commerce-table">
+            <div className="commerce-table mobile-records">
               <table>
                 <thead>
                   <tr>
@@ -3644,7 +3666,7 @@ export function CommerceAdmin() {
                 <tbody>
                   {orderView.rows.map((row: any) => (
                     <tr key={row.id}>
-                      <td>
+                      <td data-label="Order">
                         <button
                           className="table-select"
                           onClick={() => setOrderId(row.id)}
@@ -3652,8 +3674,8 @@ export function CommerceAdmin() {
                           {row.id.slice(0, 8)}
                         </button>
                       </td>
-                      <td>{row.supplier_product_name || row.product_id}</td>
-                      <td>
+                      <td data-label="Product">{row.supplier_product_name || row.product_id}</td>
+                      <td data-label="Supplier">
                         <strong>
                           {row.supplier_name || 'Local inventory'}
                         </strong>
@@ -3661,7 +3683,7 @@ export function CommerceAdmin() {
                           <small>{row.supplier_status}</small>
                         )}
                       </td>
-                      <td>
+                      <td data-label="Source">
                         <strong>
                           {row.telegram_chat_id || String(row.ip_address || '').startsWith('telegram:')
                             ? 'Telegram bot'
@@ -3669,7 +3691,7 @@ export function CommerceAdmin() {
                         </strong>
                         <small>{row.telegram_chat_id ? `Chat ${row.telegram_chat_id}` : 'Web checkout'}</small>
                       </td>
-                      <td>
+                      <td data-label="Sale">
                         {money(row.amount)}
                         {row.payment_currency === 'USDT' && row.payment_amount != null && (
                           <small>USDT {Number(row.payment_amount).toFixed(2)}</small>
@@ -3679,16 +3701,16 @@ export function CommerceAdmin() {
                           <small>Listed {money(row.listed_amount)}</small>
                         )}
                       </td>
-                      <td>{row.cost_pkr == null ? '—' : money(row.cost_pkr)}</td>
-                      <td>
+                      <td data-label="Cost">{row.cost_pkr == null ? '—' : money(row.cost_pkr)}</td>
+                      <td data-label="Profit">
                         {row.profit_pkr == null ? '—' : money(row.profit_pkr)}
                       </td>
-                      <td>
+                      <td data-label="Status">
                         <span className={`admin-state ${row.status}`}>
                           {row.status}
                         </span>
                       </td>
-                      <td>
+                      <td data-label="Payment route">
                         <strong>
                           {row.payment_method === 'bank'
                             ? 'Bank transfer'
@@ -3699,7 +3721,7 @@ export function CommerceAdmin() {
                                 : 'Wallet transfer'}
                         </strong>
                       </td>
-                      <td>
+                      <td data-label="Payment match">
                         <strong>
                           {row.status === 'delivered'
                             ? 'Delivered'
@@ -3718,13 +3740,13 @@ export function CommerceAdmin() {
                           </small>
                         )}
                       </td>
-                      <td>
+                      <td data-label="Sender">
                         <strong>{row.payer_name || '-'}</strong>
                         {row.customer_email && <small>Customer email: {row.customer_email}</small>}
                       </td>
-                      <td>{row.ip_address || '-'}</td>
-                      <td>{new Date(row.created_at).toLocaleString()}</td>
-                      <td>
+                      <td data-label="IP address">{row.ip_address || '-'}</td>
+                      <td data-label="Date">{new Date(row.created_at).toLocaleString()}</td>
+                      <td data-label="Actions">
                         <div className="commerce-order-actions">
                         {['pending', 'review'].includes(row.status) && (!row.supplier_product_name || row.provider_id === 'manual') && (
                           <button
@@ -3986,7 +4008,7 @@ export function CommerceAdmin() {
             </p>
             <AdminRecordControls view={paymentView} label="payments" />
             {!paymentView.count && <p>No payments match these filters.</p>}
-            <div className="commerce-table">
+            <div className="commerce-table mobile-records">
               <table>
                 <thead>
                   <tr>
@@ -4001,7 +4023,7 @@ export function CommerceAdmin() {
                 <tbody>
                   {paymentView.rows.map((row: any) => (
                     <tr key={row.id}>
-                      <td>
+                      <td data-label="Payment">
                         <button
                           className="table-select"
                           onClick={() => {
@@ -4014,8 +4036,8 @@ export function CommerceAdmin() {
                         <small>{row.id.slice(0, 8)}</small>
                         <small>{paymentReceiverLabel(row.receiver_id)}</small>
                       </td>
-                      <td>{paymentMoney(row)}</td>
-                      <td>
+                      <td data-label="Amount">{paymentMoney(row)}</td>
+                      <td data-label="Verification">
                         <strong>
                           {paymentNeedsReview(row) ? 'Needs review' : 'Verified receipt'}
                         </strong>
@@ -4037,13 +4059,13 @@ export function CommerceAdmin() {
                           </small>
                         )}
                       </td>
-                      <td>{row.order_id?.slice(0, 8) || 'Unassigned'}</td>
-                      <td>
+                      <td data-label="Order">{row.order_id?.slice(0, 8) || 'Unassigned'}</td>
+                      <td data-label="Received">
                         {row.received_at
                           ? new Date(row.received_at).toLocaleString()
                           : 'Unknown'}
                       </td>
-                      <td>
+                      <td data-label="Receipt">
                         <button
                           className="secondary-button compact"
                           onClick={() =>

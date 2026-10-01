@@ -791,6 +791,17 @@
   letter-spacing: .08em;
   text-transform: uppercase;
 }
+.catalog-group-offer-intro {
+  display: grid;
+  gap: 4px;
+  padding: 12px 14px;
+  border: 1px solid #d8e3f2;
+  border-radius: 10px;
+  background: #f5f8ff;
+  color: #52657e;
+  font-size: 12px;
+}
+.catalog-group-offer-intro strong { color: #1e3f9f; font-size: 13px; }
 .catalog-group-price-editor {
   align-items: flex-end;
   flex-wrap: wrap;
@@ -840,7 +851,7 @@
 }
 .catalog-group-offer-list table {
   width: 100%;
-  min-width: 650px;
+  min-width: 900px;
   border-collapse: collapse;
   text-align: left;
   font-size: 12px;
@@ -858,6 +869,12 @@
 }
 .catalog-group-offer-list td small { display: block; color: #7b8aa1; margin-top: 3px; }
 .catalog-group-offer-list tr.is-winner { background: #f0fcf7; }
+.catalog-offer-price-input { width: 120px; min-height: 34px; padding: 7px 9px; border: 1px solid #cfdbea; border-radius: 8px; background: #fff; }
+.catalog-offer-live { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+.catalog-offer-live input { width: 15px; height: 15px; }
+.catalog-group-offer-list td:last-child { min-width: 150px; }
+.catalog-group-offer-list td:last-child .icon-command { margin-left: 5px; vertical-align: middle; }
+.catalog-group-offer-list td:last-child .catalog-group-error { display: block; }
 .catalog-group-copy-editor { margin: 10px 0; }
 .catalog-group-copy-editor summary { cursor: pointer; color: #285cff; font-weight: 700; font-size: 12px; }
 .catalog-group-copy-editor label { display: grid; gap: 6px; margin: 10px 0; font-size: 12px; }
@@ -1279,6 +1296,31 @@
 .admin-page .commerce-admin :is(.primary-button, .supplier-save-button):hover:not(:disabled) { background: #2046bd; border-color: #2046bd; }
 .admin-page .commerce-admin :is(.danger-action, .danger-button) { color: #b42336; border-color: #efbdc5; background: #fff; }
 .admin-page .commerce-admin :is(.danger-action, .danger-button):hover:not(:disabled) { background: #fff1f2; border-color: #d67787; }
+.admin-refund-list { display: grid; gap: 14px; }
+.admin-refund-card { padding: 18px; border: 1px solid #d7e2f1; border-radius: 15px; background: #fff; box-shadow: 0 8px 20px rgba(37,67,118,.05); }
+.admin-refund-card.pending { border-left: 4px solid #e2a923; }
+.admin-refund-card.approved { border-left: 4px solid #0a9166; }
+.admin-refund-card.rejected { border-left: 4px solid #b42336; opacity: .82; }
+.admin-refund-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; }
+.admin-refund-heading h3 { margin: 6px 0 3px; color: #172b55; }
+.admin-refund-heading p { margin: 0; color: #697b94; font-size: 12px; }
+.admin-refund-heading > strong { color: #0a9166; font-size: 20px; white-space: nowrap; }
+.admin-refund-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-top: 16px; padding: 13px; border-radius: 11px; background: #f7f9fd; }
+.admin-refund-grid div { display: grid; gap: 4px; }
+.admin-refund-grid span { color: #718097; font-size: 11px; }
+.admin-refund-grid strong { color: #263e68; font-size: 13px; }
+.admin-refund-actions { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 8px; align-items: end; margin-top: 14px; }
+.admin-refund-actions input { min-height: 40px; padding: 9px 11px; border: 1px solid #d7e1f0; border-radius: 9px; }
+.admin-refund-note { margin: 12px 0 0; color: #697b94; font-size: 12px; }
+.admin-refund-evidence { display: grid; grid-template-columns: minmax(0,1fr) auto; align-items: center; gap: 12px; margin-top: 14px; padding: 12px 14px; border: 1px solid #dce5f1; border-radius: 11px; background: #f8faff; }
+.admin-refund-evidence > div { display: grid; gap: 4px; min-width: 0; }
+.admin-refund-evidence > div > strong { color: #263e68; font-size: 12px; }
+.admin-refund-evidence > div > span { color: #718097; font-size: 11px; overflow-wrap: anywhere; }
+.admin-refund-evidence > button { white-space: nowrap; }
+.admin-refund-evidence > img { grid-column: 1 / -1; display: block; width: min(100%, 760px); max-height: 70vh; justify-self: center; border: 1px solid #dce5f1; border-radius: 9px; background: #e9eef6; object-fit: contain; }
+.admin-refund-evidence-error { grid-column: 1 / -1; color: #a33131; font-size: 12px; }
+@media(max-width:800px){.admin-refund-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.admin-refund-actions{grid-template-columns:1fr}.admin-refund-actions button{justify-content:center}}
+@media(max-width:520px){.admin-refund-heading{flex-direction:column}.admin-refund-grid{grid-template-columns:1fr}}
 .admin-page .commerce-admin button:disabled { opacity: .5; cursor: not-allowed; transform: none; box-shadow: none; }
 .admin-page .commerce-admin :is(input:not([type=checkbox]):not([type=radio]), select, textarea) {
   box-sizing: border-box;
@@ -1412,5 +1454,193 @@
 @media (max-width: 400px) {
   .ops-shell .ops-visitor-summary { grid-template-columns: 1fr; }
   .ops-shell .ops-quick-links { grid-template-columns: 1fr; }
+}
+
+/* Phone layouts for the operational workflows. Keep desktop tables unchanged. */
+.ops-mobile-drawer {
+  width: min(340px, calc(100vw - 28px));
+  overflow: hidden;
+}
+.ops-mobile-drawer .ops-navigation {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 0 4px 24px 0;
+}
+.ops-mobile-drawer .ops-navigation button {
+  white-space: normal;
+}
+.ops-mobile-drawer .ops-navigation-empty {
+  color: #ced9e8;
+  padding: 8px 14px;
+}
+.ops-mobile-search {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  flex: 0 0 auto;
+  padding: 0 12px;
+  border: 1px solid #69809f;
+  border-radius: 10px;
+  color: #dce8f8;
+  background: #1b385a;
+}
+.ops-mobile-search input {
+  min-width: 0;
+  width: 100%;
+  min-height: 44px;
+  border: 0;
+  outline: 0;
+  color: #fff;
+  background: transparent;
+  font-size: 16px;
+}
+.ops-mobile-search input::placeholder { color: #b6c8df; }
+
+@media (max-width: 760px) {
+  .admin-page { padding: 0; }
+  .commerce-admin.ops-shell { width: 100%; min-width: 0; overflow-x: clip; }
+  .ops-shell .ops-topbar { padding-inline: 12px; gap: 8px; }
+  .ops-shell .ops-breadcrumb { flex: 1; min-width: 0; margin-right: 0; overflow: hidden; text-overflow: ellipsis; }
+  .ops-shell .ops-breadcrumb span { margin-inline: 4px; }
+  .ops-shell .ops-content { width: 100%; padding-inline: 12px; }
+  .ops-shell .ops-page-heading { min-width: 0; }
+  .ops-shell .ops-page-heading > div { min-width: 0; }
+  .ops-shell .ops-page-heading h1 { overflow-wrap: anywhere; line-height: 1.15; }
+  .ops-shell .admin-workspace > *, .ops-shell .admin-panel > * { min-width: 0; }
+  .ops-shell .panel-heading > :is(label, div, button) { max-width: 100%; }
+  .ops-shell .admin-search { width: 100%; }
+  .ops-shell .admin-search input { min-width: 0; width: 100%; }
+  .ops-shell .ops-record-controls label:first-child { flex-basis: 100%; }
+  .ops-shell .ops-record-controls :is(input, select) { width: 100%; }
+  .ops-shell .ops-pagination { flex-wrap: wrap; }
+  .ops-shell .ops-quick-links button { min-width: 0; }
+  .ops-shell .ops-quick-links span { min-width: 0; }
+  .ops-shell .ops-quick-links small { overflow-wrap: anywhere; }
+  .ops-shell .postmark-usage-compact-row { flex-wrap: wrap; }
+  .ops-shell .admin-enhancement-heading { flex-wrap: wrap; gap: 10px; }
+  .ops-shell .admin-enhancement-heading > div { min-width: 0; }
+  .ops-shell .admin-refund-heading > div { min-width: 0; }
+  .ops-shell .manual-order-card-heading { flex-wrap: wrap; }
+  .ops-shell .admin-requirement-card-heading { flex-wrap: wrap; }
+  .ops-shell .admin-requirement-card-actions { flex-wrap: wrap; }
+  .ops-shell .admin-ticket-main { flex-wrap: wrap; }
+  .ops-shell .admin-ticket-actions > * { min-width: 0; }
+  .ops-shell .admin-product-row > * { min-width: 0; }
+  .ops-shell .admin-product-row strong,
+  .ops-shell .admin-product-row small { white-space: normal; overflow-wrap: anywhere; }
+  .ops-shell .admin-reseller-tabs { max-width: 100%; overflow-x: auto; }
+  .ops-shell .admin-reseller-tabs button { flex: 0 0 auto; }
+  .ops-shell .supplier-provider-tabs { flex-wrap: nowrap; max-width: 100%; overflow-x: auto; overscroll-behavior-x: contain; }
+  .ops-shell .supplier-provider-tabs button { flex: 0 0 auto; }
+  .ops-shell .supplier-admin-row,
+  .ops-shell .catalog-group-row { min-width: 0; }
+  .ops-shell .catalog-group-facts { gap: 10px 16px; }
+  .ops-shell .catalog-group-facts span { min-width: 0; overflow-wrap: anywhere; }
+  .ops-shell .catalog-group-offer-intro { overflow-wrap: anywhere; }
+  .ops-shell .ops-permissions dl > div { flex-wrap: wrap; }
+  .ops-shell .ops-permissions dd { margin: 0; white-space: normal; overflow-wrap: anywhere; }
+  .ops-shell .profit-lock-panel { max-width: 100%; padding: 20px; }
+  .ops-shell .receipt-view { max-width: 100%; overflow-x: auto; }
+
+  /* Primary tables become labeled records; no sideways swiping for routine work. */
+  .ops-shell .mobile-records {
+    max-height: none;
+    overflow: visible;
+    margin: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+  }
+  .ops-shell .mobile-records table,
+  .ops-shell .mobile-records .admin-customers-table {
+    display: block;
+    width: 100%;
+    min-width: 0;
+    border: 0;
+    background: transparent;
+  }
+  .ops-shell .mobile-records thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+  }
+  .ops-shell .mobile-records tbody { display: grid; gap: 12px; }
+  .ops-shell .mobile-records tbody tr {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0 14px;
+    padding: 14px;
+    border: 1px solid #dce4ee;
+    border-radius: 14px;
+    background: #fff;
+    box-shadow: 0 2px 8px rgb(15 39 71 / 5%);
+  }
+  .ops-shell .mobile-records tbody tr:nth-child(even),
+  .ops-shell .mobile-records tbody tr:hover,
+  .ops-shell .mobile-records tbody tr:hover td { background: #fff; }
+  .ops-shell .mobile-records td,
+  .ops-shell .mobile-records .admin-customers-table td,
+  .ops-shell .mobile-records .admin-customers-table td:first-child,
+  .ops-shell .mobile-records .admin-reseller-table td:first-child,
+  .ops-shell .catalog-group-offer-list.mobile-records td:last-child {
+    display: block;
+    position: static;
+    min-width: 0;
+    max-width: none;
+    padding: 9px 0;
+    border: 0;
+    background: transparent;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+  .ops-shell .mobile-records td::before {
+    content: attr(data-label);
+    display: block;
+    margin-bottom: 5px;
+    color: #667b96;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: .055em;
+    line-height: 1.3;
+    text-transform: uppercase;
+  }
+  .ops-shell .mobile-records td:first-child,
+  .ops-shell .mobile-records td[data-label='Actions'],
+  .ops-shell .mobile-records td[data-label='Review actions'],
+  .ops-shell .mobile-records td[data-label='Action'],
+  .ops-shell .mobile-records td[data-label='Receipt'],
+  .ops-shell .mobile-records td[data-label='Verification'],
+  .ops-shell .mobile-records td[data-label='Supplier offer'],
+  .ops-shell .mobile-records td[data-label='Product'] { grid-column: 1 / -1; }
+  .ops-shell .mobile-records td:first-child { border-bottom: 1px solid #e8edf4; padding-bottom: 12px; }
+  .ops-shell .mobile-records td:last-child { grid-column: 1 / -1; border-top: 1px solid #e8edf4; padding-top: 12px; }
+  .ops-shell .mobile-records td small { display: block; white-space: normal; overflow-wrap: anywhere; }
+  .ops-shell .mobile-records .table-select { width: auto; min-height: 32px; overflow-wrap: anywhere; }
+  .ops-shell .mobile-records .commerce-order-actions { min-width: 0; flex-direction: row; }
+  .ops-shell .mobile-records .commerce-order-actions button { flex: 1 1 140px; }
+  .ops-shell .mobile-records td[colspan] { grid-column: 1 / -1; }
+  .ops-shell .mobile-records td[colspan]::before { content: none; }
+  .ops-shell .mobile-records .admin-reseller-actions { min-width: 0; }
+  .ops-shell .mobile-records .admin-reseller-actions button { margin-bottom: 0; }
+  .ops-shell .catalog-group-offer-list.mobile-records { margin-top: 12px; }
+  .ops-shell .catalog-group-offer-list.mobile-records tbody tr { grid-template-columns: 1fr; }
+  .ops-shell .catalog-group-offer-list.mobile-records .catalog-offer-price-input { width: 100%; }
+  .ops-shell .catalog-group-offer-list.mobile-records td:last-child .icon-command { margin-left: 8px; }
+}
+
+@media (max-width: 430px) {
+  .ops-shell .ops-topbar { gap: 5px; }
+  .ops-shell .ops-breadcrumb { font-size: 11px; }
+  .ops-shell .metric-grid { grid-template-columns: 1fr; }
+  .ops-shell .metric-grid article,
+  .ops-shell .metric-grid .metric-card { min-height: 0; }
+  .ops-shell .ops-quick-links { grid-template-columns: 1fr; }
+  .ops-shell .ops-chart-totals { grid-template-columns: 1fr; }
+  .ops-shell .ops-chart-day { grid-column: auto; }
+  .ops-shell .ops-visitor-summary { grid-template-columns: 1fr; }
 }
 

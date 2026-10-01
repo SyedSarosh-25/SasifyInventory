@@ -38,6 +38,15 @@ const values={
   NAYAPAY_AUTO_VERIFY:'true',
 };
 if (configured('NAYAPAY_INBOUND_TOKEN')) values.NAYAPAY_INBOUND_TOKEN = configured('NAYAPAY_INBOUND_TOKEN');
+for (const name of [
+  'MEEZAN_ACCOUNT_TITLE', 'MEEZAN_ACCOUNT_NUMBER', 'MEEZAN_IBAN', 'MEEZAN_BENEFICIARY',
+  'MEEZAN_RECEIVER_EMAIL', 'MEEZAN_SENDER', 'MEEZAN_DKIM_DOMAIN',
+  'MEEZAN_INBOUND_BASIC_USER', 'MEEZAN_INBOUND_BASIC_PASSWORD',
+  'MEEZAN_INBOUND_TOKEN', 'MEEZAN_AUTO_VERIFY',
+]) {
+  const value = configured(name);
+  if (value) values[name] = value;
+}
 const cache=path.join(os.homedir(),'AppData/Local/npm-cache/_npx');
 let cli;
 for(const entry of await readdir(cache)) {
@@ -50,6 +59,6 @@ for(const [name,value] of Object.entries(values)) {
   if(result.status!==0) throw new Error(`Could not configure ${name}; inspect Vercel settings.`);
   console.log(`${name}: configured`);
 }
-const instructions=`Sasify order admin: https://www.sasifysolutions.com/orders-admin\nAdmin access key: ${secrets.COMMERCE_ADMIN_KEY}\n\nPostmark inbound endpoint: https://www.sasifysolutions.com/api/nayapay/inbound-email\nConfigure Postmark HTTP Basic Auth with the production inbound credentials. Required names: PAYMENT_RECEIVER_EMAIL, NAYAPAY_INBOUND_BASIC_USER and NAYAPAY_INBOUND_BASIC_PASSWORD. Never share the admin key with customers.\n`;
+const instructions=`Sasify order admin: https://www.sasifysolutions.com/orders-admin\nAdmin access key: ${secrets.COMMERCE_ADMIN_KEY}\n\nPostmark inbound endpoints:\n- NayaPay: https://www.sasifysolutions.com/api/nayapay/inbound-email\n- Meezan Bank: https://www.sasifysolutions.com/api/meezan/inbound-email\nConfigure Postmark HTTP Basic Auth with the production inbound credentials. Required names: PAYMENT_RECEIVER_EMAIL, NAYAPAY_INBOUND_BASIC_USER and NAYAPAY_INBOUND_BASIC_PASSWORD. Meezan Bank additionally uses the MEEZAN_* settings documented in docs/MEEZAN-INBOUND.md. Never share the admin key with customers.\n`;
 await writeFile(path.join(privateDir,'setup.txt'),instructions,{mode:0o600});
 console.log(`Private setup details: ${path.join(privateDir,'setup.txt')}`);

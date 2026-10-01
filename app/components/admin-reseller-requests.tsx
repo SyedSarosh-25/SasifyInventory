@@ -65,7 +65,7 @@ export function AdminResellerRequests({
           <p>{view === 'pending' ? 'New applications will appear here when a customer applies.' : `Applications moved to ${view} will appear here.`}</p>
         </div>
       ) : (
-        <div className="admin-customers-table-wrap">
+        <div className="admin-customers-table-wrap mobile-records">
           <table className="admin-customers-table admin-reseller-table">
             <thead>
               <tr>
@@ -82,7 +82,7 @@ export function AdminResellerRequests({
             <tbody>
               {requests.map((account) => (
                 <tr key={account.id}>
-                  <td>
+                  <td data-label="Applicant">
                     <strong>{account.name}</strong>
                     <br />
                     {account.username ? `@${account.username}` : 'No username'}
@@ -91,19 +91,19 @@ export function AdminResellerRequests({
                     <br />
                     <small>{account.id}</small>
                   </td>
-                  <td>{account.email_verified_at ? 'Verified' : 'Not verified'}</td>
-                  <td>
+                  <td data-label="Email verification">{account.email_verified_at ? 'Verified' : 'Not verified'}</td>
+                  <td data-label="Request status">
                     <span
                       className={`admin-reseller-status status-${account.reseller_status}`}
                     >
                       {statusLabel(account.reseller_status)}
                     </span>
                   </td>
-                  <td>PKR {Number(account.balance).toLocaleString('en-US')}</td>
-                  <td>{account.total_orders}</td>
-                  <td>{account.delivered_orders}</td>
-                  <td>{new Date(account.created_at).toLocaleDateString()}</td>
-                  <td className="admin-reseller-actions">
+                  <td data-label="Wallet balance">PKR {Number(account.balance).toLocaleString('en-US')}</td>
+                  <td data-label="Orders">{account.total_orders}</td>
+                  <td data-label="Delivered">{account.delivered_orders}</td>
+                  <td data-label="Joined">{new Date(account.created_at).toLocaleDateString()}</td>
+                  <td data-label="Review actions" className="admin-reseller-actions">
                     {account.reseller_status !== 'approved' && (
                       <button
                         className="primary-button"

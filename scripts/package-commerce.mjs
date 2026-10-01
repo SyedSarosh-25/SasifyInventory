@@ -45,6 +45,7 @@ for (const name of [
   'accounts.mjs',
   'core.mjs',
   'binance-email.mjs',
+  'meezan-email.mjs',
   'inbound-email.mjs',
   'supplier.mjs',
   'supplier-capabilities.mjs',
@@ -182,6 +183,10 @@ await writeFile(
         {
           src: '/api/nayapay/inbound-email',
           dest: '/api/commerce?action=inbound-email&provider=auto',
+        },
+        {
+          src: '/api/meezan/inbound-email',
+          dest: '/api/commerce?action=inbound-email&provider=meezan',
         },
         {
           src: '/api/binance/inbound-email',

@@ -16,6 +16,8 @@ import {
   accountPasswordReset,
   adminAccountStats,
   applyForReseller,
+  cloudRefundConfiguration,
+  calculateCloudRefund,
   sendAccountEmail,
 } from './accounts.mjs';
 import { createHmac, randomBytes, randomUUID } from 'node:crypto';
@@ -35,6 +37,7 @@ import {
   parseBinanceCryptoEmail,
   parseBinanceEmail,
 } from './binance-email.mjs';
+import { parseMeezanEmail } from './meezan-email.mjs';
 import {
   createSupplierOrder,
   fetchSupplierBalance,
@@ -288,11 +291,16 @@ function paymentMethod(value) {
 function paymentMatchesOrder(payment, order) {
   const orderCurrency = String(order?.payment_currency || 'PKR').toUpperCase();
   const paymentCurrency = String(payment?.currency || 'PKR').toUpperCase();
+  const routeMatches =
+    !payment?.receiver_id ||
+    !order?.receiver_id ||
+    payment.receiver_id === order.receiver_id ||
+    // Preserve compatibility with older crypto rows that used the payment
+    // method as their receiver marker.
+    payment.receiver_id === order?.payment_method;
   if (orderCurrency === 'USDT' || paymentCurrency === 'USDT') {
     const paid = Number(payment?.payment_amount);
     const required = Number(order?.payment_amount);
-    const routeMatches =
-      !payment?.receiver_id || payment.receiver_id === order?.payment_method;
     return (
       orderCurrency === 'USDT' &&
       paymentCurrency === 'USDT' &&
@@ -302,7 +310,7 @@ function paymentMatchesOrder(payment, order) {
       paid === required
     );
   }
-  return paymentAmountMatchesOrder(payment?.amount, order?.amount);
+  return routeMatches && paymentAmountMatchesOrder(payment?.amount, order?.amount);
 }
 function binanceUsdtPkrRate() {
   const rate = Number(process.env.BINANCE_USDT_PKR_RATE || '');
@@ -349,9 +357,41 @@ function paymentQuote(method, amountPkr) {
   };
 }
 function paymentReceiverForMethod(method, fallback) {
+  if (method === 'bank') {
+    const number = String(process.env.MEEZAN_ACCOUNT_NUMBER || '').trim();
+    if (!number) return null;
+    return {
+      // Keep the bank rail isolated from the active NayaPay receiver. The
+      // two rails can have identical PKR amounts, so sharing `primary` lets
+      // wallet and bank deposits compete for the same receipt.
+      id: 'meezan',
+      title: String(process.env.MEEZAN_ACCOUNT_TITLE || fallback?.title || 'Syed Adeen Sarosh').trim(),
+      number,
+      account_number: number,
+      iban: String(process.env.MEEZAN_IBAN || '').trim(),
+      receiver_marker: String(process.env.MEEZAN_BENEFICIARY || process.env.MEEZAN_ACCOUNT_TITLE || fallback?.receiver_marker || '').trim(),
+      provider: 'Meezan Bank',
+    };
+  }
   if (method === 'binance') return binanceReceiver();
   if (method === 'crypto') return cryptoReceiver();
-  return fallback;
+  if (fallback?.account_number)
+    return {
+      ...fallback,
+      number: fallback.number || fallback.account_number,
+      provider: fallback.provider || 'NayaPay',
+    };
+  const number = String(process.env.PAYMENT_ACCOUNT_NUMBER || '').trim();
+  if (!number) return null;
+  return {
+    id: 'primary',
+    label: 'NayaPay',
+    title: String(process.env.PAYMENT_ACCOUNT_TITLE || 'Syed Adeen Sarosh').trim(),
+    number,
+    account_number: number,
+    receiver_marker: String(process.env.PAYMENT_ACCOUNT_TITLE || 'Syed Adeen Sarosh').trim(),
+    provider: 'NayaPay',
+  };
 }
 const SUPPLIER_API_ENV = Object.freeze({
   dodi: 'DODI_RESELLER_API_KEY',
@@ -386,17 +426,44 @@ const checkoutCookie = (req) =>
     /(?:^|;\s*)sasify_checkout=([a-f0-9]{64})(?:;|$)/i,
   )?.[1] || '';
 const idOk = (value) => /^[a-f0-9-]{36}$/i.test(String(value || ''));
+function validateRefundEvidence(emailValue, dataUrlValue) {
+  const email = String(emailValue || '').trim().toLowerCase();
+  if (
+    email.length > 254 ||
+    !/^[^\s@]+@(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z0-9][a-z0-9-]{0,61}[a-z0-9]$/i.test(email)
+  )
+    throw fail(400, 'Enter the exact Gmail address used to activate Claude.');
+  const match = String(dataUrlValue || '').match(
+    /^data:image\/(png|jpeg|webp);base64,([A-Za-z0-9+/]+={0,2})$/,
+  );
+  if (!match) throw fail(400, 'Upload a PNG, JPG, or WebP invitation screenshot.');
+  const [, imageType, encoded] = match;
+  const bytes = Buffer.from(encoded, 'base64');
+  if (
+    bytes.length < 16 ||
+    bytes.length > 2 * 1024 * 1024 ||
+    bytes.toString('base64') !== encoded
+  )
+    throw fail(400, 'The invitation screenshot must be a valid image under 2 MB.');
+  const validSignature =
+    (imageType === 'png' && bytes.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))) ||
+    (imageType === 'jpeg' && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) ||
+    (imageType === 'webp' && bytes.toString('ascii', 0, 4) === 'RIFF' && bytes.toString('ascii', 8, 12) === 'WEBP');
+  if (!validSignature)
+    throw fail(400, 'The uploaded file does not match a supported image format.');
+  return { email, imageType, encoded };
+}
 const json = (res, status, body) => {
   res.statusCode = status;
   res.setHeader('Content-Type', 'application/json');
   res.end(JSON.stringify(body));
 };
 function inboundAuthPrefixes(provider = 'nayapay') {
-  if (provider === 'auto') return ['BINANCE', 'NAYAPAY'];
+  if (provider === 'auto') return ['BINANCE', 'MEEZAN', 'NAYAPAY'];
   // The shared Postmark inbound stream can deliver both rails. Keep the
   // existing NayaPay webhook credential as a compatibility fallback until a
   // separate Binance credential is deliberately configured.
-  return provider === 'binance' ? ['BINANCE', 'NAYAPAY'] : ['NAYAPAY'];
+  return provider === 'binance' ? ['BINANCE', 'NAYAPAY'] : provider === 'meezan' ? ['MEEZAN'] : ['NAYAPAY'];
 }
 function inboundEmailAuthConfigured(provider = 'nayapay') {
   return inboundAuthPrefixes(provider).some(
@@ -409,6 +476,7 @@ function inboundEmailAuthConfigured(provider = 'nayapay') {
 function inboundEmailAuthorized(req, provider = 'nayapay') {
   const providedToken = String(
     req.headers['x-nayapay-inbound-token'] ||
+      req.headers['x-meezan-inbound-token'] ||
       req.headers['x-inbound-webhook-token'] ||
       req.headers['x-postmark-server-token'] ||
       '',
@@ -3464,9 +3532,7 @@ async function createTelegramCommerceOrder(db, options, paymentReceiver) {
     paymentMethod: selectedPaymentMethod,
     paymentCurrency: quote.currency,
     paymentAmount: quote.amount,
-    paymentReceiver: ['binance', 'crypto'].includes(selectedPaymentMethod)
-      ? paymentReceiverForOrder
-      : undefined,
+    paymentReceiver: paymentReceiverForOrder,
     expiresAt: new Date(
       Date.now() + PAYMENT_WINDOWS_MINUTES[selectedPaymentMethod] * 60000,
     ).toISOString(),
@@ -3533,7 +3599,7 @@ async function claimTelegramOrder(db, orderId, chatId) {
   );
   return order;
 }
-async function setTelegramPaymentMethod(db, orderId, chatId, method) {
+async function setTelegramPaymentMethod(db, orderId, chatId, method, paymentReceiver) {
   const normalized = paymentMethod(method);
   const order = await getTelegramOrder(db, orderId, chatId);
   if (!order)
@@ -3555,7 +3621,9 @@ async function setTelegramPaymentMethod(db, orderId, chatId, method) {
       normalized,
       quote.currency,
       quote.amount,
-      ['binance', 'crypto'].includes(normalized) ? null : order.receiver_id,
+      ['binance', 'crypto'].includes(normalized)
+        ? null
+        : paymentReceiverForMethod(normalized, paymentReceiver)?.id || order.receiver_id,
       PAYMENT_WINDOWS_MINUTES[normalized],
       orderId,
     ],
@@ -3567,9 +3635,7 @@ async function setTelegramPaymentMethod(db, orderId, chatId, method) {
     payment_amount: quote.amount,
     paymentCurrency: quote.currency,
     paymentAmount: quote.amount,
-    paymentReceiver: ['binance', 'crypto'].includes(normalized)
-      ? paymentReceiverForMethod(normalized)
-      : undefined,
+    paymentReceiver: paymentReceiverForMethod(normalized, paymentReceiver),
   };
 }
 async function listTelegramOrders(db, chatId) {
@@ -3840,6 +3906,8 @@ export function createHandler(
         JSON.stringify(body).length >
         (action === 'scam-submit'
           ? 4000000
+          : action === 'account-refund-request'
+            ? 3000000
           : action === 'inbound-email'
             ? 2000000
             : 200000)
@@ -3903,6 +3971,7 @@ export function createHandler(
       if (action === 'inbound-email') {
         const requestedInboundProvider = [
           'binance',
+          'meezan',
           'nayapay',
           'auto',
         ].includes(
@@ -3943,7 +4012,8 @@ export function createHandler(
       await ensureCouponSchema(db);
       await ensureOrderFinanceSchema(db);
       await ensurePaymentWorkflowSchema(db);
-      const paymentReceiver = await activePaymentReceiver(db);
+      const paymentReceiver =
+        (await activePaymentReceiver(db)) || paymentReceiverForMethod('wallet');
       await ensureSupplierApiLogSchema(db);
       await ensureSupplierSecretSchema(db);
       await ensureSupplierMediaSchema(db);
@@ -4042,6 +4112,17 @@ export function createHandler(
         ).rows;
         output = {
           account,
+          refundConfig: cloudRefundConfiguration(),
+          refundRequests: (
+            await db.query(
+              `SELECT id,workspace_cohort,activation_date,seat_type,purchase_price,activated_claude_email,deactivation_date,
+                      warranty_days,billing_days,elapsed_days,remaining_days,per_day_cost,refund_amount,
+                      status,review_note,created_at,reviewed_at,approved_at,rejected_at
+               FROM commerce_refund_replacement_requests
+               WHERE account_id=$1 ORDER BY created_at DESC LIMIT 20`,
+              [account.id],
+            )
+          ).rows,
           orders: orders.map((o) => ({
             ...o,
             savings: (() => {
@@ -4095,6 +4176,80 @@ export function createHandler(
         } else {
           output.requirements = [];
         }
+      } else if (action === 'account-refund-request') {
+        const account = requireAccount(customerAccount);
+        const workspaceCohort = String(body.workspaceCohort || '').trim();
+        const seatType = String(body.seatType || '').trim().toLowerCase();
+        const activationDate = String(body.activationDate || '').trim();
+        const purchasePrice = Number(body.purchasePrice);
+        const evidence = validateRefundEvidence(
+          body.activatedClaudeEmail,
+          body.inviteScreenshotDataUrl,
+        );
+        const encryptedScreenshot = encrypt(evidence.encoded, key);
+        const config = cloudRefundConfiguration();
+        if (!['2', '11', '18'].includes(workspaceCohort))
+          throw fail(400, 'Select a valid workspace activation date.');
+        if (!['standard', 'premium'].includes(seatType))
+          throw fail(400, 'Select Standard or Premium seat.');
+        if (!Number.isSafeInteger(purchasePrice) || purchasePrice < 1 || purchasePrice > 1000000)
+          throw fail(400, 'Enter a valid purchase price.');
+        let calculation;
+        try {
+          calculation = calculateCloudRefund({
+            activationDate,
+            purchasePrice,
+            deactivationDate: config.deactivationDate,
+            warrantyDays: config.warrantyDays,
+            billingDays: config.billingDays,
+          });
+        } catch (problem) {
+          throw fail(400, problem.message || 'Unable to calculate the refund.');
+        }
+        const existing = (
+          await db.query(
+            `SELECT * FROM commerce_refund_replacement_requests
+             WHERE account_id=$1 AND workspace_cohort=$2 FOR UPDATE`,
+            [account.id, workspaceCohort],
+          )
+        ).rows[0];
+        let request;
+        if (existing && existing.status !== 'rejected')
+          throw fail(409, `A refund or replacement request for the ${workspaceCohort}th workspace already exists.`);
+        if (existing) {
+          request = (
+            await db.query(
+              `UPDATE commerce_refund_replacement_requests
+               SET activation_date=$1,seat_type=$2,purchase_price=$3,deactivation_date=$4,
+                   warranty_days=$5,billing_days=$6,elapsed_days=$7,remaining_days=$8,
+                   per_day_cost=$9,refund_amount=$10,activated_claude_email=$11,
+                   invite_screenshot_mime=$12,encrypted_invite_screenshot=$13,
+                   status='pending',review_note=NULL,
+                   reviewed_at=NULL,approved_at=NULL,rejected_at=NULL,created_at=now()
+               WHERE id=$14 RETURNING *`,
+              [activationDate, seatType, purchasePrice, config.deactivationDate, config.warrantyDays, config.billingDays,
+                calculation.elapsedDays, calculation.remainingDays, calculation.perDayCost, calculation.refundAmount,
+                evidence.email, `image/${evidence.imageType}`, encryptedScreenshot, existing.id],
+            )
+          ).rows[0];
+        } else {
+          request = (
+            await db.query(
+              `INSERT INTO commerce_refund_replacement_requests
+               (id,account_id,workspace_cohort,activation_date,seat_type,purchase_price,deactivation_date,
+                warranty_days,billing_days,elapsed_days,remaining_days,per_day_cost,refund_amount,
+                activated_claude_email,invite_screenshot_mime,encrypted_invite_screenshot)
+               VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16) RETURNING *`,
+              [randomUUID(), account.id, workspaceCohort, activationDate, seatType, purchasePrice, config.deactivationDate,
+                config.warrantyDays, config.billingDays, calculation.elapsedDays, calculation.remainingDays,
+                calculation.perDayCost, calculation.refundAmount, evidence.email,
+                `image/${evidence.imageType}`, encryptedScreenshot],
+            )
+          ).rows[0];
+        }
+        await db.query("INSERT INTO commerce_audit(action,object_id,details) VALUES('refund_request_created',$1,$2::jsonb)", [request.id, JSON.stringify({ accountId: account.id, refundAmount: calculation.refundAmount })]);
+        const { encrypted_invite_screenshot: _encryptedScreenshot, ...publicRequest } = request;
+        output = { ok: true, request: publicRequest };
       } else if (action === 'reseller-requirement-respond') {
         const account = requireAccount(customerAccount);
         if (account.role !== 'reseller' || account.reseller_status !== 'approved')
@@ -4143,12 +4298,7 @@ export function createHandler(
             400,
             'Crypto deposits require at least USDT 6. Choose Binance Pay for a smaller deposit.',
           );
-        const receiver = crypto
-          ? paymentReceiverForMethod(method)
-          : {
-              number: paymentReceiver?.account_number,
-              title: paymentReceiver?.title,
-            };
+        const receiver = paymentReceiverForMethod(method, paymentReceiver);
         if (!receiver?.number)
           throw fail(503, 'This payment method is unavailable.');
         await db.query('SELECT pg_advisory_xact_lock(hashtext($1))', [
@@ -4167,7 +4317,7 @@ export function createHandler(
               crypto ? 'USDT' : 'PKR',
               paymentAmount,
               method,
-              crypto ? method : paymentReceiver.id,
+              crypto ? method : receiver?.id || paymentReceiver?.id || 'primary',
             ],
           )
         ).rows[0];
@@ -4184,7 +4334,7 @@ export function createHandler(
                 crypto ? 'USDT' : 'PKR',
                 paymentAmount,
                 method,
-                crypto ? method : paymentReceiver.id,
+                crypto ? method : receiver?.id || paymentReceiver?.id || 'primary',
               ],
             )
           ).rows[0];
@@ -4470,7 +4620,7 @@ export function createHandler(
           getOrder: ({ orderId, chatId }) =>
             getTelegramOrder(db, orderId, chatId),
           setPaymentMethod: ({ orderId, chatId, method }) =>
-            setTelegramPaymentMethod(db, orderId, chatId, method),
+            setTelegramPaymentMethod(db, orderId, chatId, method, paymentReceiver),
           claimOrder: ({ orderId, chatId }) =>
             claimTelegramOrder(db, orderId, chatId),
           listOrders: (chatId) => listTelegramOrders(db, chatId),
@@ -4891,6 +5041,10 @@ export function createHandler(
         };
       } else if (action === 'create') {
         const selectedPaymentMethod = paymentMethod(body.paymentMethod);
+        const selectedPaymentReceiver = paymentReceiverForMethod(
+          selectedPaymentMethod,
+          paymentReceiver,
+        );
         const paymentWindowMinutes =
           PAYMENT_WINDOWS_MINUTES[selectedPaymentMethod];
         let product = catalog.find((p) => p.id === body.productId);
@@ -4929,7 +5083,7 @@ export function createHandler(
           throw fail(409, 'The HOR coupon is currently disabled.');
         if (
           !product ||
-          (!paymentReceiver?.title &&
+          (!selectedPaymentReceiver?.title &&
             !['binance', 'crypto'].includes(selectedPaymentMethod) &&
             !isRequestedTeamCoupon)
         )
@@ -5087,7 +5241,7 @@ export function createHandler(
             quote.amount,
             ['binance', 'crypto'].includes(selectedPaymentMethod)
               ? null
-              : paymentReceiver.id,
+              : selectedPaymentReceiver?.id || paymentReceiver?.id || 'primary',
             sharedAccount?.id || null,
             sharedAccount?.slot || null,
             paymentWindowMinutes,
@@ -5476,7 +5630,8 @@ export function createHandler(
               number: ['binance', 'crypto'].includes(order.payment_method)
                 ? paymentReceiverForMethod(order.payment_method)?.number ||
                   'Configured payment destination'
-                : order.receiver_number ||
+                : paymentReceiverForMethod(order.payment_method, paymentReceiver)?.number ||
+                  order.receiver_number ||
                   paymentReceiver?.account_number ||
                   '03450485711',
               provider:
@@ -5484,13 +5639,19 @@ export function createHandler(
                   ? cryptoReceiver()?.provider || 'Crypto'
                   : order.payment_method === 'binance'
                     ? 'Binance Pay'
-                    : 'NayaPay',
+                    : order.payment_method === 'bank'
+                      ? 'Meezan Bank'
+                      : 'NayaPay',
               title: ['binance', 'crypto'].includes(order.payment_method)
                 ? paymentReceiverForMethod(order.payment_method)?.title ||
                   (order.payment_method === 'crypto'
                     ? 'USDT wallet'
                     : 'Binance Pay')
-                : order.receiver_title || paymentReceiver?.title,
+                : paymentReceiverForMethod(order.payment_method, paymentReceiver)?.title ||
+                  order.receiver_title || paymentReceiver?.title,
+              ...(order.payment_method === 'bank'
+                ? { iban: paymentReceiverForMethod('bank', paymentReceiver)?.iban || process.env.MEEZAN_IBAN || null }
+                : {}),
             },
             ...(isClaudePreorderProduct(order.product_id)
               ? { preorderDate: PREORDER_DELIVERY_DATE }
@@ -5529,38 +5690,66 @@ export function createHandler(
           req.query?.provider || body.provider || '',
         ).toLowerCase();
         const subject = String(body.Subject || body.subject || '');
+        const inboundBodyText = String(
+          body.TextBody || body.textBody || body.text || body.body || '',
+        );
         const isBinanceSubject =
           /\[?Binance\]?\s+(?:Payment\s+Receive\s+Successful|USDT\s+Deposit\s+Confirmed)/i.test(
             subject,
           );
+        const isMeezanSubject = /^Credit\s+Transaction\s+Alert$/i.test(subject);
+        const isMeezanMessage =
+          isMeezanSubject ||
+          /no-reply@meezanbank\.com/i.test(
+            String(body.From || body.from || body.FromFull?.Email || body.fromFull?.Email || ''),
+          ) ||
+          /\bPKR\s*[\d,]+(?:\.\d{1,2})?\s+(?:received\s+to\s+your|has\s+been\s+received\s+in\s+your)\s+(?:MBL\s+)?account\b/i.test(
+            inboundBodyText,
+          );
         const inboundProvider =
           requestedInboundProvider === 'binance'
             ? 'binance'
+            : requestedInboundProvider === 'meezan'
+              ? 'meezan'
             : requestedInboundProvider === 'auto'
               ? isBinanceSubject
                 ? 'binance'
+                : isMeezanMessage
+                  ? 'meezan'
                 : 'nayapay'
               : 'nayapay';
         const isBinance = inboundProvider === 'binance';
+        const isMeezan = inboundProvider === 'meezan';
         const isCrypto =
           isBinance &&
           /\[?Binance\]?\s+USDT\s+Deposit\s+Confirmed/i.test(subject);
         const inboundSender = isBinance
           ? process.env.BINANCE_SENDER
-          : process.env.NAYAPAY_SENDER;
+          : isMeezan
+            ? process.env.MEEZAN_SENDER
+            : process.env.NAYAPAY_SENDER;
         const inbound = await authenticateInboundEmail(
           body,
           inboundSender,
-          isBinance
+          isBinance || isMeezan
             ? {
-                signingDomain: process.env.BINANCE_DKIM_DOMAIN,
+                signingDomain: isBinance
+                  ? process.env.BINANCE_DKIM_DOMAIN
+                  : process.env.MEEZAN_DKIM_DOMAIN || 'meezanbank.com',
                 requireDmarc: true,
+                ...(isMeezan ? { allowAmbiguousOriginalHeaders: true } : {}),
+                ...(isMeezan ? { allowEmptySubject: true } : {}),
+                ...(isMeezan ? { allowPostmarkEvidenceFallback: true } : {}),
               }
-            : {},
+            : {
+                signingDomain: process.env.NAYAPAY_DKIM_DOMAIN || 'nayapay.com',
+                requireDmarc: true,
+                allowPostmarkEvidenceFallback: true,
+              },
         );
         const email = inbound.email;
         if (
-          !email.subject ||
+          (!email.subject && !isMeezan) ||
           (typeof email.text !== 'string' && typeof email.html !== 'string')
         )
           throw fail(400, 'Subject and email body required.');
@@ -5568,7 +5757,9 @@ export function createHandler(
           inboundEmailAuthorized(req, inboundProvider) && inbound.authenticated;
         const autoVerifyEnabled = isBinance
           ? process.env.BINANCE_AUTO_VERIFY === 'true'
-          : process.env.NAYAPAY_AUTO_VERIFY === 'true';
+          : isMeezan
+            ? process.env.MEEZAN_AUTO_VERIFY === 'true'
+            : process.env.NAYAPAY_AUTO_VERIFY === 'true';
         const parsed = isBinance
           ? (isCrypto ? parseBinanceCryptoEmail : parseBinanceEmail)(email, {
               enabled: signatureValid && autoVerifyEnabled,
@@ -5576,11 +5767,22 @@ export function createHandler(
               receiverMailbox: process.env.BINANCE_RECEIVER_EMAIL,
               network: process.env.CRYPTO_USDT_NETWORK,
             })
-          : parseEmail(email, {
+          : isMeezan
+            ? parseMeezanEmail(email, {
+                enabled: signatureValid && autoVerifyEnabled,
+                sender: inboundSender,
+                receiver: process.env.MEEZAN_BENEFICIARY || process.env.MEEZAN_ACCOUNT_TITLE,
+                receiverAccount: process.env.MEEZAN_ACCOUNT_NUMBER,
+                receiverMailbox: process.env.MEEZAN_RECEIVER_EMAIL || process.env.PAYMENT_RECEIVER_EMAIL,
+              })
+            : parseEmail(email, {
               enabled: signatureValid && autoVerifyEnabled,
               sender: inboundSender,
               receiver: paymentReceiver?.receiver_marker,
               receiverMailbox: process.env.PAYMENT_RECEIVER_EMAIL,
+              signingDomain: process.env.NAYAPAY_DKIM_DOMAIN || 'nayapay.com',
+              requireDmarc: true,
+              allowPostmarkEvidenceFallback: true,
             });
         const paymentCurrency = isBinance ? 'USDT' : 'PKR';
         const paymentAmount = parsed.amount;
@@ -5593,12 +5795,16 @@ export function createHandler(
           ? isCrypto
             ? 'crypto'
             : 'binance'
+          : isMeezan
+            ? paymentReceiverForMethod('bank', paymentReceiver)?.id || 'meezan'
           : paymentReceiver?.id || 'primary';
         const inboundPaymentMethod = isBinance
           ? isCrypto
             ? 'crypto'
             : 'binance'
-          : null;
+          : isMeezan
+            ? 'bank'
+          : 'wallet';
         const verificationReason = parsed.verified
           ? 'verified'
           : !signatureValid
@@ -5665,7 +5871,7 @@ export function createHandler(
         if (!inserted.rowCount && parsed.verified)
           inserted = await db.query(
             `UPDATE commerce_payments SET transaction_id=$1,source_last4=$2,payment_amount=$6,currency=$8,verified=true,verification_reason='verified',encrypted_body=$3,receiver_id=$7
-        WHERE (event_hash=$4 OR ($5::text IS NOT NULL AND source_message_id=$5::text)) AND order_id IS NULL AND verified=false AND COALESCE(payment_amount,amount)=$6 AND currency=$8 AND transaction_id IS NULL
+        WHERE (event_hash=$4 OR ($5::text IS NOT NULL AND source_message_id=$5::text)) AND order_id IS NULL AND verified=false AND (COALESCE(payment_amount,amount)=$6 OR COALESCE(payment_amount,amount) IS NULL) AND currency=$8 AND transaction_id IS NULL
           AND NOT EXISTS (SELECT 1 FROM commerce_payments existing WHERE existing.transaction_id=$1) RETURNING id`,
             [
               parsed.transaction,
@@ -5686,7 +5892,8 @@ export function createHandler(
             AND (
               ($5='USDT' AND payment_currency='USDT' AND payment_amount=$2 AND payment_method=$6)
               OR
-              ($5='PKR' AND COALESCE(payment_currency,'PKR')='PKR' AND (amount=$2 OR (MOD($2-1,100)<>0 AND amount=$2-1)))
+              ($5='PKR' AND COALESCE(payment_currency,'PKR')='PKR' AND payment_method=$6
+                AND (amount=$2 OR (MOD($2-1,100)<>0 AND amount=$2-1)))
             )
             AND $3::timestamptz>=created_at AND $3::timestamptz<=expires_at
           AND (receiver_id=$4 OR receiver_id IS NULL)
@@ -5716,7 +5923,8 @@ export function createHandler(
                    AND (
                      ($5='USDT' AND payment_currency='USDT' AND payment_amount=$1 AND payment_method=$6)
                      OR
-                     ($5='PKR' AND COALESCE(payment_currency,'PKR')='PKR' AND (amount=$1 OR (MOD($1-1,100)<>0 AND amount=$1-1)))
+                     ($5='PKR' AND COALESCE(payment_currency,'PKR')='PKR' AND payment_method=$6
+                       AND (amount=$1 OR (MOD($1-1,100)<>0 AND amount=$1-1)))
                    )
                    AND $2::timestamptz>=created_at AND $2::timestamptz>expires_at
                    AND (receiver_id=$3 OR receiver_id IS NULL)
@@ -6250,6 +6458,30 @@ export function createHandler(
           updated: changed.rowCount,
           missing: productIds.length - changed.rowCount,
         };
+      } else if (action === 'admin-supplier-offer-update') {
+        const supplierId = String(body.productId || '').trim();
+        const sellingPrice = Number(body.sellingPrice);
+        const enabled = body.enabled === true;
+        if (
+          !supplierId ||
+          !Number.isSafeInteger(sellingPrice) ||
+          sellingPrice < 1
+        )
+          throw fail(400, 'Enter a valid individual supplier selling price.');
+        const changed = await db.query(
+          `UPDATE commerce_supplier_products
+           SET selling_price=$1,enabled=$2
+           WHERE id=$3
+           RETURNING id,name,provider_name,selling_price,enabled`,
+          [sellingPrice, enabled, supplierId],
+        );
+        if (!changed.rowCount)
+          throw fail(404, 'Supplier product not found. Sync products first.');
+        await db.query(
+          "INSERT INTO commerce_audit(action,object_id) VALUES('supplier_offer_price_update',$1)",
+          [supplierId],
+        );
+        output = { ok: true, product: changed.rows[0] };
       } else if (action === 'admin-scam-report') {
         if (!idOk(req.query?.id || body.id))
           throw fail(400, 'Invalid report ID.');
@@ -6265,6 +6497,79 @@ export function createHandler(
           status: report.status,
           reviewedAt: report.reviewed_at,
         };
+      } else if (action === 'admin-refund-evidence') {
+        const requestId = String(body.requestId || '').trim();
+        if (!idOk(requestId)) throw fail(400, 'Invalid refund request ID.');
+        const evidence = (
+          await db.query(
+            `SELECT encrypted_invite_screenshot,invite_screenshot_mime
+             FROM commerce_refund_replacement_requests WHERE id=$1`,
+            [requestId],
+          )
+        ).rows[0];
+        if (!evidence?.encrypted_invite_screenshot || !evidence.invite_screenshot_mime)
+          throw fail(404, 'No invitation screenshot is attached to this request.');
+        output = {
+          ok: true,
+          dataUrl: `data:${evidence.invite_screenshot_mime};base64,${decrypt(evidence.encrypted_invite_screenshot, key)}`,
+        };
+      } else if (action === 'admin-refund-review') {
+        const requestId = String(body.requestId || '').trim();
+        const status = String(body.status || '').trim().toLowerCase();
+        const reviewNote = String(body.reviewNote || '').trim();
+        if (!idOk(requestId) || !['approved', 'rejected'].includes(status) || reviewNote.length > 500)
+          throw fail(400, 'Choose an approval decision and a valid review note.');
+        const request = (
+          await db.query(
+            `SELECT r.*,a.email,a.name,a.username
+             FROM commerce_refund_replacement_requests r
+             INNER JOIN commerce_accounts a ON a.id=r.account_id
+             WHERE r.id=$1 FOR UPDATE`,
+            [requestId],
+          )
+        ).rows[0];
+        if (!request) throw fail(404, 'Refund or replacement request not found.');
+        if (request.status !== 'pending') {
+          if (request.status === status) {
+            output = { ok: true, request, alreadyReviewed: true };
+          } else {
+            throw fail(409, 'This request has already been reviewed.');
+          }
+        } else if (status === 'approved') {
+          const credited = (
+            await db.query(
+              'UPDATE commerce_accounts SET balance=balance+$1 WHERE id=$2 RETURNING balance',
+              [request.refund_amount, request.account_id],
+            )
+          ).rows[0];
+          if (!credited) throw fail(404, 'Customer account not found.');
+          await db.query(
+            `INSERT INTO commerce_wallet_ledger(id,account_id,amount,description,refund_request_id)
+             VALUES($1,$2,$3,$4,$5)`,
+            [randomUUID(), request.account_id, request.refund_amount, `Claude account refund · ${request.seat_type} seat`, request.id],
+          );
+          const updated = (
+            await db.query(
+              `UPDATE commerce_refund_replacement_requests
+               SET status='approved',review_note=$1,reviewed_at=now(),approved_at=now()
+               WHERE id=$2 RETURNING *`,
+              [reviewNote || null, request.id],
+            )
+          ).rows[0];
+          await db.query("INSERT INTO commerce_audit(action,object_id,details) VALUES('refund_request_approved',$1,$2::jsonb)", [request.id, JSON.stringify({ accountId: request.account_id, amount: request.refund_amount })]);
+          output = { ok: true, request: updated, balance: credited.balance };
+        } else {
+          const updated = (
+            await db.query(
+              `UPDATE commerce_refund_replacement_requests
+               SET status='rejected',review_note=$1,reviewed_at=now(),rejected_at=now()
+               WHERE id=$2 RETURNING *`,
+              [reviewNote || null, request.id],
+            )
+          ).rows[0];
+          await db.query("INSERT INTO commerce_audit(action,object_id,details) VALUES('refund_request_rejected',$1,$2::jsonb)", [request.id, JSON.stringify({ accountId: request.account_id })]);
+          output = { ok: true, request: updated };
+        }
       } else if (action === 'admin-user-detail') {
         const accountId = String(body.accountId || req.query?.id || '');
         if (!idOk(accountId)) throw fail(400, 'Invalid account ID.');
@@ -6560,6 +6865,20 @@ export function createHandler(
         output = {
           paymentReceivers: await listPaymentReceivers(db),
           accounts: await adminAccountStats(db),
+          refundRequests: (
+            await db.query(
+              `SELECT r.id,r.account_id,r.workspace_cohort,r.activation_date,r.seat_type,r.purchase_price,
+                      r.deactivation_date,r.warranty_days,r.billing_days,r.elapsed_days,r.remaining_days,
+                      r.per_day_cost,r.refund_amount,r.activated_claude_email,
+                      (r.encrypted_invite_screenshot IS NOT NULL) AS has_invite_screenshot,
+                      r.status,r.review_note,r.created_at,r.reviewed_at,
+                      r.approved_at,r.rejected_at,a.name,a.email,a.username,a.balance
+               FROM commerce_refund_replacement_requests r
+               INNER JOIN commerce_accounts a ON a.id=r.account_id
+               ORDER BY CASE r.status WHEN 'pending' THEN 0 WHEN 'approved' THEN 1 ELSE 2 END,
+                        r.created_at DESC LIMIT 500`,
+            )
+          ).rows,
           metrics: dashboardMetrics,
           dailyFinancials: profitSummary.daily.map((day) =>
             profitUnlocked

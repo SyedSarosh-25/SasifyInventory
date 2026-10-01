@@ -81,7 +81,7 @@ function authenticatePostmarkPayload(payload, sender, fallback, options = {}) {
   return { email: fallback, authenticated: true, reason: 'postmark_dkim_evidence' };
 }
 
-export function normalizeInboundEmail(payload) {
+export function normalizeInboundEmail(payload, options = {}) {
   if (!payload || typeof payload !== 'object' || Array.isArray(payload)) throw new Error('Inbound email payload must be an object.');
   const from = addressValue(payload.FromFull || payload.fromFull) || stringValue(payload.From || payload.from);
   const to = listAddresses(payload.ToFull || payload.toFull) || stringValue(payload.To || payload.to);
@@ -90,7 +90,7 @@ export function normalizeInboundEmail(payload) {
   const html = stringValue(payload.HtmlBody || payload.htmlBody || payload.html);
   const date = stringValue(payload.Date || payload.date);
   const messageId = stringValue(headerValue(payload.Headers || payload.headers, 'message-id')) || stringValue(payload.MessageID || payload.messageId) || null;
-  if (!subject || (!text && !html)) throw new Error('Inbound email subject and body are required.');
+  if ((!subject && options.allowEmptySubject !== true) || (!text && !html)) throw new Error('Inbound email subject and body are required.');
   return { subject, text, html, from, to, date, messageId };
 }
 
@@ -98,7 +98,7 @@ export function normalizeInboundEmail(payload) {
 // omit RawEmail even with raw-email forwarding enabled, so the fallback above
 // requires Postmark Basic Auth plus preserved NayaPay DKIM/DMARC evidence.
 export async function authenticateInboundEmail(payload, sender, options = {}) {
-  const fallback = normalizeInboundEmail(payload);
+  const fallback = normalizeInboundEmail(payload, options);
   const raw = payload.RawEmail;
   if (typeof raw !== 'string' || !raw) {
     return authenticatePostmarkPayload(payload, sender, fallback, options)
@@ -124,15 +124,26 @@ export async function authenticateInboundEmail(payload, sender, options = {}) {
   });
   const deadline = setTimeout(() => dns.cancel(), 10000);
   let verification;
-  try { verification = await dkimVerify(raw, { ...options, resolver }); }
+  const postmarkEvidenceFallback = () => options.allowPostmarkEvidenceFallback
+    ? authenticatePostmarkPayload(payload, sender, fallback, options)
+    : null;
+  try {
+    verification = await dkimVerify(raw, { ...options, resolver });
+  } catch (error) {
+    const trusted = postmarkEvidenceFallback();
+    if (trusted) return trusted;
+    throw error;
+  }
   finally { clearTimeout(deadline); }
   // NayaPay signs the business-critical receipt headers below. Message-ID and
   // MIME headers are added by mail transport and are not part of its DKIM set.
-  // Reject duplicates for the signed fields to avoid parser/signature
-  // disagreement while matching NayaPay's actual signature contract.
+  // Keep the strict duplicate-header rule for NayaPay. Some bank-forwarding
+  // paths add harmless duplicate From/To/Subject/Date lines around a valid
+  // signed message, so those providers can explicitly opt into the tolerant
+  // path while still requiring a valid DKIM signature and expected sender.
   const critical = ['from', 'to', 'subject', 'date'];
   const headerLines = verification.headers?.parsed || [];
-  if (critical.some((key) => headerLines.filter((line) => line.key === key).length !== 1)) {
+  if (!options.allowAmbiguousOriginalHeaders && critical.some((key) => headerLines.filter((line) => line.key === key).length !== 1)) {
     return { email: fallback, authenticated: false, reason: 'ambiguous_original_headers' };
   }
   const expected = String(sender || '').trim().toLowerCase();
@@ -142,7 +153,7 @@ export async function authenticateInboundEmail(payload, sender, options = {}) {
     .map((line) => String(line.line || ''))
     .join(' ');
   if (options.requireDmarc && !/\bdmarc=pass\b/i.test(authenticationResults)) {
-    return { email: fallback, authenticated: false, reason: 'original_dmarc_not_verified' };
+    return postmarkEvidenceFallback() || { email: fallback, authenticated: false, reason: 'original_dmarc_not_verified' };
   }
   const valid = domain && verification.results.some((result) => {
     const signed = String(result.signingHeaders?.keys || '').toLowerCase().split(':').map((key) => key.trim());
@@ -154,7 +165,7 @@ export async function authenticateInboundEmail(payload, sender, options = {}) {
     if (verification.results.some((result) => result.status?.result === 'temperror')) {
       throw Object.assign(new Error('Email signature lookup temporarily unavailable. Retry delivery.'), { status: 503 });
     }
-    return { email: fallback, authenticated: false, reason: 'original_signature_not_verified' };
+    return postmarkEvidenceFallback() || { email: fallback, authenticated: false, reason: 'original_signature_not_verified' };
   }
   const parsed = await simpleParser(raw, { skipHtmlToText: true, skipTextToHtml: true, skipImageLinks: true });
   if (parsed.from?.value?.length !== 1 || parsed.from.value[0].address?.toLowerCase() !== expected) {
@@ -167,6 +178,6 @@ export async function authenticateInboundEmail(payload, sender, options = {}) {
     from: parsed.from.text, to: parsed.to?.text || '', subject: parsed.subject,
     text: parsed.text || '', html: parsed.html || '',
     date: originalDate || parsed.date?.toISOString() || '', messageId: parsed.messageId,
-  });
+  }, options);
   return { email, authenticated: true, reason: 'original_dkim_verified' };
 }

@@ -110,7 +110,7 @@ export function parseEmail(payload, config = {}) {
   const sourceValue = text.match(/(?:Source\s+Acc\.?\s*(?:Number|No\.?)|Raast\s+ID\s*\/\s*IBAN)\s*(?::|-)?\s*([^\r\n]+)/i)?.[1]?.trim() || '';
   const sourceDigits = sourceValue.replace(/\D/g, '');
   const sourceLast4 = sourceDigits.length >= 4 ? sourceDigits.slice(-4) : walletId || null;
-  const match = /^You got\s+(?:Rs\.?|PKR)\s*([\d,]+(?:\.\d{1,2})?)\s+from\s+(.+?)\s*(?:🎉)?$/u.exec(subject);
+  const match = /^You got\s+(?:Rs\.?|PKR)\s*([\d,]+(?:\.\d{1,2})?)\s+from\s+(.+?)\s*(?:🎉|🇵🇰)?$/u.exec(subject);
   if (!match) return { amount: null, payer: null, transaction: null, verified: false, reason: 'subject_format_not_recognized' };
   const amount = Number(match[1].replaceAll(',', ''));
   const bodyAmount = Number(text.match(/Amount\s+Received\s*[:\s]*(?:Rs\.?|PKR)\s*([\d,]+(?:\.\d{1,2})?)/i)?.[1]?.replaceAll(',',''));

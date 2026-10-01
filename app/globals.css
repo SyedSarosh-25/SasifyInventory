@@ -2643,6 +2643,8 @@ svg { flex-shrink: 0; }
 .commerce-admin .commerce-table tbody tr:hover { background: #f8fbff; }
 .admin-state { display: inline-block; padding: 5px 8px; border-radius: 999px; background: #e9eff8; color: #3e526f; font-size: 12px; font-weight: 800; text-transform: capitalize; }
 .admin-state.available,.admin-state.delivered { color: #087d53; background: #e4f7ef; }
+.admin-state.approved { color: #087d53; background: #e4f7ef; }
+.admin-state.rejected { color: #963b3b; background: #ffe8e8; }
 .admin-state.review,.admin-state.reserved { color: #805500; background: #fff1c8; }
 .admin-state.quarantined,.admin-state.cancelled,.admin-state.expired { color: #963b3b; background: #ffe8e8; }
 .admin-state.withdrawn { color: #3e526f; background: #e9eff8; }
