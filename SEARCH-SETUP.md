@@ -2,6 +2,54 @@
 
 Status date: 16 September 2026.
 
+## Production consolidation audit — 2 October 2026
+
+The source of truth is GitHub `SyedSarosh-25/SasifyInventory`, branch `main`.
+The only Git-connected production project is `sasify-solutions-updated-build`.
+Its canonical storefront is `https://www.sasifysolutions.com`.
+The unused `sasify-inventory` project was disconnected from Git, without deleting
+any project, deployment, repository, or database.
+
+Four stable Vercel storefront aliases now have permanent, path-preserving 308
+redirects to the canonical domain through project-level routing:
+
+- `sasify-solutions-updated-build.vercel.app`
+- `sasify-solutions-latest-build.vercel.app`
+- `sasify-solutions-static-hostinger.vercel.app`
+- `deploy-51f438e.vercel.app`
+
+These rules match explicit hosts and exclude `/api` and `/api/*`. Do not replace
+them with whole-domain redirects that could move inbound payment webhooks.
+The primary alias rule is also emitted by `scripts/package-commerce.mjs` for
+future builds. Immutable preview/deployment URLs remain available for testing;
+the sampled deployment URLs require Vercel login and return `X-Robots-Tag: noindex`.
+
+Google Search Console, read from the owner's verified URL-prefix property:
+
+- Selected performance period: 3 months; displayed chart September 2–28, 2026.
+- Overall: 81 clicks, 513 impressions, CTR 15.8%, average position 6.2.
+- Exact query `sasify solutions`: 7 clicks and 20 impressions.
+- Sitemap: Success; last read October 1, 2026; 371 discovered pages.
+- The live sitemap at audit time contains 381 unique, canonical public URLs.
+- Page indexing report is dated September 21, 2026: 23 indexed, 130 discovered
+  but not indexed, and 2 crawled but not indexed. This older report is not an
+  up-to-date count of the current 381-page catalog.
+- Homepage inspection: indexed; last crawl September 30; smartphone Googlebot;
+  crawl and indexing allowed; fetch successful. Google selected the inspected
+  canonical homepage. Its URL-level sitemap section shows a temporary processing
+  error, while the separate sitemap report shows Success.
+
+These observations do not establish duplicate deployments as the cause of low
+rankings. The homepage is already indexed and receives branded searches.
+Do not resubmit a successful sitemap repeatedly or promise indexing/ranking.
+Next inspect representative product exclusions and strengthen distinct product
+content and links based on Search Console evidence.
+
+To prevent another source/deployment mismatch: pull the latest `main` on either
+PC, commit and push reviewed changes, and let this one Vercel project deploy that
+commit. Do not publish uncommitted CLI snapshots as the production source of
+truth. Do not deploy from an older checkout or stale `out` folder.
+
 ## Current technical setup
 
 - Canonical origin: `https://www.sasifysolutions.com`.

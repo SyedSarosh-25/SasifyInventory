@@ -11,7 +11,7 @@ test('tools directory renders all known families and a static catalog heading', 
   assert.match(html, /<h1>Browse all tool plans<\/h1>/);
   assert.equal(knownToolFamilySlugs.length, 20);
   for (const slug of knownToolFamilySlugs) assert.ok(html.includes(`href="/tools/${slug}"`), slug);
-  assert.match(html, /<h2 class="sr-only">Available plans<\/h2>/);
+  assert.match(html, /<h2 class="catalog-plans-title">Available plans<\/h2>/);
 });
 
 test('local and supplier product pages link to the corresponding tool hub', () => {
@@ -29,7 +29,7 @@ test('small images are used without restoring removed login artwork', () => {
   assert.doesNotMatch(read('out/login.html'), /sasify-account-hero\.(png|webp)/);
 });
 
-test('production routes canonicalize only the bare public host and preserve API routing', () => {
+test('production routes canonicalize bare and stable storefront hosts and preserve API routing', () => {
   const config = JSON.parse(read('.vercel/output/config.json'));
   const redirect = config.routes.find(route => route.has?.some(rule => rule.type === 'host'));
   assert.deepEqual(redirect.has, [{type: 'host', value: 'sasifysolutions.com'}]);
@@ -39,8 +39,14 @@ test('production routes canonicalize only the bare public host and preserve API 
   assert.ok(matcher.test('/inventory'));
   assert.ok(matcher.test('/checkout'));
   assert.ok(!matcher.test('/api/commerce'));
+  assert.ok(!matcher.test('/api'));
   assert.ok(!matcher.test('/api/nayapay/inbound-email'));
   assert.ok(config.routes.some(route => route.src === '/api/commerce' && route.dest === '/api/commerce'));
+  const alias = config.routes.find(route => route.has?.some(rule => rule.value === 'sasify-solutions-updated-build.vercel.app'));
+  assert.ok(alias);
+  assert.equal(alias.status, 308);
+  assert.equal(alias.headers.Location, 'https://www.sasifysolutions.com/$1');
+  assert.ok(!config.routes.some(route => route.has?.some(rule => rule.value === 'www.sasifysolutions.com')));
 });
 
 test('new concise labels have Roman Urdu and Vietnamese translations', () => {

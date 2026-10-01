@@ -12,6 +12,7 @@ import { fileURLToPath } from 'node:url';
 import { products } from '../app/products.ts';
 import { productHref } from '../app/product-utils.ts';
 import { defaultSiteOrigin } from '../app/site-config.ts';
+import { canonicalStorefrontRoute } from './canonical-storefront-route.mjs';
 import { supplierUrlRegistry } from '../app/supplier-url-registry.generated.mjs';
 import { supplierUrlRedirects } from '../app/supplier-url-registry-core.mjs';
 import { supplierSeoProducts } from '../app/supplier-seo.ts';
@@ -154,13 +155,9 @@ const canonicalHostRoutes = [
     continue: true,
   },
   ...(bareHost !== canonicalHost
-    ? [{
-        src: '/((?!api/).*)',
-        has: [{ type: 'host', value: bareHost }],
-        status: 308,
-        headers: { Location: `https://${canonicalHost}/$1` },
-      }]
+    ? [canonicalStorefrontRoute(bareHost, defaultSiteOrigin)]
     : []),
+  canonicalStorefrontRoute('sasify-solutions-updated-build.vercel.app', defaultSiteOrigin),
 ];
 await writeFile(
   path.join(target, 'config.json'),

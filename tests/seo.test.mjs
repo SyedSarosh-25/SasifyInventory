@@ -9,6 +9,7 @@ import {
   siteOrigin,
   defaultSiteOrigin,
   founderProfile,
+  googleBusinessProfile,
   socials,
 } from '../app/site-config.ts';
 import {
@@ -177,7 +178,7 @@ test('business identity uses the real founder and supplied contact links, not pr
   assert.equal(organizationData.founder.url, founderProfile);
   assert.deepEqual(
     organizationData.sameAs,
-    socials.map(({ href }) => href),
+    [...socials.map(({ href }) => href), googleBusinessProfile],
   );
   assert.ok(!('address' in organizationData));
   assert.ok(!('aggregateRating' in organizationData));
