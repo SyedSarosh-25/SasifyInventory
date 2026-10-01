@@ -83,7 +83,6 @@ const whyChooseItems = [
 ];
 const paymentMethods = [
   { name: 'Easypaisa', region: 'Pakistan', logo: '/payment-methods/easypaisa.webp' },
-  { name: 'All Pakistani Banks', region: 'Pakistan', logo: null },
   { name: 'NayaPay', region: 'Pakistan', logo: '/payment-methods/nayapay.svg' },
   { name: 'SadaPay', region: 'Pakistan', logo: '/payment-methods/sadapay.webp' },
   { name: 'Binance Pay', region: 'International', logo: '/payment-methods/binance.svg' },
@@ -749,7 +748,7 @@ export default function Home() {
             <div>
               <span className="section-kicker">Flexible ways to pay</span>
               <h2 id="payment-methods-title">Supported payment methods worldwide</h2>
-              <p>Choose from Pakistani wallets, bank transfers or supported international payment options at checkout. After successful payment, your digital purchase is delivered automatically and WhatsApp support is available if you need help.</p>
+              <p>Choose from Pakistani wallets or supported international payment options at checkout. After successful payment, your digital purchase is delivered automatically and WhatsApp support is available if you need help.</p>
             </div>
           </div>
           <div className="payment-methods-grid">

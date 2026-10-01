@@ -31,7 +31,6 @@ import {
   ClipboardList,
   Copy,
   KeyRound,
-  Landmark,
   MessageCircle,
   Pencil,
   RefreshCw,
@@ -66,7 +65,6 @@ type Stock = {
 };
 const PAYMENT_METHOD_OPTIONS = [
   { value: 'wallet' as const, label: 'Wallet transfer', description: 'Transfer from Easypaisa, JazzCash or SadaPay to our NayaPay account', icon: WalletCards },
-  { value: 'bank' as const, label: 'Meezan Bank', description: 'Transfer to our Meezan Bank account', icon: Landmark },
   { value: 'binance' as const, label: 'Binance Pay', description: 'Binance Pay in USDT', icon: WalletCards },
   { value: 'crypto' as const, label: 'Crypto deposit', description: 'Send USDT on the displayed network', icon: WalletCards },
 ];

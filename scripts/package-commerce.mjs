@@ -182,7 +182,7 @@ await writeFile(
         },
         {
           src: '/api/nayapay/inbound-email',
-          dest: '/api/commerce?action=inbound-email&provider=auto',
+          dest: '/api/commerce?action=inbound-email&provider=nayapay',
         },
         {
           src: '/api/meezan/inbound-email',
@@ -191,6 +191,14 @@ await writeFile(
         {
           src: '/api/binance/inbound-email',
           dest: '/api/commerce?action=inbound-email&provider=binance',
+        },
+        {
+          src: '/api/binance-pay/inbound-email',
+          dest: '/api/commerce?action=inbound-email&provider=binance-pay',
+        },
+        {
+          src: '/api/crypto/inbound-email',
+          dest: '/api/commerce?action=inbound-email&provider=crypto',
         },
         { src: '/api/commerce', dest: '/api/commerce' },
         {

@@ -195,6 +195,7 @@ const PAYMENT_WINDOWS_MINUTES = Object.freeze({
   binance: 15,
   crypto: 30,
 });
+const DISABLED_PAYMENT_METHODS = new Set(['bank']);
 const POSTMARK_INBOUND_WINDOW_DAYS = 30;
 const POSTMARK_INBOUND_LIMIT = Math.max(
   1,
@@ -281,10 +282,10 @@ function paymentMethod(value) {
   const method = String(value || 'wallet')
     .trim()
     .toLowerCase();
-  if (!Object.hasOwn(PAYMENT_WINDOWS_MINUTES, method))
+  if (!Object.hasOwn(PAYMENT_WINDOWS_MINUTES, method) || DISABLED_PAYMENT_METHODS.has(method))
     throw fail(
       400,
-      'Select wallet payment, bank transfer, Binance Pay, or crypto USDT.',
+      'Select wallet payment, Binance Pay, or crypto USDT.',
     );
   return method;
 }
@@ -3613,7 +3614,7 @@ async function setTelegramPaymentMethod(db, orderId, chatId, method, paymentRece
   if (normalized === 'crypto' && quote.amount < MIN_BINANCE_USDT)
     throw fail(
       409,
-      `Crypto USDT payments require at least USDT ${MIN_BINANCE_USDT.toFixed(2)} for this order. Choose Binance Pay, wallet, or bank transfer.`,
+      `Crypto USDT payments require at least USDT ${MIN_BINANCE_USDT.toFixed(2)} for this order. Choose Binance Pay or wallet transfer.`,
     );
   await db.query(
     "UPDATE commerce_orders SET payment_method=$1,payment_currency=$2,payment_amount=$3,receiver_id=$4,expires_at=GREATEST(expires_at,now()+($5 * interval '1 minute')) WHERE id=$6",
@@ -5689,6 +5690,8 @@ export function createHandler(
         const requestedInboundProvider = String(
           req.query?.provider || body.provider || '',
         ).toLowerCase();
+        const isDedicatedCryptoRoute = requestedInboundProvider === 'crypto';
+        const isDedicatedBinancePayRoute = requestedInboundProvider === 'binance-pay';
         const subject = String(body.Subject || body.subject || '');
         const inboundBodyText = String(
           body.TextBody || body.textBody || body.text || body.body || '',
@@ -5707,7 +5710,9 @@ export function createHandler(
             inboundBodyText,
           );
         const inboundProvider =
-          requestedInboundProvider === 'binance'
+          requestedInboundProvider === 'binance' ||
+          isDedicatedBinancePayRoute ||
+          isDedicatedCryptoRoute
             ? 'binance'
             : requestedInboundProvider === 'meezan'
               ? 'meezan'
@@ -5720,9 +5725,13 @@ export function createHandler(
               : 'nayapay';
         const isBinance = inboundProvider === 'binance';
         const isMeezan = inboundProvider === 'meezan';
+        if (isMeezan)
+          throw fail(410, 'Meezan Bank payments are temporarily disabled.');
         const isCrypto =
           isBinance &&
-          /\[?Binance\]?\s+USDT\s+Deposit\s+Confirmed/i.test(subject);
+          (isDedicatedCryptoRoute ||
+            (!isDedicatedBinancePayRoute &&
+              /\[?Binance\]?\s+USDT\s+Deposit\s+Confirmed/i.test(subject)));
         const inboundSender = isBinance
           ? process.env.BINANCE_SENDER
           : isMeezan

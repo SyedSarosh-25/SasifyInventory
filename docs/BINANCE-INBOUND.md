@@ -16,12 +16,17 @@ The on-chain email format currently seen in the mailbox is:
 Binance account.` The unique transaction id is recovered from the signed
 Binance tracking links because it is not printed in the visible body.
 
-The Postmark endpoint is:
+The dedicated Postmark endpoint for Binance Pay is:
 
-https://www.sasifysolutions.com/api/binance/inbound-email
+https://www.sasifysolutions.com/api/binance-pay/inbound-email
 
-Configure Gmail forwarding from syedadeen18@gmail.com to the Postmark inbound
-address. Postmark must forward the original MIME message (RawEmail) and
+The dedicated Postmark endpoint for crypto USDT deposits is:
+
+https://www.sasifysolutions.com/api/crypto/inbound-email
+
+Configure Gmail forwarding from syedadeen18@gmail.com to the corresponding
+Postmark inbound address. Keep Binance Pay and Crypto as separate Postmark
+inbound streams. Postmark must forward the original MIME message (RawEmail) and
 preserve the original authentication headers, including an
 `Authentication-Results` header with `dkim=pass` and `dmarc=pass`.
 

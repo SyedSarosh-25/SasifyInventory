@@ -33,7 +33,7 @@ const BOT_COPY = {
     backProducts: '← Back to products',
     chooseProduct: 'Choose a product below. Full description, stock and price are shown before you confirm the order.',
     orderCreated: '✅ Order created',
-    paymentChoices: 'Choose Binance Pay, crypto USDT, wallet, or bank transfer below. The exact amount, destination and payment instructions will appear after you choose a method.',
+    paymentChoices: 'Choose Binance Pay, crypto USDT, or wallet transfer below. The exact amount, destination and payment instructions will appear after you choose a method.',
     wallet: '👛 Pay by wallet',
     bank: '🏦 Bank transfer',
     binance: '🟡 Binance Pay',
@@ -71,7 +71,7 @@ const BOT_COPY = {
     backProducts: '← پروڈکٹس پر واپس جائیں',
     chooseProduct: 'پروڈکٹ منتخب کریں۔ آرڈر سے پہلے مکمل تفصیل، اسٹاک اور قیمت دکھائی جائے گی۔',
     orderCreated: '✅ آرڈر بن گیا',
-    paymentChoices: 'نیچے Binance Pay، Crypto USDT، والٹ یا بینک ٹرانسفر منتخب کریں۔ طریقہ منتخب کرنے کے بعد درست رقم اور ادائیگی کی ہدایات دکھائی جائیں گی۔',
+    paymentChoices: 'نیچے Binance Pay، Crypto USDT یا والٹ ٹرانسفر منتخب کریں۔ طریقہ منتخب کرنے کے بعد درست رقم اور ادائیگی کی ہدایات دکھائی جائیں گی۔',
     wallet: '👛 والٹ سے ادائیگی',
     bank: '🏦 بینک ٹرانسفر',
     binance: '🟡 Binance Pay',
@@ -109,7 +109,7 @@ const BOT_COPY = {
     backProducts: '← Products par wapas',
     chooseProduct: 'Product select karein. Order confirm karne se pehle full description, stock aur price show honge.',
     orderCreated: '✅ Order create ho gaya',
-    paymentChoices: 'Neeche Binance Pay, Crypto USDT, wallet ya bank transfer select karein. Method select karne ke baad exact amount aur instructions show hongi.',
+    paymentChoices: 'Neeche Binance Pay, Crypto USDT ya wallet transfer select karein. Method select karne ke baad exact amount aur instructions show hongi.',
     wallet: '👛 Wallet se pay karein',
     bank: '🏦 Bank transfer',
     binance: '🟡 Binance Pay',
@@ -147,7 +147,7 @@ const BOT_COPY = {
     backProducts: '← Quay lại sản phẩm',
     chooseProduct: 'Chọn sản phẩm bên dưới. Mô tả đầy đủ, tồn kho và giá sẽ hiển thị trước khi xác nhận đơn hàng.',
     orderCreated: '✅ Đã tạo đơn hàng',
-    paymentChoices: 'Chọn Binance Pay, Crypto USDT, ví điện tử hoặc chuyển khoản ngân hàng bên dưới. Số tiền và hướng dẫn chính xác sẽ hiển thị sau khi bạn chọn phương thức.',
+    paymentChoices: 'Chọn Binance Pay, Crypto USDT hoặc ví điện tử bên dưới. Số tiền và hướng dẫn chính xác sẽ hiển thị sau khi bạn chọn phương thức.',
     wallet: '👛 Thanh toán bằng ví',
     bank: '🏦 Chuyển khoản ngân hàng',
     binance: '🟡 Binance Pay',
@@ -459,11 +459,10 @@ export function orderPaymentMessage(order, _receiver, language = 'en') {
     estimatedUsdt == null || estimatedUsdt >= MIN_BINANCE_USDT;
   const paymentChoices = cryptoAllowed
     ? copy.paymentChoices
-    : `Crypto USDT is unavailable for this order because the minimum is USDT ${MIN_BINANCE_USDT.toFixed(2)}. Binance Pay remains available, or choose wallet or bank transfer.`;
+    : `Crypto USDT is unavailable for this order because the minimum is USDT ${MIN_BINANCE_USDT.toFixed(2)}. Binance Pay remains available, or choose wallet transfer.`;
   const paymentRows = [
     [
       { text: copy.wallet, callback_data: `pay:${order.id}:wallet` },
-      { text: copy.bank, callback_data: `pay:${order.id}:bank` },
     ],
   ];
   paymentRows.push([
@@ -588,7 +587,7 @@ function menuText(action, language = 'en') {
   const copy = botCopy(language);
   if (action === 'wallet')
     return {
-      text: '👛 Payment methods\n\nThe active receiver account and exact order amount are shown inside Telegram after you choose a product. You can pay by wallet, bank transfer, or Binance, then return here and tap “I have paid”.',
+      text: '👛 Payment methods\n\nThe active receiver account and exact order amount are shown inside Telegram after you choose a product. You can pay by wallet transfer, Binance Pay, or crypto USDT, then return here and tap “I have paid”.',
       reply_markup: {
         inline_keyboard: [
           [{ text: copy.buy, callback_data: 'menu:products' }],

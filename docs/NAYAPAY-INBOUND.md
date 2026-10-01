@@ -1,10 +1,14 @@
 # NayaPay payment receipt receiver
 
-The production receiver is Postmark Inbound. NayaPay receipts are forwarded
-to the configured Postmark inbound address, and Postmark sends the receipt to
+The production receiver is Postmark Inbound. NayaPay receipts from
+`syedadeen18@gmail.com` are forwarded to the configured Postmark inbound
+address, and Postmark sends the receipt to
 the backend at:
 
 `https://www.sasifysolutions.com/api/nayapay/inbound-email`
+
+NayaPay is configured as its own Postmark inbound stream. Meezan Bank is
+currently disabled.
 
 The backend remains responsible for sender and destination checks, amount
 matching, transaction checks, duplicate protection, payment windows,
