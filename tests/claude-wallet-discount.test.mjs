@@ -9,8 +9,8 @@ test('wallet payment charges both Claude preorders in full while retaining other
   const ids = handler.match(/const CLAUDE_PREORDER_PRODUCT_IDS = new Set\((\[[^;]+\])\);/)[1];
   const expression = handler.match(/const walletDiscount = (isClaudePreorderProduct\(order.product_id\)[\s\S]*?);/)[1];
   const calculate = new Function('order', `const ids = new Set(${ids}); const isClaudePreorderProduct = id => ids.has(id); return ${expression};`);
-  assert.equal(calculate({product_id: 'p012', amount: 25000}), 0);
-  assert.equal(calculate({product_id: 'p013', amount: 5199}), 0);
+  assert.equal(calculate({product_id: 'p012', amount: 19999}), 0);
+  assert.equal(calculate({product_id: 'p013', amount: 4299}), 0);
   assert.equal(calculate({product_id: 'p100', amount: 25000}), 1250);
 });
 
