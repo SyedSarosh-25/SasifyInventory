@@ -15,6 +15,7 @@ import { AdminToolRequests } from './admin-tool-requests';
 import { AdminResellerRequirements } from './admin-reseller-requirements';
 import { AdminCatalogStatus } from './admin-catalog-status';
 import { AdminEmailCampaign } from './admin-email-campaign';
+import { AdminClaudeEmailLists } from './admin-claude-email-lists';
 import {
   AdminAuditLogs,
   AdminProducts,
@@ -1163,6 +1164,7 @@ function SupplierProductRow({
   busy: boolean;
   save: (values: {
     sellingPrice: number;
+    originalPrice?: number | null;
     costPkr: number;
     enabled: boolean;
     canonicalKey: string;
@@ -1174,6 +1176,7 @@ function SupplierProductRow({
     String(item.selling_price || ''),
   );
   const [costPkr, setCostPkr] = useState(String(item.cost_pkr || ''));
+  const [originalPrice, setOriginalPrice] = useState(item.original_price_pkr == null ? '' : String(item.original_price_pkr));
   const [canonicalKey, setCanonicalKey] = useState(
     String(item.canonical_key || ''),
   );
@@ -1264,6 +1267,11 @@ function SupplierProductRow({
             onChange={(e) => setCanonicalKey(e.target.value.toLowerCase())}
           />
         </label>
+        <label>
+          Original price in PKR (full package)
+          <input type="number" min="1" step="1" value={originalPrice} onChange={(event) => setOriginalPrice(event.target.value)} placeholder="Optional" />
+          <small>{originalPrice && sellingPrice ? `Savings: PKR ${Math.max(0, Number(originalPrice) - Number(sellingPrice)).toLocaleString('en-PK')}` : 'Leave blank to use the automatic reference.'}</small>
+        </label>
         <label className="commerce-check">
           <input
             type="checkbox"
@@ -1278,12 +1286,14 @@ function SupplierProductRow({
             busy ||
             !productName.trim() ||
             !sellingPrice ||
+            (originalPrice !== '' && (!Number.isSafeInteger(Number(originalPrice)) || Number(originalPrice) < Number(sellingPrice) || Number(originalPrice) > 2147483647)) ||
             costPkr === '' ||
             !canonicalKey
           }
           onClick={() =>
             void save({
               sellingPrice: Number(sellingPrice),
+              originalPrice: originalPrice === '' ? null : Number(originalPrice),
               costPkr: Number(costPkr),
               enabled,
               canonicalKey,
@@ -1642,11 +1652,12 @@ export function CommerceAdmin() {
     );
     await refresh();
   };
-  const saveSupplierOfferPrice = async (product: any, sellingPrice: number, enabled: boolean) => {
+  const saveSupplierOfferPrice = async (product: any, sellingPrice: number, enabled: boolean, originalPrice: number | null) => {
     await api('admin-supplier-offer-update', key, {
       productId: product.id,
       sellingPrice,
       enabled,
+      originalPrice,
     });
     setNotice(`${product.provider_name || 'Supplier'} pricing saved. Primary supplier selection recalculated.`);
     await refresh();
@@ -3331,8 +3342,8 @@ export function CommerceAdmin() {
                 setTab('supplier');
                 window.setTimeout(() => document.querySelector('.supplier-raw-offers')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 0);
               }}
-              onSaveOfferPrice={(product, sellingPrice, enabled) =>
-                run(() => saveSupplierOfferPrice(product, sellingPrice, enabled))
+              onSaveOfferPrice={(product, sellingPrice, enabled, originalPrice) =>
+                run(() => saveSupplierOfferPrice(product, sellingPrice, enabled, originalPrice))
               }
             />
             <details className="supplier-raw-offers" open={Boolean(selectedSupplierId) || undefined}>
@@ -3555,6 +3566,7 @@ export function CommerceAdmin() {
               </div>
               <span className="admin-state available">{manualOrderRows.length} queued</span>
             </div>
+            <AdminClaudeEmailLists orders={data?.confirmedClaudeOrders || []} />
             {!manualOrderRows.length ? (
               <p>No manual or preorder orders are waiting.</p>
             ) : (

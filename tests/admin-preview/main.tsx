@@ -1,5 +1,6 @@
 import { createRoot } from 'react-dom/client';
 import { CommerceAdmin } from '../../app/components/checkout';
+import { AdminCatalogStatus } from '../../app/components/admin-catalog-status';
 import '../../app/globals.css';
 import '../../app/orders-admin/admin.css';
 
@@ -153,7 +154,10 @@ createRoot(document.getElementById('root')!).render(
       LOCAL VISUAL TEST · Synthetic data · All mutations disabled
     </div>
     <main className="admin-page">
-      <CommerceAdmin />
+      {location.pathname === '/original-prices' ? <AdminCatalogStatus
+        products={dashboard.supplierProducts.slice(1, 3).map((product, index) => ({ ...product, name: index ? 'Custom Digital Tool · 12 Months' : 'Adobe Express · 12 Months', enabled: true, selling_price: 3500, original_price_pkr: index ? null : 5000 }))}
+        onSaveOfferPrice={async () => { throw new Error('Local preview: production saves are disabled.'); }}
+      /> : <CommerceAdmin />}
     </main>
   </>,
 );

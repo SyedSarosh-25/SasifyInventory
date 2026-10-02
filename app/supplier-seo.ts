@@ -16,6 +16,7 @@ export type SupplierSeoProduct = {
   description: string;
   deliveryInstruction?: string;
   price: number;
+  original_price_pkr?: number | null;
   available: number;
   providerId?: string;
   providerName?: string;

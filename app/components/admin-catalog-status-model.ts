@@ -9,6 +9,7 @@ export type SupplierCatalogStatusProduct = {
   external_product_id?: string | null;
   supplier_stock?: number | string | null;
   selling_price?: number | string | null;
+  original_price_pkr?: number | null;
   cost_pkr?: number | string | null;
   canonical_key?: string | null;
   canonical_manual?: boolean | null;

@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 
 // Local visual harness only. No commerce handler, credentials, DB or supplier calls.
 export default defineConfig({
+  define: { 'process.env': {} },
   root: fileURLToPath(new URL('.', import.meta.url)),
   publicDir: fileURLToPath(new URL('../../public', import.meta.url)),
   resolve: { alias: { '@': fileURLToPath(new URL('../..', import.meta.url)) } },

@@ -1,4 +1,5 @@
 import pg from 'pg';
+import { parseSupplierOriginalPrice, updateSupplierOfferPricing } from './supplier-original-price.mjs';
 import { checkSupplierPlan } from './checkout-availability.mjs';
 import { createCatalogCache, parallelCatalogReads } from './catalog-cache.mjs';
 import { catalogResponse } from './catalog-presentation.mjs';
@@ -1932,12 +1933,20 @@ async function ensureMuseManualProduct(db) {
     ],
   );
 }
+let supplierOriginalPriceSchemaReady;
+async function ensureSupplierOriginalPriceSchema(db) {
+  if (!supplierOriginalPriceSchemaReady) {
+    supplierOriginalPriceSchemaReady = db.query('ALTER TABLE commerce_supplier_products ADD COLUMN IF NOT EXISTS original_price_pkr integer CHECK(original_price_pkr>0)').catch((error) => { supplierOriginalPriceSchemaReady = null; throw error; });
+  }
+  await supplierOriginalPriceSchemaReady;
+}
 async function ensureSupplierMediaSchema(db) {
   if (!supplierMediaSchemaReady) {
     supplierMediaSchemaReady = (async () => {
       await db.query(
         'ALTER TABLE commerce_supplier_products ADD COLUMN IF NOT EXISTS logo_url text',
       );
+      await ensureSupplierOriginalPriceSchema(db);
       await db.query(
         'ALTER TABLE commerce_supplier_products ADD COLUMN IF NOT EXISTS requires_customer_email boolean NOT NULL DEFAULT false',
       );
@@ -3362,7 +3371,7 @@ async function listPublicTelegramProducts(db) {
   }));
   const supplierRows = (
     await db.query(
-      `SELECT id,canonical_key,name,description,delivery_instruction,selling_price AS price,
+      `SELECT id,canonical_key,name,description,delivery_instruction,selling_price AS price,original_price_pkr,
               supplier_stock AS available,cost_pkr,wholesale_price,provider_name,
               requires_customer_email
        FROM commerce_supplier_products
@@ -3840,7 +3849,7 @@ export function createHandler(
             await rate(connection, hash(`catalog:${req.headers['x-vercel-forwarded-for'] || req.socket?.remoteAddress || 'unknown'}`), 60);
           } finally { connection.release(); }
           const [offers, inventory, shared] = await parallelCatalogReads(pool, [
-            `SELECT id,canonical_key,canonical_manual,name,description,delivery_instruction,logo_url,requires_customer_email,selling_price AS price,cost_pkr,wholesale_price,supplier_stock AS available,first_seen_at
+            `SELECT id,canonical_key,canonical_manual,name,description,delivery_instruction,logo_url,requires_customer_email,selling_price AS price,(to_jsonb(commerce_supplier_products)->>'original_price_pkr')::integer AS original_price_pkr,cost_pkr,wholesale_price,supplier_stock AS available,first_seen_at
              FROM commerce_supplier_products WHERE enabled=true AND selling_price IS NOT NULL AND provider_id<>'elitetools'
              ORDER BY cost_pkr ASC NULLS LAST,wholesale_price ASC,id`,
             "SELECT i.product_id,count(*)::int AS available FROM commerce_inventory i WHERE i.state='available' AND NOT EXISTS (SELECT 1 FROM commerce_shared_accounts sa WHERE sa.inventory_id=i.id) GROUP BY i.product_id",
@@ -4887,10 +4896,10 @@ export function createHandler(
         ).rows[0] || { available: 0, slots_filled: 0, slots_total: 0 };
         const supplierProducts = (
           await db.query(`WITH ranked AS (
-        SELECT id,name,description,delivery_instruction,logo_url,requires_customer_email,selling_price AS price,supplier_stock AS available,provider_id,provider_name,canonical_key,first_seen_at,
+        SELECT id,name,description,delivery_instruction,logo_url,requires_customer_email,selling_price AS price,original_price_pkr,supplier_stock AS available,provider_id,provider_name,canonical_key,first_seen_at,
           row_number() OVER(PARTITION BY canonical_key ORDER BY cost_pkr ASC NULLS LAST,wholesale_price ASC,id) AS choice
         FROM commerce_supplier_products WHERE enabled=true AND selling_price IS NOT NULL AND supplier_stock>0 AND provider_id<>'elitetools')
-        SELECT id,name,description,delivery_instruction,logo_url,requires_customer_email,price,available,provider_id,provider_name,canonical_key,first_seen_at FROM ranked WHERE choice=1 ORDER BY name`)
+        SELECT id,name,description,delivery_instruction,logo_url,requires_customer_email,price,original_price_pkr,available,provider_id,provider_name,canonical_key,first_seen_at FROM ranked WHERE choice=1 ORDER BY name`)
         ).rows.filter((product) => !isChatGptPlusProduct(product.name));
         const supplierTotal = Number(
           (
@@ -6383,6 +6392,7 @@ export function createHandler(
         const supplierId = String(body.productId || '');
         const sellingPrice = Number(body.sellingPrice),
           costPkr = Number(body.costPkr);
+        const originalPrice = parseSupplierOriginalPrice(body.originalPrice, sellingPrice);
         const canonicalKey = String(body.canonicalKey || '')
           .trim()
           .toLowerCase();
@@ -6415,7 +6425,8 @@ export function createHandler(
                name=COALESCE($6,name),
                description=COALESCE($7,description),
                name_manual=CASE WHEN $6 IS NULL THEN name_manual ELSE true END,
-               description_manual=CASE WHEN $7 IS NULL THEN description_manual ELSE true END
+               description_manual=CASE WHEN $7 IS NULL THEN description_manual ELSE true END,
+               original_price_pkr=CASE WHEN $8 THEN $9::integer ELSE original_price_pkr END
            WHERE id=$5 RETURNING id`,
           [
             sellingPrice,
@@ -6425,6 +6436,8 @@ export function createHandler(
             supplierId,
             productName,
             productDescription,
+            originalPrice.provided,
+            originalPrice.amount,
           ],
         );
         if (!changed.rowCount)
@@ -6473,23 +6486,7 @@ export function createHandler(
         };
       } else if (action === 'admin-supplier-offer-update') {
         const supplierId = String(body.productId || '').trim();
-        const sellingPrice = Number(body.sellingPrice);
-        const enabled = body.enabled === true;
-        if (
-          !supplierId ||
-          !Number.isSafeInteger(sellingPrice) ||
-          sellingPrice < 1
-        )
-          throw fail(400, 'Enter a valid individual supplier selling price.');
-        const changed = await db.query(
-          `UPDATE commerce_supplier_products
-           SET selling_price=$1,enabled=$2
-           WHERE id=$3
-           RETURNING id,name,provider_name,selling_price,enabled`,
-          [sellingPrice, enabled, supplierId],
-        );
-        if (!changed.rowCount)
-          throw fail(404, 'Supplier product not found. Sync products first.');
+        const changed = await updateSupplierOfferPricing(db, body);
         await db.query(
           "INSERT INTO commerce_audit(action,object_id) VALUES('supplier_offer_price_update',$1)",
           [supplierId],
@@ -6967,6 +6964,12 @@ export function createHandler(
               LEFT JOIN commerce_supplier_products sp ON sp.id=o.supplier_product_id
               WHERE l.response_status IS NULL OR l.response_status>=400 OR l.error_message IS NOT NULL
               ORDER BY l.created_at DESC LIMIT 25`)
+          ).rows,
+          confirmedClaudeOrders: (
+            await db.query(`SELECT id,product_id,customer_email,status,supplier_status,created_at
+              FROM commerce_orders
+              WHERE product_id IN ('p012','p013') AND supplier_status='preorder_confirmed' AND status='delivered'
+              ORDER BY created_at ASC,id ASC`)
           ).rows,
           orders: (
             await db.query(

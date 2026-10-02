@@ -20,7 +20,9 @@ test('local and supplier purchase cards share the mobile terms accordion', () =>
   assert.match(css, /summary:focus-visible/);
 });
 test('unknown comparisons are hidden only on mobile while prices remain available', () => {
-  assert.match(page, /className=\{comparison \? undefined : 'price-unknown'\}/);
+  const supplierPrices = readFileSync(new URL('../app/components/supplier-price-summary.tsx', import.meta.url), 'utf8');
+  assert.match(page, /<SupplierPriceSummary product=\{product\}/);
+  assert.match(supplierPrices, /className=\{comparison \? undefined : 'price-unknown'\}/);
   assert.match(css, /@media \(max-width: 640px\)/);
   assert.match(css, /\.detail-prices \.price-unknown \{ display: none; \}/);
   assert.match(css, /\.selling-price dd \{ font-size: 1\.75rem/);

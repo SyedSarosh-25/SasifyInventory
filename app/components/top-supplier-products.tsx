@@ -20,6 +20,7 @@ type SupplierProduct = {
   name: string;
   description?: string;
   price: number;
+  original_price_pkr?: number | null;
   available: number;
   logo_url?: string;
   source?: 'local' | 'supplier';
@@ -64,7 +65,7 @@ export function SupplierFeaturedCard({ product }: { product: FeaturedProduct }) 
   const contactOnly = Boolean(product.localProduct?.contactOnly);
   const packagePrices = product.localProduct?.variants?.map(variant => variant.sellingPricePkr).filter(price => price > 0) || [];
   const contactPrice = packagePrices.length ? Math.min(...packagePrices) : null;
-  const originalPrice = product.display_original_price
+  const originalPrice = product.original_price_pkr ?? product.display_original_price
     ?? (product.source === 'supplier'
       ? comparison?.totalPkr ?? null
       : product.localProduct
@@ -72,7 +73,7 @@ export function SupplierFeaturedCard({ product }: { product: FeaturedProduct }) 
         : null);
   const savings = originalPrice === null
     ? null
-    : Math.round((originalPrice - salePrice) * 100) / 100;
+    : Math.max(0, Math.round((originalPrice - salePrice) * 100) / 100);
   const sourceDescription = product.canonical_key === 'manual:muse-ai'
     ? 'Muse AI — 1 billion AI tokens'
     : String(product.description || '').replace(/PERPLEXITY PRO\s*[–—-]\s*1 MONTH\s*\|\s*ACTIVATION CDK/i, 'Perplexity Pro — 1-month activation code');
@@ -232,6 +233,7 @@ export function TopSupplierProducts() {
           name: product.name,
           description: product.description,
           price: product.price,
+          original_price_pkr: product.original_price_pkr,
           available: product.available,
           source: 'supplier' as const,
           canonical_key: product.canonicalKey,

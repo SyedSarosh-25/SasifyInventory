@@ -3,6 +3,7 @@ import { USD_TO_PKR } from './currency-utils.ts';
 export type SupplierPriceProduct = {
   name: string;
   description?: string;
+  original_price_pkr?: number | null;
 };
 
 export type SupplierPriceComparison = {
@@ -437,6 +438,12 @@ function durationMonths(product: SupplierPriceProduct) {
 export function supplierOriginalPriceComparison(
   product: SupplierPriceProduct,
 ): SupplierPriceComparison | null {
+  const manualPrice = product.original_price_pkr;
+  if (typeof manualPrice === 'number' && Number.isFinite(manualPrice) && manualPrice > 0) {
+    return { unitAmountPkr: manualPrice, period: 'package', quantity: 1, totalPkr: manualPrice,
+      sourceLabel: 'Original package price set by Sasify Solutions', sourceUrl: '',
+      note: 'Manually entered comparison price for the full package; access arrangements may differ.' };
+  }
   // Match the product title, not arbitrary supplier copy. Descriptions can
   // mention unrelated tools and must not change the official benchmark.
   const reference = officialReferences.find((item) => item.matches(product.name));
@@ -471,5 +478,5 @@ export function supplierSavingsPkr(
   const comparison = supplierOriginalPriceComparison(product);
   return comparison === null
     ? null
-    : Math.round((comparison.totalPkr - product.price) * 100) / 100;
+    : Math.max(0, Math.round((comparison.totalPkr - product.price) * 100) / 100);
 }

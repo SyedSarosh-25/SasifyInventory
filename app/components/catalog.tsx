@@ -22,6 +22,7 @@ type LiveSupplierProduct = {
   name: string;
   description?: string;
   price: number;
+  original_price_pkr?: number | null;
   available: number;
   provider_name?: string;
   category?: string;
@@ -35,6 +36,7 @@ const seoInventory: FeaturedProduct[] = supplierSeoProducts.filter((product) => 
   name: product.name,
   description: product.description,
   price: product.price,
+  original_price_pkr: product.original_price_pkr,
   available: product.available,
   source: 'supplier',
   canonical_key: product.canonicalKey,
@@ -115,6 +117,7 @@ export function Catalog({ initialQuery = '', initialCategory = 'All', heading = 
         ...product,
         stockVerified: true,
         price: Number.isFinite(live.price) ? live.price : product.price,
+        original_price_pkr: live.original_price_pkr ?? null,
         available: Number.isFinite(live.available) ? live.available : product.available,
         description: live.description || product.description,
         provider_name: live.provider_name || product.provider_name,
@@ -130,6 +133,7 @@ export function Catalog({ initialQuery = '', initialCategory = 'All', heading = 
           name: live.name,
           description: live.description || '',
           price: Number(live.price),
+          original_price_pkr: live.original_price_pkr,
           available: Number(live.available),
           source: 'supplier',
           canonical_key: key,

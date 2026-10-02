@@ -55,7 +55,7 @@ import {
   whatsappLink,
 } from '../../product-utils';
 import { productShareImage, productShareImageUrl } from '../../share-metadata';
-import { supplierOriginalPriceComparison, supplierSavingsPkr } from '../../supplier-price-utils';
+import { SupplierPriceSummary } from '../../components/supplier-price-summary';
 import { productSearchTags } from '../../product-search-tags';
 import { isInternalTestListing } from '../../product-visibility';
 
@@ -170,8 +170,6 @@ function SupplierSeoProductPage({ product }: { product: SupplierSeoProduct }) {
   const questions = supplierProductQuestions(product);
   const about = supplierProductAbout(product);
   const logo = supplierLogo(product.name, product.logoUrl);
-  const comparison = supplierOriginalPriceComparison(product);
-  const savings = supplierSavingsPkr(product);
   const descriptionBlocks = product.description
     .split(/\n{2,}/)
     .map((block) => block.trim())
@@ -306,22 +304,7 @@ function SupplierSeoProductPage({ product }: { product: SupplierSeoProduct }) {
               <h2>{product.name}</h2>
             </div>
             <dl className="detail-prices">
-              <div className={comparison ? undefined : 'price-unknown'}>
-                <dt>Original price</dt>
-                <dd>{comparison ? <Money amount={comparison.totalPkr} /> : 'Price may vary'}</dd>
-              </div>
-              <div className="selling-price">
-                <dt>
-                  <Tag className="h-4 w-4" /> {product.archived ? 'Last listed price' : 'Our price'}
-                </dt>
-                <dd>
-                  <Money amount={product.price} />
-                </dd>
-              </div>
-              <div className={savings !== null ? undefined : 'price-unknown'}>
-                <dt>Your savings</dt>
-                <dd>{savings !== null ? <Money amount={savings} /> : 'Price may vary'}</dd>
-              </div>
+              <SupplierPriceSummary product={product} />
               <div className="purchase-delivery-row">
                 <dt>Delivery</dt>
                 <dd>{product.archived ? 'Currently unavailable' : 'Automatic after payment verification'}</dd>

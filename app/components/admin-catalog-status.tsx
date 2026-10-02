@@ -30,7 +30,7 @@ function GroupRow({
 }: {
   group: SupplierCatalogGroup;
   onManage?: (product: SupplierCatalogStatusProduct) => void;
-  onSaveOfferPrice?: (product: SupplierCatalogStatusProduct, price: number, enabled: boolean) => Promise<void>;
+  onSaveOfferPrice?: (product: SupplierCatalogStatusProduct, price: number, enabled: boolean, originalPrice: number | null) => Promise<void>;
   busy?: boolean;
 }) {
   const [offerPrices, setOfferPrices] = useState<Record<string, string>>(() =>
@@ -39,12 +39,28 @@ function GroupRow({
   const [offerEnabled, setOfferEnabled] = useState<Record<string, boolean>>(() =>
     Object.fromEntries(group.products.map((product) => [product.id, product.enabled === true])),
   );
+  const [originalPrices, setOriginalPrices] = useState<Record<string, string>>(() =>
+    Object.fromEntries(group.products.map((product) => [product.id, product.original_price_pkr == null ? '' : String(product.original_price_pkr)])),
+  );
   useEffect(() => {
+    setOriginalPrices(Object.fromEntries(group.products.map((product) => [product.id, product.original_price_pkr == null ? '' : String(product.original_price_pkr)])));
     setOfferPrices(Object.fromEntries(group.products.map((product) => [product.id, product.selling_price ? String(product.selling_price) : ''])));
     setOfferEnabled(Object.fromEntries(group.products.map((product) => [product.id, product.enabled === true])));
   }, [group.products]);
   const [priceErrors, setPriceErrors] = useState<Record<string, string>>({});
   const Icon = group.listed ? CircleCheck : TriangleAlert;
+  async function saveOffer(product: SupplierCatalogStatusProduct) {
+    const price = Number(offerPrices[product.id]);
+    const originalPrice = (originalPrices[product.id] || '').trim() === '' ? null : Number(originalPrices[product.id]);
+    if (!Number.isSafeInteger(price) || price < 1 || price > 2147483647) {
+      setPriceErrors((current) => ({ ...current, [product.id]: 'Enter a whole PKR selling price.' })); return;
+    }
+    if (originalPrice !== null && (!Number.isSafeInteger(originalPrice) || originalPrice < price || originalPrice > 2147483647)) {
+      setPriceErrors((current) => ({ ...current, [product.id]: 'Original price must be a whole PKR amount at least equal to the selling price.' })); return;
+    }
+    setPriceErrors((current) => ({ ...current, [product.id]: '' }));
+    await onSaveOfferPrice?.(product, price, offerEnabled[product.id] === true, originalPrice);
+  }
   return (
     <article className="catalog-group-row">
       <div className="catalog-group-heading">
@@ -66,7 +82,7 @@ function GroupRow({
       </div>
       <details className="catalog-group-offers" open>
         <summary><ChevronDown size={15} /> Supplier offers and fallback order</summary>
-        <div className="catalog-group-offer-list mobile-records"><table><thead><tr><th>Priority</th><th>Supplier offer</th><th>Stock</th><th>Supplier cost</th><th>Individual customer price</th><th>Live</th><th>Action</th></tr></thead><tbody>
+        <div className="catalog-group-offer-list mobile-records"><table><thead><tr><th>Priority</th><th>Supplier offer</th><th>Stock</th><th>Supplier cost</th><th>Individual customer price</th><th>Original price (PKR)</th><th>Live</th><th>Action</th></tr></thead><tbody>
           {group.products
             .slice()
             .sort((left, right) => Number(left.cost_pkr ?? Number.POSITIVE_INFINITY) - Number(right.cost_pkr ?? Number.POSITIVE_INFINITY))
@@ -77,8 +93,9 @@ function GroupRow({
                 <td data-label="Stock">{Number(product.supplier_stock || 0).toLocaleString('en-PK')}</td>
                 <td data-label="Supplier cost">{money(product.cost_pkr)}</td>
                 <td data-label="Customer price"><input className="catalog-offer-price-input" type="number" min="1" step="1" aria-label={`Customer price for ${product.name} from ${product.provider_name || product.provider_id || 'supplier'}`} value={offerPrices[product.id] || ''} placeholder="e.g. 2499" onChange={(event) => { setOfferPrices((current) => ({ ...current, [product.id]: event.target.value })); setPriceErrors((current) => ({ ...current, [product.id]: '' })); }} /></td>
+                <td data-label="Original price"><input className="catalog-offer-price-input" type="number" min="1" step="1" aria-label={`Original price for ${product.name} from ${product.provider_name || product.provider_id || 'supplier'}`} value={originalPrices[product.id] || ''} placeholder="Full package PKR" onChange={(event) => { setOriginalPrices((current) => ({ ...current, [product.id]: event.target.value })); setPriceErrors((current) => ({ ...current, [product.id]: '' })); }} /><small>{originalPrices[product.id] && offerPrices[product.id] ? `Savings: PKR ${Math.max(0, Number(originalPrices[product.id]) - Number(offerPrices[product.id])).toLocaleString('en-PK')}` : 'Optional · blank uses automatic reference'}</small></td>
                 <td data-label="Live"><label className="catalog-offer-live"><input type="checkbox" checked={offerEnabled[product.id] === true} onChange={(event) => setOfferEnabled((current) => ({ ...current, [product.id]: event.target.checked }))} /> Live</label></td>
-                <td data-label="Action"><button type="button" className="secondary-button compact" disabled={busy || !onSaveOfferPrice} onClick={() => { const value = Number(offerPrices[product.id]); if (!Number.isSafeInteger(value) || value < 1) { setPriceErrors((current) => ({ ...current, [product.id]: 'Enter a whole PKR amount.' })); return; } setPriceErrors((current) => ({ ...current, [product.id]: '' })); void onSaveOfferPrice?.(product, value, offerEnabled[product.id] === true); }}> <Save size={14} /> Save</button>{onManage && <button type="button" className="icon-command" onClick={() => onManage(product)} aria-label={`Advanced edit ${product.name}`}><ArrowRight size={14} /></button>}{priceErrors[product.id] && <small className="catalog-group-error">{priceErrors[product.id]}</small>}</td>
+                <td data-label="Action"><button type="button" className="secondary-button compact" disabled={busy || !onSaveOfferPrice} onClick={() => void saveOffer(product)}> <Save size={14} /> Save</button>{onManage && <button type="button" className="icon-command" onClick={() => onManage(product)} aria-label={`Advanced edit ${product.name}`}><ArrowRight size={14} /></button>}{priceErrors[product.id] && <small className="catalog-group-error">{priceErrors[product.id]}</small>}</td>
               </tr>
             ))}
         </tbody></table></div>
@@ -95,7 +112,7 @@ export function AdminCatalogStatus({
 }: {
   products: SupplierCatalogStatusProduct[];
   onManage?: (product: SupplierCatalogStatusProduct) => void;
-  onSaveOfferPrice?: (product: SupplierCatalogStatusProduct, price: number, enabled: boolean) => Promise<void>;
+  onSaveOfferPrice?: (product: SupplierCatalogStatusProduct, price: number, enabled: boolean, originalPrice: number | null) => Promise<void>;
   busy?: boolean;
 }) {
   const [query, setQuery] = useState('');

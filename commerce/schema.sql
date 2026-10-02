@@ -94,6 +94,7 @@ CREATE TABLE IF NOT EXISTS commerce_supplier_products (
  cost_pkr integer CHECK(cost_pkr>=0),
  cost_manual boolean NOT NULL DEFAULT false,
  selling_price integer CHECK(selling_price>0),
+ original_price_pkr integer CHECK(original_price_pkr>0),
  enabled boolean NOT NULL DEFAULT false,
  name_manual boolean NOT NULL DEFAULT false,
  description_manual boolean NOT NULL DEFAULT false,
@@ -102,6 +103,7 @@ CREATE TABLE IF NOT EXISTS commerce_supplier_products (
  synced_at timestamptz NOT NULL DEFAULT now()
 );
 ALTER TABLE commerce_supplier_products ADD COLUMN IF NOT EXISTS logo_url text;
+ALTER TABLE commerce_supplier_products ADD COLUMN IF NOT EXISTS original_price_pkr integer CHECK(original_price_pkr>0);
 ALTER TABLE commerce_supplier_products ADD COLUMN IF NOT EXISTS requires_customer_email boolean NOT NULL DEFAULT false;
 ALTER TABLE commerce_supplier_products ADD COLUMN IF NOT EXISTS first_seen_at timestamptz NOT NULL DEFAULT now();
 ALTER TABLE commerce_supplier_products ADD COLUMN IF NOT EXISTS cost_manual boolean NOT NULL DEFAULT false;

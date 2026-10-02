@@ -43,6 +43,7 @@ function toSeoProduct(product) {
     name,
     description,
     price,
+    ...(Number(publicProduct.original_price_pkr) > 0 ? { original_price_pkr: Number(publicProduct.original_price_pkr) } : {}),
     available,
     category: inferSupplierCategory(name, description),
   };

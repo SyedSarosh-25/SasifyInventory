@@ -56,6 +56,7 @@ for (const name of [
   'description.mjs',
   'product-display.mjs',
   'supplier-matching.mjs',
+  'supplier-original-price.mjs',
   'provider-media.mjs',
   'qamify.mjs',
   'mke.mjs',
