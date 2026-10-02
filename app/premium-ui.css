@@ -291,9 +291,18 @@ body[data-storefront="true"] .footer-policy-links a { color: #44536e; font-size:
 .checkout-page .sasify-wallet-card { border-radius: 12px; padding: 12px; background: #fff; }
 .checkout-page .sasify-wallet-card.selected { background: #f0f4ff; border-color: #285cff; }
 .wallet-selected-badge { display: inline-flex; align-items: center; gap: 4px; margin-left: 8px; color: #1952cc; font-size: .75rem; }
-.checkout-warranty-confirmation { display: flex; align-items: flex-start; gap: 10px; padding: 14px; border: 1px solid #d5e1f1; border-radius: 12px; font-size: .875rem; line-height: 1.6; }
-.checkout-warranty-confirmation input { width: 20px; height: 20px; flex: 0 0 20px; margin: 3px 0 0; accent-color: #285cff; }
-.checkout-warranty-confirmation.accepted { border-color: #176653; background: #f0faf5; }
+.checkout-page .checkout-start label.checkout-warranty-confirmation { display: flex; flex-direction: row; align-items: flex-start; gap: 9px; padding: 4px 0; border: 0; background: transparent; font-size: .8125rem; line-height: 1.6; cursor: pointer; }
+body[data-storefront="true"] .checkout-page .checkout-start .checkout-warranty-confirmation input[type="checkbox"] { width: 17px; height: 17px; min-height: 17px; flex: 0 0 17px; margin: 2px 0 0; padding: 0; accent-color: #285cff; }
+.checkout-warranty-confirmation > span { min-width: 0; }
+.checkout-page .checkout-start label.sasify-wallet-card { display: grid; grid-template-columns: 20px 42px minmax(0, 1fr) auto; align-items: center; cursor: pointer; }
+body[data-storefront="true"] .checkout-page .checkout-start .sasify-wallet-card input[type="radio"] { position: static; opacity: 1; pointer-events: auto; width: 18px; height: 18px; min-height: 18px; margin: 0; padding: 0; accent-color: #285cff; }
+.checkout-page .sasify-wallet-card:not(.disabled):hover { border-color: #285cff; }
+.checkout-page .payment-method-trigger.selected { border-color: #285cff; background: #f0f4ff; }
+@media (max-width: 480px) {
+  .checkout-page .checkout-start label.sasify-wallet-card { grid-template-columns: 20px 36px minmax(0, 1fr); gap: 8px; }
+  .sasify-wallet-card .payment-method-link { grid-column: 3; justify-self: start; }
+  .sasify-wallet-card .sasify-wallet-logo img { width: 36px; height: 36px; }
+}
 .checkout-warranty-confirmation a { color: #1952cc; text-decoration: underline; }
 .checkout-page .sasify-wallet-card strong, .checkout-page .payment-method-trigger strong { font-size: .875rem; }
 .checkout-page .sasify-wallet-card small, .checkout-page .payment-method-trigger small { font-size: .8125rem; line-height: 1.4; }

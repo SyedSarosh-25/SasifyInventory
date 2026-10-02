@@ -602,14 +602,16 @@ export function Checkout() {
               <summary><ShieldCheck size={20} aria-hidden="true" /><span><strong>Read before purchasing</strong><small>Activation, duration and warranty terms</small></span><ChevronDown size={18} aria-hidden="true" /></summary>
             <aside className="purchase-disclaimer" role="note">
               <strong>Please read before purchasing</strong>
-              <p>
-                Please read the complete product description, activation
-                requirements, duration and warranty terms before payment. If an
-                issue arises because the description or requirements were not
-                read or followed, Sasify Solutions cannot be held responsible.
-              </p>
+              {['p012', 'p013'].includes(selected) ? <>
+                <p>Individual account-related issues will be assisted where possible. However, if the complete workspace or organization is disabled due to a Claude-side or platform-wide issue, warranty, replacement or refund will not be provided.</p>
+                <p>Please read the product details carefully before purchasing to avoid any misunderstanding later.</p>
+              </> : <p>Please read the complete product description, activation requirements, duration and warranty terms before payment. If an issue arises because the description or requirements were not read or followed, Sasify Solutions cannot be held responsible.</p>}
             </aside>
             </details>
+            <label className={`checkout-warranty-confirmation${warrantyAccepted ? ' accepted' : ''}`}>
+              <input type="checkbox" required checked={warrantyAccepted} onChange={(event) => setWarrantyAccepted(event.target.checked)} />
+              <span>Yes, I agree that I have read the warranty conditions.</span>
+            </label>
             <fieldset className="payment-method-picker">
               <legend>How will you send the payment?</legend>
               <label className={`sasify-wallet-card${checkoutAccount ? '' : ' disabled'}${useSasifyWallet ? ' selected' : ''}`}>
@@ -637,7 +639,7 @@ export function Checkout() {
                 <span className="payment-method-select-label">Other payment methods</span>
                 <button
                   type="button"
-                  className={`payment-method-trigger${paymentMenuOpen ? ' open' : ''}`}
+                  className={`payment-method-trigger${paymentMenuOpen ? ' open' : ''}${useSasifyWallet ? '' : ' selected'}`}
                   aria-haspopup="listbox"
                   aria-expanded={paymentMenuOpen}
                   onClick={() => setPaymentMenuOpen((open) => !open)}
@@ -647,6 +649,7 @@ export function Checkout() {
                     <strong>{useSasifyWallet ? 'Select another payment method' : selectedPayment.label}</strong>
                     <small>{useSasifyWallet ? 'Sasify Wallet is selected above' : selectedPayment.description}</small>
                   </span>
+                  {!useSasifyWallet && <span className="wallet-selected-badge"><Check size={14} aria-hidden="true" /> Selected</span>}
                   <ChevronDown size={18} aria-hidden="true" />
                 </button>
                 {paymentMenuOpen && (
@@ -704,10 +707,6 @@ export function Checkout() {
               {useSasifyWallet && <small>Coupons cannot be combined with Sasify Wallet payments.</small>}
             </label>
             </details>
-            <label className={`checkout-warranty-confirmation${warrantyAccepted ? ' accepted' : ''}`}>
-              <input type="checkbox" required checked={warrantyAccepted} onChange={(event) => setWarrantyAccepted(event.target.checked)} />
-              <span>I have read the product requirements and agree to the <a href="/warranty" target="_blank" rel="noopener noreferrer">warranty policy</a> and <a href="/terms" target="_blank" rel="noopener noreferrer">terms</a>.</span>
-            </label>
             <button
               className="primary-button"
               disabled={
