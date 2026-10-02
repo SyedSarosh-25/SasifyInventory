@@ -2,7 +2,7 @@
 import { LocalizedContent } from './language';
 
 import { useEffect, useState } from 'react';
-import { Menu, X } from 'lucide-react';
+import { Menu, X, UserRound } from 'lucide-react';
 import './site-header-actions.css';
 import { favicon } from '../product-utils';
 import { CurrencyToggle } from './currency';
@@ -59,10 +59,10 @@ export function SiteHeader({
           <CurrencyToggle />
           <span className="header-action-divider" aria-hidden="true" />
           {accountName ? (
-            <a href="/dashboard" className="header-login">My dashboard</a>
+            <a href="/dashboard" className="header-login header-profile" aria-label="My dashboard" title="My dashboard"><UserRound size={20} aria-hidden="true" /><span>My dashboard</span></a>
           ) : (
             <>
-              <a href="/login" className="header-login">Log in</a>
+              <a href="/login" className="header-login header-profile" aria-label="Log in" title="Log in"><UserRound size={20} aria-hidden="true" /><span>Log in</span></a>
               <a href="/signup" className="header-signup">Sign up</a>
             </>
           )}

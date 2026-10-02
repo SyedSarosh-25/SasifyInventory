@@ -20,6 +20,7 @@ import {
   RefreshCw,
   ShieldCheck,
   ShoppingBag,
+  UserRound,
   WalletCards,
 } from 'lucide-react';
 import { SiteHeader, SiteFooter } from './site-chrome';
@@ -904,7 +905,7 @@ export function CustomerDashboard() {
                 { id: 'orders', label: 'My orders', Icon: ShoppingBag },
                 { id: 'wallet', label: 'Wallet & deposits', Icon: CircleDollarSign },
                 { id: 'refunds', label: 'Refund / replacement', Icon: RefreshCw },
-                { id: 'profile', label: 'Profile', Icon: ShieldCheck },
+                { id: 'profile', label: 'Profile', Icon: UserRound },
               ].map(({ id, label, Icon }) => (
                 <button
                   key={id}
