@@ -1,5 +1,6 @@
 import pg from 'pg';
 import { parseSupplierOriginalPrice, updateSupplierOfferPricing } from './supplier-original-price.mjs';
+import { couponPaymentError } from './coupon-payment-policy.mjs';
 import { checkSupplierPlan } from './checkout-availability.mjs';
 import { createCatalogCache, parallelCatalogReads } from './catalog-cache.mjs';
 import { catalogResponse } from './catalog-presentation.mjs';
@@ -3799,7 +3800,7 @@ export function createHandler(
       return json(res, 503, {
         error: String(action || '').startsWith('account-')
           ? 'Account services are not configured in this local preview yet.'
-          : ['admin-login', 'admin-list', 'admin-logout'].includes(String(action || ''))
+          : ['admin-login', 'admin-list', 'admin-payments', 'admin-logout'].includes(String(action || ''))
             ? 'Admin services are not configured in this local preview. Add the database and commerce secrets to .env.local to sign in.'
             : 'Online checkout is being prepared. Please contact us on WhatsApp.',
       });
@@ -4014,6 +4015,7 @@ export function createHandler(
           'scam-reports',
           'scam-report',
           'admin-list',
+          'admin-payments',
           'admin-supplier-logs',
           'admin-scam-report',
           'team-stock',
@@ -4023,6 +4025,18 @@ export function createHandler(
           : req.method !== 'POST'
       )
         throw fail(405, 'Method not allowed.');
+      if (action === 'admin-payments') {
+        await ensurePaymentWorkflowSchema(db);
+        const payments = await db.query(
+          `SELECT id,amount,payment_amount,currency,subject,transaction_id,payer_name,source_last4,verified,verification_reason,verification_reason_before_manual,fulfillment_error_code,fulfillment_error_message,fulfillment_error_stage,fulfillment_error_at,manual_approval_source,order_id,receiver_id,received_at,created_at
+           FROM commerce_payments ORDER BY created_at DESC LIMIT 500`,
+        );
+        const paymentReceivers = await listPaymentReceivers(db);
+        return json(res, 200, {
+          payments: payments.rows,
+          paymentReceivers,
+        });
+      }
       await ensureCouponSchema(db);
       await ensureOrderFinanceSchema(db);
       await ensurePaymentWorkflowSchema(db);
@@ -4387,11 +4401,13 @@ export function createHandler(
             new Date(order.expires_at) <= new Date()
           )
             throw fail(409, 'This order cannot be paid from your wallet.');
-          if (order.coupon_id || Number(order.coupon_discount || 0) > 0)
-            throw fail(
-              409,
-              'Coupons cannot be combined with Sasify Wallet payments. Start a new order without a coupon.',
-            );
+          if (order.coupon_id || Number(order.coupon_discount || 0) > 0) {
+            const appliedCoupon = order.coupon_id
+              ? (await db.query('SELECT code_display FROM commerce_coupons WHERE id=$1', [order.coupon_id])).rows[0]
+              : null;
+            const restriction = couponPaymentError(appliedCoupon?.code_display || 'UNKNOWN', true);
+            if (restriction) throw fail(409, restriction);
+          }
           const walletDiscount = isClaudePreorderProduct(order.product_id)
             ? 0
             : Math.floor(Number(order.amount) * 0.05);
@@ -5083,11 +5099,8 @@ export function createHandler(
         const manualActivationProduct = isManualActivationProduct(product?.id);
         const requestedCouponCode = normalizeCouponCode(body.couponCode);
         const usingSasifyWallet = body.useSasifyWallet === true;
-        if (usingSasifyWallet && requestedCouponCode)
-          throw fail(
-            409,
-            'Coupons cannot be combined with Sasify Wallet payments. Remove the coupon or choose another payment method.',
-          );
+        const couponRestriction = couponPaymentError(requestedCouponCode, usingSasifyWallet);
+        if (couponRestriction) throw fail(409, couponRestriction);
         const isRequestedTeamCoupon = requestedCouponCode === TEAM_COUPON_CODE;
         if (
           isRequestedTeamCoupon &&

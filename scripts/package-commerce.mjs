@@ -40,6 +40,7 @@ for (const entry of await readdir(path.join(root, 'out'), {
 }
 for (const name of [
   'handler.mjs',
+  'coupon-payment-policy.mjs',
   'checkout-availability.mjs',
   'catalog-cache.mjs',
   'catalog-presentation.mjs',

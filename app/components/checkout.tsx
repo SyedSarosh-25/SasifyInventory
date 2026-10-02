@@ -2,7 +2,7 @@
 import { LocalizedContent } from './language';
 import { LanguageSwitcher } from './language';
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { loadPublicCatalog, invalidatePublicCatalog } from '../public-catalog';
 import { AdminShell } from './admin-shell';
 import { AdminOperations } from './admin-operations';
@@ -133,12 +133,20 @@ async function api(
       credentials: 'same-origin',
     },
   );
-  const data: any = await response.json();
+  const responseText = await response.text();
+  let data: any = null;
+  try {
+    data = responseText ? JSON.parse(responseText) : null;
+  } catch {
+    data = null;
+  }
   if (!response.ok)
     throw Object.assign(
-      new Error(data.error || 'Request failed. Please retry.'),
+      new Error(data?.error || `Request failed (${response.status}). Please retry.`),
       { status: response.status },
     );
+  if (!data || typeof data !== 'object')
+    throw new Error('The server returned an invalid response. Please retry.');
   if (body) invalidatePublicCatalog();
   return data;
 }
@@ -509,7 +517,7 @@ export function Checkout() {
               void run(async () => {
                 const data = await api('create', '', {
                   productId: selected,
-                  couponCode: useSasifyWallet ? '' : couponCode,
+                  couponCode,
                   useSasifyWallet,
                   ...(product?.requires_customer_email
                     ? { customerEmail: customerEmail.trim() }
@@ -634,7 +642,7 @@ export function Checkout() {
                   onChange={() => {
                     if (checkoutAccount) {
                       setUseSasifyWallet(true);
-                      setCouponCode('');
+                      setCouponCode((code) => code.trim().toUpperCase() === 'PURBA' ? 'PURBA' : '');
                       setPaymentMethod('wallet');
                     }
                   }}
@@ -696,18 +704,17 @@ export function Checkout() {
               </div>
             </fieldset>
             <details className="checkout-coupon">
-            <summary><span>{useSasifyWallet ? 'Coupons are unavailable with Sasify Wallet' : 'Have a reseller coupon?'}</span><ChevronDown size={18} aria-hidden="true" /></summary>
-            <label className={useSasifyWallet ? 'disabled-field' : undefined}>
-              Reseller coupon {useSasifyWallet ? '(not available with Sasify Wallet)' : '(optional)'}
+            <summary><span>{useSasifyWallet ? 'Have a PURBA coupon?' : 'Have a reseller coupon?'}</span><ChevronDown size={18} aria-hidden="true" /></summary>
+            <label>
+              Reseller coupon {useSasifyWallet ? '(PURBA only)' : '(optional)'}
               <input
                 value={couponCode}
                 onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
                 placeholder="Enter coupon code"
                 autoCapitalize="characters"
                 maxLength={32}
-                disabled={useSasifyWallet}
               />
-              {useSasifyWallet && <small>Coupons cannot be combined with Sasify Wallet payments.</small>}
+              {useSasifyWallet && <small>Only PURBA is accepted with Sasify Wallet. Other coupons are not allowed.</small>}
             </label>
             </details>
             {product && product.price > 0 && (
@@ -1520,6 +1527,11 @@ export function CommerceAdmin() {
     [newCouponDiscount, setNewCouponDiscount] = useState('10'),
     [newCouponMaxUses, setNewCouponMaxUses] = useState('10');
   const [paymentFilter, setPaymentFilter] = useState('all');
+  const [paymentRefreshError, setPaymentRefreshError] = useState('');
+  const [paymentLastUpdatedAt, setPaymentLastUpdatedAt] = useState<Date | null>(null);
+  const [paymentRefreshing, setPaymentRefreshing] = useState(false);
+  const paymentRefreshInFlight = useRef(false);
+  const [dashboardRefreshError, setDashboardRefreshError] = useState('');
   // Keep the inbox inclusive by default so newly forwarded Gmail receipts
   // are visible even when they belong to a non-active payment receiver.
   const [paymentReceiverFilter, setPaymentReceiverFilter] = useState('all');
@@ -1537,7 +1549,11 @@ export function CommerceAdmin() {
       .then((dashboard) => {
         if (active) setData(dashboard);
       })
-      .catch(() => {})
+      .catch((e) => {
+        const problem = e as Error & { status?: number };
+        if (active && problem.status !== 401)
+          setError(problem.message || 'Could not restore the admin dashboard. Please sign in again.');
+      })
       .finally(() => {
         if (active) setCheckingSession(false);
       });
@@ -1546,6 +1562,45 @@ export function CommerceAdmin() {
     };
   }, [localPreview]);
   const adminReady = Boolean(data);
+  const refreshPayments = useCallback(async () => {
+    if (localPreview || paymentRefreshInFlight.current) return;
+    paymentRefreshInFlight.current = true;
+    setPaymentRefreshing(true);
+    try {
+      const snapshot = await api('admin-payments', key);
+      setData((current: any) => current ? {
+        ...current,
+        payments: snapshot.payments,
+        paymentReceivers: snapshot.paymentReceivers,
+      } : current);
+      setPaymentRefreshError('');
+      setPaymentLastUpdatedAt(new Date());
+    } catch (e) {
+      const problem = e as Error & { status?: number };
+      setPaymentRefreshError(problem.message || 'Payment list refresh failed.');
+      if (problem.status === 401) {
+        setData(null);
+        setKey('');
+      }
+    } finally {
+      paymentRefreshInFlight.current = false;
+      setPaymentRefreshing(false);
+    }
+  }, [key, localPreview]);
+  useEffect(() => {
+    if (!adminReady) return;
+    let active = true;
+    let timer: ReturnType<typeof setTimeout>;
+    const poll = async () => {
+      await refreshPayments();
+      if (active) timer = setTimeout(poll, 15000);
+    };
+    void poll();
+    return () => {
+      active = false;
+      clearTimeout(timer);
+    };
+  }, [adminReady, refreshPayments]);
   useEffect(() => {
     if (!data) {
       seenOrderIds.current.clear();
@@ -1583,19 +1638,47 @@ export function CommerceAdmin() {
   }, [data]);
   useEffect(() => {
     if (!adminReady) return;
-    const timer = setInterval(() => {
-      if (document.visibilityState !== 'visible') return;
-      void api(
-        'admin-list',
-        key,
-        undefined,
-        '',
-        profitToken ? { 'X-Profit-Token': profitToken } : {},
-      )
-        .then((dashboard) => setData(dashboard))
-        .catch(() => {});
-    }, 10000);
-    return () => clearInterval(timer);
+    let active = true;
+    let timer: ReturnType<typeof setTimeout>;
+    const poll = async () => {
+      if (document.visibilityState !== 'visible') {
+        if (active) timer = setTimeout(poll, 15000);
+        return;
+      }
+      try {
+        const dashboard = await api(
+          'admin-list',
+          key,
+          undefined,
+          '',
+          profitToken ? { 'X-Profit-Token': profitToken } : {},
+        );
+        if (active) {
+          setData((current: any) => ({
+            ...dashboard,
+            payments: current?.payments ?? dashboard.payments,
+            paymentReceivers: current?.paymentReceivers ?? dashboard.paymentReceivers,
+          }));
+          setDashboardRefreshError('');
+        }
+      } catch (e) {
+        const problem = e as Error & { status?: number };
+        if (active) {
+          setDashboardRefreshError(problem.message || 'The dashboard could not refresh.');
+          if (problem.status === 401) {
+            setData(null);
+            setKey('');
+          }
+        }
+      } finally {
+        if (active) timer = setTimeout(poll, 30000);
+      }
+    };
+    timer = setTimeout(poll, 30000);
+    return () => {
+      active = false;
+      clearTimeout(timer);
+    };
   }, [adminReady, key, profitToken]);
   async function run(fn: () => Promise<void>) {
     setBusy(true);
@@ -1700,6 +1783,9 @@ export function CommerceAdmin() {
     await api('admin-logout', '', {});
     setData(null);
     setKey('');
+    setPaymentRefreshError('');
+    setPaymentLastUpdatedAt(null);
+    setDashboardRefreshError('');
     setProfitToken('');
     setEmail('');
     setPassword('');
@@ -1938,6 +2024,11 @@ export function CommerceAdmin() {
       {notice && (
         <p role="status" className="admin-notice">
           {notice}
+        </p>
+      )}
+      {dashboardRefreshError && (
+        <p role="status" className="admin-warning">
+          Some dashboard sections could not refresh: {dashboardRefreshError} Payments refresh separately.
         </p>
       )}
       {(lowBalanceProviders.length > 0 || data.supplierAlerts?.length > 0) && (
@@ -3991,14 +4082,32 @@ export function CommerceAdmin() {
           <section className="admin-panel">
             <div className="panel-heading">
               <div>
-                <span className="admin-eyebrow">NayaPay inbox</span>
+                <span className="admin-eyebrow">Payment inbox</span>
                 <h2>Received payments</h2>
                 <p>
                   Customers no longer submit transaction IDs. Match payments
                   using the exact amount, receipt time and receipt details.
                 </p>
               </div>
+              <button
+                className="secondary-button compact"
+                type="button"
+                onClick={() => void refreshPayments()}
+                disabled={paymentRefreshing}
+              >
+                <RefreshCw size={16} className={paymentRefreshing ? 'animate-spin' : ''} />
+                {paymentRefreshing ? 'Refreshing…' : 'Refresh payments'}
+              </button>
             </div>
+            {paymentRefreshError ? (
+              <p role="alert" className="commerce-error">
+                Payments could not refresh: {paymentRefreshError}
+              </p>
+            ) : paymentLastUpdatedAt ? (
+              <p role="status" className="order-filter-summary">
+                Payments updated at {paymentLastUpdatedAt.toLocaleTimeString()}.
+              </p>
+            ) : null}
             <div className="order-filter-bar" aria-label="Payment verification filters">
               {['all', 'verified', 'review'].map(value => <button key={value} type="button" aria-pressed={paymentFilter === value} className={paymentFilter === value ? 'active' : ''} onClick={() => { setPaymentFilter(value); paymentView.setPage(1); }}>{value === 'all' ? 'All payments' : value === 'verified' ? 'Verified receipts' : 'Needs review'}</button>)}
             </div>

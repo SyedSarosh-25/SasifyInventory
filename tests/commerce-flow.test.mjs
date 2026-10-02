@@ -8,6 +8,11 @@ import { hash } from '../commerce/core.mjs';
 
 test('ChatGPT Plus local inventory supports checkout, verification, delivery and cancellation', async () => {
   const database = new PGlite();
+  await database.exec(`CREATE TABLE commerce_accounts (
+    id uuid PRIMARY KEY, email text NOT NULL UNIQUE, name text NOT NULL,
+    password_hash text NOT NULL, role text NOT NULL CHECK(role IN ('customer','reseller')),
+    balance integer NOT NULL DEFAULT 0 CHECK(balance>=0), created_at timestamptz NOT NULL DEFAULT now()
+  )`);
   await database.exec(await readFile(new URL('../commerce/schema.sql', import.meta.url), 'utf8'));
   const env = {
     DATABASE_URL: 'test',
@@ -129,6 +134,11 @@ test('ChatGPT Plus local inventory supports checkout, verification, delivery and
     });
     assert.equal(toolRequest.code, 200, JSON.stringify(toolRequest));
     const requestSnapshot = await request('admin-list', undefined, env.COMMERCE_ADMIN_KEY);
+    const paymentSnapshot = await request('admin-payments', undefined, env.COMMERCE_ADMIN_KEY);
+    assert.equal(paymentSnapshot.code, 200);
+    assert.ok(Array.isArray(paymentSnapshot.data.payments));
+    assert.ok(Array.isArray(paymentSnapshot.data.paymentReceivers));
+    assert.equal((await request('admin-payments')).code, 401);
     const savedToolRequest = requestSnapshot.data.toolRequests.find((row) => row.id === toolRequest.data.id);
     assert.equal(savedToolRequest.tool_name, 'Runway');
     assert.equal(savedToolRequest.priority, 'urgent');
