@@ -149,3 +149,9 @@
     display: none;
   }
 }
+.site-header .header-profile { display: inline-flex; align-items: center; justify-content: center; gap: 7px; }
+.site-header .header-profile svg { flex-shrink: 0; }
+@media (max-width: 640px) {
+  .site-header .header-profile span { display: none; }
+  .site-header .header-profile { width: 40px; min-height: 40px; border: 1px solid #d5e1f1; border-radius: 50%; }
+}

@@ -173,6 +173,8 @@ export function Checkout() {
   const [customerEmail, setCustomerEmail] = useState('');
   const [checkoutAccount, setCheckoutAccount] = useState<{ balance: number } | null>(null);
   const [useSasifyWallet, setUseSasifyWallet] = useState(false);
+  const [warrantyAccepted, setWarrantyAccepted] = useState(false);
+  useEffect(() => { setWarrantyAccepted(false); }, [selected]);
   const [paymentMenuOpen, setPaymentMenuOpen] = useState(false);
   const paymentMenuRef = useRef<HTMLDivElement | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<
@@ -500,6 +502,10 @@ export function Checkout() {
             className="description-section checkout-start"
             onSubmit={(e) => {
               e.preventDefault();
+              if (!warrantyAccepted) {
+                setError('Please confirm that you have read the product requirements and warranty terms.');
+                return;
+              }
               void run(async () => {
                 const data = await api('create', '', {
                   productId: selected,
@@ -622,7 +628,7 @@ export function Checkout() {
                 />
                 <span className="sasify-wallet-logo" aria-hidden="true"><img src="/sasify-wallet-user-96.webp" alt="" width={42} height={42} /></span>
                 <span>
-                  <strong>Sasify Wallet{useSasifyWallet ? ' · Selected' : ''}</strong>
+                  <strong>Sasify Wallet{useSasifyWallet && <span className="wallet-selected-badge"><Check size={14} aria-hidden="true" /> Selected</span>}</strong>
                   <small>{checkoutAccount ? `Balance: PKR ${Number(checkoutAccount.balance || 0).toLocaleString()} · 5% discount on eligible products` : 'Sign up to unlock · 5% discount on eligible products'}</small>
                 </span>
                 <a className="payment-method-link" href={checkoutAccount ? '/dashboard?tab=wallet' : '/signup'} onClick={(event) => event.stopPropagation()}>{checkoutAccount ? 'Add funds' : 'Sign up'}</a>
@@ -698,11 +704,16 @@ export function Checkout() {
               {useSasifyWallet && <small>Coupons cannot be combined with Sasify Wallet payments.</small>}
             </label>
             </details>
+            <label className={`checkout-warranty-confirmation${warrantyAccepted ? ' accepted' : ''}`}>
+              <input type="checkbox" required checked={warrantyAccepted} onChange={(event) => setWarrantyAccepted(event.target.checked)} />
+              <span>I have read the product requirements and agree to the <a href="/warranty" target="_blank" rel="noopener noreferrer">warranty policy</a> and <a href="/terms" target="_blank" rel="noopener noreferrer">terms</a>.</span>
+            </label>
             <button
               className="primary-button"
               disabled={
                 busy ||
                 !ready ||
+                !warrantyAccepted ||
                 !product || productUnavailable ||
                 (product.requires_customer_email && !customerEmail.trim())
               }
