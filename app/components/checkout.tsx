@@ -580,8 +580,8 @@ export function Checkout() {
               <span>Yes, I agree that I have read the warranty conditions.</span>
             </label>
             </section>
-            <section className="checkout-step" aria-labelledby="checkout-activation-heading">
-              <div className="checkout-step-heading"><span className="checkout-step-number">3</span><div><h2 id="checkout-activation-heading">{product?.requires_customer_email ? 'Activation email' : 'Delivery details'}</h2><p>{product?.requires_customer_email ? 'Your access will be activated on this email.' : 'Delivery details will appear after payment verification.'}</p></div></div>
+            {product?.requires_customer_email && <section className="checkout-step" aria-labelledby="checkout-activation-heading">
+              <div className="checkout-step-heading"><span className="checkout-step-number">3</span><div><h2 id="checkout-activation-heading">Activation email</h2><p>Your access will be activated on this email.</p></div></div>
             {product?.availability_mode === 'preorder' && (
               <div className="checkout-fulfillment-notice preorder" role="status">
                 <strong>Taking pre-orders</strong>
@@ -593,21 +593,6 @@ export function Checkout() {
                 <strong>In stock · 999 · email required</strong>
                 <span>Hostinger activation is completed manually within 6 hours after payment.</span>
               </div>
-            )}
-            {product?.id === 'p093-shared' && (
-              <section className="description-section shared-account-checkout-notice">
-                <h2>Shared account · 4 members</h2>
-                <p>
-                  This is shared ChatGPT Plus access. Your data and activity are
-                  not private and may be visible to other members. Usage is
-                  shared between members, so no individual usage-limit guarantee
-                  is provided.
-                </p>
-                <p>
-                  After delivery, shared access is not eligible for replacement,
-                  warranty or refund if the shared usage allowance is reached.
-                </p>
-              </section>
             )}
             {product?.requires_customer_email && (
               <label>
@@ -628,9 +613,24 @@ export function Checkout() {
                 </small>
               </label>
             )}
-            </section>
+            </section>}
+            {product?.id === 'p093-shared' && (
+              <section className="description-section shared-account-checkout-notice">
+                <h2>Shared account · 4 members</h2>
+                <p>
+                  This is shared ChatGPT Plus access. Your data and activity are
+                  not private and may be visible to other members. Usage is
+                  shared between members, so no individual usage-limit guarantee
+                  is provided.
+                </p>
+                <p>
+                  After delivery, shared access is not eligible for replacement,
+                  warranty or refund if the shared usage allowance is reached.
+                </p>
+              </section>
+            )}
             <section className="checkout-step checkout-payment-step" aria-labelledby="checkout-payment-heading">
-              <div className="checkout-step-heading"><span className="checkout-step-number">4</span><h2 id="checkout-payment-heading">Choose payment method</h2></div>
+              <div className="checkout-step-heading"><span className="checkout-step-number">{product?.requires_customer_email ? 4 : 3}</span><h2 id="checkout-payment-heading">Choose payment method</h2></div>
             <fieldset className="payment-method-picker">
               <legend className="sr-only">How will you send the payment?</legend>
               <label className={`sasify-wallet-card${checkoutAccount ? '' : ' disabled'}${useSasifyWallet ? ' selected' : ''}`}>

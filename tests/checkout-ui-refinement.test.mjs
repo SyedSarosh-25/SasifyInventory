@@ -4,13 +4,16 @@ import { readFileSync, statSync } from 'node:fs';
 const read = path => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
 const page = read('app/components/checkout.tsx');
 
-test('warranty is step two before delivery or activation details in step three', () => {
+test('warranty precedes optional activation and empty delivery card is removed', () => {
   const terms = page.indexOf('aria-labelledby="checkout-terms-heading"');
   const delivery = page.indexOf('aria-labelledby="checkout-activation-heading"');
   const payment = page.indexOf('aria-labelledby="checkout-payment-heading"');
   assert.ok(terms >= 0 && terms < delivery && delivery < payment);
   assert.match(page.slice(terms, delivery), /checkout-step-number">2<\/span>/);
   assert.match(page.slice(delivery, payment), /checkout-step-number">3<\/span>/);
+  assert.match(page, /product\?\.requires_customer_email && <section className="checkout-step" aria-labelledby="checkout-activation-heading"/);
+  assert.doesNotMatch(page, /Delivery details will appear after payment verification/);
+  assert.match(page, /checkout-step-number">\{product\?\.requires_customer_email \? 4 : 3\}/);
 });
 test('checkout keeps warranty visible and optional coupons collapsed', () => {
   assert.match(page, /<div className="checkout-terms">/);
