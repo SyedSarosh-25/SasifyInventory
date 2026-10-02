@@ -1813,6 +1813,12 @@ export function CommerceAdmin() {
     data?.stock?.find((row: any) => row.state === 'available')?.count || 0,
   );
   const profitVisible = data?.profitUnlocked === true;
+  const currentMonthReport = data?.monthlyFinancials?.find(
+    (month: { date: string }) => month.date === data?.reportingPeriods?.currentMonth,
+  );
+  const currentMonthLabel = data?.reportingPeriods?.currentMonth
+    ? new Date(`${data.reportingPeriods.currentMonth}-01T12:00:00Z`).toLocaleDateString('en-GB', { month: 'long', year: 'numeric', timeZone: 'Asia/Karachi' })
+    : 'Current month';
   const filteredInventory = (data?.inventory || []).filter((item: any) =>
     `${item.email} ${item.state}`
       .toLowerCase()
@@ -2412,14 +2418,11 @@ export function CommerceAdmin() {
           )}
           <section className="metric-grid">
             <article>
-              <span>Recognized sales value</span>
-              <strong>{money(data.metrics.income)}</strong>
+              <span>Recognized sales value · {currentMonthLabel}</span>
+              <strong>{money(currentMonthReport?.revenue ?? data.metrics.monthly_income)}</strong>
               <small>
-                Gross {money(data.metrics.gross_income)} · Customer discounts{' '}
-                {money(data.metrics.coupon_discounts)} ·{' '}
-                HOR value {profitVisible ? money(data.metrics.hor_profit_credit) : 'Protected'} ·{' '}
-                {data.metrics.delivered_orders} delivered ·{' '}
-                {data.metrics.admin_withdrawals || 0} admin withdrawals
+                Month to date · {currentMonthReport?.sold ?? '—'} delivered ·{' '}
+                {currentMonthReport?.withdrawals ?? '—'} admin withdrawals
               </small>
             </article>
             <button
@@ -2427,19 +2430,19 @@ export function CommerceAdmin() {
               className="metric-card metric-profit-card"
               onClick={() => setTab('profit')}
             >
-              <span>Profit after coupon rules</span>
+              <span>Profit after coupon rules · {currentMonthLabel}</span>
               <strong className="metric-profit">
-                {profitVisible ? money(data.metrics.profit) : 'Protected'}
+                {profitVisible ? money(currentMonthReport?.profit ?? data.metrics.monthly_profit) : 'Protected'}
               </strong>
               <small>
                 {profitVisible
-                  ? `HOR is a team rule, not a customer discount · value credited ${money(data.metrics.hor_profit_credit)} · other coupons use discounted sale price`
+                  ? 'Month-to-date profit · HOR team rules and customer discounts applied'
                   : 'Financial data protected. Unlock financial view →'}
               </small>
             </button>
             <article>
-              <span>Delivered orders</span>
-              <strong>{data.metrics.delivered_orders}</strong>
+              <span>Delivered orders · {currentMonthLabel}</span>
+              <strong>{currentMonthReport?.sold ?? '—'}</strong>
               <small>
                 {data.metrics.active_orders} active orders · {money(data.metrics.monthly_income)} sales this month
               </small>
@@ -2450,9 +2453,9 @@ export function CommerceAdmin() {
               <small>{data.metrics.active_orders} active orders</small>
             </article>
           </section>
-          {Number(data.metrics.missing_costs) > 0 && (
+          {Number(currentMonthReport?.missingCosts) > 0 && (
             <p className="admin-warning">
-              {data.metrics.missing_costs} fulfilled account(s) have no purchase
+              {currentMonthReport.missingCosts} fulfilled account(s) this month have no purchase
               cost. Add their costs in Inventory for accurate profit.
             </p>
           )}

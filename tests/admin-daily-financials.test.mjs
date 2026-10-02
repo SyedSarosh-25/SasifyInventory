@@ -62,3 +62,14 @@ test('January rolls back to December and historical quiet days are filled', () =
   assert.equal(result.daily.find((row) => row.date === '2025-11-02').sold, 0);
   assert.equal(result.metrics.monthly_income, 0);
 });
+
+test('overview cards use current-month sales, profit and order counts rather than lifetime totals', () => {
+  const source = readFileSync(new URL('../app/components/checkout.tsx', import.meta.url), 'utf8');
+  const cards = source.slice(source.indexOf('<section className="metric-grid">'), source.indexOf('<AdminDailyChart days='));
+  assert.match(source, /month.date === data\?\.reportingPeriods\?\.currentMonth/);
+  assert.match(cards, /currentMonthReport\?\.revenue/);
+  assert.match(cards, /currentMonthReport\?\.profit/);
+  assert.match(cards, /currentMonthReport\?\.sold/);
+  assert.match(cards, /currentMonthReport\?\.withdrawals/);
+  assert.doesNotMatch(cards, /data.metrics\.(income|profit|delivered_orders|admin_withdrawals|gross_income|hor_profit_credit)\b/);
+});
