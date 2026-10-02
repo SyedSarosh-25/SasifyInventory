@@ -7,6 +7,7 @@ import { loadPublicCatalog, invalidatePublicCatalog } from '../public-catalog';
 import { AdminShell } from './admin-shell';
 import { AdminOperations } from './admin-operations';
 import { AdminDailyChart } from './admin-daily-chart';
+import { AdminPeriodReports } from './admin-period-reports';
 import { CheckoutAccount } from './customer-account';
 import { AdminCustomers } from './admin-customers';
 import { AdminResellerRequests } from './admin-reseller-requests';
@@ -2456,6 +2457,7 @@ export function CommerceAdmin() {
             </p>
           )}
           <AdminDailyChart days={data.dailyFinancials} unlocked={profitVisible} onNavigate={setTab} />
+          <AdminPeriodReports days={data.dailyFinancials} months={data.monthlyFinancials} periods={data.reportingPeriods} unlocked={profitVisible} products={[...(data.stock || []), ...(data.supplierProducts || [])]} />
           <AdminOperations orders={data.orders || []} payments={data.payments || []} providers={data.providerStates || []} onNavigate={setTab} />
           <section className="admin-panel">
             <div className="panel-heading">

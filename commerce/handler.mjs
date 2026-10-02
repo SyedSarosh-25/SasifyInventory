@@ -612,20 +612,21 @@ function summarizeProfit(deliveredRows, withdrawnRows, now = new Date()) {
       day: '2-digit',
     }).format(new Date(date));
   const today = dayKey(now);
+  const currentMonth = today.slice(0, 7);
+  const previousMonth = new Date(`${currentMonth}-01T12:00:00Z`);
+  previousMonth.setUTCMonth(previousMonth.getUTCMonth() - 1);
+  const previousMonthKey = previousMonth.toISOString().slice(0, 7);
+  const period = (date) => ({ date, revenue: 0, profit: 0, missingCosts: 0,
+    sold: 0, gptShared: 0, gptPrivate: 0, withdrawals: 0, products: {} });
   const daily = Array.from({ length: 30 }, (_, index) => ({
-    date: new Date(
+    ...period(new Date(
       new Date(`${today}T12:00:00Z`).getTime() - (29 - index) * 86400000,
     )
       .toISOString()
-      .slice(0, 10),
-    revenue: 0,
-    profit: 0,
-    missingCosts: 0,
+      .slice(0, 10)),
   }));
   const dailyByDate = new Map(daily.map((row) => [row.date, row]));
-  const monthStart = new Date();
-  monthStart.setDate(1);
-  monthStart.setHours(0, 0, 0, 0);
+  const monthlyByDate = new Map([currentMonth, previousMonthKey].map((month) => [month, period(month)]));
   const summary = {
     income: 0,
     gross_income: 0,
@@ -677,11 +678,26 @@ function summarizeProfit(deliveredRows, withdrawnRows, now = new Date()) {
     const safeCost = Number.isFinite(Number(cost)) ? Number(cost) : 0;
     const profit = safeIncome - safeCost;
     if (date && Number.isFinite(new Date(date).getTime())) {
-      const day = dailyByDate.get(dayKey(date));
-      if (day) {
-        day.revenue += netIncome;
-        day.profit += profit;
-        if (safeCost === 0) day.missingCosts++;
+      const key = dayKey(date);
+      const month = key.slice(0, 7);
+      if (!dailyByDate.has(key)) dailyByDate.set(key, period(key));
+      if (!monthlyByDate.has(month)) monthlyByDate.set(month, period(month));
+      for (const bucket of [dailyByDate.get(key), monthlyByDate.get(month)]) {
+        bucket.revenue += netIncome;
+        bucket.profit += profit;
+        if (safeCost === 0) bucket.missingCosts++;
+        if (financials.withdrawal) bucket.withdrawals++;
+        else {
+          bucket.sold++;
+          const productId = String(row.product_id || 'unknown');
+          bucket.products[productId] = (bucket.products[productId] || 0) + 1;
+          if (row.shared_account_id || productId === 'p093-shared') bucket.gptShared++;
+          else if (['p093', 'p093-ultra', 'p093-momo'].includes(productId)) bucket.gptPrivate++;
+        }
+      }
+      if (month === currentMonth) {
+        summary.monthly_income += netIncome;
+        summary.monthly_profit += profit;
       }
     }
     summary.income += netIncome;
@@ -699,10 +715,6 @@ function summarizeProfit(deliveredRows, withdrawnRows, now = new Date()) {
     bucket.cost += safeCost;
     bucket.profit += profit;
     bucket.orders++;
-    if (date && new Date(date) >= monthStart) {
-      summary.monthly_income += netIncome;
-      summary.monthly_profit += profit;
-    }
   };
   for (const row of deliveredRows) {
     const isTeamCoupon =
@@ -740,7 +752,16 @@ function summarizeProfit(deliveredRows, withdrawnRows, now = new Date()) {
       row.purchase_cost,
       'local',
       row.created_at,
+      { withdrawal: true },
     );
+  const earliestMonth = [...monthlyByDate.keys()].sort((a, b) => a.localeCompare(b))[0];
+  const earliestDay = `${earliestMonth}-01`;
+  for (const cursor = new Date(`${earliestDay}T12:00:00Z`); cursor.toISOString().slice(0, 10) <= today; cursor.setUTCDate(cursor.getUTCDate() + 1)) {
+    const key = cursor.toISOString().slice(0, 10);
+    if (!dailyByDate.has(key)) dailyByDate.set(key, period(key));
+    const month = key.slice(0, 7);
+    if (!monthlyByDate.has(month)) monthlyByDate.set(month, period(month));
+  }
   for (const key of Object.keys(summary)) {
     if (
       key === 'active_orders' ||
@@ -765,11 +786,18 @@ function summarizeProfit(deliveredRows, withdrawnRows, now = new Date()) {
   return {
     metrics: summary,
     breakdown,
-    daily: daily.map((day) => ({
+    daily: [...dailyByDate.values()].sort((a, b) => a.date.localeCompare(b.date)).map((day) => ({
       ...day,
       revenue: Math.round(day.revenue),
       profit: Math.round(day.profit),
     })),
+    monthly: [...monthlyByDate.values()].sort((a, b) => a.date.localeCompare(b.date)).map((month) => ({
+      ...month, revenue: Math.round(month.revenue), profit: Math.round(month.profit),
+      closed: month.date < currentMonth,
+    })),
+    today,
+    currentMonth,
+    previousMonth: previousMonthKey,
   };
 }
 function summarizeCommissions(rows) {
@@ -6788,7 +6816,7 @@ export function createHandler(
           };
         });
         const deliveredProfitRows = (
-          await db.query(`SELECT o.amount,o.coupon_discount,o.supplier_product_id,o.supplier_cost_pkr,
+          await db.query(`SELECT o.product_id,o.amount,o.coupon_discount,o.supplier_product_id,o.supplier_cost_pkr,
             o.shared_account_id,o.shared_slot,o.fulfillment_cost_pkr,
             i.purchase_cost,o.delivered_at,c.code_display
             FROM commerce_orders o
@@ -6907,12 +6935,17 @@ export function createHandler(
             profitUnlocked
               ? day
               : {
-                  date: day.date,
-                  revenue: day.revenue,
+                  ...day,
                   profit: null,
                   missingCosts: null,
                 },
           ),
+          monthlyFinancials: profitSummary.monthly.map((month) => ({
+            ...month,
+            profit: profitUnlocked ? month.profit : null,
+            missingCosts: profitUnlocked ? month.missingCosts : null,
+          })),
+          reportingPeriods: { today: profitSummary.today, currentMonth: profitSummary.currentMonth, previousMonth: profitSummary.previousMonth },
           coupons,
           inventory,
           sharedAccounts: sharedAccountRows.map((row) => ({
