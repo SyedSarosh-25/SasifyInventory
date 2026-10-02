@@ -563,8 +563,25 @@ export function Checkout() {
               </div>
             )}
             </section>
+            <section className="checkout-step" aria-labelledby="checkout-terms-heading">
+              <div className="checkout-step-heading"><span className="checkout-step-number">2</span><div><h2 id="checkout-terms-heading">Read before purchasing</h2><p>Activation, duration and warranty terms.</p></div></div>
+            <div className="checkout-terms">
+              <ShieldCheck size={23} aria-hidden="true" />
+            <aside className="purchase-disclaimer" role="note">
+              <strong>Please read before purchasing</strong>
+              {['p012', 'p013'].includes(selected) ? <>
+                <p>Individual account-related issues will be assisted where possible. However, if the complete workspace or organization is disabled due to a Claude-side or platform-wide issue, warranty, replacement or refund will not be provided.</p>
+                <p>Please read the product details carefully before purchasing to avoid any misunderstanding later.</p>
+              </> : <p>Please read the complete product description, activation requirements, duration and warranty terms before payment. If an issue arises because the description or requirements were not read or followed, Sasify Solutions cannot be held responsible.</p>}
+            </aside>
+            </div>
+            <label className={`checkout-warranty-confirmation${warrantyAccepted ? ' accepted' : ''}`}>
+              <input type="checkbox" required checked={warrantyAccepted} onChange={(event) => setWarrantyAccepted(event.target.checked)} />
+              <span>Yes, I agree that I have read the warranty conditions.</span>
+            </label>
+            </section>
             <section className="checkout-step" aria-labelledby="checkout-activation-heading">
-              <div className="checkout-step-heading"><span className="checkout-step-number">2</span><div><h2 id="checkout-activation-heading">{product?.requires_customer_email ? 'Activation email' : 'Delivery details'}</h2><p>{product?.requires_customer_email ? 'Your access will be activated on this email.' : 'Delivery details will appear after payment verification.'}</p></div></div>
+              <div className="checkout-step-heading"><span className="checkout-step-number">3</span><div><h2 id="checkout-activation-heading">{product?.requires_customer_email ? 'Activation email' : 'Delivery details'}</h2><p>{product?.requires_customer_email ? 'Your access will be activated on this email.' : 'Delivery details will appear after payment verification.'}</p></div></div>
             {product?.availability_mode === 'preorder' && (
               <div className="checkout-fulfillment-notice preorder" role="status">
                 <strong>Taking pre-orders</strong>
@@ -611,23 +628,6 @@ export function Checkout() {
                 </small>
               </label>
             )}
-            </section>
-            <section className="checkout-step" aria-labelledby="checkout-terms-heading">
-              <div className="checkout-step-heading"><span className="checkout-step-number">3</span><div><h2 id="checkout-terms-heading">Read before purchasing</h2><p>Activation, duration and warranty terms.</p></div></div>
-            <div className="checkout-terms">
-              <ShieldCheck size={23} aria-hidden="true" />
-            <aside className="purchase-disclaimer" role="note">
-              <strong>Please read before purchasing</strong>
-              {['p012', 'p013'].includes(selected) ? <>
-                <p>Individual account-related issues will be assisted where possible. However, if the complete workspace or organization is disabled due to a Claude-side or platform-wide issue, warranty, replacement or refund will not be provided.</p>
-                <p>Please read the product details carefully before purchasing to avoid any misunderstanding later.</p>
-              </> : <p>Please read the complete product description, activation requirements, duration and warranty terms before payment. If an issue arises because the description or requirements were not read or followed, Sasify Solutions cannot be held responsible.</p>}
-            </aside>
-            </div>
-            <label className={`checkout-warranty-confirmation${warrantyAccepted ? ' accepted' : ''}`}>
-              <input type="checkbox" required checked={warrantyAccepted} onChange={(event) => setWarrantyAccepted(event.target.checked)} />
-              <span>Yes, I agree that I have read the warranty conditions.</span>
-            </label>
             </section>
             <section className="checkout-step checkout-payment-step" aria-labelledby="checkout-payment-heading">
               <div className="checkout-step-heading"><span className="checkout-step-number">4</span><h2 id="checkout-payment-heading">Choose payment method</h2></div>
