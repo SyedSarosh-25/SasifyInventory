@@ -704,9 +704,9 @@ export function Checkout() {
               </div>
             </fieldset>
             <details className="checkout-coupon">
-            <summary><span>{useSasifyWallet ? 'Have a PURBA coupon?' : 'Have a reseller coupon?'}</span><ChevronDown size={18} aria-hidden="true" /></summary>
+            <summary><span>Have a reseller coupon?</span><ChevronDown size={18} aria-hidden="true" /></summary>
             <label>
-              Reseller coupon {useSasifyWallet ? '(PURBA only)' : '(optional)'}
+              Reseller coupon (optional)
               <input
                 value={couponCode}
                 onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
@@ -714,7 +714,6 @@ export function Checkout() {
                 autoCapitalize="characters"
                 maxLength={32}
               />
-              {useSasifyWallet && <small>Only PURBA is accepted with Sasify Wallet. Other coupons are not allowed.</small>}
             </label>
             </details>
             {product && product.price > 0 && (

@@ -12,7 +12,8 @@ test('checkout keeps warranty visible and optional coupons collapsed', () => {
 });
 test('payment protections and important activation disclosures remain intact', () => {
   assert.match(page, /couponCode,\s+useSasifyWallet,/);
-  assert.match(page, /Only PURBA is accepted with Sasify Wallet/);
+  assert.match(page, /Reseller coupon \(optional\)/);
+  assert.doesNotMatch(page, /Have a PURBA coupon|PURBA only|Only PURBA is accepted/);
   assert.match(page, /account-wallet-pay/);
   assert.match(page, /Activation email \(required\)/);
   assert.match(page, /Shared account · 4 members/);
