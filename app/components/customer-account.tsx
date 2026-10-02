@@ -1560,11 +1560,13 @@ export function CustomerDashboard() {
 
 export function CheckoutAccount({
   orderId,
+  walletDiscountEligible = true,
   onWalletBalanceChange,
   onInsufficientWallet,
   onPaid,
 }: {
   orderId: string;
+  walletDiscountEligible?: boolean;
   onWalletBalanceChange?: (balance: number) => void;
   onInsufficientWallet?: () => void;
   onPaid: () => void;
@@ -1622,7 +1624,7 @@ export function CheckoutAccount({
             }
           }}
         >
-          Pay from Sasify Wallet · 5% off
+          Pay from Sasify Wallet{walletDiscountEligible ? ' · 5% off' : ''}
         </button>
       )}
       {error && <p role="alert">{error}</p>}

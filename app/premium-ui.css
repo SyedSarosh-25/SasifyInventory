@@ -408,3 +408,60 @@ body[data-storefront="true"] .footer-policy-links { padding-top: 0; padding-bott
   body[data-storefront="true"] .purchase-summary .whatsapp-purchase:disabled { display: none; }
   body[data-storefront="true"] .purchase-summary .order-footnote { margin-top: 10px; font-size: .75rem; }
 }
+
+/* Four-step checkout inspired by the selected design concept. */
+.checkout-page .checkout-form-mode > .instant-delivery { display: none; }
+.checkout-page .commerce-shell .checkout-start { display: grid; gap: 20px; margin-top: 20px; padding: 0; border: 0; background: transparent; box-shadow: none; }
+.checkout-page .checkout-step { display: grid; gap: 18px; min-width: 0; padding: 24px; border: 1px solid #dce6f5; border-radius: 20px; background: #fff; box-shadow: 0 10px 28px rgba(30, 64, 120, .045); }
+.checkout-step-heading { display: flex; align-items: center; gap: 14px; min-width: 0; }
+.checkout-step-heading > div { min-width: 0; }
+.checkout-step-number { display: grid; place-items: center; flex: 0 0 38px; width: 38px; height: 38px; border-radius: 50%; background: #e8f0ff; color: #2258d7; font-size: 1.125rem; font-weight: 800; }
+.checkout-page .checkout-step-heading h2 { margin: 0; color: #102348; font-size: 1.2rem; line-height: 1.25; }
+.checkout-step-heading p { margin: 4px 0 0; color: #64738f; font-size: .84rem; line-height: 1.45; }
+.checkout-page .checkout-step > label { margin: 0; }
+.checkout-page .checkout-step select,
+.checkout-page .checkout-step input[type="email"] { width: 100%; min-height: 52px; border-color: #bdcdf0; border-radius: 11px; }
+.checkout-page .checkout-step .checkout-offer { margin: 0; }
+.checkout-page .checkout-step .checkout-offer > div { padding: 14px 0 0; }
+.checkout-page .checkout-step .checkout-fulfillment-notice { margin: 0; border-radius: 11px; }
+.checkout-page .checkout-step .checkout-terms { display: flex; align-items: flex-start; gap: 12px; padding: 17px; border: 1px solid #b9d3ff; border-radius: 12px; background: #f5f8ff; }
+.checkout-page .checkout-step .checkout-terms > svg { flex: 0 0 23px; margin-top: 2px; color: #176653; }
+.checkout-page .checkout-step .purchase-disclaimer { margin: 0; padding: 0; border: 0; background: transparent; }
+.checkout-page .checkout-step .purchase-disclaimer p { margin: 0 0 8px; color: #344868; font-size: .86rem; line-height: 1.6; }
+.checkout-page .checkout-step .purchase-disclaimer p:last-child { margin-bottom: 0; }
+.checkout-page .checkout-step label.checkout-warranty-confirmation { align-items: center; padding: 0; font-size: .86rem; }
+.checkout-page .checkout-step .checkout-warranty-confirmation input[type="checkbox"] { flex: 0 0 20px; width: 20px; height: 20px; min-height: 20px; margin: 0; }
+.checkout-page .checkout-payment-step .payment-method-picker { gap: 12px; }
+.checkout-page .checkout-payment-step .payment-method-picker legend.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; }
+.checkout-page .checkout-payment-step label.sasify-wallet-card { min-height: 84px; padding: 14px; grid-template-columns: 22px 42px minmax(0,1fr) auto; border: 1px solid #c5d4ec; border-radius: 13px; }
+.checkout-page .checkout-payment-step label.sasify-wallet-card.selected,
+.checkout-page .checkout-payment-step .payment-method-trigger.selected { border: 2px solid #285cff; background: #f3f6ff; box-shadow: 0 3px 14px rgba(40,92,255,.09); }
+.checkout-page .checkout-payment-step .sasify-wallet-card input[type="radio"] { position: static; width: 20px; height: 20px; min-height: 20px; margin: 0; padding: 0; opacity: 1; pointer-events: auto; accent-color: #285cff; }
+.checkout-page .checkout-payment-step .sasify-wallet-card > span:not(.sasify-wallet-logo) { display: block; }
+.checkout-page .checkout-payment-step .sasify-wallet-card small { display: block; margin-top: 4px; }
+.checkout-page .checkout-payment-step .payment-method-select-label { display: none; }
+.checkout-page .checkout-payment-step .payment-method-trigger { min-height: 72px; border-radius: 13px; }
+.checkout-choice-indicator { display: inline-block; flex: 0 0 20px; width: 20px; height: 20px; border: 2px solid #aabbd5; border-radius: 50%; }
+.checkout-choice-indicator.is-selected { border-color: #285cff; background: #285cff; box-shadow: inset 0 0 0 4px #fff; }
+.checkout-page .checkout-payment-step .wallet-selected-badge { white-space: nowrap; font-weight: 750; }
+.checkout-total-summary { display: grid; gap: 10px; padding: 18px; border: 1px solid #c7dbff; border-radius: 13px; background: #f1f6ff; }
+.checkout-total-summary > div { display: flex; align-items: baseline; justify-content: space-between; gap: 14px; color: #435673; font-size: .88rem; }
+.checkout-total-summary strong { color: #192d50; font-weight: 750; text-align: right; white-space: nowrap; }
+.checkout-total-summary .checkout-total-discount strong { color: #087151; }
+.checkout-total-summary p { margin: 0; color: #53647c; font-size: .8rem; }
+.checkout-total-summary .checkout-total-due { padding-top: 12px; border-top: 1px solid #cad8f0; color: #11213f; font-weight: 750; }
+.checkout-total-summary .checkout-total-due strong { color: #2258d7; font-size: 1.35rem; }
+.checkout-page .checkout-payment-step > .primary-button { min-height: 54px; border-radius: 13px; box-shadow: 0 8px 25px rgba(43,79,196,.2); }
+@media (max-width: 640px) {
+  .checkout-page .commerce-shell .checkout-start { padding: 0; gap: 14px; }
+  .checkout-page .checkout-step { gap: 15px; padding: 18px; border-radius: 16px; }
+  .checkout-page .checkout-step-heading h2 { font-size: 1.08rem; }
+  .checkout-page .checkout-payment-step label.sasify-wallet-card { grid-template-columns: 20px 36px minmax(0,1fr); }
+  .checkout-page .checkout-payment-step .sasify-wallet-card .payment-method-link { grid-column: 3; }
+  .checkout-page .checkout-payment-step .payment-method-trigger-copy small { white-space: normal; }
+  .checkout-page .checkout-payment-step .wallet-selected-badge { font-size: .7rem; }
+  .checkout-page .checkout-payment-step .payment-method-trigger { display: grid; grid-template-columns: 20px 22px minmax(0,1fr) 18px; align-items: center; gap: 8px; }
+  .checkout-page .checkout-payment-step .payment-method-trigger-copy { grid-column: 3; grid-row: 1; }
+  .checkout-page .checkout-payment-step .payment-method-trigger > .wallet-selected-badge { grid-column: 3; grid-row: 2; justify-self: start; margin: 0; }
+  .checkout-page .checkout-payment-step .payment-method-trigger > svg:last-child { grid-column: 4; grid-row: 1; }
+}

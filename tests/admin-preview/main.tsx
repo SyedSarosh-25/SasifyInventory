@@ -1,8 +1,9 @@
 import { createRoot } from 'react-dom/client';
-import { CommerceAdmin } from '../../app/components/checkout';
+import { Checkout, CommerceAdmin } from '../../app/components/checkout';
 import { AdminCatalogStatus } from '../../app/components/admin-catalog-status';
 import '../../app/globals.css';
 import '../../app/orders-admin/admin.css';
+import '../../app/premium-ui.css';
 
 const orders = Array.from({ length: 32 }, (_, index) => ({
   id: `test-order-${String(index).padStart(3, '0')}`,
@@ -132,6 +133,13 @@ window.fetch = async (input, init) => {
     return new Response(JSON.stringify(dashboard), {
       headers: { 'Content-Type': 'application/json' },
     });
+  if (location.pathname === '/checkout' && action === 'catalog')
+    return new Response(JSON.stringify({ ready: true, products: [
+      { id: 'p012', name: 'Claude Team Plan Premium', price: 19999, available: 1, source: 'local', availability_mode: 'preorder', requires_customer_email: true },
+      { id: 'p013', name: 'Claude Team Plan Standard', price: 4299, available: 1, source: 'local', availability_mode: 'preorder', requires_customer_email: true },
+    ] }), { headers: { 'Content-Type': 'application/json' } });
+  if (location.pathname === '/checkout' && action === 'account-dashboard')
+    return new Response(JSON.stringify({ account: { name: 'Demo Customer', balance: 19786 } }), { headers: { 'Content-Type': 'application/json' } });
   return new Response(
     JSON.stringify({
       error: 'Local visual test: mutations and external requests are disabled.',
@@ -140,6 +148,7 @@ window.fetch = async (input, init) => {
   );
 };
 createRoot(document.getElementById('root')!).render(
+  location.pathname === '/checkout' ? <main className="checkout-page"><Checkout /></main> :
   location.pathname === '/delivery' ? <DeliveryMockup /> :
   <>
     <div

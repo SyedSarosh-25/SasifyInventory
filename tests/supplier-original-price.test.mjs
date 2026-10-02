@@ -28,7 +28,7 @@ test('offer price saving persists, clears and preserves manual references withou
       INSERT INTO commerce_supplier_products VALUES ('one','Custom tool','Supplier A',3500,true,null,2000,4),('two','Custom tool','Supplier B',4000,true,7000,2500,8);`);
     const body={productId:'one',sellingPrice:3500,enabled:true,originalPrice:5000};
     await updateSupplierOfferPricing(db,body);
-    let row=(await db.query("SELECT * FROM commerce_supplier_products WHERE id='one'")).rows[0];
+    const row=(await db.query("SELECT * FROM commerce_supplier_products WHERE id='one'")).rows[0];
     assert.equal(row.original_price_pkr,5000);
     assert.equal(row.cost_pkr,2000); assert.equal(row.supplier_stock,4);
     const publicProduct={id:row.id,name:row.name,price:row.selling_price,original_price_pkr:row.original_price_pkr};

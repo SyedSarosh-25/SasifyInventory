@@ -1,6 +1,6 @@
 'use client';
 
-import { ArrowLeft, MessageCircle, ShoppingCart, Tag } from 'lucide-react';
+import { ArrowLeft, MessageCircle, ShoppingCart } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { SiteFooter, SiteHeader } from '../components/site-chrome';
 import { supplierLogo, supplierMonogram } from '../supplier-product-utils';

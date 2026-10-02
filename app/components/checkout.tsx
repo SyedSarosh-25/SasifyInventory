@@ -439,7 +439,7 @@ export function Checkout() {
     }
   }
   return (
-    <LocalizedContent><div className="commerce-shell">
+    <LocalizedContent><div className={`commerce-shell${!order && !id ? ' checkout-form-mode' : ''}`}>
       <div className="checkout-topbar">
       <div className="checkout-language-bar"><LanguageSwitcher /></div>
       <a href="/" className="brand">
@@ -459,7 +459,7 @@ export function Checkout() {
         {order ? (order.amount === 0 ? 'Your free order' : 'Complete your payment') : 'Buy online'}
       </h1>
       {!order && !id && <p className="checkout-intro">Choose your package and payment method.</p>}
-      <CheckoutAccount orderId={order?.status === 'pending' ? id : ''} onWalletBalanceChange={(balance) => setCheckoutAccount((current) => current ? { ...current, balance } : current)} onInsufficientWallet={() => { clear(); setError('Insufficient wallet balance. Add funds first, then try again.'); }} onPaid={() => { void api('status',key,undefined,id).then(setOrder).catch(e=>setError(e.message)); }} />
+      <CheckoutAccount orderId={order?.status === 'pending' ? id : ''} walletDiscountEligible={!walletDiscountExcluded} onWalletBalanceChange={(balance) => setCheckoutAccount((current) => current ? { ...current, balance } : current)} onInsufficientWallet={() => { clear(); setError('Insufficient wallet balance. Add funds first, then try again.'); }} onPaid={() => { void api('status',key,undefined,id).then(setOrder).catch(e=>setError(e.message)); }} />
       <div className="instant-delivery">
         <span className="instant-icon">
           <Zap size={22} />
@@ -531,6 +531,8 @@ export function Checkout() {
               });
             }}
           >
+            <section className="checkout-step" aria-labelledby="checkout-package-heading">
+              <div className="checkout-step-heading"><span className="checkout-step-number">1</span><h2 id="checkout-package-heading">Choose your package</h2></div>
             <label>
               Select package
               <select
@@ -552,6 +554,9 @@ export function Checkout() {
                 </div>
               </div>
             )}
+            </section>
+            <section className="checkout-step" aria-labelledby="checkout-activation-heading">
+              <div className="checkout-step-heading"><span className="checkout-step-number">2</span><div><h2 id="checkout-activation-heading">{product?.requires_customer_email ? 'Activation email' : 'Delivery details'}</h2><p>{product?.requires_customer_email ? 'Your access will be activated on this email.' : 'Delivery details will appear after payment verification.'}</p></div></div>
             {product?.availability_mode === 'preorder' && (
               <div className="checkout-fulfillment-notice preorder" role="status">
                 <strong>Taking pre-orders</strong>
@@ -598,8 +603,11 @@ export function Checkout() {
                 </small>
               </label>
             )}
-            <details className="checkout-terms">
-              <summary><ShieldCheck size={20} aria-hidden="true" /><span><strong>Read before purchasing</strong><small>Activation, duration and warranty terms</small></span><ChevronDown size={18} aria-hidden="true" /></summary>
+            </section>
+            <section className="checkout-step" aria-labelledby="checkout-terms-heading">
+              <div className="checkout-step-heading"><span className="checkout-step-number">3</span><div><h2 id="checkout-terms-heading">Read before purchasing</h2><p>Activation, duration and warranty terms.</p></div></div>
+            <div className="checkout-terms">
+              <ShieldCheck size={23} aria-hidden="true" />
             <aside className="purchase-disclaimer" role="note">
               <strong>Please read before purchasing</strong>
               {['p012', 'p013'].includes(selected) ? <>
@@ -607,13 +615,16 @@ export function Checkout() {
                 <p>Please read the product details carefully before purchasing to avoid any misunderstanding later.</p>
               </> : <p>Please read the complete product description, activation requirements, duration and warranty terms before payment. If an issue arises because the description or requirements were not read or followed, Sasify Solutions cannot be held responsible.</p>}
             </aside>
-            </details>
+            </div>
             <label className={`checkout-warranty-confirmation${warrantyAccepted ? ' accepted' : ''}`}>
               <input type="checkbox" required checked={warrantyAccepted} onChange={(event) => setWarrantyAccepted(event.target.checked)} />
               <span>Yes, I agree that I have read the warranty conditions.</span>
             </label>
+            </section>
+            <section className="checkout-step checkout-payment-step" aria-labelledby="checkout-payment-heading">
+              <div className="checkout-step-heading"><span className="checkout-step-number">4</span><h2 id="checkout-payment-heading">Choose payment method</h2></div>
             <fieldset className="payment-method-picker">
-              <legend>How will you send the payment?</legend>
+              <legend className="sr-only">How will you send the payment?</legend>
               <label className={`sasify-wallet-card${checkoutAccount ? '' : ' disabled'}${useSasifyWallet ? ' selected' : ''}`}>
                 <input
                   type="radio"
@@ -631,7 +642,7 @@ export function Checkout() {
                 <span className="sasify-wallet-logo" aria-hidden="true"><img src="/sasify-wallet-user-96.webp" alt="" width={42} height={42} /></span>
                 <span>
                   <strong>Sasify Wallet{useSasifyWallet && <span className="wallet-selected-badge"><Check size={14} aria-hidden="true" /> Selected</span>}</strong>
-                  <small>{checkoutAccount ? `Balance: PKR ${Number(checkoutAccount.balance || 0).toLocaleString()} · 5% discount on eligible products` : 'Sign up to unlock · 5% discount on eligible products'}</small>
+                  <small>{checkoutAccount ? `Balance: PKR ${Number(checkoutAccount.balance || 0).toLocaleString('en-PK')}${walletDiscountExcluded ? ' · No discount on Claude pre-orders' : ' · 5% discount on eligible products'}` : walletDiscountExcluded ? 'Sign up to use wallet · No discount on Claude pre-orders' : 'Sign up to unlock · 5% discount on eligible products'}</small>
                 </span>
                 <a className="payment-method-link" href={checkoutAccount ? '/dashboard?tab=wallet' : '/signup'} onClick={(event) => event.stopPropagation()}>{checkoutAccount ? 'Add funds' : 'Sign up'}</a>
               </label>
@@ -644,6 +655,7 @@ export function Checkout() {
                   aria-expanded={paymentMenuOpen}
                   onClick={() => setPaymentMenuOpen((open) => !open)}
                 >
+                  <span className={`checkout-choice-indicator${useSasifyWallet ? '' : ' is-selected'}`} aria-hidden="true" />
                   <WalletCards size={20} aria-hidden="true" className="payment-method-current-icon" />
                   <span className="payment-method-trigger-copy">
                     <strong>{useSasifyWallet ? 'Select another payment method' : selectedPayment.label}</strong>
@@ -683,15 +695,6 @@ export function Checkout() {
                 )}
               </div>
             </fieldset>
-            {useSasifyWallet && product && product.price > 0 && (
-              <div className="wallet-discount-preview" role="status">
-                <div>
-                  <span>{walletDiscountExcluded ? 'Sorry,5% discount does not apply on this product' : 'Wallet discount (5%)'}</span>
-                  {!walletDiscountExcluded && <strong>−PKR {walletDiscount.toLocaleString('en-PK')}</strong>}
-                </div>
-                <small>Final amount with Sasify Wallet: <strong>PKR {walletPayable.toLocaleString('en-PK')}</strong></small>
-              </div>
-            )}
             <details className="checkout-coupon">
             <summary><span>{useSasifyWallet ? 'Coupons are unavailable with Sasify Wallet' : 'Have a reseller coupon?'}</span><ChevronDown size={18} aria-hidden="true" /></summary>
             <label className={useSasifyWallet ? 'disabled-field' : undefined}>
@@ -707,6 +710,14 @@ export function Checkout() {
               {useSasifyWallet && <small>Coupons cannot be combined with Sasify Wallet payments.</small>}
             </label>
             </details>
+            {product && product.price > 0 && (
+              <div className="checkout-total-summary" aria-live="polite">
+                <div><span>Package amount</span><strong>PKR {product.price.toLocaleString('en-PK')}</strong></div>
+                {useSasifyWallet && !walletDiscountExcluded && walletDiscount > 0 && <div className="checkout-total-discount"><span>Sasify Wallet discount (5%)</span><strong>−PKR {walletDiscount.toLocaleString('en-PK')}</strong></div>}
+                {useSasifyWallet && walletDiscountExcluded && <p>Claude pre-orders are excluded from the wallet discount.</p>}
+                <div className="checkout-total-due"><span>{useSasifyWallet ? 'Final amount from wallet' : 'Amount before any coupon'}</span><strong>PKR {(useSasifyWallet ? walletPayable : product.price).toLocaleString('en-PK')}</strong></div>
+              </div>
+            )}
             <button
               className="primary-button"
               disabled={
@@ -721,10 +732,11 @@ export function Checkout() {
               {busy
                 ? 'Preparing checkout...'
                 : useSasifyWallet
-                  ? 'Buy with Sasify Wallet'
-                  : 'Pay online'}
+                  ? `Pay PKR ${walletPayable.toLocaleString('en-PK')} with Sasify Wallet`
+                  : 'Continue to payment'}
             </button>
             {productUnavailable && <p role="status">This product is currently unavailable. Please return to the inventory and choose another product.</p>}
+            </section>
           </form>
         </>
       )}

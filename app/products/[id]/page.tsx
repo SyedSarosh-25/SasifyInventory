@@ -10,7 +10,6 @@ import {
   MessageCircle,
   ShieldCheck,
   ShoppingCart,
-  Tag,
 } from 'lucide-react';
 import { products } from '../../products';
 import {

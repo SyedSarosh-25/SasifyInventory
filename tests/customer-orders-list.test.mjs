@@ -10,12 +10,12 @@ import { groupOrdersByDate } from '../app/components/customer-orders-model.ts';
 import { supplierMonogram } from '../app/supplier-product-utils.ts';
 const require = createRequire(import.meta.url);
 const source = readFileSync(new URL('../app/components/customer-orders-list.tsx', import.meta.url), 'utf8');
-const module = { exports: {} };
+const testModule = { exports: {} };
 vm.runInNewContext(ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX } }).outputText, {
-  exports: module.exports,
+  exports: testModule.exports,
   require: name => name === './customer-orders-model' ? { groupOrdersByDate } : name === '../supplier-product-utils' ? { supplierMonogram } : require(name),
 });
-const { CustomerOrdersList } = module.exports;
+const { CustomerOrdersList } = testModule.exports;
 const orders = [
   { id: 'order1234', product: 'ChatGPT Plus · Shared Account', amount: 950, status: 'delivered', created_at: '2026-09-29T04:00:00Z' },
   { id: 'order5678', product: 'A very long product name <script>unsafe</script>', amount: 3325, status: 'expired', created_at: '2026-09-29T06:00:00Z' },
