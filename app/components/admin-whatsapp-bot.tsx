@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useId } from 'react';
 import {
+  ShoppingBag,
   Bot,
   Power,
   AlertTriangle,
@@ -31,6 +32,22 @@ interface BotActivity {
   timestamp: number;
 }
 
+interface BotOrder {
+  orderId: string;
+  productId: string;
+  productName: string;
+  amountPKR: number;
+  fulfillmentType: string;
+  customerPhone: string;
+  customerName?: string;
+  customerEmail?: string;
+  paymentMethod: string;
+  status: string;
+  createdAt: string;
+  verifiedAt?: string;
+  trxReference?: string;
+}
+
 interface CustomerReport {
   id: string;
   customerName: string;
@@ -56,6 +73,7 @@ interface DashboardApiData {
   latestPairingCode?: string;
   latestQrDataUrl?: string;
   botPhoneNumber?: string;
+  orders?: BotOrder[];
   reports?: CustomerReport[];
   activity?: BotActivity[];
   pausedUsers?: string[];
@@ -83,7 +101,7 @@ export function AdminWhatsAppBot() {
   const [loading, setLoading] = useState<boolean>(true);
   const [online, setOnline] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'reports' | 'knowledge' | 'activity' | 'qr'>('reports');
+  const [activeTab, setActiveTab] = useState<'orders' | 'reports' | 'knowledge' | 'activity' | 'qr'>('orders');
   const [actionBusy, setActionBusy] = useState<boolean>(false);
 
   // States for changing WhatsApp number and resetting session
@@ -507,6 +525,23 @@ export function AdminWhatsAppBot() {
 
       {/* Sub-tabs Navigation */}
       <div className="border-b border-slate-200 dark:border-slate-800 flex gap-2">
+        <button
+          type="button"
+          onClick={() => setActiveTab('orders')}
+          className={`pb-3 px-4 font-semibold text-sm flex items-center gap-2 border-b-2 transition ${
+            activeTab === 'orders'
+              ? 'border-blue-600 text-blue-600 dark:text-blue-400'
+              : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+          }`}
+        >
+          <ShoppingBag className="w-4 h-4 text-emerald-600" />
+          WhatsApp Orders
+          {(data?.orders?.length || 0) > 0 && (
+            <span className="px-2 py-0.5 text-xs font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-full">
+              {data?.orders?.length}
+            </span>
+          )}
+        </button>
         <button
           type="button"
           onClick={() => setActiveTab('reports')}

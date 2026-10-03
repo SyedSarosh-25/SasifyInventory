@@ -3815,11 +3815,19 @@ export function CommerceAdmin() {
                       </td>
                       <td data-label="Source">
                         <strong>
-                          {row.telegram_chat_id || String(row.ip_address || '').startsWith('telegram:')
+                          {String(row.ip_address || '').startsWith('whatsapp:')
+                            ? 'WhatsApp bot'
+                            : row.telegram_chat_id || String(row.ip_address || '').startsWith('telegram:')
                             ? 'Telegram bot'
                             : 'Website'}
                         </strong>
-                        <small>{row.telegram_chat_id ? `Chat ${row.telegram_chat_id}` : 'Web checkout'}</small>
+                        <small>
+                          {String(row.ip_address || '').startsWith('whatsapp:')
+                            ? `+${String(row.ip_address).replace('whatsapp:', '')}`
+                            : row.telegram_chat_id
+                            ? `Chat ${row.telegram_chat_id}`
+                            : 'Web checkout'}
+                        </small>
                       </td>
                       <td data-label="Sale">
                         {money(row.amount)}

@@ -3782,6 +3782,314 @@ async function setTelegramLanguage(db, chatId, language) {
       .toLowerCase(),
   });
 }
+
+async function createWhatsAppCommerceOrder(db, options, paymentReceiver) {
+  const productId = String(options.productId || '').trim();
+  let product = catalog.find((item) => item.id === productId);
+  let supplierProduct;
+  if (!product) {
+    const requested = (
+      await db.query(
+        'SELECT canonical_key FROM commerce_supplier_products WHERE (id=$1 OR canonical_key=$1) AND enabled=true AND selling_price IS NOT NULL',
+        [productId],
+      )
+    ).rows[0];
+    if (requested)
+      supplierProduct = (
+        await db.query(
+          `SELECT * FROM commerce_supplier_products
+           WHERE canonical_key=$1 AND enabled=true AND selling_price IS NOT NULL
+             AND supplier_stock>0
+           ORDER BY cost_pkr ASC NULLS LAST,wholesale_price ASC,id
+           FOR UPDATE SKIP LOCKED LIMIT 1`,
+          [requested.canonical_key],
+        )
+      ).rows[0];
+    if (supplierProduct)
+      product = {
+        id: supplierProduct.id,
+        name: supplierProduct.name,
+        description: supplierProduct.description,
+        price: supplierProduct.selling_price,
+      };
+  }
+
+  // If still not matched by ID, try matching by name or partial key
+  if (!product && productId) {
+    const cleanKey = productId.replace(/^(auto:|manual:)/, '').toLowerCase();
+    supplierProduct = (
+      await db.query(
+        `SELECT * FROM commerce_supplier_products
+         WHERE (lower(id) LIKE $1 OR lower(name) LIKE $1 OR lower(canonical_key) LIKE $1)
+           AND enabled=true AND selling_price IS NOT NULL
+         ORDER BY cost_pkr ASC NULLS LAST LIMIT 1`,
+        [`%${cleanKey}%`],
+      )
+    ).rows[0];
+    if (supplierProduct) {
+      product = {
+        id: supplierProduct.id,
+        name: supplierProduct.name,
+        description: supplierProduct.description,
+        price: supplierProduct.selling_price,
+      };
+    }
+  }
+
+  // Fallback to name search in catalog
+  if (!product) {
+    const nameMatch = catalog.find((p) =>
+      p.name.toLowerCase().includes(productId.toLowerCase()) ||
+      productId.toLowerCase().includes(p.name.toLowerCase())
+    );
+    if (nameMatch) product = nameMatch;
+  }
+
+  const selectedPaymentMethod = paymentMethod(options.paymentMethod || 'wallet');
+  const paymentReceiverForOrder = paymentReceiverForMethod(
+    selectedPaymentMethod,
+    paymentReceiver,
+  );
+  const sharedProduct = isSharedChatGptProduct(product?.id);
+  const preorderProduct = isClaudePreorderProduct(product?.id);
+  const manualActivationProduct = isManualActivationProduct(product?.id);
+
+  if (!product || Number(product.price || 0) <= 0 || !paymentReceiverForOrder?.title) {
+    throw fail(409, 'This product is not available for purchase yet.');
+  }
+
+  if (
+    ['binance', 'crypto'].includes(selectedPaymentMethod) &&
+    (!binanceUsdtPkrRate() || !paymentReceiverForOrder)
+  ) {
+    throw fail(503, 'Binance payments are not configured yet.');
+  }
+
+  if (supplierProduct && isChatGptPlusProduct(supplierProduct.name)) {
+    throw fail(409, 'ChatGPT Plus is sold from local inventory only.');
+  }
+
+  const requiresCustomerEmail = Boolean(
+    (supplierProduct &&
+      (supplierProduct.requires_customer_email ||
+        supplierRequiresCustomerEmail(
+          supplierProduct,
+          supplierProduct.provider_id,
+        ))) ||
+      preorderProduct ||
+      manualActivationProduct,
+  );
+
+  const customerEmail = requiresCustomerEmail
+    ? (() => {
+        try {
+          return normalizeCustomerEmail(options.customerEmail);
+        } catch (error) {
+          throw fail(400, error.message);
+        }
+      })()
+    : (options.customerEmail ? normalizeCustomerEmail(options.customerEmail) : null);
+
+  if (requiresCustomerEmail && !customerEmail) {
+    throw fail(400, 'Customer email is required for this product activation.');
+  }
+
+  const cleanPhone = String(options.customerPhone || '').replace(/[^0-9]/g, '');
+  const customerName = String(options.customerName || 'Customer').trim();
+  const sessionHash = hash(`whatsapp:${cleanPhone}`);
+
+  let item;
+  let sharedAccount;
+  if (supplierProduct) {
+    if (supplierProduct.supplier_stock < 1)
+      throw fail(409, 'Sold out. Please choose another product.');
+  } else if (sharedProduct) {
+    const shared = await reserveSharedAccount(db);
+    item = { id: shared.inventoryId };
+    sharedAccount = { id: shared.id, slot: shared.slot };
+  } else if (preorderProduct || manualActivationProduct) {
+    item = null;
+  } else {
+    item = (
+      await db.query(
+        `SELECT i.id FROM commerce_inventory i
+         WHERE i.product_id=ANY($1::text[]) AND i.state='available'
+           AND NOT EXISTS (SELECT 1 FROM commerce_shared_accounts shared WHERE shared.inventory_id=i.id)
+           AND NOT EXISTS (SELECT 1 FROM commerce_orders active WHERE active.inventory_id=i.id AND active.status IN ('pending','review','delivered'))
+         ORDER BY i.created_at FOR UPDATE OF i SKIP LOCKED LIMIT 1`,
+        [localInventoryProductIds(product.id)],
+      )
+    ).rows[0];
+    if (!item) throw fail(409, 'Sold out in local stock. Please choose another product or contact support.');
+  }
+
+  const listedAmount = Number(product.price);
+  const paymentAmount = await allocatePaymentAmount(db, listedAmount);
+  const quote = paymentQuote(selectedPaymentMethod, paymentAmount);
+  const id = randomUUID();
+  const recovery = randomBytes(32).toString('hex');
+
+  if (item && !sharedAccount)
+    await db.query(
+      "UPDATE commerce_inventory SET state='reserved' WHERE id=$1",
+      [item.id],
+    );
+
+  await db.query(
+    `INSERT INTO commerce_orders(
+       id,product_id,amount,listed_amount,customer_email,recovery_hash,session_hash,
+       inventory_id,supplier_product_id,supplier_cost_pkr,payment_method,payment_currency,payment_amount,receiver_id,
+       shared_account_id,shared_slot,expires_at,ip_address,payer_name
+     ) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,now()+($17 * interval '1 minute'),$18,$19)`,
+    [
+      id,
+      product.id,
+      paymentAmount,
+      listedAmount,
+      customerEmail,
+      hash(recovery),
+      sessionHash,
+      item?.id || null,
+      supplierProduct?.id || null,
+      supplierProduct?.cost_pkr || 0,
+      selectedPaymentMethod,
+      quote.currency,
+      quote.amount,
+      paymentReceiverForOrder?.id || null,
+      sharedAccount?.id || null,
+      sharedAccount?.slot || null,
+      PAYMENT_WINDOWS_MINUTES[selectedPaymentMethod] || 60,
+      `whatsapp:${cleanPhone}`,
+      customerName ? `${customerName} (${cleanPhone})` : cleanPhone,
+    ],
+  );
+
+  if (preorderProduct || manualActivationProduct) {
+    await db.query(
+      "UPDATE commerce_orders SET supplier_status=$1 WHERE id=$2",
+      [preorderProduct ? 'preorder_pending' : 'manual_activation_pending', id],
+    );
+  }
+
+  return {
+    id,
+    orderId: id,
+    productName: customerProductName(product),
+    productId: product.id,
+    amount: paymentAmount,
+    listedAmount,
+    customerPhone: cleanPhone,
+    customerName,
+    paymentMethod: selectedPaymentMethod,
+    paymentCurrency: quote.currency,
+    paymentAmount: quote.amount,
+    paymentReceiver: paymentReceiverForOrder,
+    recovery,
+    expiresAt: new Date(
+      Date.now() + (PAYMENT_WINDOWS_MINUTES[selectedPaymentMethod] || 60) * 60000,
+    ).toISOString(),
+  };
+}
+
+async function claimWhatsAppCommerceOrder(db, options) {
+  const orderId = String(options.orderId || '').trim();
+  const cleanPhone = String(options.customerPhone || '').replace(/[^0-9]/g, '');
+  const transactionId = options.transactionId ? normalizeTransaction(options.transactionId) : null;
+
+  const order = (
+    await db.query(
+      `SELECT o.*, sp.name AS supplier_product_name, sp.provider_id
+       FROM commerce_orders o
+       LEFT JOIN commerce_supplier_products sp ON sp.id=o.supplier_product_id
+       WHERE (o.id::text=$1 OR o.id::text ILIKE $2)
+       FOR UPDATE OF o`,
+      [orderId, `${orderId}%`],
+    )
+  ).rows[0];
+
+  if (!order) {
+    throw fail(404, 'Order not found.');
+  }
+
+  if (['pending', 'expired'].includes(order.status)) {
+    await db.query(
+      `UPDATE commerce_orders
+       SET status='review',
+           transaction_id=COALESCE($1, transaction_id),
+           payment_submitted_at=now()
+       WHERE id=$2`,
+      [transactionId, order.id],
+    );
+    order.status = 'review';
+  } else if (order.status === 'review' && transactionId) {
+    await db.query(
+      `UPDATE commerce_orders SET transaction_id=$1 WHERE id=$2`,
+      [transactionId, order.id],
+    );
+  }
+
+  let credentials = null;
+  if (order.status === 'delivered' && order.inventory_id) {
+    const inv = (
+      await db.query('SELECT credentials FROM commerce_inventory WHERE id=$1', [order.inventory_id])
+    ).rows[0];
+    if (inv?.credentials) {
+      try {
+        credentials = decrypt(inv.credentials, process.env.COMMERCE_ENCRYPTION_KEY);
+      } catch {}
+    }
+  }
+
+  return {
+    ok: true,
+    id: order.id,
+    status: order.status,
+    amount: order.amount,
+    product_id: order.product_id,
+    delivered: order.status === 'delivered',
+    credentials,
+  };
+}
+
+async function getWhatsAppCommerceOrder(db, orderId) {
+  const id = String(orderId || '').trim();
+  const order = (
+    await db.query(
+      `SELECT o.id, o.product_id, o.amount, o.status, o.transaction_id, o.payment_submitted_at, o.created_at, o.expires_at, o.ip_address, o.customer_email, o.inventory_id,
+              COALESCE(sp.name, '') AS supplier_product_name
+       FROM commerce_orders o
+       LEFT JOIN commerce_supplier_products sp ON sp.id=o.supplier_product_id
+       WHERE o.id::text=$1 OR o.id::text ILIKE $2`,
+      [id, `${id}%`],
+    )
+  ).rows[0];
+
+  if (!order) return null;
+
+  let credentials = null;
+  if (order.status === 'delivered' && order.inventory_id) {
+    const inv = (
+      await db.query('SELECT credentials FROM commerce_inventory WHERE id=$1', [order.inventory_id])
+    ).rows[0];
+    if (inv?.credentials) {
+      try {
+        credentials = decrypt(inv.credentials, process.env.COMMERCE_ENCRYPTION_KEY);
+      } catch {}
+    }
+  }
+
+  return {
+    id: order.id,
+    productId: order.product_id,
+    productName: order.supplier_product_name || order.product_id,
+    amount: order.amount,
+    status: order.status,
+    transactionId: order.transaction_id,
+    delivered: order.status === 'delivered',
+    credentials,
+  };
+}
+
 export function createHandler(
   poolFactory = () =>
     new pg.Pool({
@@ -3840,6 +4148,7 @@ export function createHandler(
       : null;
     if (
       origin &&
+      !String(action || '').startsWith('whatsapp-') &&
       ![
         'https://sasifysolutions.com',
         'https://www.sasifysolutions.com',
@@ -4647,6 +4956,12 @@ export function createHandler(
             });
           }
         }
+      } else if (action === 'whatsapp-order-create') {
+        output = await createWhatsAppCommerceOrder(db, body, paymentReceiver);
+      } else if (action === 'whatsapp-order-claim') {
+        output = await claimWhatsAppCommerceOrder(db, body);
+      } else if (action === 'whatsapp-order-status') {
+        output = await getWhatsAppCommerceOrder(db, req.query?.id || body.id);
       } else if (action === 'public-telegram-webhook') {
         output = await handleSasifyBotUpdate(body, {
           token: process.env.SASIFY_BOT_TOKEN,
