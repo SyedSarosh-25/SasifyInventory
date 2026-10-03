@@ -4029,15 +4029,30 @@ async function claimWhatsAppCommerceOrder(db, options) {
   }
 
   let credentials = null;
-  if (order.status === 'delivered' && order.inventory_id) {
-    const inv = (
-      await db.query('SELECT credentials FROM commerce_inventory WHERE id=$1', [order.inventory_id])
-    ).rows[0];
-    if (inv?.credentials) {
+  let delivery = null;
+  if (order.status === 'delivered') {
+    if (order.inventory_id) {
+      const inv = (
+        await db.query('SELECT credentials FROM commerce_inventory WHERE id=$1', [order.inventory_id])
+      ).rows[0];
+      if (inv?.credentials) {
+        try {
+          credentials = decrypt(inv.credentials, process.env.COMMERCE_ENCRYPTION_KEY);
+        } catch {}
+      }
+    }
+    if (order.supplier_delivery) {
       try {
-        credentials = decrypt(inv.credentials, process.env.COMMERCE_ENCRYPTION_KEY);
+        delivery = decrypt(order.supplier_delivery, process.env.COMMERCE_ENCRYPTION_KEY);
       } catch {}
     }
+  }
+
+  let totp = null;
+  if (credentials?.twoFactor) {
+    try {
+      totp = totpCode(credentials.twoFactor);
+    } catch {}
   }
 
   return {
@@ -4048,6 +4063,8 @@ async function claimWhatsAppCommerceOrder(db, options) {
     product_id: order.product_id,
     delivered: order.status === 'delivered',
     credentials,
+    delivery,
+    totp,
   };
 }
 
@@ -4055,7 +4072,7 @@ async function getWhatsAppCommerceOrder(db, orderId) {
   const id = String(orderId || '').trim();
   const order = (
     await db.query(
-      `SELECT o.id, o.product_id, o.amount, o.status, o.transaction_id, o.payment_submitted_at, o.created_at, o.expires_at, o.ip_address, o.customer_email, o.inventory_id,
+      `SELECT o.id, o.product_id, o.amount, o.status, o.transaction_id, o.payment_submitted_at, o.created_at, o.expires_at, o.ip_address, o.customer_email, o.inventory_id, o.supplier_delivery,
               COALESCE(sp.name, '') AS supplier_product_name
        FROM commerce_orders o
        LEFT JOIN commerce_supplier_products sp ON sp.id=o.supplier_product_id
@@ -4067,15 +4084,30 @@ async function getWhatsAppCommerceOrder(db, orderId) {
   if (!order) return null;
 
   let credentials = null;
-  if (order.status === 'delivered' && order.inventory_id) {
-    const inv = (
-      await db.query('SELECT credentials FROM commerce_inventory WHERE id=$1', [order.inventory_id])
-    ).rows[0];
-    if (inv?.credentials) {
+  let delivery = null;
+  if (order.status === 'delivered') {
+    if (order.inventory_id) {
+      const inv = (
+        await db.query('SELECT credentials FROM commerce_inventory WHERE id=$1', [order.inventory_id])
+      ).rows[0];
+      if (inv?.credentials) {
+        try {
+          credentials = decrypt(inv.credentials, process.env.COMMERCE_ENCRYPTION_KEY);
+        } catch {}
+      }
+    }
+    if (order.supplier_delivery) {
       try {
-        credentials = decrypt(inv.credentials, process.env.COMMERCE_ENCRYPTION_KEY);
+        delivery = decrypt(order.supplier_delivery, process.env.COMMERCE_ENCRYPTION_KEY);
       } catch {}
     }
+  }
+
+  let totp = null;
+  if (credentials?.twoFactor) {
+    try {
+      totp = totpCode(credentials.twoFactor);
+    } catch {}
   }
 
   return {
@@ -4087,6 +4119,8 @@ async function getWhatsAppCommerceOrder(db, orderId) {
     transactionId: order.transaction_id,
     delivered: order.status === 'delivered',
     credentials,
+    delivery,
+    totp,
   };
 }
 
