@@ -23,6 +23,7 @@ import {
   LifeBuoy,
   Mail,
   ChevronDown,
+  Bot,
 } from 'lucide-react';
 import {
   Sheet,
@@ -35,6 +36,7 @@ import {
 export const adminSections = [
   ['overview', 'Overview', LayoutDashboard],
   ['orders', 'Orders', ClipboardList],
+  ['whatsappBot', 'WhatsApp Bot', Bot],
   ['manualOrders', 'Manual orders', ClipboardCheck],
   ['customers', 'Registered users', Users],
   ['userDetail', 'User detail', Users],
@@ -66,7 +68,7 @@ export type AdminSection =
 const adminSectionGroups: { label: string; items: AdminSection[] }[] = [
   {
     label: 'Workspace',
-    items: ['overview', 'orders', 'manualOrders', 'customers', 'userDetail', 'refunds', 'emailCampaign'],
+    items: ['overview', 'orders', 'whatsappBot', 'manualOrders', 'customers', 'userDetail', 'refunds', 'emailCampaign'],
   },
   {
     label: 'Payments & finance',
@@ -89,6 +91,7 @@ const adminSectionGroups: { label: string; items: AdminSection[] }[] = [
 const sectionDescriptions: Record<string, string> = {
   overview: 'Your business at a glance. Every order, every day.',
   orders: 'Track purchases, review order details and manage delivery.',
+  whatsappBot: 'Control AI WhatsApp assistant, real-time message stream, escalations, and answer training.',
   manualOrders: 'Handle Claude pre-orders and manual Hostinger activations.',
   customers: 'Customer and reseller accounts, wallet balances and purchase activity.',
   userDetail: 'Complete customer history and wallet controls.',

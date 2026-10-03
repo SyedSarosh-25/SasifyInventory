@@ -17,6 +17,7 @@ import { AdminResellerRequirements } from './admin-reseller-requirements';
 import { AdminCatalogStatus } from './admin-catalog-status';
 import { AdminEmailCampaign } from './admin-email-campaign';
 import { AdminClaudeEmailLists } from './admin-claude-email-lists';
+import { AdminWhatsAppBot } from './admin-whatsapp-bot';
 import {
   AdminAuditLogs,
   AdminProducts,
@@ -1475,6 +1476,7 @@ export function CommerceAdmin() {
       | 'inventory'
       | 'supplier'
       | 'orders'
+      | 'whatsappBot'
       | 'manualOrders'
       | 'payments'
       | 'paymentAccounts'
@@ -2644,6 +2646,7 @@ export function CommerceAdmin() {
       {tab === 'refunds' && <AdminRefundRequests requests={data.refundRequests || []} api={api} token={key} busy={busy} onRefresh={refresh} />}
       {tab === 'products' && <AdminProducts products={data.supplierProducts || []} api={api} token={key} busy={busy} onRefresh={refresh} />}
       {tab === 'support' && <AdminSupport tickets={data.supportTickets || []} api={api} token={key} busy={busy} onRefresh={refresh} />}
+      {tab === 'whatsappBot' && <AdminWhatsAppBot />}
       {tab === 'auditLogs' && <AdminAuditLogs logs={data.auditLogs || []} />}
       {tab === 'settings' && <AdminSettings settings={data.adminSettings || {}} api={api} token={key} busy={busy} onRefresh={refresh} />}
       {tab === 'transactions' && <AdminTransactionHistory payments={data.payments || []} orders={data.orders || []} />}
