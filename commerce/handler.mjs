@@ -2004,10 +2004,10 @@ async function ensureSupplierMediaSchema(db) {
         ALTER TABLE commerce_supplier_catalog_meta ADD COLUMN IF NOT EXISTS unpriced_published_at timestamptz
       `);
       await db.query(`
-        ALTER TABLE commerce_supplier_catalog_meta ADD COLUMN IF NOT EXISTS original_prices_populated_at timestamptz
+        ALTER TABLE commerce_supplier_catalog_meta ADD COLUMN IF NOT EXISTS original_prices_v2_at timestamptz
       `);
       const origPopCheck = await db.query(
-        "UPDATE commerce_supplier_catalog_meta SET original_prices_populated_at=now() WHERE original_prices_populated_at IS NULL RETURNING id"
+        "UPDATE commerce_supplier_catalog_meta SET original_prices_v2_at=now() WHERE original_prices_v2_at IS NULL RETURNING id"
       );
       if (origPopCheck.rowCount) {
         await populateAllSupplierOriginalPrices(db);
