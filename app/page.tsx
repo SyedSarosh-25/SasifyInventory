@@ -28,7 +28,7 @@ import { productHref } from './product-utils';
 import { orbitTools } from './catalog-selection';
 import { ProductLogo } from './components/product-logo';
 import { TopSupplierProducts } from './components/top-supplier-products';
-import { CategoryDiscovery } from './components/category-discovery';
+import { HowItWorksSection } from './components/how-it-works';
 import { SiteFooter, SiteHeader } from './components/site-chrome';
 import { Money } from './components/currency';
 import { reviews as fallbackReviews } from './reviews';
@@ -618,7 +618,7 @@ export default function Home() {
         </div>
       </section>
 
-      <CategoryDiscovery compact />
+      <HowItWorksSection />
 
       <section id="why-sasify" className="why-sasify-section" aria-labelledby="why-sasify-title">
         <div className="section-inner">
