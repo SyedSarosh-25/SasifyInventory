@@ -534,8 +534,9 @@ export function supplierOriginalPriceComparison(
   }
 
   return null;
+}
 
-  export function supplierSavingsPkr(
+export function supplierSavingsPkr(
   product: SupplierPriceProduct & { price: number },
 ) {
   const comparison = supplierOriginalPriceComparison(product);
