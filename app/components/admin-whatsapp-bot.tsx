@@ -18,6 +18,9 @@ import {
   Send,
   UserX,
   Smartphone,
+  Copy,
+  Check,
+  Maximize2,
 } from 'lucide-react';
 
 interface BotActivity {
@@ -89,7 +92,7 @@ interface DashboardApiData {
 const DEFAULT_BOT_URL =
   typeof window !== 'undefined' && window.location.hostname === 'localhost'
     ? 'http://localhost:3000'
-    : 'http://localhost:3000';
+    : 'https://wabot.sasifysolutions.com';
 
 export function AdminWhatsAppBot() {
   const [botUrl, setBotUrl] = useState<string>(DEFAULT_BOT_URL);
@@ -101,6 +104,9 @@ export function AdminWhatsAppBot() {
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'orders' | 'reports' | 'knowledge' | 'activity' | 'qr'>('orders');
   const [actionBusy, setActionBusy] = useState<boolean>(false);
+  const [viewMode, setViewMode] = useState<'embedded' | 'native'>('embedded');
+  const [copiedCreds, setCopiedCreds] = useState<boolean>(false);
+  const [iframeKey, setIframeKey] = useState<number>(0);
 
   // States for changing WhatsApp number and resetting session
   const [changePhoneInput, setChangePhoneInput] = useState<string>('');
@@ -324,8 +330,124 @@ export function AdminWhatsAppBot() {
   const knowledgeCount = (data?.customKnowledge || []).length;
   const isBotActive = Boolean(data?.isBotActive);
 
+  const copyCredentials = () => {
+    navigator.clipboard.writeText('Username: admin\nPassword: sasify@2026');
+    setCopiedCreds(true);
+    setTimeout(() => setCopiedCreds(false), 2500);
+  };
+
   return (
     <div className="space-y-6">
+      {/* View Switcher & Quick Launch Toolbar */}
+      <div className="flex flex-wrap items-center justify-between gap-3 p-4 rounded-xl border border-slate-200 bg-white dark:bg-slate-900 dark:border-slate-800 shadow-sm">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 flex items-center justify-center font-bold text-lg">
+            📱
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h3 className="font-bold text-slate-800 dark:text-slate-100 text-sm">
+                Sasify WhatsApp Bot — Control Center
+              </h3>
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
+                VPS LIVE
+              </span>
+            </div>
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              Host: <span className="font-mono text-blue-600 dark:text-blue-400">{botUrl}</span> • Number: <span className="font-semibold">+92 341 3985711</span>
+            </p>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Quick Copy Credentials */}
+          <button
+            type="button"
+            onClick={copyCredentials}
+            className="text-xs px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 flex items-center gap-1.5 font-medium transition"
+            title="Copy admin credentials (admin / sasify@2026)"
+          >
+            {copiedCreds ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
+            <span>{copiedCreds ? 'Copied admin / sasify@2026!' : 'Copy Login (admin)'}</span>
+          </button>
+
+          {/* Fullscreen New Tab */}
+          <a
+            href={botUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="text-xs px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-1.5 font-medium shadow-sm transition"
+            title="Open bot dashboard in full window"
+          >
+            <ExternalLink className="w-3.5 h-3.5" />
+            <span>Open New Tab</span>
+          </a>
+
+          {/* Refresh Frame */}
+          <button
+            type="button"
+            onClick={() => setIframeKey((k) => k + 1)}
+            className="p-1.5 text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition"
+            title="Reload Embedded Dashboard"
+          >
+            <RefreshCw className="w-4 h-4" />
+          </button>
+
+          {/* Mode Switcher */}
+          <div className="flex items-center p-0.5 rounded-lg bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+            <button
+              type="button"
+              onClick={() => setViewMode('embedded')}
+              className={`text-xs px-2.5 py-1 rounded-md font-medium transition ${
+                viewMode === 'embedded'
+                  ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-sm'
+                  : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-300'
+              }`}
+            >
+              🖥️ Embedded View
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode('native')}
+              className={`text-xs px-2.5 py-1 rounded-md font-medium transition ${
+                viewMode === 'native'
+                  ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-sm'
+                  : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-300'
+              }`}
+            >
+              ⚡ Quick Cards
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Embedded Iframe View */}
+      {viewMode === 'embedded' ? (
+        <div className="space-y-3">
+          <div className="relative w-full rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-800 shadow-lg bg-[#0b141a]">
+            <div className="flex items-center justify-between px-4 py-2.5 bg-[#111b21] border-b border-[#202c33] text-xs text-slate-300">
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+                <span className="font-semibold">VPS Direct Control: {botUrl}</span>
+              </div>
+              <div className="flex items-center gap-3 text-[11px] text-slate-400">
+                <span>Login: <strong className="text-white">admin</strong> • Pass: <strong className="text-white">sasify@2026</strong></span>
+                <span className="hidden sm:inline">• Session stays active for 7 days</span>
+              </div>
+            </div>
+            <iframe
+              key={iframeKey}
+              src={botUrl}
+              title="Sasify WhatsApp Bot Control Center"
+              className="w-full"
+              style={{ minHeight: '860px', border: 'none', display: 'block' }}
+              allow="clipboard-read; clipboard-write"
+            />
+          </div>
+        </div>
+      ) : (
+        /* Native Cards View */
+        <>
       {/* Bot Server Connection Ribbon */}
       <div className="flex flex-wrap items-center justify-between gap-4 p-4 rounded-xl border border-slate-200 bg-white dark:bg-slate-900 dark:border-slate-800 shadow-sm">
         <div className="flex items-center gap-3">
