@@ -43,7 +43,7 @@ import {
 import {
   supplierLogo,
   supplierMonogram,
-  curatedProductDescription,
+  getCuratedProductDetails,
 } from '../../supplier-product-utils';
 import { toolFamilyHref, toolFamilyLabel, toolFamilySlug } from '../../tool-families';
 import {
@@ -267,9 +267,31 @@ function SupplierSeoProductPage({ product }: { product: SupplierSeoProduct }) {
 
             <section className="description-section" id="overview">
               <h2>Product description</h2>
-              <p style={{ color: '#1e293b', fontSize: '0.98rem', lineHeight: '1.75' }}>
-                {curatedProductDescription(product)}
-              </p>
+              <div className="curated-product-container">
+                {(() => {
+                  const curated = getCuratedProductDetails(product);
+                  return (
+                    <>
+                      <p className="curated-intro-text">{curated.summary}</p>
+                      <ul className="curated-feature-list">
+                        {curated.bullets.map((b) => (
+                          <li key={b.label} className="curated-bullet-item">
+                            <span className="curated-bullet-dot" aria-hidden="true" />
+                            <span className="curated-bullet-text">
+                              <strong>{b.label}:</strong> {b.detail}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                      {curated.activationNote ? (
+                        <div className="curated-delivery-badge">
+                          <strong>⚡ Activation:</strong> {curated.activationNote}
+                        </div>
+                      ) : null}
+                    </>
+                  );
+                })()}
+              </div>
               <dl className="package-facts">
                 <div>
                   <dt>Package</dt>
