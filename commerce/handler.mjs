@@ -4006,7 +4006,6 @@ async function createWhatsAppCommerceOrder(db, options, paymentReceiver) {
 
 async function claimWhatsAppCommerceOrder(db, options) {
   const orderId = String(options.orderId || '').trim();
-  const cleanPhone = String(options.customerPhone || '').replace(/[^0-9]/g, '');
   const transactionId = options.transactionId ? normalizeTransaction(options.transactionId) : null;
 
   const order = (
