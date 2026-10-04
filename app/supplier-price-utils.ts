@@ -28,9 +28,6 @@ type OfficialReference = {
 
 const officialReferences: OfficialReference[] = [
   {
-    amount: 9.99,
-    currency: 'USD',
-    period: 'month',
     amount: 5000,
     currency: 'PKR',
     period: 'month',
@@ -38,6 +35,24 @@ const officialReferences: OfficialReference[] = [
     sourceUrl: 'https://support.apple.com/en-us/HT201238',
     note: 'Official monthly iCloud+ 2TB list price converted using the website exchange rate; family sharing and regional arrangements may differ.',
     matches: (text) => /icloud.*(?:2tb|2\s*tb)/i.test(text),
+  },
+  {
+    amount: 9500,
+    currency: 'PKR',
+    period: 'month',
+    sourceLabel: 'Coursera Plus official monthly reference',
+    sourceUrl: 'https://www.coursera.org/courseraplus',
+    note: 'Coursera Plus list benchmark (~$399/year or ~$34/month) converted to PKR.',
+    matches: (text) => /coursera/i.test(text),
+  },
+  {
+    amount: 6200,
+    currency: 'PKR',
+    period: 'month',
+    sourceLabel: 'n8n Starter official monthly reference',
+    sourceUrl: 'https://n8n.io/pricing',
+    note: 'Official monthly n8n Starter plan (€20/month) benchmark converted to PKR.',
+    matches: (text) => /n8n/i.test(text),
   },
   {
     amount: 12.99,
@@ -520,30 +535,7 @@ export function supplierOriginalPriceComparison(
 
   return null;
 
-  const months = durationMonths(product);
-  if (reference.period !== 'package' && months === null) return null;
-  const unitAmountPkr =
-    reference.currency === 'USD'
-      ? reference.amount * USD_TO_PKR
-      : reference.amount;
-  const quantity =
-    reference.period === 'month'
-      ? months!
-      : reference.period === 'year'
-        ? months! / 12
-        : 1;
-  return {
-    unitAmountPkr,
-    period: reference.period,
-    quantity,
-    totalPkr: Math.round(unitAmountPkr * quantity * 100) / 100,
-    sourceLabel: reference.sourceLabel,
-    sourceUrl: reference.sourceUrl,
-    note: reference.note,
-  };
-}
-
-export function supplierSavingsPkr(
+  export function supplierSavingsPkr(
   product: SupplierPriceProduct & { price: number },
 ) {
   const comparison = supplierOriginalPriceComparison(product);
