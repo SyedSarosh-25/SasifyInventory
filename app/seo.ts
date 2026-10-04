@@ -238,14 +238,6 @@ export const websiteData = {
   inLanguage: 'en-PK',
   publisher: { '@id': `${siteOrigin}/#organization` },
   about: { '@id': `${siteOrigin}/#organization` },
-  potentialAction: {
-    '@type': 'SearchAction',
-    target: {
-      '@type': 'EntryPoint',
-      urlTemplate: `${siteOrigin}/inventory?q={search_term_string}`,
-    },
-    'query-input': 'required name=search_term_string',
-  },
 };
 
 export function breadcrumbData(items: { name: string; path: string }[]) {
