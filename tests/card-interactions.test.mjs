@@ -88,7 +88,7 @@ test('trust and payment sections use confirmed copy and local payment logos', ()
   for (const method of ['easypaisa.png', 'nayapay.svg', 'sadapay.webp', 'binance.svg', 'payoneer.svg']) {
     assert.equal(existsSync(new URL(`../public/payment-methods/${method}`, import.meta.url)), true);
   }
-  assert.match(page, /All Pakistani Banks/);
+  assert.match(page, /Easypaisa/);
 });
 
 test('mobile carousels support native touch scrolling and resume after interaction', () => {
