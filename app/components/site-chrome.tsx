@@ -155,7 +155,7 @@ export function SiteFooter() {
           >
             <img
               src={favicon(social.domain)}
-              alt=""
+              alt={social.name}
               className="social-logo"
               width={22}
               height={22}
