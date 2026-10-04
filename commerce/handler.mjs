@@ -2015,17 +2015,25 @@ async function ensureSupplierMediaSchema(db) {
       await db.query(`
         ALTER TABLE commerce_supplier_catalog_meta ADD COLUMN IF NOT EXISTS unpriced_margin_50_at timestamptz
       `);
-      const margin50Check = await db.query(
-        "UPDATE commerce_supplier_catalog_meta SET unpriced_margin_50_at=now() WHERE unpriced_margin_50_at IS NULL RETURNING id"
+      await db.query(`
+        ALTER TABLE commerce_supplier_catalog_meta ADD COLUMN IF NOT EXISTS revert_auto_margins_v1_at timestamptz
+      `);
+      const revertCheck = await db.query(
+        "UPDATE commerce_supplier_catalog_meta SET revert_auto_margins_v1_at=now() WHERE revert_auto_margins_v1_at IS NULL RETURNING id"
       );
-      if (margin50Check.rowCount) {
+      if (revertCheck.rowCount) {
         await db.query(`
           UPDATE commerce_supplier_products
-          SET selling_price = ceil(cost_pkr * 1.5)::integer, enabled = true
-          WHERE (selling_price = ceil(cost_pkr * 3)::integer OR selling_price IS NULL OR enabled = false)
-            AND cost_pkr > 0 AND cost_pkr <= 715827882
+          SET selling_price = NULL, original_price_pkr = NULL, enabled = false
+          WHERE cost_manual = false
+            AND id NOT LIKE 'manual:%'
+            AND provider_id <> 'manual'
+            AND (
+              selling_price = ceil(cost_pkr * 1.5)::integer
+              OR selling_price = ceil(cost_pkr * 3)::integer
+              OR selling_price IS NOT NULL
+            )
         `);
-        await populateAllSupplierOriginalPrices(db);
       }
       await ensureMuseManualProduct(db);
     })().catch((error) => {
@@ -4244,6 +4252,7 @@ export function createHandler(
         const payload = await publicCatalogCache.read(async () => {
           const connection = await pool.connect();
           try {
+            await ensureSupplierMediaSchema(connection);
             await rate(connection, hash(`catalog:${req.headers['x-vercel-forwarded-for'] || req.socket?.remoteAddress || 'unknown'}`), 60);
           } finally { connection.release(); }
           const [offers, inventory, shared] = await parallelCatalogReads(pool, [
@@ -6820,6 +6829,24 @@ export function createHandler(
         const seoRebuild = await triggerSupplierSeoRebuild(db);
         await db.query("INSERT INTO commerce_audit(action,object_id) VALUES('supplier_publish_unpriced_50pct',$1)", [String(result.rowCount)]);
         output = { ok: true, priced: result.rowCount, published: result.rowCount, seoRebuild, message: `${result.rowCount} unlisted supplier products enabled and priced at 50% margin on cost (1.5×). Already listed products remain unchanged.` };
+      } else if (action === 'admin-supplier-revert-formulas' || action === 'admin-supplier-revert-unpriced') {
+        const result = await db.query(`
+          UPDATE commerce_supplier_products
+          SET selling_price = NULL, original_price_pkr = NULL, enabled = false
+          WHERE cost_manual = false
+            AND id NOT LIKE 'manual:%'
+            AND provider_id <> 'manual'
+            AND (
+              selling_price = ceil(cost_pkr * 1.5)::integer
+              OR selling_price = ceil(cost_pkr * 3)::integer
+              OR selling_price IS NOT NULL
+            )
+          RETURNING id
+        `);
+        publicCatalogCache.invalidate();
+        const seoRebuild = await triggerSupplierSeoRebuild(db);
+        await db.query("INSERT INTO commerce_audit(action,object_id) VALUES('supplier_revert_formulas',$1)", [String(result.rowCount)]);
+        output = { ok: true, reverted: result.rowCount, seoRebuild, message: `${result.rowCount} formula-priced supplier products have been reverted to unlisted.` };
       } else if (action === 'admin-supplier-update') {
         const supplierId = String(body.productId || '');
         const sellingPrice = Number(body.sellingPrice),
