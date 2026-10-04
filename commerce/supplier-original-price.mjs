@@ -63,10 +63,10 @@ export function calculateSupplierOriginalPrice(product) {
 
   let monthlyRate = null;
 
-  // 1. iCloud 2TB (official comparison rate: 5,000/mo -> 3m = 15,000)
+  // 1. iCloud 2TB (official rate: 2,500/mo -> 3m = 7,500, 12m = 30,000)
   if (/icloud/i.test(name)) {
     if (/2tb|2\s*tb/i.test(name)) {
-      monthlyRate = 5000;
+      monthlyRate = 2500;
     } else if (/200gb|200\s*gb/i.test(name)) {
       monthlyRate = 1500;
     } else {
