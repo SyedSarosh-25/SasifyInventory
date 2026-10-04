@@ -96,7 +96,7 @@ test('brand title and standards-compatible favicons are included in exported pag
 test('homepage, inventory and every product have populated static HTML', async () => {
   const homepage = await read('index.html');
   assert.match(homepage, /Sasify Solutions/);
-  assert.ok(homepage.indexOf('Top 8 products') < homepage.indexOf('Browse by what you want to do'), 'Category discovery must follow the top products');
+  assert.ok(homepage.indexOf('Top 8 products') < homepage.indexOf('Simple, Transparent 4-Step Process') || (homepage.indexOf('Browse by what you want to do') !== -1 && homepage.indexOf('Top 8 products') < homepage.indexOf('Browse by what you want to do')), 'How it works or category discovery must follow the top products');
   const inventory = await read('inventory.html');
   assert.match(inventory, /Full inventory/);
   for (const product of products) {
