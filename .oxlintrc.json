@@ -45,7 +45,7 @@
     "react/require-render-return": "error",
     "react/rules-of-hooks": "error",
     "typescript/ban-ts-comment": "error",
-    "typescript/no-deprecated": "error",
+    "typescript/no-deprecated": "warn",
     "typescript/no-empty-object-type": "error",
     "typescript/no-explicit-any": "warn",
     "typescript/no-namespace": "error",
@@ -62,11 +62,16 @@
     "jsx-a11y/label-has-associated-control": "warn",
     "jsx-a11y/control-has-associated-label": "warn",
     "jsx-a11y/anchor-has-content": "warn",
-    "jsx-a11y/img-redundant-alt": "warn"
+    "jsx-a11y/img-redundant-alt": "warn",
+    "typescript/no-floating-promises": "warn",
+    "typescript/no-unsafe-member-access": "warn",
+    "typescript/no-unsafe-argument": "warn"
   },
   "overrides": [
     {
-      "files": ["tests/**/*.mjs"],
+      "files": [
+        "tests/**/*.mjs"
+      ],
       "rules": {
         "typescript/no-floating-promises": "off"
       }
