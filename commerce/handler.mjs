@@ -1,5 +1,5 @@
 import pg from 'pg';
-import { parseSupplierOriginalPrice, updateSupplierOfferPricing } from './supplier-original-price.mjs';
+import { parseSupplierOriginalPrice, updateSupplierOfferPricing, calculateSupplierOriginalPrice, populateAllSupplierOriginalPrices } from './supplier-original-price.mjs';
 import { couponPaymentError } from './coupon-payment-policy.mjs';
 import { checkSupplierPlan } from './checkout-availability.mjs';
 import { createCatalogCache, parallelCatalogReads } from './catalog-cache.mjs';
@@ -2003,6 +2003,15 @@ async function ensureSupplierMediaSchema(db) {
       await db.query(`
         ALTER TABLE commerce_supplier_catalog_meta ADD COLUMN IF NOT EXISTS unpriced_published_at timestamptz
       `);
+      await db.query(`
+        ALTER TABLE commerce_supplier_catalog_meta ADD COLUMN IF NOT EXISTS original_prices_populated_at timestamptz
+      `);
+      const origPopCheck = await db.query(
+        "UPDATE commerce_supplier_catalog_meta SET original_prices_populated_at=now() WHERE original_prices_populated_at IS NULL RETURNING id"
+      );
+      if (origPopCheck.rowCount) {
+        await populateAllSupplierOriginalPrices(db);
+      }
       const publishCheck = await db.query(
         "UPDATE commerce_supplier_catalog_meta SET unpriced_published_at=now() WHERE unpriced_published_at IS NULL RETURNING id"
       );
@@ -6790,6 +6799,11 @@ export function createHandler(
         const result = await db.query(`UPDATE commerce_supplier_products SET selling_price=ceil(cost_pkr*3)::integer,enabled=true WHERE cost_pkr>0 AND cost_pkr<=715827882 RETURNING id`);
         await db.query("INSERT INTO commerce_audit(action,object_id) VALUES('supplier_price_all_3x',$1)", [String(result.rowCount)]);
         output = { ok: true, priced: result.rowCount, published: result.rowCount, message: 'All supplier products with a valid cost are enabled and priced at 3× PKR cost. Local products are unchanged.' };
+      } else if (action === 'admin-supplier-populate-original-prices') {
+        const updated = await populateAllSupplierOriginalPrices(db);
+        const seoRebuild = await triggerSupplierSeoRebuild(db);
+        await db.query("INSERT INTO commerce_audit(action,object_id) VALUES('supplier_populate_original_prices',$1)", [String(updated)]);
+        output = { ok: true, updated, seoRebuild, message: `Populated original prices for ${updated} supplier products.` };
       } else if (action === 'admin-supplier-publish-unpriced') {
         const result = await db.query(`
           UPDATE commerce_supplier_products
