@@ -3,7 +3,7 @@
 import { ArrowLeft, MessageCircle, ShoppingCart } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { SiteFooter, SiteHeader } from '../components/site-chrome';
-import { supplierLogo, supplierMonogram } , curatedProductDescription } from '../supplier-product-utils';
+import { supplierLogo, supplierMonogram, curatedProductDescription } from '../supplier-product-utils';
 import { readSupplierCatalogProduct } from '../supplier-catalog-cache';
 import { PurchaseTerms } from '../components/purchase-terms';
 import { SupplierPriceSummary } from '../components/supplier-price-summary';
