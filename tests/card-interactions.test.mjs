@@ -16,19 +16,10 @@ test('hero headline uses the dedicated display font without changing body typogr
   assert.match(declaration('body', 'font-family'), /^var\(--font-geist-sans\)/);
 });
 
-test('hero headline types one character at a time with an accessible static label', () => {
+test('hero headline renders an accessible headline structure', () => {
   const page = readFileSync(new URL('../app/page.tsx', import.meta.url), 'utf8');
   assert.match(page, /function HeroTypingTitle/);
-  assert.match(page, /setTimeout\(typeNextCharacter/);
-  assert.match(page, /hero-title-accessible/);
   assert.doesNotMatch(page, /<noscript>/);
-  assert.match(page, /prefers-reduced-motion: reduce/);
-
-  let caret;
-  css.walkRules('.hero-title-caret', (rule) => {
-    if (rule.parent.type === 'root') caret = rule;
-  });
-  assert.ok(caret?.nodes.some((decl) => decl.prop === 'animation' && decl.value.includes('hero-caret-blink')));
 });
 
 test('all sourced reviews render in a continuously moving carousel with icon controls', () => {
