@@ -444,7 +444,7 @@ export default async function ProductPage({ params }: Props) {
                   <dd>Sasify Solutions on WhatsApp</dd>
                 </div>
               </dl>
-              {sharedChatGpt ? <p className="shared-account-disclaimer"><strong>Shared-account terms.</strong> Up to four customers use this account. Your data and activity are not private and may be visible to others. Usage is shared, so no individual usage-limit guarantee is provided. After delivery, shared access is not eligible for replacement, warranty or refund if the shared allowance is reached. The email and password are delivered after payment; a one-time 2FA code is shown once on the original checkout device. The authenticator secret is never shared.</p> : null}
+              {sharedChatGpt ? <p className="shared-account-disclaimer"><strong>Shared-account terms.</strong> Up to four customers use this account. Your data and activity are not private and may be visible to others. Usage is shared, so no individual usage-limit guarantee is provided. Includes 25-day replacement warranty. Agar usage limit exhaust ho jaye toh woh thore waqt baad automatically reset ho jati hai (temporary limit exhaust par replacement nahi hoti; replacement sirf login ya account issue par milti hai). The email and password are delivered after payment; a one-time 2FA code is shown once on the original checkout device. The authenticator secret is never shared.</p> : null}
             </section>
 
             {product.variants?.length && product.id !== 'p093' ? (
@@ -665,12 +665,12 @@ export default async function ProductPage({ params }: Props) {
               <ShieldCheck className="h-5 w-5" />
               <span>
                 <strong>
-                  {sharedChatGpt ? 'Shared access · no warranty' : product.id === 'p093' ? (
+                  {sharedChatGpt ? 'Shared access · 25 Days Warranty' : product.id === 'p093' ? (
                     `Full ${appleWarrantyDays}-day warranty`
                   ) : 'Listing-specific warranty'}
                 </strong>
                 {sharedChatGpt ? (
-                  ' No replacement or refund after delivery or when shared usage is exhausted.'
+                  ' 25-day replacement warranty included. Agar shared usage limit exhaust ho jaye toh woh thore time baad automatically reset ho jati hai (temporary limit exhaust par replacement nahi hogi, replacement sirf login ya account issue par milti hai).'
                 ) : product.id === 'p093' ? (
                   'Included with this Apple Pay plan.'
                 ) : (
