@@ -20,7 +20,6 @@ import {
   Smartphone,
   Copy,
   Check,
-  Maximize2,
 } from 'lucide-react';
 
 interface BotActivity {
