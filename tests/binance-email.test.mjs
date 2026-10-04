@@ -67,7 +67,7 @@ test('Binance crypto deposit parses the confirmed net USDT amount', () => {
   const payload = Buffer.from(JSON.stringify({ id: '186765a11b38426abb6fc6c2ace1eb8c' })).toString('base64url');
   const parsed = parseBinanceCryptoEmail(
     {
-      subject: '[Binance] USDT Deposit Confirmed - 2026-09-20 15:05:13 (UTC) - 2026-09-20 15:05:14 (UTC)',
+      subject: '[Binance] USDT Deposit Confirmed - ' + new Date().toISOString().replace('T', ' ').replace(/\.\d{3}Z$/, ' (UTC)') + ' - ' + new Date().toISOString().replace('T', ' ').replace(/\.\d{3}Z$/, ' (UTC)'),
       from: `Binance <${config.sender}>`,
       to: config.receiverMailbox,
       text: 'USDT Deposit Successful. Your deposit of 738 USDT is now available in your Binance account. Log in to check your balance.',
