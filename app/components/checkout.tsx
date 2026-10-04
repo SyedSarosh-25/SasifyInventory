@@ -3445,6 +3445,20 @@ export function CommerceAdmin() {
                 <button
                   className="secondary-button"
                   disabled={busy}
+                  onClick={() => {
+                    if (!window.confirm('Revert all supplier products that were auto-priced using formulas? They will be unlisted so you can set custom prices.')) return;
+                    void run(async () => {
+                      const result = await api('admin-supplier-revert-formulas', key, {});
+                      setNotice(`${result.reverted} formula-priced supplier products have been reverted to unlisted.`);
+                      await refresh();
+                    });
+                  }}
+                >
+                  Revert auto-pricing
+                </button>
+                <button
+                  className="secondary-button"
+                  disabled={busy}
                   onClick={() => void run(() => showSupplierLogs())}
                 >
                   <ClipboardList size={17} /> Check logs
