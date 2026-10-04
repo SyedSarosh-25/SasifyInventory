@@ -338,7 +338,7 @@ export function AdminWhatsAppBot() {
 
   return (
     <div className="space-y-6">
-      {/* View Switcher & Quick Launch Toolbar */}
+      {/* Top Quick Launch & Control Switcher */}
       <div className="flex flex-wrap items-center justify-between gap-3 p-4 rounded-xl border border-slate-200 bg-white dark:bg-slate-900 dark:border-slate-800 shadow-sm">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 flex items-center justify-center font-bold text-lg">
@@ -421,7 +421,7 @@ export function AdminWhatsAppBot() {
         </div>
       </div>
 
-      {/* Embedded Iframe View */}
+      {/* Embedded Iframe View vs Native View */}
       {viewMode === 'embedded' ? (
         <div className="space-y-3">
           <div className="relative w-full rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-800 shadow-lg bg-[#0b141a]">
@@ -446,8 +446,8 @@ export function AdminWhatsAppBot() {
           </div>
         </div>
       ) : (
-        /* Native Cards View */
-        <>
+        <div className="space-y-6">
+
       {/* Bot Server Connection Ribbon */}
       <div className="flex flex-wrap items-center justify-between gap-4 p-4 rounded-xl border border-slate-200 bg-white dark:bg-slate-900 dark:border-slate-800 shadow-sm">
         <div className="flex items-center gap-3">
@@ -1175,7 +1175,8 @@ export function AdminWhatsAppBot() {
           </div>
         </div>
       )}
+        </div>
+      )}
     </div>
   );
 }
-
