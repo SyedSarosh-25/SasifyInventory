@@ -57,101 +57,153 @@ export function roundToNicePrice(amount) {
 
 export function calculateSupplierOriginalPrice(product) {
   const selling = Number(product.price ?? product.selling_price) || 0;
-  if (product.original_price_pkr && product.original_price_pkr >= selling) {
-    return product.original_price_pkr;
-  }
-
   const name = String(product.name || '').toLowerCase();
   const desc = String(product.description || '').toLowerCase();
   const months = durationMonths(name, desc);
 
-  let orig = null;
+  let monthlyRate = null;
 
+  // 1. iCloud 2TB (official comparison rate: 5,000/mo -> 3m = 15,000)
   if (/icloud/i.test(name)) {
     if (/2tb|2\s*tb/i.test(name)) {
-      orig = months === 1 ? 2850 : months === 3 ? 7500 : months === 6 ? 15000 : months >= 12 ? 30000 : Math.round(2850 * months);
+      monthlyRate = 5000;
     } else if (/200gb|200\s*gb/i.test(name)) {
-      orig = Math.round(850 * months);
+      monthlyRate = 1500;
     } else {
-      orig = Math.round(2850 * months);
+      monthlyRate = 3000;
     }
-  } else if (/chatgpt|openai|\bgpt\b/i.test(name)) {
-    if (/business/i.test(name)) orig = Math.round(7125 * months);
-    else if (/team/i.test(name)) orig = Math.round(7125 * months);
-    else orig = Math.round(5700 * months);
-  } else if (/claude/i.test(name)) {
-    if (/team.*premium/i.test(name)) orig = Math.round(35625 * months);
-    else if (/team/i.test(name)) orig = Math.round(7500 * months);
-    else orig = Math.round(5700 * months);
-  } else if (/capcut/i.test(name)) {
-    orig = months >= 12 ? 28000 : months === 6 ? 18000 : months === 3 ? 10500 : months < 1 ? 1200 : 3700;
-  } else if (/canva/i.test(name)) {
-    orig = months >= 12 ? 34000 : months === 6 ? 18000 : months === 3 ? 10000 : 4200;
-  } else if (/adobe/i.test(name)) {
-    if (/express/i.test(name)) orig = months >= 12 ? 28500 : Math.round(2850 * months);
-    else if (/photoshop|illustrator|premiere|after\s*effects|lightroom/i.test(name) && !/all\s*apps/i.test(name)) orig = Math.round(6550 * months);
-    else orig = months >= 12 ? 170000 : Math.round(19950 * months);
-  } else if (/microsoft|office\s*365|office\s*202/i.test(name)) {
-    if (/2024|2021|pro\s*plus\s*key|license\s*key/i.test(name)) orig = 39599;
-    else if (/family|premium/i.test(name)) orig = months >= 12 ? 55999 : Math.round(5599 * months);
-    else orig = months >= 12 ? 22999 : Math.round(2299 * months);
-  } else if (/youtube/i.test(name)) {
-    orig = months >= 12 ? 14000 : months === 6 ? 7500 : months === 3 ? 4000 : 1500;
-  } else if (/spotify/i.test(name)) {
-    orig = months >= 12 ? 8500 : months === 6 ? 4500 : months === 3 ? 2400 : 1000;
-  } else if (/linkedin/i.test(name)) {
-    if (/sales\s*navigator/i.test(name)) orig = months >= 12 ? 307765 : Math.round(34200 * months);
-    else if (/business/i.test(name)) orig = Math.round(17100 * months);
-    else orig = Math.round(11400 * months);
-  } else if (/vpn|nord|expressvpn|surfshark|ipvanish|cyberghost|hma/i.test(name)) {
-    orig = months >= 24 ? 28500 : months >= 12 ? 22800 : months === 6 ? 17000 : months === 3 ? 9500 : 3800;
-  } else if (/cursor/i.test(name)) {
-    orig = months >= 12 ? 57000 : Math.round(5700 * months);
-  } else if (/notion/i.test(name)) {
-    orig = Math.round(5700 * months);
-  } else if (/perplexity/i.test(name)) {
-    orig = months >= 12 ? 57000 : Math.round(5700 * months);
-  } else if (/grammarly/i.test(name)) {
-    orig = months >= 12 ? 41000 : Math.round(8550 * months);
+  }
+  // 2. ChatGPT / OpenAI
+  else if (/chatgpt|openai|\bgpt\b/i.test(name)) {
+    if (/business/i.test(name)) monthlyRate = 7125;
+    else if (/team/i.test(name)) monthlyRate = 7125;
+    else monthlyRate = 5700;
+  }
+  // 3. Claude / Anthropic
+  else if (/claude/i.test(name)) {
+    if (/team.*premium/i.test(name)) monthlyRate = 35625;
+    else if (/team/i.test(name)) monthlyRate = 7500;
+    else monthlyRate = 5700;
+  }
+  // 4. Coursera (Official Coursera Plus: $399/yr ~114,000 PKR / $59/mo)
+  else if (/coursera/i.test(name)) {
+    monthlyRate = 9500;
+  }
+  // 5. N8N (Official Starter: €20/mo ~6,200 PKR/mo -> 12m = 74,400)
+  else if (/n8n/i.test(name)) {
+    monthlyRate = 6200;
+  }
+  // 6. CapCut Pro
+  else if (/capcut/i.test(name)) {
+    monthlyRate = 3700;
+  }
+  // 7. Canva Pro
+  else if (/canva/i.test(name)) {
+    monthlyRate = 4200;
+  }
+  // 8. Adobe Creative Cloud
+  else if (/adobe/i.test(name)) {
+    if (/express/i.test(name)) monthlyRate = 2850;
+    else if (/photoshop|illustrator|premiere|after\s*effects|lightroom/i.test(name) && !/all\s*apps/i.test(name)) monthlyRate = 6550;
+    else monthlyRate = 19950;
+  }
+  // 9. Microsoft 365 / Office 365
+  else if (/microsoft|office\s*365|office\s*202/i.test(name)) {
+    if (/2024|2021|pro\s*plus\s*key|license\s*key/i.test(name)) return 39599;
+    else if (/family|premium/i.test(name)) monthlyRate = 5599;
+    else monthlyRate = 2299;
+  }
+  // 10. YouTube Premium
+  else if (/youtube/i.test(name)) {
+    monthlyRate = 1500;
+  }
+  // 11. Spotify Premium
+  else if (/spotify/i.test(name)) {
+    monthlyRate = 1000;
+  }
+  // 12. LinkedIn
+  else if (/linkedin/i.test(name)) {
+    if (/sales\s*navigator/i.test(name)) monthlyRate = 34200;
+    else if (/business/i.test(name)) monthlyRate = 17100;
+    else monthlyRate = 11400;
+  }
+  // 13. VPN (Surfshark, ExpressVPN, NordVPN, etc.)
+  else if (/vpn|nord|expressvpn|surfshark|ipvanish|cyberghost|hma/i.test(name)) {
+    monthlyRate = 3800;
+  }
+  // 14. Cursor Pro
+  else if (/cursor/i.test(name)) {
+    monthlyRate = 5700;
+  }
+  // 15. Notion
+  else if (/notion/i.test(name)) {
+    monthlyRate = 5700;
+  }
+  // 16. Perplexity Pro
+  else if (/perplexity/i.test(name)) {
+    monthlyRate = 5700;
+  }
+  // 17. Grammarly / QuillBot
+  else if (/grammarly/i.test(name)) {
+    monthlyRate = 8550;
   } else if (/quillbot/i.test(name)) {
-    orig = months >= 12 ? 28485 : Math.round(5685 * months);
-  } else if (/midjourney/i.test(name)) {
-    if (/pro/i.test(name)) orig = Math.round(17100 * months);
-    else if (/standard/i.test(name)) orig = Math.round(8550 * months);
-    else orig = Math.round(2850 * months);
+    monthlyRate = 5685;
+  }
+  // 18. Midjourney / Creative AI
+  else if (/midjourney/i.test(name)) {
+    if (/pro/i.test(name)) monthlyRate = 17100;
+    else if (/standard/i.test(name)) monthlyRate = 8550;
+    else monthlyRate = 2850;
   } else if (/suno|udio/i.test(name)) {
-    orig = Math.round(2850 * months);
+    monthlyRate = 2850;
   } else if (/elevenlabs/i.test(name)) {
-    orig = Math.round(6270 * months);
+    monthlyRate = 6270;
   } else if (/runway/i.test(name)) {
-    orig = Math.round(4275 * months);
-  } else if (/nitro|discord/i.test(name)) {
-    if (/basic/i.test(name)) orig = Math.round(850 * months);
-    else orig = months >= 12 ? 28500 : Math.round(2850 * months);
-  } else if (/telegram/i.test(name)) {
-    orig = months >= 12 ? 14000 : months === 6 ? 8000 : months === 3 ? 4200 : 1420;
-  } else if (/duolingo/i.test(name)) {
-    orig = months >= 12 ? 24000 : Math.round(3700 * months);
-  } else if (/ilovepdf/i.test(name)) {
-    orig = months >= 12 ? 17100 : Math.round(1425 * months);
-  } else if (/zoom/i.test(name)) {
-    orig = months >= 12 ? 48400 : Math.round(4840 * months);
-  } else if (/netflix/i.test(name)) {
-    orig = Math.round(1500 * months);
+    monthlyRate = 4275;
+  }
+  // 19. Discord Nitro
+  else if (/nitro|discord/i.test(name)) {
+    if (/basic/i.test(name)) monthlyRate = 850;
+    else monthlyRate = 2850;
+  }
+  // 20. Telegram Premium
+  else if (/telegram/i.test(name)) {
+    monthlyRate = 1420;
+  }
+  // 21. Duolingo Super
+  else if (/duolingo/i.test(name)) {
+    monthlyRate = 3700;
+  }
+  // 22. iLovePDF Premium
+  else if (/ilovepdf/i.test(name)) {
+    monthlyRate = 1425;
+  }
+  // 23. Zoom Pro
+  else if (/zoom/i.test(name)) {
+    monthlyRate = 4840;
+  }
+  // 24. Streaming (Netflix, Prime, Crunchyroll)
+  else if (/netflix/i.test(name)) {
+    monthlyRate = 1500;
   } else if (/prime|disney|crunchyroll/i.test(name)) {
-    orig = Math.round(2850 * months);
+    monthlyRate = 2850;
   }
 
-  if (!orig || orig <= selling) {
-    const multiplier = selling < 100 ? 2.5 : selling < 1000 ? 1.8 : 1.6;
-    orig = roundToNicePrice(Math.ceil(selling * multiplier));
+  // Multiply monthly rate by plan duration months
+  if (monthlyRate !== null) {
+    const total = Math.round(monthlyRate * months);
+    return Math.max(selling + 10, total);
   }
 
-  if (orig <= selling) {
-    orig = roundToNicePrice(Math.ceil(selling * 1.5));
-  }
+  // Fallback for generic items:
+  // Base monthly rate on equivalent monthly selling price multiplied by plan months
+  const monthlySelling = months > 0 ? selling / months : selling;
+  const multiplier = monthlySelling < 100 ? 2.5 : monthlySelling < 1000 ? 2.0 : 1.8;
+  const estimatedMonthlyOfficial = Math.max(50, Math.ceil(monthlySelling * multiplier));
+  const totalFallback = Math.round(estimatedMonthlyOfficial * months);
 
-  return Math.max(selling + 10, orig);
+  const rounded = roundToNicePrice(totalFallback);
+  return Math.max(selling + 10, rounded);
 }
 
 export async function populateAllSupplierOriginalPrices(db) {
@@ -162,7 +214,7 @@ export async function populateAllSupplierOriginalPrices(db) {
   const updates = [];
   for (const row of rows) {
     const orig = calculateSupplierOriginalPrice(row);
-    if (!row.original_price_pkr || row.original_price_pkr < row.selling_price) {
+    if (!row.original_price_pkr || row.original_price_pkr !== orig) {
       updates.push({ id: row.id, orig });
     }
   }
