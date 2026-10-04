@@ -28,7 +28,7 @@ type OfficialReference = {
 
 const officialReferences: OfficialReference[] = [
   {
-    amount: 5000,
+    amount: 2500,
     currency: 'PKR',
     period: 'month',
     sourceLabel: 'Apple iCloud+ 2TB official comparison reference',
