@@ -115,16 +115,16 @@ export function HowItWorksSection() {
             </div>
           </article>
 
-          {/* STEP 3: Direct Official Delivery */}
+          {/* STEP 3: Auto Verification & Delivery */}
           <article className="hiw-card">
             <div>
               <div className="hiw-card-top">
                 <span className="hiw-step-num hiw-step-emerald">03</span>
-                <span className="hiw-card-badge hiw-badge-emerald-subtle">INSTANT</span>
+                <span className="hiw-card-badge hiw-badge-emerald-subtle">100% AUTOMATED</span>
               </div>
-              <h3 className="hiw-card-title">Direct Official Delivery</h3>
+              <h3 className="hiw-card-title">Auto Verification & Delivery</h3>
               <p className="hiw-card-text">
-                Payment verification ke foran baad order screen par official credentials ya workspace invite mil jati hai. Seedha official platform login!
+                Automatic payment verification aur instant credential delivery. Zero human involvement or manual admin approval needed — system verifies and delivers official logins in ~30s!
               </p>
             </div>
 
@@ -132,9 +132,9 @@ export function HowItWorksSection() {
               <div className="hiw-status-box hiw-status-emerald">
                 <div className="hiw-status-inner">
                   <span className="hiw-live-pulse" aria-hidden="true" />
-                  <strong>Official Login Active</strong>
+                  <strong>Zero Human Wait</strong>
                 </div>
-                <span className="hiw-speed-tag">⚡ ~30s</span>
+                <span className="hiw-speed-tag">⚡ ~30s Auto</span>
               </div>
             </div>
           </article>
