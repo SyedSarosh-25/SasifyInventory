@@ -16,10 +16,8 @@ import {
   CheckCircle2,
   Clock,
   Send,
-  UserCheck,
   UserX,
   Smartphone,
-  Info,
 } from 'lucide-react';
 
 interface BotActivity {
