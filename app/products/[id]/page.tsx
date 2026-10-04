@@ -36,12 +36,15 @@ import {
 } from '../../seo';
 import {
   findSupplierSeoProduct,
-  curatedProductDescription,
   supplierProductHref,
   supplierSeoPageProducts,
   type SupplierSeoProduct,
 } from '../../supplier-seo';
-import { supplierLogo, supplierMonogram } from '../../supplier-product-utils';
+import {
+  supplierLogo,
+  supplierMonogram,
+  curatedProductDescription,
+} from '../../supplier-product-utils';
 import { toolFamilyHref, toolFamilyLabel, toolFamilySlug } from '../../tool-families';
 import {
   accessTypeLabel,
