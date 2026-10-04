@@ -2012,15 +2012,20 @@ async function ensureSupplierMediaSchema(db) {
       if (origPopCheck.rowCount) {
         await populateAllSupplierOriginalPrices(db);
       }
-      const publishCheck = await db.query(
-        "UPDATE commerce_supplier_catalog_meta SET unpriced_published_at=now() WHERE unpriced_published_at IS NULL RETURNING id"
+      await db.query(`
+        ALTER TABLE commerce_supplier_catalog_meta ADD COLUMN IF NOT EXISTS unpriced_margin_50_at timestamptz
+      `);
+      const margin50Check = await db.query(
+        "UPDATE commerce_supplier_catalog_meta SET unpriced_margin_50_at=now() WHERE unpriced_margin_50_at IS NULL RETURNING id"
       );
-      if (publishCheck.rowCount) {
+      if (margin50Check.rowCount) {
         await db.query(`
           UPDATE commerce_supplier_products
-          SET selling_price = ceil(cost_pkr * 3)::integer, enabled = true
-          WHERE (selling_price IS NULL OR enabled = false) AND cost_pkr > 0 AND cost_pkr <= 715827882
+          SET selling_price = ceil(cost_pkr * 1.5)::integer, enabled = true
+          WHERE (selling_price = ceil(cost_pkr * 3)::integer OR selling_price IS NULL OR enabled = false)
+            AND cost_pkr > 0 AND cost_pkr <= 715827882
         `);
+        await populateAllSupplierOriginalPrices(db);
       }
       await ensureMuseManualProduct(db);
     })().catch((error) => {
@@ -6807,13 +6812,14 @@ export function createHandler(
       } else if (action === 'admin-supplier-publish-unpriced') {
         const result = await db.query(`
           UPDATE commerce_supplier_products
-          SET selling_price = ceil(cost_pkr * 3)::integer, enabled = true
-          WHERE (selling_price IS NULL OR enabled = false) AND cost_pkr > 0 AND cost_pkr <= 715827882
+          SET selling_price = ceil(cost_pkr * 1.5)::integer, enabled = true
+          WHERE (selling_price IS NULL OR enabled = false OR selling_price = ceil(cost_pkr * 3)::integer) AND cost_pkr > 0 AND cost_pkr <= 715827882
           RETURNING id
         `);
+        await populateAllSupplierOriginalPrices(db);
         const seoRebuild = await triggerSupplierSeoRebuild(db);
-        await db.query("INSERT INTO commerce_audit(action,object_id) VALUES('supplier_publish_unpriced_3x',$1)", [String(result.rowCount)]);
-        output = { ok: true, priced: result.rowCount, published: result.rowCount, seoRebuild, message: `${result.rowCount} unlisted supplier products enabled and priced at 3× cost. Already listed products remain unchanged.` };
+        await db.query("INSERT INTO commerce_audit(action,object_id) VALUES('supplier_publish_unpriced_50pct',$1)", [String(result.rowCount)]);
+        output = { ok: true, priced: result.rowCount, published: result.rowCount, seoRebuild, message: `${result.rowCount} unlisted supplier products enabled and priced at 50% margin on cost (1.5×). Already listed products remain unchanged.` };
       } else if (action === 'admin-supplier-update') {
         const supplierId = String(body.productId || '');
         const sellingPrice = Number(body.sellingPrice),
