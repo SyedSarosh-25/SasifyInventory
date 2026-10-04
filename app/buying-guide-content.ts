@@ -11,7 +11,7 @@ export const guidePlans = planIds.map((id) => {
 export const guideQuestions = [
   {
     question: 'What are the Claude Team and Hostinger package prices at Sasify Solutions?',
-    answer: `${guidePlans.slice(0, 3).map((p) => `${p.name} costs ${formatPkr(p.sellingPricePkr)} for ${p.duration}`).join('; ')}. These are separate Sasify listings. Review the access arrangement and usage limits on your chosen product page before payment.`,
+    answer: `${guidePlans.slice(0, 3).map((p) => `${p.name} costs ${formatPkr(p.sellingPricePkr)} for ${p.duration}`).join('; ')}. These are separate Sasify listings. Review the exact access arrangement and usage limits on your chosen product page before payment.`,
   },
   {
     question: 'What do the Claude Team Standard and Premium listings cost?',
