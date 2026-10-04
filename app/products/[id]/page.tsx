@@ -670,7 +670,7 @@ export default async function ProductPage({ params }: Props) {
                   ) : 'Listing-specific warranty'}
                 </strong>
                 {sharedChatGpt ? (
-                  ' 25-day replacement warranty included. Agar shared usage limit exhaust ho jaye toh woh thore time baad automatically reset ho jati hai (temporary limit exhaust par replacement nahi hogi, replacement sirf login ya account issue par milti hai).'
+                  ' 25-day replacement warranty included. If shared usage limit is temporarily reached, it resets automatically after a short cooldown (replacement covers login or account issues, not temporary usage resets).'
                 ) : product.id === 'p093' ? (
                   'Included with this Apple Pay plan.'
                 ) : (
