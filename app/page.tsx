@@ -657,7 +657,7 @@ export default function Home() {
               <div className="why-sasify-emblem">
                 <span className="why-sasify-rim" />
                 <div className="why-sasify-emblem-face">
-                  <img src="/sasify-logo-200.webp" alt="" width={200} height={200} loading="lazy" />
+                  <img src="/sasify-logo-200.webp" alt="Sasify Solutions Logo" width={200} height={200} loading="lazy" />
                   <strong>Sasify Solutions</strong>
                   <span>Trust at every step</span>
                 </div>
