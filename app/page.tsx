@@ -92,7 +92,10 @@ const paymentMethods = [
 
 function HeroTypingTitle() {
   return (
-    <LocalizedContent><h1>
+    <LocalizedContent><h1 aria-label="Sasify Solutions - Digital Tools & Subscriptions">
+      <span style={{ position: 'absolute', width: '1px', height: '1px', padding: 0, margin: '-1px', overflow: 'hidden', clip: 'rect(0, 0, 0, 0)', whiteSpace: 'nowrap', borderWidth: 0 }}>
+        Sasify Solutions –{' '}
+      </span>
       <span className="hero-title-line">{heroTitleLead}</span>
       <span className="hero-title-line hero-title-line-accent hero-title-text-accent">{heroTitleAccent}</span>
     </h1></LocalizedContent>
