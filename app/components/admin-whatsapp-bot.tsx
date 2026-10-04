@@ -88,10 +88,7 @@ interface DashboardApiData {
   };
 }
 
-const DEFAULT_BOT_URL =
-  typeof window !== 'undefined' && window.location.hostname === 'localhost'
-    ? 'http://localhost:3000'
-    : 'https://wabot.sasifysolutions.com';
+const DEFAULT_BOT_URL = 'https://wabot.sasifysolutions.com';
 
 export function AdminWhatsAppBot() {
   const [botUrl, setBotUrl] = useState<string>(DEFAULT_BOT_URL);
@@ -128,9 +125,13 @@ export function AdminWhatsAppBot() {
   useEffect(() => {
     try {
       const saved = localStorage.getItem('sasify_whatsapp_bot_url');
-      if (saved) {
+      if (saved && !saved.includes('localhost') && saved.startsWith('http')) {
         setBotUrl(saved);
         setUrlInput(saved);
+      } else {
+        localStorage.setItem('sasify_whatsapp_bot_url', 'https://wabot.sasifysolutions.com');
+        setBotUrl('https://wabot.sasifysolutions.com');
+        setUrlInput('https://wabot.sasifysolutions.com');
       }
     } catch {
       // ignore
@@ -353,7 +354,20 @@ export function AdminWhatsAppBot() {
               </span>
             </div>
             <p className="text-xs text-slate-500 dark:text-slate-400">
-              Host: <span className="font-mono text-blue-600 dark:text-blue-400">{botUrl}</span> • Number: <span className="font-semibold">+92 341 3985711</span>
+              Host: <span className="font-mono text-blue-600 dark:text-blue-400">{botUrl}</span> • Number: <span className="font-semibold">+92 341 3985711</span>{botUrl.includes('localhost') && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    localStorage.setItem('sasify_whatsapp_bot_url', 'https://wabot.sasifysolutions.com');
+                    setBotUrl('https://wabot.sasifysolutions.com');
+                    setUrlInput('https://wabot.sasifysolutions.com');
+                    setIframeKey((k) => k + 1);
+                  }}
+                  className="ml-2 text-[10px] px-2 py-0.5 rounded bg-emerald-600 hover:bg-emerald-700 text-white font-bold transition shadow-sm"
+                >
+                  ⚡ Connect to VPS (wabot.sasifysolutions.com)
+                </button>
+              )}
             </p>
           </div>
         </div>
