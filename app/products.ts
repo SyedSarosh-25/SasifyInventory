@@ -53,7 +53,7 @@ const catalogProducts: Product[] = [
     details: [
       'Shared ChatGPT account: your data and activity are not private and may be visible to the other members using the same account.',
       'Usage is shared between all four members. Sasify Solutions cannot guarantee individual usage limits or availability after the shared allowance is reached.',
-      'Includes a 25-day replacement warranty. Usage is shared; agar usage limit exhaust ho jaye toh thore waqt baad automatically reset ho jati hai (temporary exhaust par replacement nahi hoti, replacement sirf login ya account breakdown par milti hai).',
+      'Includes a 25-day replacement warranty. Usage is shared; if the shared usage limit is temporarily reached, it resets automatically after a short cooldown (replacement is not provided for temporary usage exhaustion, only for login or account failure).',
       'The shared pool is filled slot-by-slot: 1/4, 2/4, 3/4 and 4/4. A new admin-approved account is used automatically when the current account is full. The authenticator secret is never shown to customers.',
     ],
   },
