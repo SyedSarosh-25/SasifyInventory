@@ -3439,9 +3439,9 @@ export function CommerceAdmin() {
                   <RefreshCw size={17} /> Sync providers
                 </button>
                 <button className="primary-button" disabled={busy} onClick={() => {
-                  if (!window.confirm('Enable all unlisted/new supplier products at 3× cost? Existing listed product prices will NOT be changed.')) return;
-                  void run(async () => { const result = await api('admin-supplier-publish-unpriced', key, {}); setNotice(`${result.priced} unlisted supplier products are now live at 3× cost. Existing prices were preserved.`); await refresh(); });
-                }}>Price unlisted · 3× cost</button>
+                  if (!window.confirm('Enable all unlisted/new supplier products at 50% margin (1.5× cost)? Existing listed product prices will NOT be changed.')) return;
+                  void run(async () => { const result = await api('admin-supplier-publish-unpriced', key, {}); setNotice(`${result.priced} unlisted supplier products are now live at 50% margin (1.5× cost). Existing prices were preserved.`); await refresh(); });
+                }}>Price unlisted · 50% margin</button>
                 <button
                   className="secondary-button"
                   disabled={busy}
