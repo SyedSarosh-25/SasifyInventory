@@ -36,6 +36,7 @@ import {
 } from '../../seo';
 import {
   findSupplierSeoProduct,
+  curatedProductDescription,
   supplierProductHref,
   supplierSeoPageProducts,
   type SupplierSeoProduct,
@@ -244,20 +245,28 @@ function SupplierSeoProductPage({ product }: { product: SupplierSeoProduct }) {
               <a href="#popular-uses">Popular uses</a>
             </nav>
 
-            <section className="description-section" id="overview">
-              <h2>Product description</h2>
-              {descriptionBlocks.length ? descriptionContent : (
-                <p>
-                  {product.name} is available through Sasify Solutions with
-                  automatic delivery after payment verification.
-                </p>
-              )}
+            <section className="description-section" id="supplier-specs">
+              <h2>Supplier description</h2>
+              <div className="supplier-description-raw">
+                {descriptionBlocks.length ? descriptionContent : (
+                  <p>
+                    {product.name} specifications provided by automated upstream inventory.
+                  </p>
+                )}
+              </div>
               {product.deliveryInstruction ? (
                 <p>
                   <strong>Activation note:</strong>{' '}
                   {product.deliveryInstruction}
                 </p>
               ) : null}
+            </section>
+
+            <section className="description-section" id="overview">
+              <h2>Product description</h2>
+              <p style={{ color: '#1e293b', fontSize: '0.98rem', lineHeight: '1.75' }}>
+                {curatedProductDescription(product)}
+              </p>
               <dl className="package-facts">
                 <div>
                   <dt>Package</dt>
