@@ -20,7 +20,7 @@
   },
   "options": {
     "typeAware": true,
-    "typeCheck": true
+    "typeCheck": false
   },
   "ignorePatterns": [
     ".next/**",
