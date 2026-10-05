@@ -122,7 +122,7 @@ const catalogProducts: Product[] = [
     name: 'Claude Team Plan Standard',
     duration: '1 Month',
     vendor: 'Zoom Store / Alternate Supplier',
-    sellingPricePkr: 4500,
+    sellingPricePkr: 4299,
     originalPrice: 'PKR 7,500 per seat/month',
     originalPricePkr: 7500,
     publishedAt: '2026-09-10T12:56:41+05:00',

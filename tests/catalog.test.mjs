@@ -15,7 +15,7 @@ test('every inventory variant has a unique detail URL', () => {
 });
 
 test('Claude Team prices and seat types match the requested offers', () => {
-  assert.equal(products.find((p) => p.name === 'Claude Team Plan Standard')?.sellingPricePkr, 4500);
+  assert.equal(products.find((p) => p.name === 'Claude Team Plan Standard')?.sellingPricePkr, 4299);
   assert.equal(products.find((p) => p.name === 'Claude Team Plan Premium')?.sellingPricePkr, 21999);
   for (const id of ['p012', 'p013']) {
     const product = products.find((p) => p.id === id);
@@ -70,7 +70,7 @@ test('25-day warranty is scoped to one-month ChatGPT, other plans cover their fu
 });
 
 test('savings subtract our price from the listed original with the fixed USD rate', () => {
-  assert.equal(savingsPkr(products.find((p) => p.id === 'p013')), 3000);
+  assert.equal(savingsPkr(products.find((p) => p.id === 'p013')), 3201);
   assert.equal(savingsPkr(products.find((p) => p.id === 'p012')), 13626);
   assert.equal(savingsPkr(products.find((p) => p.id === 'p100')), 25488);
 });
@@ -272,7 +272,7 @@ test('homepage Top 8 keeps distinct plan names and supplier prices from live sto
     'Figma Pro · 2 Years',
     'Hostinger Unlimited · 12 Months',
   ]);
-  assert.deepEqual(selected.map((product) => product.display_price), [3499, 999, 4500, 21999, undefined, undefined, undefined, 4500]);
+  assert.deepEqual(selected.map((product) => product.display_price), [3499, 999, 4299, 21999, undefined, undefined, undefined, 4500]);
   assert.deepEqual(selected.map((product) => product.display_original_price), [undefined, undefined, undefined, undefined, undefined, undefined, 109440, undefined]);
 });
 
@@ -288,7 +288,7 @@ test('homepage keeps the curated eight and adds one random in-stock product', ()
   const catalog = [
     { id: 'p093', name: 'ChatGPT Plus', price: 3499, available: 1, source: 'local' },
     { id: 'p093-shared', name: 'ChatGPT Plus shared', price: 999, available: 1, source: 'local' },
-    { id: 'p013', name: 'Claude Standard', price: 4500, available: 1, source: 'local' },
+    { id: 'p013', name: 'Claude Standard', price: 4299, available: 1, source: 'local' },
     { id: 'p012', name: 'Claude Premium', price: 21999, available: 1, source: 'local' },
     { id: 'p100', name: 'Hostinger', price: 4500, available: 1, source: 'local' },
     { id: 'auto:1200-capcut-credits-pro-team-duration-1m', canonical_key: 'auto:1200-capcut-credits-pro-team-duration-1m', name: 'Capcut Pro Team 1 Month 1200 Credits', price: 999, available: 1, source: 'supplier' },

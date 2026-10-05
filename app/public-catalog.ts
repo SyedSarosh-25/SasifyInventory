@@ -1,7 +1,7 @@
 import { isInternalTestListing } from './product-visibility.ts';
 
 type CatalogResponse<T> = { ready: boolean; products: T[]; productCount: number };
-const storageKey = 'sasify-public-catalog-v3';
+const storageKey = 'sasify-public-catalog-v4';
 const ttlMs = 30_000;
 let cached: { expiresAt: number; data: CatalogResponse<unknown> } | null = null;
 let pending: Promise<CatalogResponse<unknown>> | null = null;
