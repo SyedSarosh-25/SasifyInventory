@@ -34,8 +34,6 @@ import { Money } from './components/currency';
 import { reviews as fallbackReviews } from './reviews';
 import { ReviewAvatar } from './components/review-avatar';
 import { HeroProductSearch } from './components/hero-product-search';
-import { StructuredData } from './components/structured-data';
-import { websiteData } from './seo';
 import { favicon } from './product-utils';
 
 const lowestPrice = Math.min(...products.filter((p) => !p.contactOnly).map((p) => p.sellingPricePkr));
@@ -540,7 +538,6 @@ export default function Home() {
 
   return (
     <LocalizedContent><main>
-      <StructuredData data={websiteData} />
       <SiteHeader />
       <section id="top" className="hero">
         <div className="hero-grid">

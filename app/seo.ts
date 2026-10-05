@@ -227,6 +227,7 @@ export const organizationData = {
 };
 
 export const websiteData = {
+  '@context': 'https://schema.org',
   '@type': 'WebSite',
   '@id': `${siteOrigin}/#website`,
   url: `${siteOrigin}/`,
