@@ -34,7 +34,7 @@ test('public SasifyBot uses separate credentials', () => {
 
 test('public SasifyBot presents Telegram-native menus without website checkout links', () => {
   const menu = sasifyBotMenu([
-    { id: 'p013', name: 'Claude Team Plan Standard', price: 4299 },
+    { id: 'p013', name: 'Claude Team Plan Standard', price: 4500 },
   ]);
   const serialized = JSON.stringify(menu);
   assert.match(serialized, /Buy products/);

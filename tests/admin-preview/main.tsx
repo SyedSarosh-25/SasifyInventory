@@ -135,8 +135,8 @@ window.fetch = async (input, init) => {
     });
   if (location.pathname === '/checkout' && action === 'catalog')
     return new Response(JSON.stringify({ ready: true, products: [
-      { id: 'p012', name: 'Claude Team Plan Premium', price: 19999, available: 1, source: 'local', availability_mode: 'preorder', requires_customer_email: true },
-      { id: 'p013', name: 'Claude Team Plan Standard', price: 4299, available: 1, source: 'local', availability_mode: 'preorder', requires_customer_email: true },
+      { id: 'p012', name: 'Claude Team Plan Premium', price: 21999, available: 1, source: 'local', availability_mode: 'preorder', requires_customer_email: true },
+      { id: 'p013', name: 'Claude Team Plan Standard', price: 4500, available: 1, source: 'local', availability_mode: 'preorder', requires_customer_email: true },
     ] }), { headers: { 'Content-Type': 'application/json' } });
   if (location.pathname === '/checkout' && action === 'account-dashboard')
     return new Response(JSON.stringify({ account: { name: 'Demo Customer', balance: 19786 } }), { headers: { 'Content-Type': 'application/json' } });
