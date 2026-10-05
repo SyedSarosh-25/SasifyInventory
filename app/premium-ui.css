@@ -578,3 +578,477 @@ body[data-storefront="true"] .variant-pill.is-selected .variant-pill-price {
   color: #dbeafe;
 }
 
+/* ========================================================
+   DEDICATED TOOL FAMILY PLANS SHOWCASE (ONE-BY-ONE UI/UX)
+   ======================================================== */
+body[data-storefront="true"] .featured-plans-count-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 9px;
+  border-radius: var(--radius-pill, 999px);
+  font-size: 0.72rem;
+  font-weight: 800;
+  background: #eef2ff;
+  color: #4338ca;
+  border: 1px solid #c7d2fe;
+  letter-spacing: 0.02em;
+}
+
+body[data-storefront="true"] .catalog-family-controls {
+  max-width: 680px;
+}
+
+body[data-storefront="true"] .tool-plans-section {
+  width: 100%;
+  margin-top: 1rem;
+}
+
+body[data-storefront="true"] .tool-plans-filter-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 1.25rem;
+  padding: 4px 0;
+  flex-wrap: wrap;
+}
+
+body[data-storefront="true"] .tool-plans-tabs-scroll {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  padding: 4px 2px;
+}
+
+body[data-storefront="true"] .tool-plans-tabs-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+body[data-storefront="true"] .tool-plan-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-radius: 999px;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  color: #475569;
+  font-size: 0.84rem;
+  font-weight: 650;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+  min-height: 42px;
+}
+
+body[data-storefront="true"] .tool-plan-tab:hover {
+  border-color: #cbd5e1;
+  color: #0f172a;
+  background: #f8fafc;
+}
+
+body[data-storefront="true"] .tool-plan-tab.is-active {
+  background: #2563eb;
+  color: #ffffff;
+  border-color: #2563eb;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.25);
+}
+
+body[data-storefront="true"] .tool-plans-sort-select {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.82rem;
+  font-weight: 650;
+  color: #475569;
+}
+
+body[data-storefront="true"] .tool-plans-sort-select select {
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  font-size: 0.82rem;
+  color: #0f172a;
+  cursor: pointer;
+}
+
+body[data-storefront="true"] .tool-plans-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(330px, 1fr));
+  gap: 20px;
+}
+
+body[data-storefront="true"] .tool-plan-card {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 18px;
+  padding: 22px;
+  box-shadow: 0 2px 10px rgba(15, 23, 42, 0.04);
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+body[data-storefront="true"] .tool-plan-card:hover {
+  transform: translateY(-3px);
+  border-color: #93c5fd;
+  box-shadow: 0 12px 28px rgba(37, 99, 235, 0.1);
+}
+
+body[data-storefront="true"] .tool-plan-card.is-out-of-stock {
+  opacity: 0.85;
+  background: #fafbfe;
+}
+
+body[data-storefront="true"] .tool-plan-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+
+body[data-storefront="true"] .tool-plan-meta-left {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+body[data-storefront="true"] .plan-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 750;
+  letter-spacing: 0.01em;
+}
+
+body[data-storefront="true"] .plan-badge.is-private {
+  background: #f5f3ff;
+  color: #6d28d9;
+  border: 1px solid #ddd6fe;
+}
+
+body[data-storefront="true"] .plan-badge.is-shared {
+  background: #fffbeb;
+  color: #b45309;
+  border: 1px solid #fde68a;
+}
+
+body[data-storefront="true"] .plan-badge.is-api {
+  background: #ecfdf5;
+  color: #047857;
+  border: 1px solid #a7f3d0;
+}
+
+body[data-storefront="true"] .plan-badge.is-edu {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+}
+
+body[data-storefront="true"] .plan-badge.is-standard {
+  background: #f1f5f9;
+  color: #334155;
+  border: 1px solid #e2e8f0;
+}
+
+body[data-storefront="true"] .plan-duration-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 9px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  background: #f8fafc;
+  color: #475569;
+  border: 1px solid #e2e8f0;
+}
+
+body[data-storefront="true"] .plan-stock-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 750;
+}
+
+body[data-storefront="true"] .plan-stock-badge.is-available {
+  background: #f0fdf4;
+  color: #15803d;
+  border: 1px solid #bbf7d0;
+}
+
+body[data-storefront="true"] .plan-stock-badge.is-preorder {
+  background: #fff7ed;
+  color: #c2410c;
+  border: 1px solid #fed7aa;
+}
+
+body[data-storefront="true"] .plan-stock-badge.is-unavailable {
+  background: #fef2f2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
+}
+
+body[data-storefront="true"] .pulse-indicator {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #22c55e;
+  box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7);
+  animation: pulse-dot 1.8s infinite;
+}
+
+@keyframes pulse-dot {
+  0% {
+    box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7);
+  }
+  70% {
+    box-shadow: 0 0 0 6px rgba(34, 197, 94, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(34, 197, 94, 0);
+  }
+}
+
+body[data-storefront="true"] .tool-plan-title-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+body[data-storefront="true"] .tool-plan-logo {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+body[data-storefront="true"] .tool-plan-title {
+  font-size: 1.05rem;
+  font-weight: 750;
+  color: #0f172a;
+  line-height: 1.35;
+  margin: 0 0 4px;
+}
+
+body[data-storefront="true"] .tool-plan-desc {
+  font-size: 0.8rem;
+  color: #64748b;
+  line-height: 1.4;
+  margin: 0;
+}
+
+body[data-storefront="true"] .tool-plan-features {
+  list-style: none;
+  padding: 0;
+  margin: 14px 0 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+body[data-storefront="true"] .tool-plan-features li {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 0.8rem;
+  color: #334155;
+  line-height: 1.35;
+}
+
+body[data-storefront="true"] .tool-plan-footer {
+  margin-top: auto;
+  padding-top: 14px;
+  border-top: 1px solid #f1f5f9;
+}
+
+body[data-storefront="true"] .tool-plan-pricing {
+  margin-bottom: 14px;
+}
+
+body[data-storefront="true"] .tool-plan-original-price {
+  font-size: 0.78rem;
+  color: #94a3b8;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 2px;
+}
+
+body[data-storefront="true"] .tool-plan-original-price del {
+  text-decoration: line-through;
+}
+
+body[data-storefront="true"] .tool-plan-sale-price {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+body[data-storefront="true"] .tool-plan-price-val {
+  font-size: 1.45rem;
+  font-weight: 850;
+  color: #1e3a8a;
+  letter-spacing: -0.02em;
+}
+
+body[data-storefront="true"] .tool-plan-price-period {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #64748b;
+}
+
+body[data-storefront="true"] .tool-plan-savings {
+  display: inline-flex;
+  align-items: center;
+  margin-top: 4px;
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-size: 0.72rem;
+  font-weight: 750;
+  background: #dcfce7;
+  color: #15803d;
+}
+
+body[data-storefront="true"] .tool-plan-actions {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr;
+  gap: 10px;
+}
+
+body[data-storefront="true"] .tool-plan-btn-buy {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 46px;
+  padding: 10px 16px;
+  border-radius: 12px;
+  font-size: 0.9rem;
+  font-weight: 750;
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+  color: #ffffff;
+  text-decoration: none;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);
+  transition: all 0.15s ease;
+}
+
+body[data-storefront="true"] .tool-plan-btn-buy:hover {
+  background: linear-gradient(135deg, #1d4ed8 0%, #1e40af 100%);
+  box-shadow: 0 6px 16px rgba(37, 99, 235, 0.35);
+  transform: translateY(-1px);
+}
+
+body[data-storefront="true"] .tool-plan-btn-whatsapp {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 46px;
+  padding: 10px 16px;
+  border-radius: 12px;
+  font-size: 0.88rem;
+  font-weight: 700;
+  background: #25d366;
+  color: #ffffff;
+  text-decoration: none;
+  transition: all 0.15s ease;
+}
+
+body[data-storefront="true"] .tool-plan-btn-whatsapp:hover {
+  background: #1eb956;
+  transform: translateY(-1px);
+}
+
+body[data-storefront="true"] .tool-plan-btn-details {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 46px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  font-size: 0.85rem;
+  font-weight: 650;
+  background: #f8fafc;
+  color: #334155;
+  border: 1px solid #e2e8f0;
+  text-decoration: none;
+  transition: all 0.15s ease;
+}
+
+body[data-storefront="true"] .tool-plan-btn-details:hover {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+  color: #0f172a;
+}
+
+/* Mobile Screen (Phone) Optimizations */
+@media (max-width: 640px) {
+  body[data-storefront="true"] .tool-plans-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+  body[data-storefront="true"] .tool-plan-card {
+    padding: 18px 16px;
+    border-radius: 16px;
+  }
+  body[data-storefront="true"] .tool-plan-actions {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+  body[data-storefront="true"] .tool-plan-btn-buy,
+  body[data-storefront="true"] .tool-plan-btn-whatsapp {
+    min-height: 50px;
+    font-size: 0.95rem;
+    width: 100%;
+  }
+  body[data-storefront="true"] .tool-plan-btn-details {
+    min-height: 46px;
+    width: 100%;
+  }
+  body[data-storefront="true"] .tool-plans-filter-bar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+  body[data-storefront="true"] .tool-plans-tabs-scroll {
+    padding-bottom: 6px;
+    width: 100%;
+  }
+  body[data-storefront="true"] .tool-plan-tab {
+    min-height: 44px;
+    font-size: 0.82rem;
+    padding: 8px 14px;
+  }
+  body[data-storefront="true"] .tool-plan-price-val {
+    font-size: 1.35rem;
+  }
+  body[data-storefront="true"] .tool-plan-title {
+    font-size: 1rem;
+  }
+}
+
+

@@ -14,7 +14,7 @@ import { cacheSupplierCatalog } from '../supplier-catalog-cache';
 import { loadPublicCatalog } from '../public-catalog';
 import { supplierCatalogHref } from '../supplier-seo';
 import { supplierOriginalPriceComparison } from '../supplier-price-utils';
-import { getVariantShortLabel } from '../tool-families';
+import { toolFamilyHref, toolFamilyName } from '../tool-families';
 
 type SupplierProduct = {
   id: string;
@@ -53,24 +53,28 @@ export function SupplierFeaturedCard({
   product: FeaturedProduct;
   variants?: FeaturedProduct[];
 }) {
-  const [selectedId, setSelectedId] = useState<string>(product.id);
-  useEffect(() => {
-    setSelectedId(product.id);
-  }, [product.id]);
-  const activeProduct = (variants.length > 1 ? variants.find(v => v.id === selectedId) : null) || product;
+  const isFamily = variants.length > 1;
+  const familyName = isFamily ? toolFamilyName(product.name) : '';
+  const activeProduct = product;
 
   const logo =
     activeProduct.source === 'supplier'
       ? supplierLogo(activeProduct.name, activeProduct.logo_url)
       : '';
-  const href = activeProduct.href || (
-    activeProduct.source === 'supplier'
-      ? supplierCatalogHref(activeProduct)
-      : productHref(activeProduct.localProduct!)
-  );
-  const displayName = (activeProduct.display_name || activeProduct.name)
-    .replace(/\(*can be monetized\)*\s*/gi, '').trim()
-    .replace(/^\$500 API CLAUDE 30D \(FW\)$/i, 'Claude API · $500 credits · 30 days (FW)');
+  const href = isFamily && familyName
+    ? toolFamilyHref(product.name)
+    : (activeProduct.href || (
+        activeProduct.source === 'supplier'
+          ? supplierCatalogHref(activeProduct)
+          : productHref(activeProduct.localProduct!)
+      ));
+
+  const displayName = isFamily && familyName
+    ? `${familyName} Plans & Subscriptions`
+    : (activeProduct.display_name || activeProduct.name)
+        .replace(/\(*can be monetized\)*\s*/gi, '').trim()
+        .replace(/^\$500 API CLAUDE 30D \(FW\)$/i, 'Claude API · $500 credits · 30 days (FW)');
+
   const comparison = activeProduct.source === 'supplier'
     ? supplierOriginalPriceComparison(activeProduct)
     : null;
@@ -87,13 +91,29 @@ export function SupplierFeaturedCard({
   const savings = originalPrice === null
     ? null
     : Math.max(0, Math.round((originalPrice - salePrice) * 100) / 100);
+
+  const validVariantPrices = variants
+    .map(v => v.display_price ?? v.price)
+    .filter(p => Number.isFinite(p) && p > 0);
+  const minVariantPrice = validVariantPrices.length ? Math.min(...validVariantPrices) : salePrice;
+
+  const variantSavingsList = variants.map(v => {
+    const orig = v.original_price_pkr ?? v.display_original_price ?? (v.source === 'supplier' ? supplierOriginalPriceComparison(v)?.totalPkr : null);
+    const p = v.display_price ?? v.price;
+    return (orig && p && orig > p) ? orig - p : 0;
+  });
+  const maxVariantSavings = variantSavingsList.length ? Math.max(...variantSavingsList) : 0;
+
   const sourceDescription = activeProduct.canonical_key === 'manual:muse-ai'
     ? 'Muse AI — 1 billion AI tokens'
     : String(activeProduct.description || '').replace(/PERPLEXITY PRO\s*[–—-]\s*1 MONTH\s*\|\s*ACTIVATION CDK/i, 'Perplexity Pro — 1-month activation code');
-  const description = String(sourceDescription || '')
-    .split(/\n+/)
-    .map((line) => line.replace(/^[^\p{L}\p{N}]+/u, '').trim())
-    .find(Boolean) || 'Review access, duration and requirements before ordering.';
+  const description = isFamily && familyName
+    ? `Choose from ${variants.length} verified ${familyName} plans with instant delivery, full warranty, and local PKR payments.`
+    : (String(sourceDescription || '')
+        .split(/\n+/)
+        .map((line) => line.replace(/^[^\p{L}\p{N}]+/u, '').trim())
+        .find(Boolean) || 'Review access, duration and requirements before ordering.');
+
   const checkoutProductId = activeProduct.source === 'supplier'
     ? activeProduct.canonical_key || activeProduct.id
     : activeProduct.id === 'p093'
@@ -107,31 +127,39 @@ export function SupplierFeaturedCard({
     : !isSupplier
       ? Number(activeProduct.available) > 0
       : stockVerified && Number(activeProduct.available) > 0;
-  const stockLabel = (
-    availabilityMode === 'preorder'
-      ? 'Taking pre-orders'
-      : !isSupplier && availabilityMode === 'manual'
-        ? 'In stock · 999'
-        : !stockVerified
-            ? 'Checking stock…'
-            : inStock
-              ? `In stock${Number.isFinite(Number(activeProduct.available)) ? ` · ${Number(activeProduct.available).toLocaleString('en-PK')}` : ''}`
-              : 'Out of stock'
-  );
-  const availabilityClass = availabilityMode === 'preorder'
-    ? 'is-preorder'
-    : availabilityMode === 'manual'
-      ? 'is-manual'
-      : !stockVerified
-        ? 'is-checking'
-        : inStock
-          ? 'is-available'
-          : 'is-unavailable';
-  const showStockBadge = Boolean(stockLabel);
-  const canPurchase = inStock || contactOnly;
 
-  const isShared = /\bshared\b/i.test(activeProduct.name);
-  const isUltraOrPrivate = /\b(?:ultra|stable|private)\b/i.test(activeProduct.name);
+  const inStockVariantsCount = variants.filter(v => v.availability_mode === 'preorder' || v.availability_mode === 'manual' || Number(v.available) > 0).length;
+  const familyHasStock = inStockVariantsCount > 0;
+
+  const stockLabel = isFamily
+    ? (familyHasStock ? `In stock · ${inStockVariantsCount} plans` : 'Out of stock')
+    : (availabilityMode === 'preorder'
+        ? 'Taking pre-orders'
+        : !isSupplier && availabilityMode === 'manual'
+          ? 'In stock · 999'
+          : !stockVerified
+              ? 'Checking stock…'
+              : inStock
+                ? `In stock${Number.isFinite(Number(activeProduct.available)) ? ` · ${Number(activeProduct.available).toLocaleString('en-PK')}` : ''}`
+                : 'Out of stock');
+
+  const availabilityClass = isFamily
+    ? (familyHasStock ? 'is-available' : 'is-unavailable')
+    : (availabilityMode === 'preorder'
+        ? 'is-preorder'
+        : availabilityMode === 'manual'
+          ? 'is-manual'
+          : !stockVerified
+            ? 'is-checking'
+            : inStock
+              ? 'is-available'
+              : 'is-unavailable');
+
+  const showStockBadge = Boolean(stockLabel);
+  const canPurchase = isFamily ? familyHasStock : (inStock || contactOnly);
+
+  const isShared = !isFamily && /\bshared\b/i.test(activeProduct.name);
+  const isUltraOrPrivate = !isFamily && /\b(?:ultra|stable|private)\b/i.test(activeProduct.name);
 
   return (
     <LocalizedContent><article className={`featured-card supplier-featured-card${!canPurchase ? ' is-stock-blocked' : ''}`}>
@@ -170,43 +198,32 @@ export function SupplierFeaturedCard({
         </a>
 
         {variants.length > 1 && (
-          <div className="featured-variants-selector" role="group" aria-label="Available plans">
-            <div className="variants-pills-row">
-              {variants.map((v) => {
-                const isSelected = v.id === activeProduct.id;
-                const label = getVariantShortLabel(v.name);
-                const priceVal = v.display_price ?? v.price;
-                const vHref = v.href || (
-                  v.source === 'supplier'
-                    ? `/products/${v.canonical_key || v.id}`
-                    : v.localProduct
-                      ? productHref(v.localProduct)
-                      : `/products/${v.id}`
-                );
-                return (
-                  <a
-                    key={v.id}
-                    href={vHref}
-                    className={`variant-pill ${isSelected ? 'is-selected' : ''}`}
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      setSelectedId(v.id);
-                    }}
-                    title={v.name}
-                  >
-                    <span className="variant-pill-label">{label}</span>
-                    <span className="variant-pill-price">PKR {Number(priceVal).toLocaleString()}</span>
-                  </a>
-                );
-              })}
-            </div>
+          <div className="sr-only" aria-hidden="true">
+            {variants.map((v) => {
+              const vHref = v.href || (
+                v.source === 'supplier'
+                  ? `/products/${v.canonical_key || v.id}`
+                  : v.localProduct
+                    ? productHref(v.localProduct)
+                    : `/products/${v.id}`
+              );
+              return (
+                <a key={v.id} href={vHref}>
+                  {v.name}
+                </a>
+              );
+            })}
           </div>
         )}
 
         <a className="featured-price-link" href={href}>
           <div className="featured-price-block">
-            {!contactOnly && originalPrice !== null ? (
+            {isFamily ? (
+              <div className="featured-original-price">
+                <span>Pricing</span>
+                <strong>{variants.length} tiers available</strong>
+              </div>
+            ) : !contactOnly && originalPrice !== null ? (
               <div className="featured-original-price">
                 <span>Original price</span>
                 <del><Money amount={originalPrice} /></del>
@@ -218,23 +235,39 @@ export function SupplierFeaturedCard({
               </div>
             )}
             <div className="featured-our-price">
-              <span><Tag className="h-3 w-3" /> {contactOnly ? 'From' : 'Our price'}</span>
-              <strong>{contactOnly ? contactPrice === null ? 'Choose package' : <Money amount={contactPrice} /> : <Money amount={salePrice} />}</strong>
+              <span><Tag className="h-3 w-3" /> {isFamily || contactOnly ? 'Starting from' : 'Our price'}</span>
+              <strong>
+                {isFamily ? (
+                  <Money amount={minVariantPrice} />
+                ) : contactOnly ? (
+                  contactPrice === null ? 'Choose package' : <Money amount={contactPrice} />
+                ) : (
+                  <Money amount={salePrice} />
+                )}
+              </strong>
             </div>
-            {!contactOnly && savings !== null && <div className="featured-savings">Your savings <strong><Money amount={savings} /></strong></div>}
+            {isFamily && maxVariantSavings > 0 ? (
+              <div className="featured-savings">Save up to <strong><Money amount={maxVariantSavings} /></strong></div>
+            ) : !contactOnly && savings !== null && (
+              <div className="featured-savings">Your savings <strong><Money amount={savings} /></strong></div>
+            )}
           </div>
         </a>
       </div>
 
       <div className="featured-card-actions">
         <a className="featured-details-button" href={href}>View details</a>
-        {canPurchase ? <>
+        {isFamily ? (
+          <a className="featured-buy-button" href={href}>
+            Choose plan <ArrowRight className="h-4 w-4" />
+          </a>
+        ) : canPurchase ? (
           <a className="featured-buy-button" href={contactOnly ? href : `/checkout?product=${encodeURIComponent(checkoutProductId)}`}>
             {contactOnly ? 'Choose package' : 'Buy now'} <ArrowRight className="h-4 w-4" />
           </a>
-        </> : <>
+        ) : (
           <button type="button" className="featured-buy-button is-disabled" disabled>{stockVerified ? 'Unavailable' : 'Checking stock…'}</button>
-        </>}
+        )}
       </div>
     </article></LocalizedContent>
   );

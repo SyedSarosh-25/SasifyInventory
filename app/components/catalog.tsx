@@ -17,6 +17,7 @@ import { cacheSupplierCatalog } from '../supplier-catalog-cache';
 import { loadPublicCatalog } from '../public-catalog';
 import { CategoryNavigation } from './category-navigation';
 import { SupplierFeaturedCard, type FeaturedProduct } from './top-supplier-products';
+import { ToolPlanCard } from './tool-plan-card';
 
 type LiveSupplierProduct = {
   id: string;
@@ -60,9 +61,10 @@ function matchesQuery(product: FeaturedProduct, query: string) {
 export function Catalog({ initialQuery = '', initialCategory = 'All', heading = 'Full inventory', family = '', introduction }: { initialQuery?: string; initialCategory?: string; heading?: string; family?: string; introduction?: ReactNode }) {
   const [query, setQuery] = useState(initialQuery);
   const [activeCategory, setActiveCategory] = useState(initialCategory);
-  const [sort, setSort] = useState('featured');
+  const [sort, setSort] = useState(family ? 'low' : 'featured');
   const [stockFilter, setStockFilter] = useState('all');
-  const [groupByTool, setGroupByTool] = useState(true);
+  const [groupByTool, setGroupByTool] = useState(!family);
+  const [planTypeFilter, setPlanTypeFilter] = useState<'all' | 'stock' | 'private' | 'shared' | 'api'>('all');
   const [stockState, setStockState] = useState<'loading' | 'ready' | 'error'>('loading');
   const [liveCatalogProducts, setLiveCatalogProducts] = useState<LiveSupplierProduct[]>([]);
 
@@ -227,6 +229,31 @@ export function Catalog({ initialQuery = '', initialCategory = 'All', heading = 
     return result;
   }, [filtered, groupByTool, sort]);
 
+  const familyPlans = filtered;
+  const inStockCount = useMemo(() => familyPlans.filter(p => p.availability_mode === 'preorder' || p.availability_mode === 'manual' || Number(p.available) > 0).length, [familyPlans]);
+  const privateCount = useMemo(() => familyPlans.filter(p => /\b(?:ultra|stable|private|own\s*email)\b/i.test(p.name)).length, [familyPlans]);
+  const sharedCount = useMemo(() => familyPlans.filter(p => /\bshared\b/i.test(p.name)).length, [familyPlans]);
+  const apiCount = useMemo(() => familyPlans.filter(p => /\b(?:api|token|tokens|credits?|cdk)\b/i.test(p.name)).length, [familyPlans]);
+
+  const displayedFamilyPlans = useMemo(() => {
+    if (!family) return [];
+    return familyPlans.filter(p => {
+      if (planTypeFilter === 'stock') {
+        return p.availability_mode === 'preorder' || p.availability_mode === 'manual' || Number(p.available) > 0;
+      }
+      if (planTypeFilter === 'private') {
+        return /\b(?:ultra|stable|private|own\s*email)\b/i.test(p.name);
+      }
+      if (planTypeFilter === 'shared') {
+        return /\bshared\b/i.test(p.name);
+      }
+      if (planTypeFilter === 'api') {
+        return /\b(?:api|token|tokens|credits?|cdk)\b/i.test(p.name);
+      }
+      return true;
+    });
+  }, [family, familyPlans, planTypeFilter]);
+
   return (
     <LocalizedContent><section id="catalog" className="catalog-section">
       <div className="section-inner">
@@ -234,46 +261,58 @@ export function Catalog({ initialQuery = '', initialCategory = 'All', heading = 
           <div>
             <span className="section-kicker">Sasify Solutions Inventory</span>
             <h1>{heading}</h1>
-            <p>Every plan shows its access type, length and PKR price.</p>
+            <p>{family ? `Choose from ${filtered.length} verified plans with instant delivery, full warranty, and PKR local payments.` : 'Every plan shows its access type, length and PKR price.'}</p>
           </div>
           <div className="results-badge" role="status">
-            <Filter className="h-4 w-4" /> {groupByTool ? `${displayGroups.length} tools (${filtered.length} plans)` : `${filtered.length} products`}
+            <Filter className="h-4 w-4" /> {family ? `${filtered.length} plans available` : groupByTool ? `${displayGroups.length} tools (${filtered.length} plans)` : `${filtered.length} products`}
           </div>
         </div>
 
         {introduction}
-        <div className="catalog-controls">
-          <CategoryNavigation categories={categories} activeCategory={activeCategory} onChange={setActiveCategory} />
-          <label className="catalog-search">
-            <Search className="h-4 w-4" />
-            <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search products, categories or features" aria-label="Search catalog" />
-            {query && <button type="button" onClick={() => setQuery('')} aria-label="Clear search"><X className="h-4 w-4" /></button>}
-          </label>
-        </div>
+        {!family ? (
+          <div className="catalog-controls">
+            <CategoryNavigation categories={categories} activeCategory={activeCategory} onChange={setActiveCategory} />
+            <label className="catalog-search">
+              <Search className="h-4 w-4" />
+              <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search products, categories or features" aria-label="Search catalog" />
+              {query && <button type="button" onClick={() => setQuery('')} aria-label="Clear search"><X className="h-4 w-4" /></button>}
+            </label>
+          </div>
+        ) : (
+          <div className="catalog-controls catalog-family-controls">
+            <label className="catalog-search">
+              <Search className="h-4 w-4" />
+              <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={`Search ${toolFamilyLabel(family)} plans (e.g. 1 Month, Pro, API)...`} aria-label="Search plans" />
+              {query && <button type="button" onClick={() => setQuery('')} aria-label="Clear search"><X className="h-4 w-4" /></button>}
+            </label>
+          </div>
+        )}
         {matchingFamily && <a className="catalog-family-link" href={toolFamilyHref(matchingFamily.name)}>View all {toolFamilyLabel(toolFamilySlug(matchingFamily.name))} plans and prices →</a>}
 
-        <div className="catalog-filter-row">
-          <label>Sort by <select value={sort} onChange={event => setSort(event.target.value)}>
-            <option value="featured">Featured</option><option value="low">Price: low to high</option><option value="high">Price: high to low</option><option value="name">Name: A–Z</option>
-          </select></label>
-          <label className={`catalog-stock-filter ${groupByTool ? 'is-active' : ''}`}>
-            <input
-              type="checkbox"
-              checked={groupByTool}
-              onChange={event => setGroupByTool(event.target.checked)}
-            />
-            <span>Group by Tool</span>
-          </label>
-          <label className={`catalog-stock-filter ${stockFilter === 'in' ? 'is-active' : ''}`}>
-            <input
-              type="checkbox"
-              checked={stockFilter === 'in'}
-              onChange={event => setStockFilter(event.target.checked ? 'in' : 'all')}
-            />
-            <span>In Stock Products Only</span>
-          </label>
-          <button type="button" className="catalog-reset" onClick={() => { setQuery(''); setActiveCategory(initialCategory); setSort('featured'); setStockFilter('all'); setGroupByTool(true); }}>Reset filters</button>
-        </div>
+        {!family && (
+          <div className="catalog-filter-row">
+            <label>Sort by <select value={sort} onChange={event => setSort(event.target.value)}>
+              <option value="featured">Featured</option><option value="low">Price: low to high</option><option value="high">Price: high to low</option><option value="name">Name: A–Z</option>
+            </select></label>
+            <label className={`catalog-stock-filter ${groupByTool ? 'is-active' : ''}`}>
+              <input
+                type="checkbox"
+                checked={groupByTool}
+                onChange={event => setGroupByTool(event.target.checked)}
+              />
+              <span>Group by Tool</span>
+            </label>
+            <label className={`catalog-stock-filter ${stockFilter === 'in' ? 'is-active' : ''}`}>
+              <input
+                type="checkbox"
+                checked={stockFilter === 'in'}
+                onChange={event => setStockFilter(event.target.checked ? 'in' : 'all')}
+              />
+              <span>In Stock Products Only</span>
+            </label>
+            <button type="button" className="catalog-reset" onClick={() => { setQuery(''); setActiveCategory(initialCategory); setSort('featured'); setStockFilter('all'); setGroupByTool(true); }}>Reset filters</button>
+          </div>
+        )}
         {stockState === 'error' && <p className="catalog-stock-status" role="status">Live stock updates could not be loaded. Supplier cards are disabled until stock can be confirmed.</p>}
         <p className="comparison-note">Savings compare the original price for the full plan duration with our price. Monthly references are multiplied by the number of months. Access and provider billing options may differ.</p>
         <p className="wallet-discount-notice">
@@ -282,17 +321,96 @@ export function Catalog({ initialQuery = '', initialCategory = 'All', heading = 
         </p>
 
         <h2 className="catalog-plans-title">Available plans</h2>
-        <div className="featured-grid catalog-featured-grid">
-          {displayGroups.map((group) => (
-            <SupplierFeaturedCard
-              key={group.primary.id}
-              product={group.primary}
-              variants={group.variants}
-            />
-          ))}
-        </div>
+        {family ? (
+          <div className="tool-plans-section">
+            <div className="tool-plans-filter-bar">
+              <div className="tool-plans-tabs-scroll" role="tablist" aria-label="Filter plans by type">
+                <button
+                  type="button"
+                  className={`tool-plan-tab ${planTypeFilter === 'all' ? 'is-active' : ''}`}
+                  onClick={() => setPlanTypeFilter('all')}
+                >
+                  All Plans ({familyPlans.length})
+                </button>
+                <button
+                  type="button"
+                  className={`tool-plan-tab ${planTypeFilter === 'stock' ? 'is-active' : ''}`}
+                  onClick={() => setPlanTypeFilter('stock')}
+                >
+                  In Stock ({inStockCount})
+                </button>
+                {privateCount > 0 && (
+                  <button
+                    type="button"
+                    className={`tool-plan-tab ${planTypeFilter === 'private' ? 'is-active' : ''}`}
+                    onClick={() => setPlanTypeFilter('private')}
+                  >
+                    Private Account ({privateCount})
+                  </button>
+                )}
+                {sharedCount > 0 && (
+                  <button
+                    type="button"
+                    className={`tool-plan-tab ${planTypeFilter === 'shared' ? 'is-active' : ''}`}
+                    onClick={() => setPlanTypeFilter('shared')}
+                  >
+                    Shared Access ({sharedCount})
+                  </button>
+                )}
+                {apiCount > 0 && (
+                  <button
+                    type="button"
+                    className={`tool-plan-tab ${planTypeFilter === 'api' ? 'is-active' : ''}`}
+                    onClick={() => setPlanTypeFilter('api')}
+                  >
+                    API & Tokens ({apiCount})
+                  </button>
+                )}
+              </div>
 
-        {displayGroups.length === 0 && <div className="empty-state">
+              <div className="tool-plans-sort-select">
+                <label htmlFor="tool-sort">Sort by</label>
+                <select
+                  id="tool-sort"
+                  value={sort}
+                  onChange={(e) => setSort(e.target.value)}
+                >
+                  <option value="low">Price: Low to High</option>
+                  <option value="high">Price: High to Low</option>
+                  <option value="name">Name: A–Z</option>
+                  <option value="featured">Featured</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="tool-plans-grid">
+              {displayedFamilyPlans.map((product) => (
+                <ToolPlanCard key={product.id} product={product} />
+              ))}
+            </div>
+
+            {displayedFamilyPlans.length === 0 && (
+              <div className="empty-state">
+                <Search className="h-6 w-6" />
+                <h2>No plans found</h2>
+                <p>Try clearing your filter or search query.</p>
+                <button type="button" onClick={() => { setQuery(''); setPlanTypeFilter('all'); }}>Show all {toolFamilyLabel(family)} plans</button>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="featured-grid catalog-featured-grid">
+            {displayGroups.map((group) => (
+              <SupplierFeaturedCard
+                key={group.primary.id}
+                product={group.primary}
+                variants={group.variants}
+              />
+            ))}
+          </div>
+        )}
+
+        {!family && displayGroups.length === 0 && <div className="empty-state">
           <Search className="h-6 w-6" />
           <h2>No products found</h2>
           <p>Try another search or category.</p>
