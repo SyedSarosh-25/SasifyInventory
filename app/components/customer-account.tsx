@@ -76,36 +76,10 @@ type Dashboard = {
   savings?: number;
   deposits: Deposit[];
   ledger: { amount: number; description: string; created_at: string }[];
-  refundConfig: { warrantyDays: number; billingDays: number; deactivationDate: string };
-  refundRequests: RefundRequest[];
   requirements: { id: string; tool_name: string; description: string; status: string; response_contact?: string | null; responded_at?: string | null; created_at: string }[];
-};
-type RefundRequest = {
-  id: string;
-  workspace_cohort: string;
-  activation_date: string;
-  activated_claude_email?: string | null;
-  seat_type: 'standard' | 'premium';
-  purchase_price: number;
-  deactivation_date: string;
-  warranty_days: number;
-  billing_days: number;
-  elapsed_days: number;
-  remaining_days: number;
-  per_day_cost: number;
-  refund_amount: number;
-  status: 'pending' | 'approved' | 'rejected';
-  review_note?: string | null;
-  created_at: string;
 };
 const money = (amount: number) =>
   `PKR ${Number(amount).toLocaleString('en-US')}`;
-const formatDateOnly = (value: unknown) => {
-  const date = value instanceof Date ? value : typeof value === 'string' ? new Date(value) : null;
-  return date && Number.isFinite(date.getTime())
-    ? date.toLocaleDateString(undefined, { timeZone: 'UTC' })
-    : '—';
-};
 const emailPattern =
   /^[^\s@]+@(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z0-9][a-z0-9-]{0,61}[a-z0-9]$/i;
 const usernamePattern = /^[a-z0-9](?:[a-z0-9._-]{1,22}[a-z0-9])$/;
@@ -153,6 +127,37 @@ function PasswordField({
     </label></LocalizedContent>
   );
 }
+
+type RefundRequest = {
+  id: string;
+  workspace_cohort: string;
+  activation_date: string;
+  activated_claude_email?: string | null;
+  seat_type: 'standard' | 'premium';
+  purchase_price: number;
+  deactivation_date: string;
+  warranty_days: number;
+  billing_days: number;
+  elapsed_days: number;
+  remaining_days: number;
+  per_day_cost: number;
+  refund_amount: number;
+  status: 'pending' | 'approved' | 'rejected';
+  review_note?: string | null;
+  created_at: string;
+};
+
+const formatDateOnly = (value: unknown) => {
+  const date = value instanceof Date ? value : typeof value === 'string' ? new Date(value) : null;
+  return date && Number.isFinite(date.getTime())
+    ? date.toLocaleDateString(undefined, { timeZone: 'UTC' })
+    : '—';
+};
+
+type CustomerDashboardData = Dashboard & {
+  refundConfig: { warrantyDays: number; billingDays: number; deactivationDate: string };
+  refundRequests: RefundRequest[];
+};
 
 export function AccountAuth({ signup = false }: { signup?: boolean }) {
   const [error, setError] = useState(''),
@@ -643,7 +648,7 @@ export function AccountRecovery({ reset = false }: { reset?: boolean }) {
 }
 
 export function CustomerDashboard() {
-  const [data, setData] = useState<Dashboard | null>(null),
+  const [data, setData] = useState<CustomerDashboardData | null>(null),
     [error, setError] = useState(''),
     [notice, setNotice] = useState(''),
     [busy, setBusy] = useState(false);

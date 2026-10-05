@@ -1420,7 +1420,6 @@ svg { flex-shrink: 0; }
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
 }
-.deal-proofs-track { scrollbar-width: thin; scrollbar-color: #9bb7ec #e7eef9; }
 .deal-proofs-track::-webkit-scrollbar { display: block; height: 8px; }
 .deal-proofs-track::-webkit-scrollbar-thumb { border-radius: 999px; background: #9bb7ec; }
 .deal-proofs-track::-webkit-scrollbar-track { border-radius: 999px; background: #e7eef9; }
@@ -1967,6 +1966,8 @@ svg { flex-shrink: 0; }
     background: #f8fbff;
     color: var(--ink);
   }
+    .why-sasify-emblem { margin-inline: auto; transform: rotateY(0deg); }
+  .why-sasify-mobile-story { margin: 0 auto; }
   .why-sasify-mobile-controls > button svg { width: 19px; height: 19px; }
   .why-sasify-mobile-progress { display: flex; min-width: 0; justify-content: center; gap: 7px; }
   .why-sasify-mobile-progress button {

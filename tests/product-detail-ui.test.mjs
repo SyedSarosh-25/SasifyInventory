@@ -12,7 +12,7 @@ test('local and supplier product pages expose the same navigable buying hierarch
   for (const slug of [
     'chatgpt-plus-1-month',
     'hostinger-vps',
-    'capcut-pro-team-1-month-1200-credits-1j4v15',
+    'capcut-pro-team-1-month-1200-credits',
   ]) {
     const html = await productHtml(slug);
     assert.match(html, /class="detail-identity product-detail-hero"/);

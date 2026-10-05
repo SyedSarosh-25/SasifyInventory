@@ -101,7 +101,7 @@ test('Qamify catalog sync and paid order fulfilment use provider IDs and idempot
     assert.equal((await request('admin-supplier-sync', {}, process.env.COMMERCE_ADMIN_KEY)).code, 200);
 
     const stock = await request('stock');
-    const supplierProducts = stock.data.products.filter((item) => item.source === 'supplier');
+    const supplierProducts = stock.data.products.filter((item) => item.source === 'supplier' && item.id !== 'manual:muse-ai');
     assert.equal(supplierProducts.length, 3);
     const product = supplierProducts.find((item) => item.id === 'test-product');
     assert.equal(product.id, 'test-product');

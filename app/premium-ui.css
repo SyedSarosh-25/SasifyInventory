@@ -553,6 +553,7 @@ body[data-storefront="true"] .variant-pill {
   transition: all 0.15s ease;
   text-align: left;
   line-height: 1.25;
+  text-decoration: none;
 }
 body[data-storefront="true"] .variant-pill:hover {
   border-color: #93c5fd;

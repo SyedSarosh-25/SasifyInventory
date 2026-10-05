@@ -1395,7 +1395,8 @@ export const supplierUrlRegistry = [
     "slug": "cursor-pro-2600-credits-1-month",
     "keys": [
       "auto:2600-credits-cursor-pro-duration-1m",
-      "auto:api-cursor-pro-2600-credits-1-month-full-warranty"
+      "auto:api-cursor-pro-2600-credits-1-month-full-warranty",
+      "auto:2600-api-credits-cursor-pro-duration-1m"
     ],
     "names": [
       "cursor pro 2600 credits 1 month full warranty",
@@ -1405,7 +1406,8 @@ export const supplierUrlRegistry = [
       "cursor-pro-2600-credits-1-month-full-warranty-j62sni",
       "cursor-pro-2600-credits-1-month-full-warranty",
       "cursor-pro-2600-credits-1-month-full-warranty-1gu3h5",
-      "api-cursor-pro-2600-credits-1-month-full-warranty-1gu3h5"
+      "api-cursor-pro-2600-credits-1-month-full-warranty-1gu3h5",
+      "api-cursor-pro-2600-credits-1-month-full-warranty-1gh3kh"
     ]
   },
   {
@@ -3251,73 +3253,85 @@ export const supplierUrlRegistry = [
   {
     "slug": "api-test-product",
     "keys": [
-      "auto:api-test-product"
+      "auto:api-test-product",
+      "auto:api-product-test"
     ],
     "names": [
       "api test product"
     ],
     "aliases": [
-      "api-test-product-1vjox1"
+      "api-test-product-1vjox1",
+      "api-test-product-1fh61a"
     ]
   },
   {
     "slug": "cursor-pro-fw-pre-order",
     "keys": [
-      "auto:cursor-pro-fw-pre-order"
+      "auto:cursor-pro-fw-pre-order",
+      "auto:cursor-order-pro"
     ],
     "names": [
       "cursor pro fw (pre-order)"
     ],
     "aliases": [
-      "cursor-pro-fw-pre-order-1oxipm"
+      "cursor-pro-fw-pre-order-1oxipm",
+      "cursor-pro-fw-pre-order-11a1t1"
     ]
   },
   {
     "slug": "elevenlabs-redeem-1m-cre",
     "keys": [
-      "auto:elevenlabs-redeem-1m-cre-full-warranty"
+      "auto:elevenlabs-redeem-1m-cre-full-warranty",
+      "auto:cre-elevenlabs-redeem-duration-1m"
     ],
     "names": [
       "🔥elevenlabs redeem 1m cre full warranty"
     ],
     "aliases": [
-      "elevenlabs-redeem-1m-cre-full-warranty-1fudny"
+      "elevenlabs-redeem-1m-cre-full-warranty-1fudny",
+      "elevenlabs-redeem-1m-cre-full-warranty-0bsz61"
     ]
   },
   {
     "slug": "elevenlabs-redeem-1m-credit",
     "keys": [
-      "auto:elevenlabs-redeem-1m-credit"
+      "auto:elevenlabs-redeem-1m-credit",
+      "auto:credit-elevenlabs-redeem-duration-1m"
     ],
     "names": [
       "🔥elevenlabs redeem 1m credit"
     ],
     "aliases": [
-      "elevenlabs-redeem-1m-credit-6oauhp"
+      "elevenlabs-redeem-1m-credit-6oauhp",
+      "elevenlabs-redeem-1m-credit-1g7ogs"
     ]
   },
   {
     "slug": "elevenlabs-redeem-3m-credit",
     "keys": [
-      "auto:elevenlabs-redeem-3m-credit"
+      "auto:elevenlabs-redeem-3m-credit",
+      "auto:credit-elevenlabs-redeem-duration-3m"
     ],
     "names": [
       "🔥elevenlabs redeem 3m credit"
     ],
     "aliases": [
-      "elevenlabs-redeem-3m-credit-w7fxin"
+      "elevenlabs-redeem-3m-credit-w7fxin",
+      "elevenlabs-redeem-3m-credit-2jxkmy"
     ]
   },
   {
     "slug": "elevenlabs-redeem-7m-credit",
     "keys": [
-      "auto:elevenlabs-redeem-7m-credit"
+      "auto:elevenlabs-redeem-7m-credit",
+      "auto:credit-elevenlabs-redeem-duration-7m"
     ],
     "names": [
       "🔥elevenlabs redeem 7m credit"
     ],
     "aliases": [
-      "elevenlabs-redeem-7m-credit-10pks7"
+      "elevenlabs-redeem-7m-credit-10pks7",
+      "elevenlabs-redeem-7m-credit-2kce8m"
     ]
   },
   {
@@ -3335,49 +3349,57 @@ export const supplierUrlRegistry = [
   {
     "slug": "elevenlabs-redeem-300k-credit",
     "keys": [
-      "auto:elevenlabs-redeem-300k-credit"
+      "auto:elevenlabs-redeem-300k-credit",
+      "auto:300k-credit-elevenlabs-redeem"
     ],
     "names": [
       "🔥elevenlabs redeem 300k credit"
     ],
     "aliases": [
-      "elevenlabs-redeem-300k-credit-ikmdl1"
+      "elevenlabs-redeem-300k-credit-ikmdl1",
+      "elevenlabs-redeem-300k-credit-1p7uaq"
     ]
   },
   {
     "slug": "netflix-official-account-activation-slot-for-30-days",
     "keys": [
-      "auto:account-activation-netflix-official-slot-30d"
+      "auto:account-activation-netflix-official-slot-30d",
+      "auto:account-activation-netflix-official-slot-duration-1m"
     ],
     "names": [
       "🔥netflix official account activation slot for 30 days"
     ],
     "aliases": [
-      "netflix-official-account-activation-slot-for-30-days-1q4nj0"
+      "netflix-official-account-activation-slot-for-30-days-1q4nj0",
+      "netflix-official-account-activation-slot-for-30-days-yvyrja"
     ]
   },
   {
     "slug": "50m-credit-zapi-codex-1-day",
     "keys": [
-      "auto:codex-credit-zapi-1d-50m"
+      "auto:codex-credit-zapi-1d-50m",
+      "auto:codex-credit-zapi-duration-50m"
     ],
     "names": [
       "50m credit zapi codex 1 day - full warranty"
     ],
     "aliases": [
-      "50m-credit-zapi-codex-1-day-full-warranty-el0nu3"
+      "50m-credit-zapi-codex-1-day-full-warranty-el0nu3",
+      "50m-credit-zapi-codex-1-day-full-warranty-1olbg2"
     ]
   },
   {
     "slug": "130m-credit-zapi-codex-1-day",
     "keys": [
-      "auto:codex-credit-zapi-130m-1d"
+      "auto:codex-credit-zapi-130m-1d",
+      "auto:codex-credit-zapi-duration-130m"
     ],
     "names": [
       "130m credit zapi codex 1 day - full warranty"
     ],
     "aliases": [
-      "130m-credit-zapi-codex-1-day-full-warranty-yxw12q"
+      "130m-credit-zapi-codex-1-day-full-warranty-yxw12q",
+      "130m-credit-zapi-codex-1-day-full-warranty-zx7ig9"
     ]
   },
   {
@@ -3409,37 +3431,43 @@ export const supplierUrlRegistry = [
   {
     "slug": "admin-full-fam-veo-3-x20-3m",
     "keys": [
-      "auto:3-admin-fam-veo-x20-3m"
+      "auto:3-admin-fam-veo-x20-3m",
+      "auto:3-admin-fam-veo-x20-duration-3m"
     ],
     "names": [
       "admin full fam veo 3 x20 3m full warranty"
     ],
     "aliases": [
-      "admin-full-fam-veo-3-x20-3m-full-warranty-ovybox"
+      "admin-full-fam-veo-3-x20-3m-full-warranty-ovybox",
+      "admin-full-fam-veo-3-x20-3m-full-warranty-1uq7nm"
     ]
   },
   {
     "slug": "admin-full-fam-veo-3-x20-6m",
     "keys": [
-      "auto:3-admin-fam-veo-x20-6m"
+      "auto:3-admin-fam-veo-x20-6m",
+      "auto:3-admin-fam-veo-x20-duration-6m"
     ],
     "names": [
       "admin full fam veo 3 x20 6m full warranty"
     ],
     "aliases": [
-      "admin-full-fam-veo-3-x20-6m-full-warranty-nshw0o"
+      "admin-full-fam-veo-3-x20-6m-full-warranty-nshw0o",
+      "admin-full-fam-veo-3-x20-6m-full-warranty-1vto3b"
     ]
   },
   {
     "slug": "admin-office-365-family-add-5-members-5-months",
     "keys": [
-      "auto:admin-office-365-family-add-5-members-5-months-full-warranty"
+      "auto:admin-office-365-family-add-5-members-5-months-full-warranty",
+      "auto:365-5-add-admin-family-members-office-duration-5m"
     ],
     "names": [
       "admin office 365 family add 5 members 5 months full warranty"
     ],
     "aliases": [
-      "admin-office-365-family-add-5-members-5-months-full-warranty-1ljz1a"
+      "admin-office-365-family-add-5-members-5-months-full-warranty-1ljz1a",
+      "admin-office-365-family-add-5-members-5-months-full-warranty-ss1s5e"
     ]
   },
   {
@@ -3469,49 +3497,57 @@ export const supplierUrlRegistry = [
   {
     "slug": "autodesk-1-app-1-year",
     "keys": [
-      "auto:autodesk-1-app-1-year-full-warranty"
+      "auto:autodesk-1-app-1-year-full-warranty",
+      "auto:1-app-autodesk-duration-1y"
     ],
     "names": [
       "autodesk 1 app 1 year full warranty"
     ],
     "aliases": [
-      "autodesk-1-app-1-year-full-warranty-1ugy09"
+      "autodesk-1-app-1-year-full-warranty-1ugy09",
+      "autodesk-1-app-1-year-full-warranty-1mbyh1"
     ]
   },
   {
     "slug": "autodesk-1-app-3-years-warranty-1-year",
     "keys": [
-      "auto:autodesk-1-app-3-years-warranty-1-year"
+      "auto:autodesk-1-app-3-years-warranty-1-year",
+      "auto:1-app-autodesk-duration-3y"
     ],
     "names": [
       "autodesk 1 app 3 years warranty 1 year"
     ],
     "aliases": [
-      "autodesk-1-app-3-years-warranty-1-year-ksxn4c"
+      "autodesk-1-app-3-years-warranty-1-year-ksxn4c",
+      "autodesk-1-app-3-years-warranty-1-year-1l86d9"
     ]
   },
   {
     "slug": "autodesk-app-all-autocad-3ds-max-3-years-warranty-1-year",
     "keys": [
-      "auto:autodesk-app-all-autocad-3ds-max-3-years-warranty-1-year"
+      "auto:autodesk-app-all-autocad-3ds-max-3-years-warranty-1-year",
+      "auto:3ds-all-app-autocad-autodesk-max-duration-3y"
     ],
     "names": [
       "autodesk app all: autocad, 3ds max... 3 years warranty 1 year"
     ],
     "aliases": [
-      "autodesk-app-all-autocad-3ds-max-3-years-warranty-1-year-t3ni0m"
+      "autodesk-app-all-autocad-3ds-max-3-years-warranty-1-year-t3ni0m",
+      "autodesk-app-all-autocad-3ds-max-3-years-warranty-1-year-p5asuo"
     ]
   },
   {
     "slug": "autodesk-full-app-1-year",
     "keys": [
-      "auto:autodesk-full-app-1-year-full-warranty"
+      "auto:autodesk-full-app-1-year-full-warranty",
+      "auto:app-autodesk-duration-1y"
     ],
     "names": [
       "autodesk full app 1 year full warranty"
     ],
     "aliases": [
-      "autodesk-full-app-1-year-full-warranty-c71i73"
+      "autodesk-full-app-1-year-full-warranty-c71i73",
+      "autodesk-full-app-1-year-full-warranty-iwuwdw"
     ]
   },
   {
@@ -3553,25 +3589,29 @@ export const supplierUrlRegistry = [
   {
     "slug": "capcut-pro-team-3-months",
     "keys": [
-      "auto:capcut-pro-team-3-months-full-warranty"
+      "auto:capcut-pro-team-3-months-full-warranty",
+      "auto:capcut-pro-team-duration-3m"
     ],
     "names": [
       "capcut pro team 3 months - full warranty"
     ],
     "aliases": [
-      "capcut-pro-team-3-months-full-warranty-gcniol"
+      "capcut-pro-team-3-months-full-warranty-gcniol",
+      "capcut-pro-team-3-months-full-warranty-16i9rv"
     ]
   },
   {
     "slug": "discord-gifting-badge-x1",
     "keys": [
-      "auto:discord-gifting-badge-x1"
+      "auto:discord-gifting-badge-x1",
+      "auto:badge-discord-gifting-x1"
     ],
     "names": [
       "discord gifting badge x1"
     ],
     "aliases": [
-      "discord-gifting-badge-x1-nfaknr"
+      "discord-gifting-badge-x1-nfaknr",
+      "discord-gifting-badge-x1-16c06a"
     ]
   },
   {
@@ -3591,133 +3631,155 @@ export const supplierUrlRegistry = [
   {
     "slug": "discord-gifting-badge-x20",
     "keys": [
-      "auto:discord-gifting-badge-x20"
+      "auto:discord-gifting-badge-x20",
+      "auto:badge-discord-gifting-x20"
     ],
     "names": [
       "discord gifting badge x20"
     ],
     "aliases": [
-      "discord-gifting-badge-x20-5kz1pq"
+      "discord-gifting-badge-x20-5kz1pq",
+      "discord-gifting-badge-x20-39eni6"
     ]
   },
   {
     "slug": "discord-nitro-1y",
     "keys": [
-      "auto:discord-nitro-1y-full-warranty"
+      "auto:discord-nitro-1y-full-warranty",
+      "auto:discord-nitro-duration-1y"
     ],
     "names": [
       "discord nitro 1y full warranty"
     ],
     "aliases": [
-      "discord-nitro-1y-full-warranty-1bmtvb"
+      "discord-nitro-1y-full-warranty-1bmtvb",
+      "discord-nitro-1y-full-warranty-p53s8x"
     ]
   },
   {
     "slug": "discord-nitro-2-months",
     "keys": [
-      "auto:discord-nitro-2-months-full-warranty"
+      "auto:discord-nitro-2-months-full-warranty",
+      "auto:discord-nitro-duration-2m"
     ],
     "names": [
       "discord nitro 2 months full warranty"
     ],
     "aliases": [
-      "discord-nitro-2-months-full-warranty-cas6lj"
+      "discord-nitro-2-months-full-warranty-cas6lj",
+      "discord-nitro-2-months-full-warranty-lt5efa"
     ]
   },
   {
     "slug": "discord-nitro-trial-3-months",
     "keys": [
-      "auto:discord-nitro-trial-3-months-full-warranty"
+      "auto:discord-nitro-trial-3-months-full-warranty",
+      "auto:discord-nitro-trial-duration-3m"
     ],
     "names": [
       "discord nitro trial 3 months full warranty"
     ],
     "aliases": [
-      "discord-nitro-trial-3-months-full-warranty-1jbnr2"
+      "discord-nitro-trial-3-months-full-warranty-1jbnr2",
+      "discord-nitro-trial-3-months-full-warranty-1fgwmq"
     ]
   },
   {
     "slug": "discord-nitro-trial-4-months-warranty-3-months",
     "keys": [
-      "auto:discord-nitro-trial-3m-4m"
+      "auto:discord-nitro-trial-3m-4m",
+      "auto:discord-nitro-trial-duration-4m"
     ],
     "names": [
       "discord nitro trial 4 months warranty 3 months"
     ],
     "aliases": [
-      "discord-nitro-trial-4-months-warranty-3-months-qz5zpl"
+      "discord-nitro-trial-4-months-warranty-3-months-qz5zpl",
+      "discord-nitro-trial-4-months-warranty-3-months-1fgn68"
     ]
   },
   {
     "slug": "duolingo-max-3-months",
     "keys": [
-      "auto:duolingo-max-3-months-full-warranty"
+      "auto:duolingo-max-3-months-full-warranty",
+      "auto:duolingo-max-duration-3m"
     ],
     "names": [
       "duolingo max 3 months full warranty"
     ],
     "aliases": [
-      "duolingo-max-3-months-full-warranty-bdy9z7"
+      "duolingo-max-3-months-full-warranty-bdy9z7",
+      "duolingo-max-3-months-full-warranty-1e63v2"
     ]
   },
   {
     "slug": "duolingo-max-6-months",
     "keys": [
-      "auto:duolingo-max-6-months-full-warranty"
+      "auto:duolingo-max-6-months-full-warranty",
+      "auto:duolingo-max-duration-6m"
     ],
     "names": [
       "duolingo max 6 months full warranty"
     ],
     "aliases": [
-      "duolingo-max-6-months-full-warranty-1rjhob"
+      "duolingo-max-6-months-full-warranty-1rjhob",
+      "duolingo-max-6-months-full-warranty-16eqnr"
     ]
   },
   {
     "slug": "duolingo-max-12-months",
     "keys": [
-      "auto:duolingo-max-12-months-full-warranty"
+      "auto:duolingo-max-12-months-full-warranty",
+      "auto:duolingo-max-duration-12m"
     ],
     "names": [
       "duolingo max 12 months full warranty"
     ],
     "aliases": [
-      "duolingo-max-12-months-full-warranty-1uv7u1"
+      "duolingo-max-12-months-full-warranty-1uv7u1",
+      "duolingo-max-12-months-full-warranty-k6xa5e"
     ]
   },
   {
     "slug": "duolingo-super-3-months",
     "keys": [
-      "auto:duolingo-super-3-months-full-warranty"
+      "auto:duolingo-super-3-months-full-warranty",
+      "auto:duolingo-super-duration-3m"
     ],
     "names": [
       "duolingo super 3 months full warranty"
     ],
     "aliases": [
-      "duolingo-super-3-months-full-warranty-1hjv3n"
+      "duolingo-super-3-months-full-warranty-1hjv3n",
+      "duolingo-super-3-months-full-warranty-1lr8sn"
     ]
   },
   {
     "slug": "facebook-blue-check-dormant-1-8-months-login-warranty",
     "keys": [
-      "auto:facebook-blue-check-dormant-1-8-months-login-warranty"
+      "auto:facebook-blue-check-dormant-1-8-months-login-warranty",
+      "auto:1-blue-check-dormant-facebook-login-duration-8m"
     ],
     "names": [
       "facebook blue check dormant 1-8 months login warranty"
     ],
     "aliases": [
-      "facebook-blue-check-dormant-1-8-months-login-warranty-h1lrlm"
+      "facebook-blue-check-dormant-1-8-months-login-warranty-h1lrlm",
+      "facebook-blue-check-dormant-1-8-months-login-warranty-1315xi"
     ]
   },
   {
     "slug": "flux-03-1-month-warranty-24h",
     "keys": [
-      "auto:flux-03-1-month-warranty-24h"
+      "auto:flux-03-1-month-warranty-24h",
+      "auto:03-24h-flux-duration-1m"
     ],
     "names": [
       "flux 03 1 month warranty 24h"
     ],
     "aliases": [
-      "flux-03-1-month-warranty-24h-37zsse"
+      "flux-03-1-month-warranty-24h-37zsse",
+      "flux-03-1-month-warranty-24h-1qjwq4"
     ]
   },
   {
@@ -3747,13 +3809,15 @@ export const supplierUrlRegistry = [
   {
     "slug": "genuine-windows-10-11-pro-key-20y-with-1y-warranty",
     "keys": [
-      "auto:genuine-windows-10-11-pro-key-20y-with-1y-warranty"
+      "auto:genuine-windows-10-11-pro-key-20y-with-1y-warranty",
+      "auto:10-11-genuine-key-pro-windows-duration-20y"
     ],
     "names": [
       "genuine windows 10/11 pro key 20y with 1y warranty"
     ],
     "aliases": [
-      "genuine-windows-10-11-pro-key-20y-with-1y-warranty-ecoqlt"
+      "genuine-windows-10-11-pro-key-20y-with-1y-warranty-ecoqlt",
+      "genuine-windows-10-11-pro-key-20y-with-1y-warranty-6z3sah"
     ]
   },
   {
@@ -3771,37 +3835,43 @@ export const supplierUrlRegistry = [
   {
     "slug": "heygen-creator-1-month-5-days-warranty",
     "keys": [
-      "auto:heygen-creator-1-month-5-days-warranty"
+      "auto:heygen-creator-1-month-5-days-warranty",
+      "auto:creator-heygen-duration-1m"
     ],
     "names": [
       "heygen creator 1 month - 5 days warranty"
     ],
     "aliases": [
-      "heygen-creator-1-month-5-days-warranty-1hjo8k"
+      "heygen-creator-1-month-5-days-warranty-1hjo8k",
+      "heygen-creator-1-month-5-days-warranty-gqgbev"
     ]
   },
   {
     "slug": "heygen-creator-1-month-24h-warranty",
     "keys": [
-      "auto:heygen-creator-1-month-24h-warranty"
+      "auto:heygen-creator-1-month-24h-warranty",
+      "auto:24h-creator-heygen-duration-1m"
     ],
     "names": [
       "heygen creator 1 month (24h warranty)"
     ],
     "aliases": [
-      "heygen-creator-1-month-24h-warranty-z3r38i"
+      "heygen-creator-1-month-24h-warranty-z3r38i",
+      "heygen-creator-1-month-24h-warranty-uvxwc2"
     ]
   },
   {
     "slug": "icloud-2tb-1-month-full-warranty",
     "keys": [
-      "auto:icloud-2tb-1-month-full-warranty"
+      "auto:icloud-2tb-1-month-full-warranty",
+      "auto:2tb-icloud-duration-1m"
     ],
     "names": [
       "icloud 2tb – 1 month (full warranty)"
     ],
     "aliases": [
-      "icloud-2tb-1-month-full-warranty-1b6de0"
+      "icloud-2tb-1-month-full-warranty-1b6de0",
+      "icloud-2tb-1-month-full-warranty-89pt83"
     ]
   },
   {
@@ -3821,61 +3891,71 @@ export const supplierUrlRegistry = [
   {
     "slug": "kahoot-gold-200-original-users-1-month",
     "keys": [
-      "auto:kahoot-gold-200-original-users-1-month-full-warranty"
+      "auto:kahoot-gold-200-original-users-1-month-full-warranty",
+      "auto:200-gold-kahoot-original-users-duration-1m"
     ],
     "names": [
       "kahoot gold 200 original users 1 month full warranty"
     ],
     "aliases": [
-      "kahoot-gold-200-original-users-1-month-full-warranty-3izy45"
+      "kahoot-gold-200-original-users-1-month-full-warranty-3izy45",
+      "kahoot-gold-200-original-users-1-month-full-warranty-179qmj"
     ]
   },
   {
     "slug": "kaspersky-premium-12-months",
     "keys": [
-      "auto:kaspersky-premium-12m"
+      "auto:kaspersky-premium-12m",
+      "auto:kaspersky-premium-duration-12m"
     ],
     "names": [
       "kaspersky premium 12 months full warranty"
     ],
     "aliases": [
-      "kaspersky-premium-12-months-full-warranty-ixsk7u"
+      "kaspersky-premium-12-months-full-warranty-ixsk7u",
+      "kaspersky-premium-12-months-full-warranty-12bz3n"
     ]
   },
   {
     "slug": "kling-65-cre-1-month",
     "keys": [
-      "auto:kling-65-cre-1-month-full-warranty"
+      "auto:kling-65-cre-1-month-full-warranty",
+      "auto:65-cre-kling-duration-1m"
     ],
     "names": [
       "kling 65 cre 1 month full warranty"
     ],
     "aliases": [
-      "kling-65-cre-1-month-full-warranty-44obus"
+      "kling-65-cre-1-month-full-warranty-44obus",
+      "kling-65-cre-1-month-full-warranty-ee77m4"
     ]
   },
   {
     "slug": "kling-70k-credit-1-month",
     "keys": [
-      "auto:kling-70k-credit-1-month-full-warranty"
+      "auto:kling-70k-credit-1-month-full-warranty",
+      "auto:70k-credit-kling-duration-1m"
     ],
     "names": [
       "kling 70k credit 1 month full warranty"
     ],
     "aliases": [
-      "kling-70k-credit-1-month-full-warranty-kkzuty"
+      "kling-70k-credit-1-month-full-warranty-kkzuty",
+      "kling-70k-credit-1-month-full-warranty-4kg37e"
     ]
   },
   {
     "slug": "kling-ultra-26k-credit-1-month-warranty-2d",
     "keys": [
-      "auto:kling-ultra-26k-credit-1-month-warranty-2d"
+      "auto:kling-ultra-26k-credit-1-month-warranty-2d",
+      "auto:26k-credit-kling-ultra-duration-1m"
     ],
     "names": [
       "kling ultra 26k credit 1 month warranty 2d"
     ],
     "aliases": [
-      "kling-ultra-26k-credit-1-month-warranty-2d-zusp89"
+      "kling-ultra-26k-credit-1-month-warranty-2d-zusp89",
+      "kling-ultra-26k-credit-1-month-warranty-2d-abnxwu"
     ]
   },
   {
@@ -3893,85 +3973,99 @@ export const supplierUrlRegistry = [
   {
     "slug": "link-gemini-ai-pro-18-months-24h-warranty",
     "keys": [
-      "auto:link-gemini-ai-pro-18-months-24h-warranty"
+      "auto:link-gemini-ai-pro-18-months-24h-warranty",
+      "auto:24h-ai-gemini-link-pro-duration-18m"
     ],
     "names": [
       "link - gemini ai pro 18 months (24h warranty)"
     ],
     "aliases": [
-      "link-gemini-ai-pro-18-months-24h-warranty-1nshft"
+      "link-gemini-ai-pro-18-months-24h-warranty-1nshft",
+      "link-gemini-ai-pro-18-months-24h-warranty-ml5wy4"
     ]
   },
   {
     "slug": "link-gemini-pro-18-months-warranty-24h",
     "keys": [
-      "auto:link-gemini-pro-18-months-warranty-24h"
+      "auto:link-gemini-pro-18-months-warranty-24h",
+      "auto:24h-gemini-link-pro-duration-18m"
     ],
     "names": [
       "link gemini pro 18 months warranty 24h"
     ],
     "aliases": [
-      "link-gemini-pro-18-months-warranty-24h-9d0tlw"
+      "link-gemini-pro-18-months-warranty-24h-9d0tlw",
+      "link-gemini-pro-18-months-warranty-24h-8hwz5f"
     ]
   },
   {
     "slug": "linkedin-pre-career-code-3-months",
     "keys": [
-      "auto:linkedin-pre-career-code-3-months-no-warranty"
+      "auto:linkedin-pre-career-code-3-months-no-warranty",
+      "auto:career-code-linkedin-duration-3m"
     ],
     "names": [
       "linkedin pre career code 3 months"
     ],
     "aliases": [
-      "linkedin-pre-career-code-3-months-01bpve"
+      "linkedin-pre-career-code-3-months-01bpve",
+      "linkedin-pre-career-code-3-months-1wtcf1"
     ]
   },
   {
     "slug": "locket-gold-no-dns-1-year",
     "keys": [
-      "auto:dns-gold-locket-1y"
+      "auto:dns-gold-locket-1y",
+      "auto:dns-gold-locket-duration-1y"
     ],
     "names": [
       "locket gold no dns 1 year full warranty"
     ],
     "aliases": [
-      "locket-gold-no-dns-1-year-full-warranty-1x3k1q"
+      "locket-gold-no-dns-1-year-full-warranty-1x3k1q",
+      "locket-gold-no-dns-1-year-full-warranty-1rzm6f"
     ]
   },
   {
     "slug": "lovable-pro-105-credits-1-month",
     "keys": [
-      "auto:105-credits-lovable-pro-1m"
+      "auto:105-credits-lovable-pro-1m",
+      "auto:105-credits-lovable-pro-duration-1m"
     ],
     "names": [
       "lovable pro 105 credits 1 month full warranty"
     ],
     "aliases": [
-      "lovable-pro-105-credits-1-month-full-warranty-5kksue"
+      "lovable-pro-105-credits-1-month-full-warranty-5kksue",
+      "lovable-pro-105-credits-1-month-full-warranty-1dln10"
     ]
   },
   {
     "slug": "microsoft-office-365-admin-pre-assigned-account-12-months",
     "keys": [
-      "auto:365-account-admin-assigned-microsoft-office-12m"
+      "auto:365-account-admin-assigned-microsoft-office-12m",
+      "auto:365-account-admin-assigned-microsoft-office-duration-12m"
     ],
     "names": [
       "microsoft office 365 admin – pre-assigned account 12 months full warranty"
     ],
     "aliases": [
-      "microsoft-office-365-admin-pre-assigned-account-12-months-full-warranty-196nhb"
+      "microsoft-office-365-admin-pre-assigned-account-12-months-full-warranty-196nhb",
+      "microsoft-office-365-admin-pre-assigned-account-12-months-full-warranty-ph8vlr"
     ]
   },
   {
     "slug": "microsoft-office-365-family-1-year-slot",
     "keys": [
-      "auto:microsoft-office-365-family-1-year-slot-full-warranty"
+      "auto:microsoft-office-365-family-1-year-slot-full-warranty",
+      "auto:365-family-microsoft-office-slot-duration-1y"
     ],
     "names": [
       "microsoft office 365 family 1 year slot full warranty"
     ],
     "aliases": [
-      "microsoft-office-365-family-1-year-slot-full-warranty-xq5kf7"
+      "microsoft-office-365-family-1-year-slot-full-warranty-xq5kf7",
+      "microsoft-office-365-family-1-year-slot-full-warranty-x4z4tk"
     ]
   },
   {
@@ -3989,181 +4083,211 @@ export const supplierUrlRegistry = [
   {
     "slug": "nord-vpn-10-devices-7-days",
     "keys": [
-      "auto:nord-vpn-10-devices-7-days-full-warranty"
+      "auto:nord-vpn-10-devices-7-days-full-warranty",
+      "auto:10-devices-nord-vpn-duration-7d"
     ],
     "names": [
       "nord vpn 10 devices 7 days full warranty"
     ],
     "aliases": [
-      "nord-vpn-10-devices-7-days-full-warranty-1n8cww"
+      "nord-vpn-10-devices-7-days-full-warranty-1n8cww",
+      "nord-vpn-10-devices-7-days-full-warranty-gct0nf"
     ]
   },
   {
     "slug": "pia-vpn-7-day",
     "keys": [
-      "auto:pia-vpn-7-day-full-warranty"
+      "auto:pia-vpn-7-day-full-warranty",
+      "auto:pia-vpn-duration-7d"
     ],
     "names": [
       "pia vpn 7-day full warranty"
     ],
     "aliases": [
-      "pia-vpn-7-day-full-warranty-avaobx"
+      "pia-vpn-7-day-full-warranty-avaobx",
+      "pia-vpn-7-day-full-warranty-1jdb7a"
     ]
   },
   {
     "slug": "protonvpn-unlimited-10-devices-1-month",
     "keys": [
-      "auto:protonvpn-unlimited-10-devices-1-month-full-warranty"
+      "auto:protonvpn-unlimited-10-devices-1-month-full-warranty",
+      "auto:10-devices-protonvpn-unlimited-duration-1m"
     ],
     "names": [
       "protonvpn unlimited 10 devices 1 month full warranty"
     ],
     "aliases": [
-      "protonvpn-unlimited-10-devices-1-month-full-warranty-ogzulq"
+      "protonvpn-unlimited-10-devices-1-month-full-warranty-ogzulq",
+      "protonvpn-unlimited-10-devices-1-month-full-warranty-bt07fc"
     ]
   },
   {
     "slug": "super-grok-6-7-days",
     "keys": [
-      "auto:6-grok-super-7d"
+      "auto:6-grok-super-7d",
+      "auto:6-grok-super-duration-7d"
     ],
     "names": [
       "super grok 6-7 days full warranty"
     ],
     "aliases": [
-      "super-grok-6-7-days-full-warranty-1c4q60"
+      "super-grok-6-7-days-full-warranty-1c4q60",
+      "super-grok-6-7-days-full-warranty-qhhw3x"
     ]
   },
   {
     "slug": "tradingview-ultimate-14-days-warranty-1-day",
     "keys": [
-      "auto:tradingview-ultimate-14-days-warranty-1-day"
+      "auto:tradingview-ultimate-14-days-warranty-1-day",
+      "auto:tradingview-ultimate-duration-14d"
     ],
     "names": [
       "tradingview ultimate 14 days warranty 1 day"
     ],
     "aliases": [
-      "tradingview-ultimate-14-days-warranty-1-day-1uh0io"
+      "tradingview-ultimate-14-days-warranty-1-day-1uh0io",
+      "tradingview-ultimate-14-days-warranty-1-day-1qy2zp"
     ]
   },
   {
     "slug": "unlimited-codex-api-credit-2-days",
     "keys": [
-      "auto:codex-credit-unlimited-2d"
+      "auto:codex-credit-unlimited-2d",
+      "auto:api-codex-credit-unlimited-duration-2d"
     ],
     "names": [
       "unlimited codex api credit 2 days - full warranty"
     ],
     "aliases": [
-      "unlimited-codex-api-credit-2-days-full-warranty-1tbep3"
+      "unlimited-codex-api-credit-2-days-full-warranty-1tbep3",
+      "unlimited-codex-api-credit-2-days-full-warranty-1nihls"
     ]
   },
   {
     "slug": "unlock-facebook-real-person-verification",
     "keys": [
-      "auto:unlock-facebook-real-person-verification"
+      "auto:unlock-facebook-real-person-verification",
+      "auto:facebook-person-real-unlock-verification"
     ],
     "names": [
       "unlock facebook real person verification"
     ],
     "aliases": [
-      "unlock-facebook-real-person-verification-880yv4"
+      "unlock-facebook-real-person-verification-880yv4",
+      "unlock-facebook-real-person-verification-17gluu"
     ]
   },
   {
     "slug": "unlock-facebook-suspended-for-180-days-with-original-selfie",
     "keys": [
-      "auto:unlock-facebook-suspended-for-180-days-with-original-selfie"
+      "auto:unlock-facebook-suspended-for-180-days-with-original-selfie",
+      "auto:facebook-original-selfie-suspended-unlock-duration-180d"
     ],
     "names": [
       "unlock facebook suspended for 180 days with original selfie"
     ],
     "aliases": [
-      "unlock-facebook-suspended-for-180-days-with-original-selfie-xz2cvj"
+      "unlock-facebook-suspended-for-180-days-with-original-selfie-xz2cvj",
+      "unlock-facebook-suspended-for-180-days-with-original-selfie-1jlrl7"
     ]
   },
   {
     "slug": "upgrade-official-github-student-for-2-years",
     "keys": [
-      "auto:github-official-student-upgrade-2y"
+      "auto:github-official-student-upgrade-2y",
+      "auto:github-official-student-upgrade-duration-2y"
     ],
     "names": [
       "upgrade official github student for 2 years"
     ],
     "aliases": [
-      "upgrade-official-github-student-for-2-years-3npuaq"
+      "upgrade-official-github-student-for-2-years-3npuaq",
+      "upgrade-official-github-student-for-2-years-1d2amz"
     ]
   },
   {
     "slug": "upgrade-spotify-premium-owner-to-3-months",
     "keys": [
-      "auto:owner-premium-spotify-to-upgrade-3m"
+      "auto:owner-premium-spotify-to-upgrade-3m",
+      "auto:owner-premium-spotify-to-upgrade-duration-3m"
     ],
     "names": [
       "upgrade spotify premium owner to 3 months full warranty"
     ],
     "aliases": [
-      "upgrade-spotify-premium-owner-to-3-months-full-warranty-99mg62"
+      "upgrade-spotify-premium-owner-to-3-months-full-warranty-99mg62",
+      "upgrade-spotify-premium-owner-to-3-months-full-warranty-1myz1o"
     ]
   },
   {
     "slug": "veo3-antigravity-x5-ultra-random-credit-slot-1-month-warranty-30d",
     "keys": [
-      "auto:veo3-antigravity-x5-ultra-random-credit-slot-1-month-warranty-30d"
+      "auto:veo3-antigravity-x5-ultra-random-credit-slot-1-month-warranty-30d",
+      "auto:antigravity-credit-random-slot-ultra-veo3-x5-duration-1m"
     ],
     "names": [
       "veo3 (antigravity) x5 ultra random credit slot 1 month warranty 30d"
     ],
     "aliases": [
-      "veo3-antigravity-x5-ultra-random-credit-slot-1-month-warranty-30d-1bbqkt"
+      "veo3-antigravity-x5-ultra-random-credit-slot-1-month-warranty-30d-1bbqkt",
+      "veo3-antigravity-x5-ultra-random-credit-slot-1-month-warranty-30d-1hlm4x"
     ]
   },
   {
     "slug": "veo3-antigravity-x20-ultra-0-credit-slot-1-year",
     "keys": [
-      "auto:0-antigravity-credit-slot-ultra-veo3-x20-1y"
+      "auto:0-antigravity-credit-slot-ultra-veo3-x20-1y",
+      "auto:0-antigravity-credit-slot-ultra-veo3-x20-duration-1y"
     ],
     "names": [
       "veo3 (antigravity) x20 ultra 0 credit slot 1 year - full warranty"
     ],
     "aliases": [
-      "veo3-antigravity-x20-ultra-0-credit-slot-1-year-full-warranty-13j3rt"
+      "veo3-antigravity-x20-ultra-0-credit-slot-1-year-full-warranty-13j3rt",
+      "veo3-antigravity-x20-ultra-0-credit-slot-1-year-full-warranty-z69uec"
     ]
   },
   {
     "slug": "veo3-antigravity-x20-ultra-random-credit-slot-3m",
     "keys": [
-      "auto:antigravity-credit-random-slot-ultra-veo3-x20-3m"
+      "auto:antigravity-credit-random-slot-ultra-veo3-x20-3m",
+      "auto:antigravity-credit-random-slot-ultra-veo3-x20-duration-3m"
     ],
     "names": [
       "veo3 (antigravity) x20 ultra random credit slot 3m full warranty"
     ],
     "aliases": [
-      "veo3-antigravity-x20-ultra-random-credit-slot-3m-full-warranty-17u6kj"
+      "veo3-antigravity-x20-ultra-random-credit-slot-3m-full-warranty-17u6kj",
+      "veo3-antigravity-x20-ultra-random-credit-slot-3m-full-warranty-1mjvhk"
     ]
   },
   {
     "slug": "xingtu-svip-30d",
     "keys": [
-      "auto:xingtu-svip-30d-full-warranty"
+      "auto:xingtu-svip-30d-full-warranty",
+      "auto:svip-xingtu-duration-1m"
     ],
     "names": [
       "xingtu svip 30d full warranty"
     ],
     "aliases": [
-      "xingtu-svip-30d-full-warranty-1a81qo"
+      "xingtu-svip-30d-full-warranty-1a81qo",
+      "xingtu-svip-30d-full-warranty-1vn759"
     ]
   },
   {
     "slug": "xingtu-vip-30d",
     "keys": [
-      "auto:xingtu-vip-30d-full-warranty"
+      "auto:xingtu-vip-30d-full-warranty",
+      "auto:vip-xingtu-duration-1m"
     ],
     "names": [
       "xingtu vip 30d full warranty"
     ],
     "aliases": [
-      "xingtu-vip-30d-full-warranty-lojfkc"
+      "xingtu-vip-30d-full-warranty-lojfkc",
+      "xingtu-vip-30d-full-warranty-ok9ya9"
     ]
   },
   {
@@ -4181,25 +4305,29 @@ export const supplierUrlRegistry = [
   {
     "slug": "zoom-pro-trial-28d",
     "keys": [
-      "auto:zoom-pro-trial-28d-full-warranty"
+      "auto:zoom-pro-trial-28d-full-warranty",
+      "auto:pro-trial-zoom-duration-1m"
     ],
     "names": [
       "zoom pro trial 28d full warranty"
     ],
     "aliases": [
-      "zoom-pro-trial-28d-full-warranty-18walx"
+      "zoom-pro-trial-28d-full-warranty-18walx",
+      "zoom-pro-trial-28d-full-warranty-1ln44h"
     ]
   },
   {
     "slug": "meitu-vip-30d",
     "keys": [
-      "auto:meitu-vip-30d-full-warranty"
+      "auto:meitu-vip-30d-full-warranty",
+      "auto:meitu-vip-duration-1m"
     ],
     "names": [
       "meitu vip+ 30d full warranty"
     ],
     "aliases": [
-      "meitu-vip-30d-full-warranty-1cxvkd"
+      "meitu-vip-30d-full-warranty-1cxvkd",
+      "meitu-vip-30d-full-warranty-1kjhps"
     ]
   },
   {
@@ -4464,6 +4592,342 @@ export const supplierUrlRegistry = [
     ],
     "aliases": [
       "icloud-slot-2tb-12-months-full-warranty-1jod3h"
+    ]
+  },
+  {
+    "slug": "admin-canva-pro-45-days-24h-warranty",
+    "keys": [
+      "auto:24h-admin-canva-pro-duration-45d"
+    ],
+    "names": [
+      "admin canva pro 45 days - 24h warranty"
+    ],
+    "aliases": [
+      "admin-canva-pro-45-days-24h-warranty-1kn9e3"
+    ]
+  },
+  {
+    "slug": "admin-full-fam-veo-3-x20-12m",
+    "keys": [
+      "auto:3-admin-fam-veo-x20-duration-12m"
+    ],
+    "names": [
+      "admin full fam veo 3 x20 12m full warranty"
+    ],
+    "aliases": [
+      "admin-full-fam-veo-3-x20-12m-full-warranty-1ij8re"
+    ]
+  },
+  {
+    "slug": "api-orders-test",
+    "keys": [
+      "auto:api-orders-test"
+    ],
+    "names": [
+      "api orders test"
+    ],
+    "aliases": [
+      "api-orders-test-1fi9lw"
+    ]
+  },
+  {
+    "slug": "canva-edu-slot-3-years-warranty-1-year",
+    "keys": [
+      "auto:canva-edu-slot-duration-3y"
+    ],
+    "names": [
+      "canva edu slot 3 years warranty 1 year"
+    ],
+    "aliases": [
+      "canva-edu-slot-3-years-warranty-1-year-11h1xk"
+    ]
+  },
+  {
+    "slug": "cdk-perplexity-max-1m",
+    "keys": [
+      "auto:max-perplexity-duration-1m"
+    ],
+    "names": [
+      "cdk perplexity max 1m"
+    ],
+    "aliases": [
+      "cdk-perplexity-max-1m-1scwkd"
+    ]
+  },
+  {
+    "slug": "chatgpt-api-10m",
+    "keys": [
+      "auto:api-chatgpt-duration-10m"
+    ],
+    "names": [
+      "chatgpt api 10m"
+    ],
+    "aliases": [
+      "chatgpt-api-10m-1kb84i"
+    ]
+  },
+  {
+    "slug": "chatgpt-business-slot-1m-fw",
+    "keys": [
+      "auto:business-chatgpt-slot-duration-1m"
+    ],
+    "names": [
+      "chatgpt business slot 1m (fw)"
+    ],
+    "aliases": [
+      "chatgpt-business-slot-1m-fw-16ze3n"
+    ]
+  },
+  {
+    "slug": "chatgpt-free-has-been-using-codex-phones-for-1-month",
+    "keys": [
+      "auto:been-chatgpt-codex-free-phones-using-duration-1m"
+    ],
+    "names": [
+      "chatgpt free has been using codex phones for 1 month"
+    ],
+    "aliases": [
+      "chatgpt-free-has-been-using-codex-phones-for-1-month-1mbm9b"
+    ]
+  },
+  {
+    "slug": "gemini-ultra-antigravity-x5-slot-0-10k-credit-1-month",
+    "keys": [
+      "auto:0-10k-antigravity-credit-gemini-slot-ultra-x5-duration-1m"
+    ],
+    "names": [
+      "gemini ultra antigravity x5 slot 0-10k credit 1 month full warranty"
+    ],
+    "aliases": [
+      "gemini-ultra-antigravity-x5-slot-0-10k-credit-1-month-full-warranty-zhco8e"
+    ]
+  },
+  {
+    "slug": "hma-vpn-monthly-licence-key",
+    "keys": [
+      "auto:hma-key-licence-monthly-vpn"
+    ],
+    "names": [
+      "hma vpn monthly licence key"
+    ],
+    "aliases": [
+      "hma-vpn-monthly-licence-key-te29pb"
+    ]
+  },
+  {
+    "slug": "leonardo-ai-8500-credits-1-month",
+    "keys": [
+      "auto:8500-ai-credits-leonardo-duration-1m"
+    ],
+    "names": [
+      "leonardo ai 8500 credits 1 month"
+    ],
+    "aliases": [
+      "leonardo-ai-8500-credits-1-month-1kxdxh"
+    ]
+  },
+  {
+    "slug": "netflix-premium-4k-uhd-full-admin-account",
+    "keys": [
+      "auto:4k-account-admin-netflix-premium-uhd"
+    ],
+    "names": [
+      "netflix premium 4k uhd full admin account"
+    ],
+    "aliases": [
+      "netflix-premium-4k-uhd-full-admin-account-zv4q0u"
+    ]
+  },
+  {
+    "slug": "new-paypal-account",
+    "keys": [
+      "auto:account-new-paypal"
+    ],
+    "names": [
+      "new paypal account"
+    ],
+    "aliases": [
+      "new-paypal-account-121sto"
+    ]
+  },
+  {
+    "slug": "perplexity-pro-12-months",
+    "keys": [
+      "auto:perplexity-pro-duration-12m"
+    ],
+    "names": [
+      "perplexity pro 12 months full warranty"
+    ],
+    "aliases": [
+      "perplexity-pro-12-months-full-warranty-194npx"
+    ]
+  },
+  {
+    "slug": "quillbot-premium-private-level-1-month",
+    "keys": [
+      "auto:level-premium-private-quillbot-duration-1m"
+    ],
+    "names": [
+      "quillbot premium private level 1 month full warranty"
+    ],
+    "aliases": [
+      "quillbot-premium-private-level-1-month-full-warranty-41mir5"
+    ]
+  },
+  {
+    "slug": "railway-pro-redeem-1-year",
+    "keys": [
+      "auto:pro-railway-redeem-duration-1y"
+    ],
+    "names": [
+      "railway pro redeem 1 year"
+    ],
+    "aliases": [
+      "railway-pro-redeem-1-year-14zkg0"
+    ]
+  },
+  {
+    "slug": "runway-2k6-credits-1-month",
+    "keys": [
+      "auto:2k6-credits-runway-duration-1m"
+    ],
+    "names": [
+      "runway 2k6 credits 1 month"
+    ],
+    "aliases": [
+      "runway-2k6-credits-1-month-1hhj4m"
+    ]
+  },
+  {
+    "slug": "runway-625-credits-1-month",
+    "keys": [
+      "auto:625-credits-runway-duration-1m"
+    ],
+    "names": [
+      "runway 625 credits 1 month"
+    ],
+    "aliases": [
+      "runway-625-credits-1-month-1u3izq"
+    ]
+  },
+  {
+    "slug": "runway-max-10-300-credits-one-month",
+    "keys": [
+      "auto:10300-credits-max-runway-duration-1m"
+    ],
+    "names": [
+      "runway max 10,300 credits one month"
+    ],
+    "aliases": [
+      "runway-max-10-300-credits-one-month-ufi3dx"
+    ]
+  },
+  {
+    "slug": "runway-pro-3100-credits-one-month",
+    "keys": [
+      "auto:3100-credits-pro-runway-duration-1m"
+    ],
+    "names": [
+      "runway pro 3100 credits one month"
+    ],
+    "aliases": [
+      "runway-pro-3100-credits-one-month-1dgabk"
+    ]
+  },
+  {
+    "slug": "runway-pro-redeem-1-year",
+    "keys": [
+      "auto:pro-redeem-runway-duration-1y"
+    ],
+    "names": [
+      "runway pro redeem 1 year"
+    ],
+    "aliases": [
+      "runway-pro-redeem-1-year-1edfml"
+    ]
+  },
+  {
+    "slug": "runway-standard-4k9-per-month-24h-warranty",
+    "keys": [
+      "auto:24h-4k9-month-per-runway-standard"
+    ],
+    "names": [
+      "runway standard 4k9 per month (24h warranty)"
+    ],
+    "aliases": [
+      "runway-standard-4k9-per-month-24h-warranty-gkknh1"
+    ]
+  },
+  {
+    "slug": "supergrok-9-10-days-account-5dw",
+    "keys": [
+      "auto:5dw-9-account-grok-super-duration-10d"
+    ],
+    "names": [
+      "supergrok 9-10 days account (5dw)"
+    ],
+    "aliases": [
+      "supergrok-9-10-days-account-5dw-1ji5ao"
+    ]
+  },
+  {
+    "slug": "test-pre-order-0-01",
+    "keys": [
+      "auto:0-01-order-test"
+    ],
+    "names": [
+      "test pre-order 0.01"
+    ],
+    "aliases": [
+      "test-pre-order-0-01-w89j1s"
+    ]
+  },
+  {
+    "slug": "veo3-slot-antigravity-x20-ultra-0-credit-30d",
+    "keys": [
+      "auto:0-antigravity-credit-slot-ultra-veo3-x20-duration-1m"
+    ],
+    "names": [
+      "veo3 slot (antigravity) x20 ultra 0 credit 30d - full warranty"
+    ],
+    "aliases": [
+      "veo3-slot-antigravity-x20-ultra-0-credit-30d-full-warranty-12i52q"
+    ]
+  },
+  {
+    "slug": "vip-1-api-15m-token-claude-1-day",
+    "keys": [
+      "auto:1-api-claude-token-vip-duration-15m"
+    ],
+    "names": [
+      "vip 1.api 15m token claude 1 day - full warranty"
+    ],
+    "aliases": [
+      "vip-1-api-15m-token-claude-1-day-full-warranty-12pf9c"
+    ]
+  },
+  {
+    "slug": "vip-1-api-40m-token-claude-1-day",
+    "keys": [
+      "auto:1-api-claude-token-vip-duration-40m"
+    ],
+    "names": [
+      "vip 1.api 40m token claude 1 day - full warranty"
+    ],
+    "aliases": [
+      "vip-1-api-40m-token-claude-1-day-full-warranty-1qdlpo"
+    ]
+  },
+  {
+    "slug": "wink-vip-1-year",
+    "keys": [
+      "auto:vip-wink-duration-1y"
+    ],
+    "names": [
+      "wink vip 1 year full warranty"
+    ],
+    "aliases": [
+      "wink-vip-1-year-full-warranty-bi899x"
     ]
   }
 ];

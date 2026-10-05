@@ -31,7 +31,13 @@ export const supplierSeoCatalogGeneratedAt = supplierSeoGeneratedAt;
 // Retain fixture detail pages for noindex responses, not public discovery.
 export const supplierSeoPageProducts =
   generatedSupplierSeoProducts as SupplierSeoProduct[];
-export const supplierSeoProducts = supplierSeoPageProducts.filter((product) => !isInternalTestListing(product));
+const seenSeoSlugs = new Set<string>();
+export const supplierSeoProducts = supplierSeoPageProducts.filter((product) => {
+  if (isInternalTestListing(product)) return false;
+  if (seenSeoSlugs.has(product.slug)) return false;
+  seenSeoSlugs.add(product.slug);
+  return true;
+});
 
 const bySlug = new Map(supplierSeoPageProducts.map((product) => [product.slug, product]));
 const byCheckoutId = new Map(

@@ -10,6 +10,7 @@ import {
   supplierEquivalentProductName,
 } from '../catalog-selection';
 import { products as localProducts } from '../products';
+import { productHref } from '../product-utils';
 import { supplierCatalogHref, supplierProductHref, supplierSeoProducts } from '../supplier-seo';
 import { toolFamilyHref, toolFamilyLabel, toolFamilySlug } from '../tool-families';
 import { cacheSupplierCatalog } from '../supplier-catalog-cache';
@@ -165,6 +166,7 @@ export function Catalog({ initialQuery = '', initialCategory = 'All', heading = 
         activation_sla: product.activationSla,
         preorder_date: product.preorderDate,
         stock_label: product.stockLabel,
+        href: productHref(product),
       };
     });
     const visibleSupplierInventory = supplierInventory.filter(

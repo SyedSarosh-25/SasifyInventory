@@ -283,6 +283,11 @@ CREATE TABLE IF NOT EXISTS commerce_tool_requests (
 );
 CREATE INDEX IF NOT EXISTS commerce_tool_requests_created ON commerce_tool_requests(created_at DESC);
 CREATE INDEX IF NOT EXISTS commerce_tool_requests_queue ON commerce_tool_requests(status, priority, created_at DESC);
+CREATE TABLE IF NOT EXISTS commerce_accounts (
+ id uuid PRIMARY KEY, email text NOT NULL UNIQUE, name text NOT NULL,
+ password_hash text NOT NULL, role text NOT NULL CHECK(role IN ('customer','reseller')),
+ balance integer NOT NULL DEFAULT 0 CHECK(balance>=0), created_at timestamptz NOT NULL DEFAULT now()
+);
 CREATE TABLE IF NOT EXISTS commerce_reseller_requirements (
  id uuid PRIMARY KEY,
  tool_name text NOT NULL,

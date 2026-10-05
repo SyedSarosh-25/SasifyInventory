@@ -170,16 +170,23 @@ export function SupplierFeaturedCard({
         </a>
 
         {variants.length > 1 && (
-          <div className="featured-variants-selector" role="radiogroup" aria-label="Available plans">
+          <div className="featured-variants-selector" role="group" aria-label="Available plans">
             <div className="variants-pills-row">
               {variants.map((v) => {
                 const isSelected = v.id === activeProduct.id;
                 const label = getVariantShortLabel(v.name);
                 const priceVal = v.display_price ?? v.price;
+                const vHref = v.href || (
+                  v.source === 'supplier'
+                    ? `/products/${v.canonical_key || v.id}`
+                    : v.localProduct
+                      ? productHref(v.localProduct)
+                      : `/products/${v.id}`
+                );
                 return (
-                  <button
+                  <a
                     key={v.id}
-                    type="button"
+                    href={vHref}
                     className={`variant-pill ${isSelected ? 'is-selected' : ''}`}
                     onClick={(e) => {
                       e.preventDefault();
@@ -190,7 +197,7 @@ export function SupplierFeaturedCard({
                   >
                     <span className="variant-pill-label">{label}</span>
                     <span className="variant-pill-price">PKR {Number(priceVal).toLocaleString()}</span>
-                  </button>
+                  </a>
                 );
               })}
             </div>

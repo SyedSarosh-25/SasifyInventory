@@ -12,7 +12,10 @@ function localComparison(id: string, details: Omit<Comparison, 'name' | 'href' |
 }
 
 function supplierComparison(slugs: string[], details: (product: SupplierSeoProduct) => Omit<Comparison, 'name' | 'href' | 'price'>): Comparison[] {
-  return supplierSeoProducts.filter((product) => !product.archived && slugs.includes(product.slug)).map((product) => ({
+  const list = supplierSeoProducts.filter((product) => !product.archived && slugs.includes(product.slug));
+  const uniqueBySlug = new Map<string, SupplierSeoProduct>();
+  for (const product of list) uniqueBySlug.set(product.slug, product);
+  return Array.from(uniqueBySlug.values()).map((product) => ({
     name: product.name, href: `/products/${product.slug}`, price: product.price, ...details(product),
   }));
 }

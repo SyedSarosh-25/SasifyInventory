@@ -10,6 +10,9 @@ async function request(action, rows, productId = '') {
   const queries = [];
   const handler = createHandler(() => ({ connect: async () => ({
     query: async (sql) => {
+      if (sql.includes('CREATE TABLE') || sql.includes('ALTER TABLE') || sql.includes('commerce_supplier_catalog_meta') || sql.includes('muse-ai')) {
+        return { rows: [{ id: true }], rowCount: 0 };
+      }
       queries.push(sql);
       if (sql.includes('commerce_limits')) return { rows: [{ hits: 1 }] };
       if (sql.includes('GROUP BY i.product_id')) return { rows: [] };
@@ -17,7 +20,7 @@ async function request(action, rows, productId = '') {
       if (sql.includes('commerce_inventory') && sql.includes('count(*)')) return { rows: [{ available: 0 }] };
       if (sql.includes('commerce_supplier_products')) return { rows };
       if (sql.includes('commerce_supplier_secrets')) return { rows: [] };
-      throw new Error('Unexpected transactional query');
+      throw new Error('Unexpected transactional query: ' + sql);
     },
     release: () => { released = true; },
   }) }));

@@ -2915,7 +2915,7 @@ async function fulfill(
       AND selling_price<=$1 ORDER BY cost_pkr ASC NULLS LAST,wholesale_price ASC,id`,
         [Number(order.listed_amount ?? order.amount)],
       )
-    ).rows.filter((candidate) => supplierProductKey(candidate.name) === supplierProductKey(selected.name));
+    ).rows.filter((candidate) => (selected.canonical_key && candidate.canonical_key === selected.canonical_key) || supplierProductKey(candidate.name) === supplierProductKey(selected.name));
     if (
       !candidates.some((product) => product.id === selected.id) &&
       selected.supplier_stock > 0

@@ -1,29 +1,24 @@
 const knownFamilies: Array<[string, RegExp]> = [
   ['ChatGPT', /\bchat\s*gpt\b/i],
   ['OpenAI API', /\bopenai\b/i],
-  ['Claude API', /\bclaude\b.*\bapi\b|\bapi\b.*\bclaude\b/i],
-  ['Claude', /\bclaude\b/i],
-  ['Codex', /\bcodex\b/i],
   ['CapCut', /\bcap\s*cut\b/i],
-  ['Canva', /\bcanva\b/i],
+  ['Claude', /\bclaude\b/i],
   ['Figma', /\bfigma\b/i],
+  ['Canva', /\bcanva\b/i],
   ['Grok', /\b(?:grok|supergrok)\b/i],
   ['Perplexity', /\bperplexity\b/i],
   ['Cursor', /\bcursor\b/i],
-  ['Gemini', /\bgemini\b/i],
-  ['Hostinger', /\bhostinger\b/i],
-  ['Minimax', /\bminimax\b/i],
-  ['Midjourney', /\bmidjourney\b/i],
-  ['Netflix', /\bnetflix\b/i],
-  ['Spotify', /\bspotify\b/i],
-  ['Notion', /\bnotion\b/i],
-  ['Outlook', /\b(?:outlook|hotmail)\b/i],
-  ['Grammarly', /\bgrammarly\b/i],
   ['Adobe Express', /\badobe\s+express\b/i],
   ['Adobe Photoshop', /\badobe\s+photoshop\b/i],
   ['Adobe', /\badobe\b/i],
-  ['X Accounts', /\b(?:account x|x stock|twitter)\b/i],
-  ['Telegram', /\btelegram\b/i],
+  ['Midjourney', /\bmidjourney\b/i],
+  ['Gemini', /\bgemini\b/i],
+  ['Netflix', /\bnetflix\b/i],
+  ['Spotify', /\bspotify\b/i],
+  ['Notion', /\bnotion\b/i],
+  ['Outlook', /\boutlook\b/i],
+  ['Grammarly', /\bgrammarly\b/i],
+  ['Hostinger', /\bhostinger\b/i],
 ];
 
 export function getVariantShortLabel(name: string): string {
@@ -71,7 +66,7 @@ export function toolFamilyHref(name: string) {
     : `/tools?tool=${encodeURIComponent(slug)}`;
 }
 
-export const knownToolFamilySlugs = knownFamilies.map(([name]) => toolFamilySlug(name));
+export const knownToolFamilySlugs = knownFamilies.map(([name]) => toolFamilySlug(name)).filter(Boolean);
 
 export function toolFamilyLabel(slug: string) {
   return knownFamilies.find(([name]) => toolFamilySlug(name) === slug)?.[0]

@@ -246,6 +246,7 @@ function SupplierSeoProductPage({ product }: { product: SupplierSeoProduct }) {
               <a href="#overview">Overview</a>
               <a href="#questions">Questions about this product</a>
               <a href="#popular-uses">Popular uses</a>
+              <a href="#purchase-options">Purchase options</a>
             </nav>
 
             <section className="description-section" id="supplier-specs">
@@ -450,6 +451,7 @@ export default async function ProductPage({ params }: Props) {
               {product.variants?.length && product.id !== 'p093' ? <a href="#account-options">Choose your VPS package</a> : null}
               <a href="#questions">Questions about this plan</a>
               <a href="#popular-uses">Popular uses</a>
+              <a href="#purchase-options">Purchase options</a>
             </nav>
 
             <section className="description-section" id="overview">
