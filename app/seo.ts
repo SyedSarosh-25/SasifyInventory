@@ -219,11 +219,14 @@ export const organizationData = {
   ],
   founder: { '@type': 'Person', name: 'Syed Sarosh', url: founderProfile },
   areaServed: { '@type': 'Country', name: 'Pakistan' },
-  sameAs: [...socials.map(({ href }) => href), googleBusinessProfile],
+  sameAs: [
+    ...socials.map(({ href }) => href),
+    googleBusinessProfile,
+    'https://chat.whatsapp.com/Jl2r5pnm4of8GbhrtqghKU?s=cl&p=i&mlu=4&ilr=4',
+  ],
 };
 
 export const websiteData = {
-  '@context': 'https://schema.org',
   '@type': 'WebSite',
   '@id': `${siteOrigin}/#website`,
   url: `${siteOrigin}/`,
@@ -238,6 +241,66 @@ export const websiteData = {
   inLanguage: 'en-PK',
   publisher: { '@id': `${siteOrigin}/#organization` },
   about: { '@id': `${siteOrigin}/#organization` },
+  potentialAction: {
+    '@type': 'SearchAction',
+    target: {
+      '@type': 'EntryPoint',
+      urlTemplate: `${siteOrigin}/inventory?q={search_term_string}`,
+    },
+    'query-input': 'required name=search_term_string',
+  },
+};
+
+export const siteNavigationData = {
+  '@type': 'ItemList',
+  '@id': `${siteOrigin}/#site-navigation`,
+  name: 'Sasify Solutions Primary Navigation',
+  itemListElement: [
+    {
+      '@type': 'SiteNavigationElement',
+      position: 1,
+      name: 'Full Inventory',
+      description: 'Explore 100+ digital subscriptions, AI tools, developer APIs, and software licenses with PKR pricing.',
+      url: `${siteOrigin}/inventory`,
+    },
+    {
+      '@type': 'SiteNavigationElement',
+      position: 2,
+      name: 'Categories',
+      description: 'Browse tools by purpose: AI & research, video & audio, design, coding, and productivity software.',
+      url: `${siteOrigin}/categories`,
+    },
+    {
+      '@type': 'SiteNavigationElement',
+      position: 3,
+      name: 'About Sasify Solutions',
+      description: 'Meet founder Syed Sarosh, learn how online ordering works, and access verified customer support.',
+      url: `${siteOrigin}/about`,
+    },
+    {
+      '@type': 'SiteNavigationElement',
+      position: 4,
+      name: 'Scam Reports & Trust',
+      description: 'Community fraud alerts, vendor safety verifications, and scam protection guides in Pakistan.',
+      url: `${siteOrigin}/scammers`,
+    },
+    {
+      '@type': 'SiteNavigationElement',
+      position: 5,
+      name: 'Buying Guide & FAQ',
+      description: 'How digital subscriptions and licenses work, warranty terms, and account activation guides.',
+      url: `${siteOrigin}/buying-guide`,
+    },
+  ],
+};
+
+export const rootGraphData = {
+  '@context': 'https://schema.org',
+  '@graph': [
+    organizationData,
+    websiteData,
+    siteNavigationData,
+  ],
 };
 
 export function breadcrumbData(items: { name: string; path: string }[]) {
