@@ -469,3 +469,111 @@ body[data-storefront="true"] .footer-policy-links { padding-top: 0; padding-bott
   .checkout-page .checkout-payment-step .payment-method-trigger > .wallet-selected-badge { grid-column: 3; grid-row: 2; justify-self: start; margin: 0; }
   .checkout-page .checkout-payment-step .payment-method-trigger > svg:last-child { grid-column: 4; grid-row: 1; }
 }
+
+/* Smart Product Grouping & Interactive Variant Selector */
+body[data-storefront="true"] .featured-card-header-link,
+body[data-storefront="true"] .featured-price-link {
+  display: block;
+  color: inherit;
+  text-decoration: none;
+}
+body[data-storefront="true"] .featured-card-header-link:hover h3 {
+  color: #2563eb;
+}
+body[data-storefront="true"] .featured-badge-group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 5px;
+}
+body[data-storefront="true"] .featured-type-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 8px;
+  border-radius: var(--radius-pill, 999px);
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+body[data-storefront="true"] .featured-type-badge.is-shared {
+  background: #fef3c7;
+  color: #92400e;
+  border: 1px solid #fde68a;
+}
+body[data-storefront="true"] .featured-type-badge.is-private {
+  background: #ede9fe;
+  color: #5b21b6;
+  border: 1px solid #ddd6fe;
+}
+body[data-storefront="true"] .featured-plans-count-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 8px;
+  border-radius: var(--radius-pill, 999px);
+  font-size: 0.62rem;
+  font-weight: 800;
+  background: #eef2ff;
+  color: #4338ca;
+  border: 1px solid #c7d2fe;
+}
+body[data-storefront="true"] .featured-variants-selector {
+  margin: 12px 0 10px;
+  padding: 10px 0 2px;
+  border-top: 1px dashed #e2e8f0;
+}
+body[data-storefront="true"] .variants-pills-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  max-height: 120px;
+  overflow-y: auto;
+  padding: 2px 1px;
+}
+body[data-storefront="true"] .variants-pills-row::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+body[data-storefront="true"] .variants-pills-row::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+body[data-storefront="true"] .variant-pill {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 5px 9px;
+  border: 1px solid #e2e8f0;
+  border-radius: 9px;
+  background: #f8fafc;
+  color: #334155;
+  font-size: 0.68rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-align: left;
+  line-height: 1.25;
+}
+body[data-storefront="true"] .variant-pill:hover {
+  border-color: #93c5fd;
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+body[data-storefront="true"] .variant-pill.is-selected {
+  border-color: #2563eb;
+  background: #2563eb;
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.28);
+}
+body[data-storefront="true"] .variant-pill-label {
+  font-weight: 750;
+  font-size: 0.72rem;
+}
+body[data-storefront="true"] .variant-pill-price {
+  font-size: 0.62rem;
+  opacity: 0.85;
+}
+body[data-storefront="true"] .variant-pill.is-selected .variant-pill-price {
+  color: #dbeafe;
+}
+

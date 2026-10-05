@@ -14,6 +14,7 @@ import { cacheSupplierCatalog } from '../supplier-catalog-cache';
 import { loadPublicCatalog } from '../public-catalog';
 import { supplierCatalogHref } from '../supplier-seo';
 import { supplierOriginalPriceComparison } from '../supplier-price-utils';
+import { getVariantShortLabel } from '../tool-families';
 
 type SupplierProduct = {
   id: string;
@@ -45,55 +46,67 @@ export type FeaturedProduct = SupplierProduct & {
   stockVerified?: boolean;
 };
 
-export function SupplierFeaturedCard({ product }: { product: FeaturedProduct }) {
+export function SupplierFeaturedCard({
+  product,
+  variants = [],
+}: {
+  product: FeaturedProduct;
+  variants?: FeaturedProduct[];
+}) {
+  const [selectedId, setSelectedId] = useState<string>(product.id);
+  useEffect(() => {
+    setSelectedId(product.id);
+  }, [product.id]);
+  const activeProduct = (variants.length > 1 ? variants.find(v => v.id === selectedId) : null) || product;
+
   const logo =
-    product.source === 'supplier'
-      ? supplierLogo(product.name, product.logo_url)
+    activeProduct.source === 'supplier'
+      ? supplierLogo(activeProduct.name, activeProduct.logo_url)
       : '';
-  const href = product.href || (
-    product.source === 'supplier'
-      ? supplierCatalogHref(product)
-      : productHref(product.localProduct!)
+  const href = activeProduct.href || (
+    activeProduct.source === 'supplier'
+      ? supplierCatalogHref(activeProduct)
+      : productHref(activeProduct.localProduct!)
   );
-  const displayName = (product.display_name || product.name)
+  const displayName = (activeProduct.display_name || activeProduct.name)
     .replace(/\(*can be monetized\)*\s*/gi, '').trim()
     .replace(/^\$500 API CLAUDE 30D \(FW\)$/i, 'Claude API · $500 credits · 30 days (FW)');
-  const comparison = product.source === 'supplier'
-    ? supplierOriginalPriceComparison(product)
+  const comparison = activeProduct.source === 'supplier'
+    ? supplierOriginalPriceComparison(activeProduct)
     : null;
-  const salePrice = product.display_price ?? product.price;
-  const contactOnly = Boolean(product.localProduct?.contactOnly);
-  const packagePrices = product.localProduct?.variants?.map(variant => variant.sellingPricePkr).filter(price => price > 0) || [];
+  const salePrice = activeProduct.display_price ?? activeProduct.price;
+  const contactOnly = Boolean(activeProduct.localProduct?.contactOnly);
+  const packagePrices = activeProduct.localProduct?.variants?.map(variant => variant.sellingPricePkr).filter(price => price > 0) || [];
   const contactPrice = packagePrices.length ? Math.min(...packagePrices) : null;
-  const originalPrice = product.original_price_pkr ?? product.display_original_price
-    ?? (product.source === 'supplier'
+  const originalPrice = activeProduct.original_price_pkr ?? activeProduct.display_original_price
+    ?? (activeProduct.source === 'supplier'
       ? comparison?.totalPkr ?? null
-      : product.localProduct
-        ? originalPricePkr(product.localProduct)
+      : activeProduct.localProduct
+        ? originalPricePkr(activeProduct.localProduct)
         : null);
   const savings = originalPrice === null
     ? null
     : Math.max(0, Math.round((originalPrice - salePrice) * 100) / 100);
-  const sourceDescription = product.canonical_key === 'manual:muse-ai'
+  const sourceDescription = activeProduct.canonical_key === 'manual:muse-ai'
     ? 'Muse AI — 1 billion AI tokens'
-    : String(product.description || '').replace(/PERPLEXITY PRO\s*[–—-]\s*1 MONTH\s*\|\s*ACTIVATION CDK/i, 'Perplexity Pro — 1-month activation code');
+    : String(activeProduct.description || '').replace(/PERPLEXITY PRO\s*[–—-]\s*1 MONTH\s*\|\s*ACTIVATION CDK/i, 'Perplexity Pro — 1-month activation code');
   const description = String(sourceDescription || '')
     .split(/\n+/)
     .map((line) => line.replace(/^[^\p{L}\p{N}]+/u, '').trim())
     .find(Boolean) || 'Review access, duration and requirements before ordering.';
-  const checkoutProductId = product.source === 'supplier'
-    ? product.canonical_key || product.id
-    : product.id === 'p093'
+  const checkoutProductId = activeProduct.source === 'supplier'
+    ? activeProduct.canonical_key || activeProduct.id
+    : activeProduct.id === 'p093'
       ? 'p093-ultra'
-      : product.id;
-  const isSupplier = product.source === 'supplier';
-  const availabilityMode = product.availability_mode || (isSupplier ? 'live' : 'live');
-  const stockVerified = !isSupplier || product.stockVerified === true;
+      : activeProduct.id;
+  const isSupplier = activeProduct.source === 'supplier';
+  const availabilityMode = activeProduct.availability_mode || (isSupplier ? 'live' : 'live');
+  const stockVerified = !isSupplier || activeProduct.stockVerified === true;
   const inStock = availabilityMode === 'preorder' || availabilityMode === 'manual'
     ? true
     : !isSupplier
-      ? Number(product.available) > 0
-      : stockVerified && Number(product.available) > 0;
+      ? Number(activeProduct.available) > 0
+      : stockVerified && Number(activeProduct.available) > 0;
   const stockLabel = (
     availabilityMode === 'preorder'
       ? 'Taking pre-orders'
@@ -102,7 +115,7 @@ export function SupplierFeaturedCard({ product }: { product: FeaturedProduct }) 
         : !stockVerified
             ? 'Checking stock…'
             : inStock
-              ? `In stock${Number.isFinite(Number(product.available)) ? ` · ${Number(product.available).toLocaleString('en-PK')}` : ''}`
+              ? `In stock${Number.isFinite(Number(activeProduct.available)) ? ` · ${Number(activeProduct.available).toLocaleString('en-PK')}` : ''}`
               : 'Out of stock'
   );
   const availabilityClass = availabilityMode === 'preorder'
@@ -116,65 +129,96 @@ export function SupplierFeaturedCard({ product }: { product: FeaturedProduct }) 
           : 'is-unavailable';
   const showStockBadge = Boolean(stockLabel);
   const canPurchase = inStock || contactOnly;
-  const cardContent = <>
-    <div className="featured-card-topline">
-      <div className="featured-logo">
-        {product.source === 'local' ? (
-          <ProductLogo product={product.localProduct!} />
-        ) : logo ? (
-          <img
-            src={logo}
-            alt={`${displayName} logo`}
-            width={128}
-            height={128}
-            loading="lazy"
-            decoding="async"
-          />
-        ) : (
-          <Tag aria-hidden="true" />
-        )}
-      </div>
-      {showStockBadge && <span className={`featured-stock-badge ${availabilityClass}`} role="status">
-        <i aria-hidden="true" /> {stockLabel}
-      </span>}
-    </div>
-    <div className="featured-copy">
-      <h3 translate="no">{displayName}</h3>
-      <p translate="no">{description}</p>
-    </div>
-    <div className="featured-price-block">
-      {!contactOnly && originalPrice !== null ? (
-        <div className="featured-original-price">
-          <span>Original price</span>
-          <del><Money amount={originalPrice} /></del>
-        </div>
-      ) : (
-        <div className="featured-original-price featured-price-placeholder">
-          <span>Original price</span>
-          <strong>Price may vary</strong>
-        </div>
-      )}
-      <div className="featured-our-price">
-        <span><Tag className="h-3 w-3" /> {contactOnly ? 'From' : 'Our price'}</span>
-        <strong>{contactOnly ? contactPrice === null ? 'Choose package' : <Money amount={contactPrice} /> : <Money amount={salePrice} />}</strong>
-      </div>
-      {!contactOnly && savings !== null && <div className="featured-savings">Your savings <strong><Money amount={savings} /></strong></div>}
-    </div>
-  </>;
+
+  const isShared = /\bshared\b/i.test(activeProduct.name);
+  const isUltraOrPrivate = /\b(?:ultra|stable|private)\b/i.test(activeProduct.name);
+
   return (
     <LocalizedContent><article className={`featured-card supplier-featured-card${!canPurchase ? ' is-stock-blocked' : ''}`}>
-      {/*
-       * Keep supplier detail pages crawlable even while the live stock check is
-       * still pending (or reports no stock). The purchase action remains
-       * disabled, while the card and details action take a visitor to the detail
-       * page and satisfy the static inventory link contract.
-       */}
-      <a
-        className="featured-card-main"
-        href={href}
-      >
-        {cardContent}
-      </a>
+      <div className="featured-card-main">
+        <a className="featured-card-header-link" href={href}>
+          <div className="featured-card-topline">
+            <div className="featured-logo">
+              {activeProduct.source === 'local' ? (
+                <ProductLogo product={activeProduct.localProduct!} />
+              ) : logo ? (
+                <img
+                  src={logo}
+                  alt={`${displayName} logo`}
+                  width={128}
+                  height={128}
+                  loading="lazy"
+                  decoding="async"
+                />
+              ) : (
+                <Tag aria-hidden="true" />
+              )}
+            </div>
+            <div className="featured-badge-group">
+              {isShared && <span className="featured-type-badge is-shared">Shared</span>}
+              {isUltraOrPrivate && <span className="featured-type-badge is-private">Own Email</span>}
+              {variants.length > 1 && <span className="featured-plans-count-badge">{variants.length} plans</span>}
+              {showStockBadge && <span className={`featured-stock-badge ${availabilityClass}`} role="status">
+                <i aria-hidden="true" /> {stockLabel}
+              </span>}
+            </div>
+          </div>
+          <div className="featured-copy">
+            <h3 translate="no">{displayName}</h3>
+            <p translate="no">{description}</p>
+          </div>
+        </a>
+
+        {variants.length > 1 && (
+          <div className="featured-variants-selector" role="radiogroup" aria-label="Available plans">
+            <div className="variants-pills-row">
+              {variants.map((v) => {
+                const isSelected = v.id === activeProduct.id;
+                const label = getVariantShortLabel(v.name);
+                const priceVal = v.display_price ?? v.price;
+                return (
+                  <button
+                    key={v.id}
+                    type="button"
+                    className={`variant-pill ${isSelected ? 'is-selected' : ''}`}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setSelectedId(v.id);
+                    }}
+                    title={v.name}
+                  >
+                    <span className="variant-pill-label">{label}</span>
+                    <span className="variant-pill-price">PKR {Number(priceVal).toLocaleString()}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        <a className="featured-price-link" href={href}>
+          <div className="featured-price-block">
+            {!contactOnly && originalPrice !== null ? (
+              <div className="featured-original-price">
+                <span>Original price</span>
+                <del><Money amount={originalPrice} /></del>
+              </div>
+            ) : (
+              <div className="featured-original-price featured-price-placeholder">
+                <span>Original price</span>
+                <strong>Price may vary</strong>
+              </div>
+            )}
+            <div className="featured-our-price">
+              <span><Tag className="h-3 w-3" /> {contactOnly ? 'From' : 'Our price'}</span>
+              <strong>{contactOnly ? contactPrice === null ? 'Choose package' : <Money amount={contactPrice} /> : <Money amount={salePrice} />}</strong>
+            </div>
+            {!contactOnly && savings !== null && <div className="featured-savings">Your savings <strong><Money amount={savings} /></strong></div>}
+          </div>
+        </a>
+      </div>
+
       <div className="featured-card-actions">
         <a className="featured-details-button" href={href}>View details</a>
         {canPurchase ? <>

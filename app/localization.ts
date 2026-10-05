@@ -86,6 +86,7 @@ const copy: Array<[string, string, string]> = [
   ['Name: A–Z', 'Naam: A–Z', 'Tên: A–Z'],
   ['Availability', 'Availability', 'Tình trạng hàng'],
   ['In Stock Products Only', 'Sirf in-stock products', 'Chỉ sản phẩm còn hàng'],
+  ['Group by Tool', 'Tools ke hisaab se group karain', 'Nhóm theo công cụ'],
   ['In stock only', 'Sirf in-stock', 'Chỉ còn hàng'],
   ['Reset filters', 'Filters reset karain', 'Đặt lại bộ lọc'],
   ['Browse by what you want to do', 'Apne kaam ke mutabiq tools dekhain', 'Khám phá theo nhu cầu của bạn'],

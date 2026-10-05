@@ -61,6 +61,7 @@ export function Catalog({ initialQuery = '', initialCategory = 'All', heading = 
   const [activeCategory, setActiveCategory] = useState(initialCategory);
   const [sort, setSort] = useState('featured');
   const [stockFilter, setStockFilter] = useState('all');
+  const [groupByTool, setGroupByTool] = useState(true);
   const [stockState, setStockState] = useState<'loading' | 'ready' | 'error'>('loading');
   const [liveCatalogProducts, setLiveCatalogProducts] = useState<LiveSupplierProduct[]>([]);
 
@@ -193,6 +194,37 @@ export function Catalog({ initialQuery = '', initialCategory = 'All', heading = 
     ? inventory.find((product) => toolFamilySlug(product.name) === query.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-'))
     : null;
 
+  const displayGroups = useMemo(() => {
+    if (!groupByTool) {
+      return filtered.map((p) => ({ primary: p, variants: [p] }));
+    }
+    const groupsMap = new Map<string, FeaturedProduct[]>();
+    for (const product of filtered) {
+      const familySlug = toolFamilySlug(product.name);
+      const groupKey = familySlug || product.id;
+      if (!groupsMap.has(groupKey)) groupsMap.set(groupKey, []);
+      groupsMap.get(groupKey)!.push(product);
+    }
+    const result: Array<{ primary: FeaturedProduct; variants: FeaturedProduct[] }> = [];
+    for (const [, items] of groupsMap.entries()) {
+      items.sort((a, b) => (a.price || 0) - (b.price || 0));
+      const primary = items.find((i) => Number(i.available) > 0) || items[0];
+      result.push({ primary, variants: items });
+    }
+    if (sort === 'low') {
+      result.sort((a, b) => a.primary.price - b.primary.price);
+    } else if (sort === 'high') {
+      result.sort((a, b) => {
+        const aMax = Math.max(...a.variants.map((v) => v.price || 0));
+        const bMax = Math.max(...b.variants.map((v) => v.price || 0));
+        return bMax - aMax;
+      });
+    } else if (sort === 'name') {
+      result.sort((a, b) => a.primary.name.localeCompare(b.primary.name));
+    }
+    return result;
+  }, [filtered, groupByTool, sort]);
+
   return (
     <LocalizedContent><section id="catalog" className="catalog-section">
       <div className="section-inner">
@@ -202,7 +234,9 @@ export function Catalog({ initialQuery = '', initialCategory = 'All', heading = 
             <h1>{heading}</h1>
             <p>Every plan shows its access type, length and PKR price.</p>
           </div>
-          <div className="results-badge" role="status"><Filter className="h-4 w-4" /> {`${filtered.length} products`}</div>
+          <div className="results-badge" role="status">
+            <Filter className="h-4 w-4" /> {groupByTool ? `${displayGroups.length} tools (${filtered.length} plans)` : `${filtered.length} products`}
+          </div>
         </div>
 
         {introduction}
@@ -220,6 +254,14 @@ export function Catalog({ initialQuery = '', initialCategory = 'All', heading = 
           <label>Sort by <select value={sort} onChange={event => setSort(event.target.value)}>
             <option value="featured">Featured</option><option value="low">Price: low to high</option><option value="high">Price: high to low</option><option value="name">Name: A–Z</option>
           </select></label>
+          <label className={`catalog-stock-filter ${groupByTool ? 'is-active' : ''}`}>
+            <input
+              type="checkbox"
+              checked={groupByTool}
+              onChange={event => setGroupByTool(event.target.checked)}
+            />
+            <span>Group by Tool</span>
+          </label>
           <label className={`catalog-stock-filter ${stockFilter === 'in' ? 'is-active' : ''}`}>
             <input
               type="checkbox"
@@ -228,7 +270,7 @@ export function Catalog({ initialQuery = '', initialCategory = 'All', heading = 
             />
             <span>In Stock Products Only</span>
           </label>
-          <button type="button" className="catalog-reset" onClick={() => { setQuery(''); setActiveCategory(initialCategory); setSort('featured'); setStockFilter('all'); }}>Reset filters</button>
+          <button type="button" className="catalog-reset" onClick={() => { setQuery(''); setActiveCategory(initialCategory); setSort('featured'); setStockFilter('all'); setGroupByTool(true); }}>Reset filters</button>
         </div>
         {stockState === 'error' && <p className="catalog-stock-status" role="status">Live stock updates could not be loaded. Supplier cards are disabled until stock can be confirmed.</p>}
         <p className="comparison-note">Savings compare the original price for the full plan duration with our price. Monthly references are multiplied by the number of months. Access and provider billing options may differ.</p>
@@ -239,10 +281,16 @@ export function Catalog({ initialQuery = '', initialCategory = 'All', heading = 
 
         <h2 className="catalog-plans-title">Available plans</h2>
         <div className="featured-grid catalog-featured-grid">
-          {filtered.map((product) => <SupplierFeaturedCard key={product.id} product={product} />)}
+          {displayGroups.map((group) => (
+            <SupplierFeaturedCard
+              key={group.primary.id}
+              product={group.primary}
+              variants={group.variants}
+            />
+          ))}
         </div>
 
-        {filtered.length === 0 && <div className="empty-state">
+        {displayGroups.length === 0 && <div className="empty-state">
           <Search className="h-6 w-6" />
           <h2>No products found</h2>
           <p>Try another search or category.</p>
