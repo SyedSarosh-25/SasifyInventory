@@ -99,7 +99,7 @@ export function SupplierFeaturedCard({
     : activeProduct.id === 'p093'
       ? 'p093-ultra'
       : activeProduct.id;
-  const isSupplier = activeProduct.source === 'supplier';
+  const isSupplier = product.source === 'supplier';
   const availabilityMode = activeProduct.availability_mode || (isSupplier ? 'live' : 'live');
   const stockVerified = !isSupplier || activeProduct.stockVerified === true;
   const inStock = availabilityMode === 'preorder' || availabilityMode === 'manual'

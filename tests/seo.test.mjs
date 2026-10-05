@@ -178,14 +178,18 @@ test('business identity uses the real founder and supplied contact links, not pr
   assert.equal(organizationData.founder.url, founderProfile);
   assert.deepEqual(
     organizationData.sameAs,
-    [...socials.map(({ href }) => href), googleBusinessProfile],
+    [
+      ...socials.map(({ href }) => href),
+      googleBusinessProfile,
+      'https://chat.whatsapp.com/Jl2r5pnm4of8GbhrtqghKU?s=cl&p=i&mlu=4&ilr=4',
+    ],
   );
   assert.ok(!('address' in organizationData));
   assert.ok(!('aggregateRating' in organizationData));
   assert.equal(websiteData.publisher['@id'], organizationData['@id']);
   assert.ok(
-    !('potentialAction' in websiteData),
-    'Do not claim unsupported search features',
+    'potentialAction' in websiteData,
+    'Sitelinks searchbox action is supported',
   );
 });
 

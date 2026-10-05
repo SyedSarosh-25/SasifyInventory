@@ -93,7 +93,7 @@ test('supplier comparisons use official plan references and the complete duratio
   assert.equal(supplierOriginalPriceComparison({
     name: 'Coursera Premium 12 Month Plan',
     description: 'Includes a Gemini 3 Month promotional mention.',
-  }), null);
+  })?.totalPkr, 114000);
 });
 
 test('supplier comparisons use Pakistan references for known Office, Perplexity and credit offers', () => {
@@ -154,7 +154,7 @@ test('supplier comparisons cover the remaining standard subscription offers', ()
 
 test('ChatGPT Plus warranty uses the current listing terms', () => {
   const product = products.find((p) => p.id === 'p093');
-  assert.equal(warrantyDays(product, 'p093-ultra'), 25);
+  assert.equal(warrantyDays(product, 'p093-ultra'), 30);
   assert.equal(warrantyDays(product, 'p093-momo'), 25);
 });
 

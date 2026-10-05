@@ -59,7 +59,7 @@ export function warrantyDays(product: Product, variantId?: string) {
   const variant = variantId
     ? product.variants?.find((item) => item.id === variantId)
     : undefined;
-  return variant?.warrantyDays ?? (has25DayWarranty(product) ? 30 : null);
+  return variant?.warrantyDays ?? (has25DayWarranty(product) ? 25 : null);
 }
 
 export function planMonths(product: Product) {

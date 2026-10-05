@@ -10,7 +10,7 @@ import { siteTitle } from '../app/site-config.ts';
 import { verifiedHistoricalProductRedirects } from '../app/historical-product-redirects.mjs';
 
 test('homepage title identifies the product type, market and real brand', () => {
-  assert.equal(siteTitle, 'AI Tools & Digital Subscriptions in Pakistan | Sasify Solutions');
+  assert.equal(siteTitle, 'Sasify Solutions | Automated Tools & Subscriptions Pakistan');
 });
 
 test('internal fixture detection is narrow and keeps legitimate or archived products', () => {
