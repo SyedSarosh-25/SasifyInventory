@@ -10,7 +10,7 @@ import { StructuredData } from './components/structured-data';
 import { SiteTelemetry } from './components/site-telemetry';
 import { MotionSystem } from './components/motion-system';
 import { AdminShortcut } from './components/admin-shortcut';
-import { rootGraphData } from './seo';
+import { organizationData } from './seo';
 import { shareImage, shareImageUrl } from './share-metadata';
 
 const geistSans = Geist({
@@ -98,7 +98,7 @@ export default function RootLayout({
   return (
     <html lang="en" className="light" style={{ colorScheme: 'light' }}>
       <body className={`${geistSans.variable} ${displaySans.variable} antialiased`}>
-        <StructuredData data={rootGraphData} />
+        <StructuredData data={organizationData} />
         <LanguageProvider><CurrencyProvider>{children}</CurrencyProvider></LanguageProvider>
         <MotionSystem />
         <AdminShortcut />
