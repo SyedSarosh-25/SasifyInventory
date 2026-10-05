@@ -48,6 +48,8 @@ const seoInventory: FeaturedProduct[] = supplierSeoProducts.filter((product) => 
   href: supplierProductHref(product),
 }));
 
+import { isInternalTestListing, isApiProduct } from '../product-visibility';
+
 function matchesQuery(product: FeaturedProduct, query: string) {
   const normalizedQuery = query.trim().toLowerCase();
   if (!normalizedQuery) return true;
@@ -64,7 +66,7 @@ export function Catalog({ initialQuery = '', initialCategory = 'All', heading = 
   const [sort, setSort] = useState(family ? 'low' : 'featured');
   const [stockFilter, setStockFilter] = useState('all');
   const [groupByTool, setGroupByTool] = useState(!family);
-  const [planTypeFilter, setPlanTypeFilter] = useState<'all' | 'stock' | 'private' | 'shared' | 'api'>('all');
+  const [planTypeFilter, setPlanTypeFilter] = useState<'all' | 'stock' | 'private' | 'shared'>('all');
   const [stockState, setStockState] = useState<'loading' | 'ready' | 'error'>('loading');
   const [liveCatalogProducts, setLiveCatalogProducts] = useState<LiveSupplierProduct[]>([]);
 
@@ -173,6 +175,7 @@ export function Catalog({ initialQuery = '', initialCategory = 'All', heading = 
     });
     const visibleSupplierInventory = supplierInventory.filter(
       (product) =>
+        !isApiProduct(product) &&
         !isChatGptPlusProduct(product.name) &&
         !localInventory.some((localProduct) =>
           supplierEquivalentProductName(localProduct.name, product.name),
@@ -229,11 +232,10 @@ export function Catalog({ initialQuery = '', initialCategory = 'All', heading = 
     return result;
   }, [filtered, groupByTool, sort]);
 
-  const familyPlans = filtered;
+  const familyPlans = filtered.filter((p) => !isApiProduct(p));
   const inStockCount = useMemo(() => familyPlans.filter(p => p.availability_mode === 'preorder' || p.availability_mode === 'manual' || Number(p.available) > 0).length, [familyPlans]);
   const privateCount = useMemo(() => familyPlans.filter(p => /\b(?:ultra|stable|private|own\s*email)\b/i.test(p.name)).length, [familyPlans]);
   const sharedCount = useMemo(() => familyPlans.filter(p => /\bshared\b/i.test(p.name)).length, [familyPlans]);
-  const apiCount = useMemo(() => familyPlans.filter(p => /\b(?:api|token|tokens|credits?|cdk)\b/i.test(p.name)).length, [familyPlans]);
 
   const displayedFamilyPlans = useMemo(() => {
     if (!family) return [];
@@ -246,9 +248,6 @@ export function Catalog({ initialQuery = '', initialCategory = 'All', heading = 
       }
       if (planTypeFilter === 'shared') {
         return /\bshared\b/i.test(p.name);
-      }
-      if (planTypeFilter === 'api') {
-        return /\b(?:api|token|tokens|credits?|cdk)\b/i.test(p.name);
       }
       return true;
     });
@@ -357,15 +356,6 @@ export function Catalog({ initialQuery = '', initialCategory = 'All', heading = 
                     Shared Access ({sharedCount})
                   </button>
                 )}
-                {apiCount > 0 && (
-                  <button
-                    type="button"
-                    className={`tool-plan-tab ${planTypeFilter === 'api' ? 'is-active' : ''}`}
-                    onClick={() => setPlanTypeFilter('api')}
-                  >
-                    API & Tokens ({apiCount})
-                  </button>
-                )}
               </div>
 
               <div className="tool-plans-sort-select">
@@ -416,6 +406,11 @@ export function Catalog({ initialQuery = '', initialCategory = 'All', heading = 
           <p>Try another search or category.</p>
           <button type="button" onClick={() => { setQuery(''); setActiveCategory('All'); }}>Show all products</button>
         </div>}
+        <div className="sr-only" aria-hidden="true">
+          {seoInventory.map((p) => (
+            <a key={p.id} href={p.href}>{p.name}</a>
+          ))}
+        </div>
       </div>
     </section></LocalizedContent>
   );

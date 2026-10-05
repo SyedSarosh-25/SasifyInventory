@@ -156,13 +156,14 @@ export function SupplierFeaturedCard({
               : 'is-unavailable');
 
   const showStockBadge = Boolean(stockLabel);
-  const canPurchase = isFamily ? familyHasStock : (inStock || contactOnly);
+  const canPurchase = inStock || contactOnly;
+  const cardBlocked = isFamily ? !familyHasStock : !canPurchase;
 
   const isShared = !isFamily && /\bshared\b/i.test(activeProduct.name);
   const isUltraOrPrivate = !isFamily && /\b(?:ultra|stable|private)\b/i.test(activeProduct.name);
 
   return (
-    <LocalizedContent><article className={`featured-card supplier-featured-card${!canPurchase ? ' is-stock-blocked' : ''}`}>
+    <LocalizedContent><article className={`featured-card supplier-featured-card${cardBlocked ? ' is-stock-blocked' : ''}`}>
       <div className="featured-card-main">
         <a className="featured-card-header-link" href={href}>
           <div className="featured-card-topline">

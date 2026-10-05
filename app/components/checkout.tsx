@@ -28,6 +28,7 @@ import {
   AdminUserDetail,
 } from './admin-enhancements';
 import { supplierOfferDecision } from './admin-catalog-status-model';
+import { isApiProduct } from '../product-visibility';
 import {
   Check,
   ChevronDown,
@@ -361,11 +362,14 @@ export function Checkout() {
     setShowTwoFactorStep(false);
   }
   const product = products.find((p) => p.id === selected);
+  const isApi = isApiProduct(product);
   const productUnavailable = Boolean(
+    isApi || (
     product &&
     product.availability_mode !== 'preorder' &&
     product.availability_mode !== 'manual' &&
-    Number(product.available) <= 0,
+    Number(product.available) <= 0
+    )
   );
   const selectedPayment = PAYMENT_METHOD_OPTIONS.find((option) => option.value === paymentMethod) || PAYMENT_METHOD_OPTIONS[0];
   const walletDiscountExcluded = product?.id === 'p012' || product?.id === 'p013';
@@ -375,7 +379,7 @@ export function Checkout() {
   const walletPayable = product
     ? Math.max(0, Number(product.price) - walletDiscount)
     : 0;
-  const checkoutProducts = products.filter((p) => p.id !== 'p093');
+  const checkoutProducts = products.filter((p) => p.id !== 'p093' && !isApiProduct(p));
   const CUSTOMER_PAYMENT_DISPLAY_SECONDS = 5 * 60;
   const orderExpiryMs = order ? new Date(order.expiresAt).getTime() : 0;
   const createdAtMs = order?.createdAt ? new Date(order.createdAt).getTime() : NaN;
@@ -514,6 +518,10 @@ export function Checkout() {
               e.preventDefault();
               if (!warrantyAccepted) {
                 setError('Please confirm that you have read the product requirements and warranty terms.');
+                return;
+              }
+              if (product && isApiProduct(product)) {
+                setError('API products are currently unlive and not available for purchase.');
                 return;
               }
               void run(async () => {

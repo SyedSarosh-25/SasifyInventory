@@ -581,6 +581,10 @@ body[data-storefront="true"] .variant-pill.is-selected .variant-pill-price {
 /* ========================================================
    DEDICATED TOOL FAMILY PLANS SHOWCASE (ONE-BY-ONE UI/UX)
    ======================================================== */
+body[data-storefront="true"] .tool-buying-guide {
+  display: none !important;
+}
+
 body[data-storefront="true"] .featured-plans-count-badge {
   display: inline-flex;
   align-items: center;

@@ -60,7 +60,7 @@ import {
 import { productShareImage, productShareImageUrl } from '../../share-metadata';
 import { SupplierPriceSummary } from '../../components/supplier-price-summary';
 import { productSearchTags } from '../../product-search-tags';
-import { isInternalTestListing } from '../../product-visibility';
+import { isInternalTestListing, isApiProduct } from '../../product-visibility';
 
 type Props = { params: Promise<{ id: string }> };
 
@@ -353,7 +353,7 @@ function SupplierSeoProductPage({ product }: { product: SupplierSeoProduct }) {
             </div>
             <PurchaseDisclaimer /></PurchaseTerms>
             <div id="purchase-options" className="detail-purchase-actions">
-              {product.archived ? <p role="status">Currently Unavailable. This listing is retained for reference. <a href="/inventory">Browse current plans</a>.</p> : <SupplierLivePurchase
+              {product.archived || isApiProduct(product) ? <p role="status">Currently Unavailable. This listing is retained for reference. <a href="/inventory">Browse current plans</a>.</p> : <SupplierLivePurchase
                 productId={product.id}
                 canonicalKey={product.canonicalKey}
                 name={product.name}
