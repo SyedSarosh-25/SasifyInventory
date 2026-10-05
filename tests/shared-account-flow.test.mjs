@@ -164,4 +164,11 @@ test('shared ChatGPT inventory rotates four slots and allocates profit per slot'
   });
   assert.equal(snapshot.data.metrics.cost, 1250);
   assert.equal(snapshot.data.metrics.profit, 3745);
+
+  const otpLookup = await request('whatsapp-account-otp', { email: 'shared-one@test.invalid' });
+  assert.equal(otpLookup.code, 200, JSON.stringify(otpLookup));
+  assert.equal(otpLookup.data.found, true);
+  assert.equal(otpLookup.data.has2FA, true);
+  assert.match(otpLookup.data.code, /^\d{6}$/);
+  assert.ok(otpLookup.data.remainingSeconds > 0 && otpLookup.data.remainingSeconds <= 30);
 });

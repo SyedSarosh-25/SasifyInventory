@@ -4158,6 +4158,108 @@ async function getWhatsAppCommerceOrder(db, orderId) {
   };
 }
 
+async function getWhatsAppAccountOtp(db, emailParam) {
+  const email = String(emailParam || '').trim().toLowerCase();
+  if (!email || !email.includes('@')) {
+    throw fail(400, 'Valid account email is required.');
+  }
+
+  const emailHash = hash(email);
+
+  // 1. Check commerce_inventory for direct account match by email_hash
+  let row = (
+    await db.query(
+      `SELECT i.id, i.product_id, i.credentials, i.state
+       FROM commerce_inventory i
+       WHERE i.email_hash = $1
+       LIMIT 1`,
+      [emailHash],
+    )
+  ).rows[0];
+
+  // 2. If not found by email_hash, search recent orders where customer_email matches or id matches
+  if (!row) {
+    const orderRow = (
+      await db.query(
+        `SELECT o.id, o.product_id, i.credentials
+         FROM commerce_orders o
+         INNER JOIN commerce_inventory i ON i.id = o.inventory_id
+         WHERE (o.customer_email IS NOT NULL AND LOWER(o.customer_email) = $1)
+            OR o.id::text ILIKE $2
+         ORDER BY o.created_at DESC
+         LIMIT 1`,
+        [email, `${email}%`],
+      )
+    ).rows[0];
+
+    if (orderRow) {
+      row = orderRow;
+    }
+  }
+
+  // 3. Fallback: Check if email is inside decrypted credentials of recent inventory rows
+  if (!row) {
+    const invRows = (
+      await db.query(
+        `SELECT id, product_id, credentials, state
+         FROM commerce_inventory
+         WHERE credentials IS NOT NULL
+         ORDER BY created_at DESC
+         LIMIT 100`,
+      )
+    ).rows;
+
+    for (const inv of invRows) {
+      try {
+        const creds = decrypt(inv.credentials, process.env.COMMERCE_ENCRYPTION_KEY);
+        if (creds && typeof creds === 'object' && String(creds.email || creds.account || creds.username || '').toLowerCase() === email) {
+          row = inv;
+          break;
+        }
+      } catch {}
+    }
+  }
+
+  if (!row) {
+    return {
+      ok: false,
+      found: false,
+      message: `No account found for email: ${email}`,
+    };
+  }
+
+  let credentials = null;
+  try {
+    credentials = decrypt(row.credentials, process.env.COMMERCE_ENCRYPTION_KEY);
+  } catch (err) {
+    throw fail(500, 'Could not decrypt account credentials.');
+  }
+
+  const twoFactor = credentials?.twoFactor || credentials?.['2fa'] || credentials?.two_factor;
+  if (!twoFactor) {
+    return {
+      ok: false,
+      found: true,
+      has2FA: false,
+      message: `Account found for ${email}, but it does not have a 2FA authenticator secret.`,
+    };
+  }
+
+  const now = Date.now();
+  const code = totpCode(twoFactor, now);
+  const remainingSeconds = 30 - (Math.floor(now / 1000) % 30);
+
+  return {
+    ok: true,
+    found: true,
+    has2FA: true,
+    email: credentials.email || email,
+    code,
+    remainingSeconds,
+    productId: row.product_id,
+  };
+}
+
 export function createHandler(
   poolFactory = () =>
     new pg.Pool({
@@ -5031,6 +5133,8 @@ export function createHandler(
         output = await claimWhatsAppCommerceOrder(db, body);
       } else if (action === 'whatsapp-order-status') {
         output = await getWhatsAppCommerceOrder(db, req.query?.id || body.id);
+      } else if (action === 'whatsapp-account-otp') {
+        output = await getWhatsAppAccountOtp(db, req.query?.email || body.email);
       } else if (action === 'public-telegram-webhook') {
         output = await handleSasifyBotUpdate(body, {
           token: process.env.SASIFY_BOT_TOKEN,
