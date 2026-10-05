@@ -542,7 +542,7 @@ const SHARED_CHATGPT_PRODUCT_ID = 'p093-shared';
 const SHARED_CHATGPT_MAX_SLOTS = 4;
 const CLAUDE_PREORDER_PRODUCT_IDS = new Set(['p012', 'p013']);
 const MANUAL_ACTIVATION_PRODUCT_IDS = new Set(['p100']);
-const PREORDER_DELIVERY_DATE = '2026-10-02';
+const PREORDER_DELIVERY_DATE = '2026-10-05';
 function isClaudePreorderProduct(productId) {
   return CLAUDE_PREORDER_PRODUCT_IDS.has(String(productId || ''));
 }
@@ -562,7 +562,7 @@ function localProductPresentation(product, available, sharedAvailability) {
       available: 0,
       requires_customer_email: true,
       preorder_date: PREORDER_DELIVERY_DATE,
-      stock_label: 'Taking pre-orders',
+      stock_label: 'Ready To Deliver',
     };
   }
   if (isManualActivationProduct(id)) {
@@ -2853,9 +2853,9 @@ async function fulfill(
         });
         await sendAccountEmail({
           to: order.customer_email,
-          subject: 'Your Sasify pre-order has been received',
-          text: `Your pre-order for ${preorderProductName} has been received. Your order will be completed on ${deliveryDate}. We will continue updates at the email address you provided us.`,
-          html: `<div style="font-family:Arial,sans-serif;max-width:680px;margin:0 auto;padding:24px;color:#173b73"><div style="border:1px solid #d9e4f3;border-radius:16px;padding:24px;background:#f8fbff"><div style="font-size:12px;font-weight:800;letter-spacing:.12em;color:#285cff;text-transform:uppercase;margin-bottom:18px">Sasify Solutions</div><h2 style="margin:0 0 16px;color:#173b73">Pre-order received</h2><p style="line-height:1.65;color:#334d74">Your pre-order for <strong>${escapeEmailHtml(preorderProductName)}</strong> has been received.</p><p style="line-height:1.65;color:#334d74">Your order will be completed on <strong>${escapeEmailHtml(deliveryDate)}</strong>. We will continue updates at this email address.</p></div></div>`,
+          subject: 'Your Sasify Claude order has been received',
+          text: `Your order for ${preorderProductName} has been received. Your order will be completed on ${deliveryDate}. We will continue updates at the email address you provided us.`,
+          html: `<div style="font-family:Arial,sans-serif;max-width:680px;margin:0 auto;padding:24px;color:#173b73"><div style="border:1px solid #d9e4f3;border-radius:16px;padding:24px;background:#f8fbff"><div style="font-size:12px;font-weight:800;letter-spacing:.12em;color:#285cff;text-transform:uppercase;margin-bottom:18px">Sasify Solutions</div><h2 style="margin:0 0 16px;color:#173b73">Order received</h2><p style="line-height:1.65;color:#334d74">Your order for <strong>${escapeEmailHtml(preorderProductName)}</strong> has been received.</p><p style="line-height:1.65;color:#334d74">Your order will be completed on <strong>${escapeEmailHtml(deliveryDate)}</strong>. We will continue updates at this email address.</p></div></div>`,
         });
         confirmationEmailSent = true;
       } catch (error) {
@@ -3758,7 +3758,7 @@ async function queueTelegramDelivery(db, orderId, key, queue) {
   if (row.supplier_status === 'preorder_confirmed') {
     queue.push({
       chatId: row.telegram_chat_id,
-      text: `✅ Pre-order confirmed\n\n${row.product_name}\nYour order is confirmed. You will be notified about your Claude Team Plan on 2 October 2026.`,
+      text: `✅ Order confirmed\n\n${row.product_name}\nYour order is confirmed. Your Claude Team Plan activation date is 5 October 2026.`,
     });
     return;
   }

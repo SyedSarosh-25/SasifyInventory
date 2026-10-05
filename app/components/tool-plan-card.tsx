@@ -64,7 +64,7 @@ export function ToolPlanCard({ product }: { product: FeaturedProduct }) {
   );
 
   const stockBadge = availabilityMode === 'preorder' ? (
-    <span className="plan-stock-badge is-preorder">⏳ Pre-order</span>
+    <span className="plan-stock-badge is-preorder">⚡ Ready To Deliver</span>
   ) : inStock ? (
     <span className="plan-stock-badge is-available">
       <span className="pulse-indicator" aria-hidden="true" />

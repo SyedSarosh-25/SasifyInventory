@@ -634,7 +634,7 @@ export default async function ProductPage({ params }: Props) {
                 </dd>
               </div>
             </dl>
-            <p className="purchase-mobile-delivery">{product.contactOnly ? 'Choose a package and contact us to order.' : product.availabilityMode === 'preorder' ? `Pre-order · Activation on ${product.preorderDate}` : product.availabilityMode === 'manual' ? `Activation ${product.activationSla || 'after verification'} · Your email is required` : 'Automatic delivery after payment verification'}</p>
+            <p className="purchase-mobile-delivery">{product.contactOnly ? 'Choose a package and contact us to order.' : product.availabilityMode === 'preorder' ? `Ready To Deliver · Activation on ${product.preorderDate === '2026-10-05' ? '5 Oct' : product.preorderDate}` : product.availabilityMode === 'manual' ? `Activation ${product.activationSla || 'after verification'} · Your email is required` : 'Automatic delivery after payment verification'}</p>
             <PurchaseTerms>{product.contactOnly ? (
               <p className="price-explanation">
                 Choose a KVM package above, then contact us on WhatsApp for

@@ -134,7 +134,7 @@ export function SupplierFeaturedCard({
   const stockLabel = isFamily
     ? (familyHasStock ? `In stock · ${inStockVariantsCount} plans` : 'Out of stock')
     : (availabilityMode === 'preorder'
-        ? 'Taking pre-orders'
+        ? 'Ready To Deliver'
         : !isSupplier && availabilityMode === 'manual'
           ? 'In stock · 999'
           : !stockVerified

@@ -797,9 +797,9 @@ body[data-storefront="true"] .plan-stock-badge.is-available {
 }
 
 body[data-storefront="true"] .plan-stock-badge.is-preorder {
-  background: #fff7ed;
-  color: #c2410c;
-  border: 1px solid #fed7aa;
+  background: #f0fdf4;
+  color: #15803d;
+  border: 1px solid #bbf7d0;
 }
 
 body[data-storefront="true"] .plan-stock-badge.is-unavailable {

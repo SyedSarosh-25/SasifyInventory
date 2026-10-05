@@ -323,7 +323,7 @@ export function Checkout() {
     const noticeKey = `sasify-preorder-confirmed-${order.id}`;
     if (sessionStorage.getItem(noticeKey)) return;
     sessionStorage.setItem(noticeKey, '1');
-    window.alert('Your pre-order has been received. Your order will be completed on 2 October 2026. You will receive an email at the address you provided us.');
+    window.alert('Your order has been received. Your order will be completed on 5 October 2026. You will receive an email at the address you provided us.');
   }, [order?.id, order?.status, order?.supplierStatus]);
   async function run(action: () => Promise<void>) {
     setBusy(true);
@@ -483,7 +483,7 @@ export function Checkout() {
             {order?.amount === 0
               ? 'Free coupon delivery'
               : product?.availability_mode === 'preorder'
-                ? 'Claude Team pre-order'
+                ? 'Claude Team Plan · Ready To Deliver'
                 : product?.availability_mode === 'manual' || product?.provider_id === 'manual'
                   ? 'Manual activation after payment'
                   : 'Automatic delivery'}
@@ -492,7 +492,7 @@ export function Checkout() {
             {order?.amount === 0
               ? 'HOR covered the full price. Your account credentials are ready below.'
               : product?.availability_mode === 'preorder'
-                ? 'Pay now and your order will be confirmed. You will be notified about your Claude Team Plan on 2 October 2026.'
+                ? 'Pay now and your order will be confirmed. You will be notified about your Claude Team Plan on 5 October 2026.'
                 : product?.availability_mode === 'manual' || product?.provider_id === 'manual'
                   ? `Send your email with payment. Our team will activate access ${product.activation_sla?.toLowerCase() || 'within 6 hours'} and complete the order from the admin panel.`
                 : order?.paymentMethod === 'bank'
@@ -502,7 +502,7 @@ export function Checkout() {
                   : 'Your login details appear here after payment verification, usually within one minute.'}
           </p>
         </div>
-        <span className="instant-badge">{product?.availability_mode === 'preorder' ? 'Pre-order' : product?.availability_mode === 'manual' || product?.provider_id === 'manual' ? 'Manual' : 'Instant'}</span>
+        <span className="instant-badge">{product?.availability_mode === 'preorder' ? 'Ready To Deliver' : product?.availability_mode === 'manual' || product?.provider_id === 'manual' ? 'Manual' : 'Instant'}</span>
       </div>
       {error && (
         <p role="alert" className="commerce-error">
@@ -594,8 +594,8 @@ export function Checkout() {
               <div className="checkout-step-heading"><span className="checkout-step-number">3</span><div><h2 id="checkout-activation-heading">Activation email</h2><p>Your access will be activated on this email.</p></div></div>
             {product?.availability_mode === 'preorder' && (
               <div className="checkout-fulfillment-notice preorder" role="status">
-                <strong>Taking pre-orders</strong>
-                <span>Your Claude Team Plan will be arranged for 2 October 2026. Enter the email where you want activation.</span>
+                <strong>Ready To Deliver</strong>
+                <span>Your Claude Team Plan will be arranged for 5 October 2026. Enter the email where you want activation.</span>
               </div>
             )}
             {product?.availability_mode === 'manual' && (
@@ -828,8 +828,8 @@ export function Checkout() {
             <section className="verification-state manual-order-confirmed" role="status">
               <Check size={24} />
               <div>
-                <strong>Pre-order received</strong>
-                <p>Your payment was verified. Your order will be completed on 2 October 2026. You will receive an email at the address you provided us.</p>
+                <strong>Order received · Ready To Deliver</strong>
+                <p>Your payment was verified. Your order will be completed on 5 October 2026. You will receive an email at the address you provided us.</p>
               </div>
             </section>
           )}
@@ -3701,7 +3701,7 @@ export function CommerceAdmin() {
                 <span className="admin-eyebrow">Manual fulfilment queue</span>
                 <h2>Manual &amp; preorder orders</h2>
                 <p>
-                  Claude Team pre-orders are confirmed for 2 October 2026.
+                  Claude Team orders are confirmed for 5 October 2026.
                   Hostinger orders stay here until you activate them manually
                   using the customer email.
                 </p>
@@ -3728,7 +3728,7 @@ export function CommerceAdmin() {
                       <span><strong>Payment</strong>{row.payment_submitted_at ? 'Verified / submitted' : 'Awaiting payment'}</span>
                       <span><strong>Route</strong>{row.payment_method === 'binance' ? 'Binance Pay' : row.payment_method === 'crypto' ? 'Crypto USDT' : row.payment_method === 'bank' ? 'Bank transfer' : 'Wallet transfer'}</span>
                     </div>
-                    {row.supplier_status === 'preorder_confirmed' && <p className="manual-order-note">Customer has been confirmed. Notify them about the Claude Team Plan on 2 October 2026.</p>}
+                    {row.supplier_status === 'preorder_confirmed' && <p className="manual-order-note">Customer has been confirmed. Notify them about the Claude Team Plan on 5 October 2026.</p>}
                     {row.supplier_status === 'manual_activation_pending' && (
                       <button
                         className="primary-button compact"

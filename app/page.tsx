@@ -610,7 +610,7 @@ export default function Home() {
           </div>
           <p className="wallet-discount-notice">
             <WalletCards className="h-4 w-4" />
-            <span>Save 5% with Sasify Wallet on eligible products. Claude Team preorders are excluded.</span>
+            <span>Save 5% with Sasify Wallet on eligible products. Claude Team plans are excluded.</span>
           </p>
           <TopSupplierProducts />
           <div className="inventory-action"><a href="/inventory" className="primary-button">View full inventory <ArrowRight className="h-4 w-4" /></a></div>

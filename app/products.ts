@@ -105,7 +105,8 @@ const catalogProducts: Product[] = [
       'One-month Claude Team Premium seat for AI-assisted writing, research, document analysis, coding and productivity inside a Team workspace.',
     availabilityMode: 'preorder',
     requiresCustomerEmail: true,
-    preorderDate: '2026-10-02',
+    preorderDate: '2026-10-05',
+    stockLabel: 'Ready To Deliver',
     details: [
       'Premium is the higher-usage seat type within Claude Team, with usage limits and feature availability determined by Anthropic.',
       "This is a fully private seat delivered to the client's own email address. It is not a shared login.",
@@ -130,7 +131,8 @@ const catalogProducts: Product[] = [
       'One-month Claude Team Standard seat for AI-assisted writing, research, document analysis, coding and productivity inside a Team workspace.',
     availabilityMode: 'preorder',
     requiresCustomerEmail: true,
-    preorderDate: '2026-10-02',
+    preorderDate: '2026-10-05',
+    stockLabel: 'Ready To Deliver',
     details: [
       'Standard is the entry-level seat type within Claude Team, with usage limits and feature availability determined by Anthropic.',
       "This is a fully private seat delivered to the client's own email address. It is not a shared login.",
