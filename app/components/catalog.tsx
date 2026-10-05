@@ -185,7 +185,7 @@ export function Catalog({ initialQuery = '', initialCategory = 'All', heading = 
     () => inventory.filter((product) =>
       (!family || toolFamilySlug(product.name) === family) &&
       (activeCategory === 'All' || product.category === activeCategory) && matchesQuery(product, query)
-      && (stockFilter === 'all' || (product.stockVerified && (stockFilter === 'in' ? product.available > 0 : product.available <= 0))),
+      && (stockFilter === 'all' || (stockFilter === 'in' ? Number(product.available) > 0 : Number(product.available) <= 0)),
     ).sort((left, right) => sort === 'low' ? left.price - right.price : sort === 'high' ? right.price - left.price : sort === 'name' ? left.name.localeCompare(right.name) : 0),
     [activeCategory, family, inventory, query, sort, stockFilter],
   );
@@ -220,6 +220,14 @@ export function Catalog({ initialQuery = '', initialCategory = 'All', heading = 
           <label>Sort by <select value={sort} onChange={event => setSort(event.target.value)}>
             <option value="featured">Featured</option><option value="low">Price: low to high</option><option value="high">Price: high to low</option><option value="name">Name: A–Z</option>
           </select></label>
+          <label className={`catalog-stock-filter ${stockFilter === 'in' ? 'is-active' : ''}`}>
+            <input
+              type="checkbox"
+              checked={stockFilter === 'in'}
+              onChange={event => setStockFilter(event.target.checked ? 'in' : 'all')}
+            />
+            <span>In Stock Products Only</span>
+          </label>
           <button type="button" className="catalog-reset" onClick={() => { setQuery(''); setActiveCategory(initialCategory); setSort('featured'); setStockFilter('all'); }}>Reset filters</button>
         </div>
         {stockState === 'error' && <p className="catalog-stock-status" role="status">Live stock updates could not be loaded. Supplier cards are disabled until stock can be confirmed.</p>}

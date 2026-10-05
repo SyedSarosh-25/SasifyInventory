@@ -48,6 +48,10 @@ body[data-storefront="true"] .catalog-section h1 { letter-spacing: -.045em; }
 .catalog-filter-row { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin: 20px 0 12px; }
 .catalog-filter-row label { display: flex; align-items: center; gap: 8px; color: #56637d; font-size: .82rem; }
 .catalog-filter-row select { padding: 9px 12px; background: #fff; border: 1px solid #dce3ef; color: #25314c; min-height: 42px; }
+.catalog-stock-filter { display: inline-flex !important; flex-direction: row !important; align-items: center !important; gap: 8px; cursor: pointer; user-select: none; font-size: .82rem; color: #25314c; font-weight: 600; padding: 6px 14px; background: #ffffff; border: 1px solid #dce3ef; border-radius: var(--radius-control, 10px); min-height: 42px; transition: all 0.2s ease; }
+.catalog-stock-filter:hover { border-color: #155cff; background: #f8faff; }
+.catalog-stock-filter.is-active { border-color: #155cff; background: #eef4ff; color: #155cff; }
+.catalog-stock-filter input[type="checkbox"] { width: 17px; height: 17px; min-height: 17px; accent-color: #155cff; cursor: pointer; margin: 0; }
 .catalog-reset { margin-left: auto; border: 0; background: transparent; color: #5744cb; font-size: .82rem; text-decoration: underline; text-underline-offset: 4px; cursor: pointer; padding: 12px 0; }
 .catalog-stock-status { font-size: .82rem; padding: 12px 16px; border: 1px solid #e4e7f1; border-radius: 10px; background: #fff; color: #5e6a83; }
 body[data-storefront="true"] .detail-shell { padding-top: 48px; }
