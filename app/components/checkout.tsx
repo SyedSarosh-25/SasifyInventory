@@ -1079,7 +1079,7 @@ export function Checkout() {
                   className="primary-button"
                   onClick={() => setShowTwoFactorStep(true)}
                 >
-                  I have logged in — continue
+                  I am on an authenticator page please give code
                 </button>
               )}
               {order.sharedSlot && showTwoFactorStep && order.twoFactorCodeAvailable && !twoFactorCode && (

@@ -481,6 +481,8 @@ const copy: Array<[string, string, string]> = [
   ['Transfer to your personal email', 'Apne personal email par transfer karain', 'Chuyển sang email cá nhân'],
   ['Do not change or remove the account password or 2FA settings.', 'Account password ya 2FA settings tabdeel ya remove na karain.', 'Không thay đổi hoặc xóa mật khẩu tài khoản hay cài đặt 2FA.'],
   ['If an issue occurs, contact Sasify Solutions with your order reference.', 'Masla ho to apne order reference ke saath Sasify Solutions se rabta karain.', 'Nếu gặp vấn đề, hãy liên hệ Sasify Solutions và cung cấp mã tham chiếu đơn hàng.'],
+  ['I am on an authenticator page please give code', 'Main authenticator page par hoon please code dein', 'Tôi đang ở trang xác thực vui lòng cung cấp mã'],
+  ['I am on a authenticator page please give code', 'Main authenticator page par hoon please code dein', 'Tôi đang ở trang xác thực vui lòng cung cấp mã'],
   ['I have logged in — continue', 'Maine log in kar liya — jari rakhein', 'Tôi đã đăng nhập — tiếp tục'],
   ['Step 2: Enter your one-time 2FA code', 'Step 2: Aik martaba istemal honay wala 2FA code dalain', 'Bước 2: Nhập mã 2FA dùng một lần'],
   ['Show one-time 2FA code', 'Aik martaba wala 2FA code dikhayen', 'Hiển thị mã 2FA dùng một lần'],
