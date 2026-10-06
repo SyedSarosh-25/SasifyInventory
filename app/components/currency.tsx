@@ -47,7 +47,7 @@ export function CurrencyProvider({ children }: { children: ReactNode }) {
 export function CurrencyToggle() {
   const { currency, selectCurrency } = useCurrency();
   return <LocalizedContent><div className="currency-toggle" role="group" aria-label="Display currency">
-    {(['PKR', 'USD'] as const).map((option) => (
+    {(['PKR', 'USD', 'INR'] as const).map((option) => (
       <button key={option} type="button" aria-pressed={currency === option} onClick={() => selectCurrency(option)} title={`Show prices in ${option}`}>
         {option}
       </button>
