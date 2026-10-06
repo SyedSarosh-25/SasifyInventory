@@ -2424,6 +2424,39 @@ export function CommerceAdmin() {
               ) : (
                 <span className="postmark-usage-compact-note">Refresh to try again.</span>
               )}
+
+              {data.postmarkInboundUsage.streams && Object.keys(data.postmarkInboundUsage.streams).length > 0 && (
+                <div className="postmark-streams-grid">
+                  {Object.entries(data.postmarkInboundUsage.streams).map(([streamKey, stream]: [string, any]) => (
+                    <div key={streamKey} className="postmark-stream-card">
+                      <div className="postmark-stream-header">
+                        <span className="postmark-stream-title">{stream.label || streamKey}</span>
+                        <span className={`postmark-stream-badge ${stream.available ? 'live' : 'offline'}`}>
+                          {stream.available ? `${stream.remaining} left` : 'Unavailable'}
+                        </span>
+                      </div>
+                      <div className="postmark-stream-stat">
+                        <span className="postmark-stream-numbers">
+                          <strong>{stream.used}</strong> / {stream.limit} used
+                        </span>
+                        {stream.available && stream.remaining <= 15 && (
+                          <span className="postmark-stream-warning">Low quota</span>
+                        )}
+                      </div>
+                      <progress
+                        className={`postmark-usage-progress stream-bar ${stream.remaining <= 15 ? 'warning-bar' : ''}`}
+                        max={stream.limit || 100}
+                        value={stream.used || 0}
+                      />
+                      {stream.latestMessage?.subject && (
+                        <div className="postmark-stream-latest" title={`Last email: ${stream.latestMessage.subject} (${stream.latestMessage.date || ''})`}>
+                          Last: {stream.latestMessage.subject}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
             </section>
           )}
           <section className="metric-grid">
