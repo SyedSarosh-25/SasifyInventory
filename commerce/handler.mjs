@@ -105,7 +105,7 @@ import {
   selectLowestSupplierOffers,
   supplierProductKey,
 } from './supplier-matching.mjs';
-import { DEFAULT_REVIEWS_URL, fetchGoogleReviews } from './google-reviews.mjs';
+import { DEFAULT_REVIEWS_URL, fetchGoogleReviews, googleReviewsConfig } from './google-reviews.mjs';
 import catalog from './catalog.json' with { type: 'json' };
 
 const fail = (status, message) => Object.assign(new Error(message), { status });
@@ -7577,6 +7577,14 @@ export function createHandler(
           ).rows,
           adminSettings,
           postmarkInboundUsage: inboundUsage,
+          googleReviewsSync: {
+            configured: googleReviewsConfig().configured,
+            sync: (
+              await db.query(
+                'SELECT total_review_count,average_rating,synced_at,last_error FROM commerce_google_review_sync WHERE id=true',
+              )
+            ).rows[0] || null,
+          },
           supplierProducts: (
             await db.query(
               'SELECT * FROM commerce_supplier_products ORDER BY provider_name,name',

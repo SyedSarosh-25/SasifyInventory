@@ -2459,6 +2459,52 @@ export function CommerceAdmin() {
               )}
             </section>
           )}
+
+          {data.googleReviewsSync && (
+            <section className="admin-panel google-reviews-sync-panel postmark-usage-compact" style={{ marginTop: '12px' }} aria-label="Google reviews sync">
+              <div className="postmark-usage-compact-row">
+                <div className="postmark-usage-compact-copy">
+                  <span className="admin-eyebrow">Google reviews sync</span>
+                  <strong>
+                    {data.googleReviewsSync.sync?.total_review_count
+                      ? `${data.googleReviewsSync.sync.total_review_count} synced · ${data.googleReviewsSync.sync.average_rating || 5} ★`
+                      : '0 synced (Using static fallback)'}
+                  </strong>
+                  <span className="postmark-usage-compact-meta">
+                    {data.googleReviewsSync.sync?.synced_at
+                      ? `Last synced: ${new Date(data.googleReviewsSync.sync.synced_at).toLocaleString()}`
+                      : data.googleReviewsSync.configured
+                        ? 'Ready to sync · Click to fetch live reviews'
+                        : 'Missing Google Business API credentials in Vercel'}
+                  </span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span className={data.googleReviewsSync.configured ? 'admin-state available' : 'admin-state'}>
+                    {data.googleReviewsSync.configured ? 'Configured' : 'Credentials missing'}
+                  </span>
+                  <button
+                    type="button"
+                    className="secondary-button compact"
+                    disabled={busy}
+                    onClick={() =>
+                      void run(async () => {
+                        const result = await api('google-reviews-sync', key);
+                        setNotice(`Google reviews synced! ${result.totalReviewCount || 0} reviews fetched.`);
+                        await refresh();
+                      })
+                    }
+                  >
+                    Sync reviews now
+                  </button>
+                </div>
+              </div>
+              {data.googleReviewsSync.sync?.last_error && (
+                <p className="admin-warning" style={{ marginTop: '8px', fontSize: '12px' }}>
+                  Last sync error: {data.googleReviewsSync.sync.last_error}
+                </p>
+              )}
+            </section>
+          )}
           <section className="metric-grid">
             <article>
               <span>Recognized sales value · {currentMonthLabel}</span>
