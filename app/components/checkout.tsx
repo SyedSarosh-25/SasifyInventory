@@ -103,10 +103,19 @@ type Order = {
   preorderDate?: string;
   activationSla?: string;
   twoFactorCodeAvailable?: boolean;
+  isReselling?: boolean;
   payment: { number: string; title: string; provider: string; iban?: string | null };
   credentials?: AccountCredentials;
   delivery?: { content: string; instructions?: string };
 };
+function getTodayFormatted(): string {
+  return new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+function getOrderActivationDate(orderCreatedAt?: string | null): string {
+  if (!orderCreatedAt) return getTodayFormatted();
+  const d = new Date(orderCreatedAt);
+  return isNaN(d.getTime()) ? getTodayFormatted() : d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+}
 const CRYPTO_NETWORK_FEE_USDT = 0.01;
 function customerPaymentAmount(order: Order) {
   const amount = Number(order.paymentAmount || 0);
@@ -182,10 +191,11 @@ export function Checkout() {
   const twoFactorCodeTimer = useRef<number | null>(null);
   const [couponCode, setCouponCode] = useState('');
   const [customerEmail, setCustomerEmail] = useState('');
+  const [isReselling, setIsReselling] = useState(false);
   const [checkoutAccount, setCheckoutAccount] = useState<{ balance: number } | null>(null);
   const [useSasifyWallet, setUseSasifyWallet] = useState(false);
   const [warrantyAccepted, setWarrantyAccepted] = useState(false);
-  useEffect(() => { setWarrantyAccepted(false); }, [selected]);
+  useEffect(() => { setWarrantyAccepted(false); setIsReselling(false); }, [selected]);
   const [paymentMenuOpen, setPaymentMenuOpen] = useState(false);
   const paymentMenuRef = useRef<HTMLDivElement | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<
@@ -323,8 +333,12 @@ export function Checkout() {
     const noticeKey = `sasify-preorder-confirmed-${order.id}`;
     if (sessionStorage.getItem(noticeKey)) return;
     sessionStorage.setItem(noticeKey, '1');
-    window.alert('Your order has been received. Your order will be completed on 5 October 2026. You will receive an email at the address you provided us.');
-  }, [order?.id, order?.status, order?.supplierStatus]);
+    const activationDate = getOrderActivationDate(order.createdAt);
+    const emailNotice = order.isReselling
+      ? 'Confirmation email to client will not be sent.'
+      : 'You will receive an email at the address you provided us.';
+    window.alert(`Your order has been received. Your order will be completed on ${activationDate}.\n\nWorkspace Activated on : 5Oct\nYour Activation Date: ${activationDate}\n\n${emailNotice}`);
+  }, [order?.id, order?.status, order?.supplierStatus, order?.createdAt, order?.isReselling]);
   async function run(action: () => Promise<void>) {
     setBusy(true);
     setError('');
@@ -495,7 +509,7 @@ export function Checkout() {
             {order?.amount === 0
               ? 'HOR covered the full price. Your account credentials are ready below.'
               : product?.availability_mode === 'preorder'
-                ? 'Pay now and your order will be confirmed. You will be notified about your Claude Team Plan on 5 October 2026.'
+                ? `Pay now and your order will be confirmed. Workspace Activated on : 5Oct · Your Activation Date: ${getTodayFormatted()}.`
                 : product?.availability_mode === 'manual' || product?.provider_id === 'manual'
                   ? `Send your email with payment. Our team will activate access ${product.activation_sla?.toLowerCase() || 'within 6 hours'} and complete the order from the admin panel.`
                 : order?.paymentMethod === 'bank'
@@ -533,7 +547,7 @@ export function Checkout() {
                   couponCode,
                   useSasifyWallet,
                   ...(product?.requires_customer_email
-                    ? { customerEmail: customerEmail.trim() }
+                    ? { customerEmail: customerEmail.trim(), isReselling }
                     : {}),
                   paymentMethod,
                 });
@@ -598,7 +612,7 @@ export function Checkout() {
             {product?.availability_mode === 'preorder' && (
               <div className="checkout-fulfillment-notice preorder" role="status">
                 <strong>Ready To Deliver</strong>
-                <span>Your Claude Team Plan will be arranged for 5 October 2026. Enter the email where you want activation.</span>
+                <span>Workspace Activated on : 5Oct · Your Activation Date: {getTodayFormatted()}. Enter the email where you want activation.</span>
               </div>
             )}
             {product?.availability_mode === 'manual' && (
@@ -624,6 +638,16 @@ export function Checkout() {
                     ? 'Your Claude Team Plan will be activated on this email.'
                     : 'We will use this email to process and activate your purchase.'}
                 </small>
+              </label>
+            )}
+            {product?.requires_customer_email && (
+              <label className="checkout-reseller-option" style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '12px', cursor: 'pointer', fontSize: '13px', color: '#173b73', fontWeight: 500 }}>
+                <input
+                  type="checkbox"
+                  checked={isReselling}
+                  onChange={(e) => setIsReselling(e.target.checked)}
+                />
+                <span>I am reselling, do not send confirmation mail to my client</span>
               </label>
             )}
             </section>}
@@ -838,7 +862,13 @@ export function Checkout() {
               <Check size={24} />
               <div>
                 <strong>Order received · Ready To Deliver</strong>
-                <p>Your payment was verified. Your order will be completed on 5 October 2026. You will receive an email at the address you provided us.</p>
+                <p>
+                  Your payment was verified. Workspace Activated on : 5Oct · Your Activation Date: {getOrderActivationDate(order.createdAt)}.
+                  <br />
+                  {order.isReselling
+                    ? 'Confirmation email to client will not be sent (reseller order).'
+                    : 'You will receive an email at the address you provided us.'}
+                </p>
               </div>
             </section>
           )}
@@ -3791,7 +3821,7 @@ export function CommerceAdmin() {
                 <span className="admin-eyebrow">Manual fulfilment queue</span>
                 <h2>Manual &amp; preorder orders</h2>
                 <p>
-                  Claude Team orders are confirmed for 5 October 2026.
+                  Claude Team orders: Workspace Activated on : 5Oct. Customer Activation Date is set to their purchase date.
                   Hostinger orders stay here until you activate them manually
                   using the customer email.
                 </p>
@@ -3818,7 +3848,12 @@ export function CommerceAdmin() {
                       <span><strong>Payment</strong>{row.payment_submitted_at ? 'Verified / submitted' : 'Awaiting payment'}</span>
                       <span><strong>Route</strong>{row.payment_method === 'binance' ? 'Binance Pay' : row.payment_method === 'crypto' ? 'Crypto USDT' : row.payment_method === 'bank' ? 'Bank transfer' : 'Wallet transfer'}</span>
                     </div>
-                    {row.supplier_status === 'preorder_confirmed' && <p className="manual-order-note">Customer has been confirmed. Notify them about the Claude Team Plan on 5 October 2026.</p>}
+                    {row.supplier_status === 'preorder_confirmed' && (
+                      <p className="manual-order-note">
+                        Customer has been confirmed. Workspace Activated on : 5Oct · Activation Date: {getOrderActivationDate(row.created_at)}.
+                        {row.is_reselling && <strong style={{ color: '#d97706', marginLeft: '6px' }}>[Reseller - Do NOT send email to client]</strong>}
+                      </p>
+                    )}
                     {row.supplier_status === 'manual_activation_pending' && (
                       <button
                         className="primary-button compact"

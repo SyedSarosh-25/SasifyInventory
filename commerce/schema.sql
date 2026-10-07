@@ -26,6 +26,7 @@ CREATE TABLE IF NOT EXISTS commerce_payment_claim_attempts (
  last_attempt_at timestamptz NOT NULL DEFAULT now()
 );
 ALTER TABLE commerce_orders ADD COLUMN IF NOT EXISTS customer_email text;
+ALTER TABLE commerce_orders ADD COLUMN IF NOT EXISTS is_reselling boolean NOT NULL DEFAULT false;
 ALTER TABLE commerce_orders ADD COLUMN IF NOT EXISTS payment_method text NOT NULL DEFAULT 'wallet';
 ALTER TABLE commerce_orders DROP CONSTRAINT IF EXISTS commerce_orders_payment_method_check;
 ALTER TABLE commerce_orders ADD CONSTRAINT commerce_orders_payment_method_check CHECK(payment_method IN ('wallet','bank','binance','crypto'));

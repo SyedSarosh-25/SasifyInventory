@@ -61,7 +61,9 @@ test('checkout no longer performs or displays a supplier availability check', ()
 
 test('pre-order confirmation explains the completion date, email and popup', () => {
   assert.match(checkoutSource, /Your order has been received/);
-  assert.match(checkoutSource, /Your order will be completed on 5 October 2026/);
+  assert.match(checkoutSource, /Workspace Activated on : 5Oct/);
+  assert.match(checkoutSource, /Your Activation Date:/);
   assert.match(checkoutSource, /You will receive an email at the address you provided us/);
   assert.match(checkoutSource, /sasify-preorder-confirmed-\$\{order\.id\}/);
+  assert.match(checkoutSource, /I am reselling, do not send confirmation mail to my client/);
 });

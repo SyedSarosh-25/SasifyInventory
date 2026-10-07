@@ -1373,6 +1373,9 @@ async function ensureOrderFinanceSchema(db) {
         'ALTER TABLE commerce_orders ADD COLUMN IF NOT EXISTS customer_email text',
       );
       await db.query(
+        'ALTER TABLE commerce_orders ADD COLUMN IF NOT EXISTS is_reselling boolean NOT NULL DEFAULT false',
+      );
+      await db.query(
         'ALTER TABLE commerce_orders ADD COLUMN IF NOT EXISTS fulfillment_cost_pkr integer CHECK(fulfillment_cost_pkr>=0)',
       );
       await db.query(
@@ -2962,19 +2965,20 @@ async function fulfill(
       [order.id, JSON.stringify({ preorderDate: PREORDER_DELIVERY_DATE })],
     );
     let confirmationEmailSent = false;
-    if (order.customer_email) {
+    const isResellerOrder = Boolean(order.is_reselling);
+    if (order.customer_email && !isResellerOrder) {
       try {
-        const deliveryDate = new Date(`${PREORDER_DELIVERY_DATE}T00:00:00Z`).toLocaleDateString('en-GB', {
+        const activationDate = new Date(order.created_at || Date.now()).toLocaleDateString('en-GB', {
           day: 'numeric',
-          month: 'long',
+          month: 'short',
           year: 'numeric',
           timeZone: 'UTC',
         });
         await sendAccountEmail({
           to: order.customer_email,
           subject: 'Your Sasify Claude order has been received',
-          text: `Your order for ${preorderProductName} has been received. Your order will be completed on ${deliveryDate}. We will continue updates at the email address you provided us.`,
-          html: `<div style="font-family:Arial,sans-serif;max-width:680px;margin:0 auto;padding:24px;color:#173b73"><div style="border:1px solid #d9e4f3;border-radius:16px;padding:24px;background:#f8fbff"><div style="font-size:12px;font-weight:800;letter-spacing:.12em;color:#285cff;text-transform:uppercase;margin-bottom:18px">Sasify Solutions</div><h2 style="margin:0 0 16px;color:#173b73">Order received</h2><p style="line-height:1.65;color:#334d74">Your order for <strong>${escapeEmailHtml(preorderProductName)}</strong> has been received.</p><p style="line-height:1.65;color:#334d74">Your order will be completed on <strong>${escapeEmailHtml(deliveryDate)}</strong>. We will continue updates at this email address.</p></div></div>`,
+          text: `Your order for ${preorderProductName} has been received. Your order will be completed on ${activationDate}.\n\nWorkspace Activated on : 5Oct\nYour Activation Date: ${activationDate}\n\nWe will continue updates at the email address you provided us.`,
+          html: `<div style="font-family:Arial,sans-serif;max-width:680px;margin:0 auto;padding:24px;color:#173b73"><div style="border:1px solid #d9e4f3;border-radius:16px;padding:24px;background:#f8fbff"><div style="font-size:12px;font-weight:800;letter-spacing:.12em;color:#285cff;text-transform:uppercase;margin-bottom:18px">Sasify Solutions</div><h2 style="margin:0 0 16px;color:#173b73">Order received</h2><p style="line-height:1.65;color:#334d74">Your order for <strong>${escapeEmailHtml(preorderProductName)}</strong> has been received.</p><p style="line-height:1.65;color:#334d74">Your order will be completed on <strong>${escapeEmailHtml(activationDate)}</strong>.</p><p style="line-height:1.65;color:#334d74"><strong>Workspace Activated on :</strong> 5Oct<br><strong>Your Activation Date:</strong> ${escapeEmailHtml(activationDate)}</p><p style="line-height:1.65;color:#334d74">We will continue updates at this email address.</p></div></div>`,
         });
         confirmationEmailSent = true;
       } catch (error) {
@@ -2983,7 +2987,7 @@ async function fulfill(
     }
     await db.query(
       "INSERT INTO commerce_audit(action,object_id,details) VALUES('preorder_confirmation_email',$1,$2::jsonb)",
-      [order.id, JSON.stringify({ sent: confirmationEmailSent, email: Boolean(order.customer_email) })],
+      [order.id, JSON.stringify({ sent: confirmationEmailSent, email: Boolean(order.customer_email), isReselling: isResellerOrder })],
     );
     return;
   }
@@ -3869,9 +3873,15 @@ async function queueTelegramDelivery(db, orderId, key, queue) {
     ? decrypt(row.supplier_delivery, key)
     : null;
   if (row.supplier_status === 'preorder_confirmed') {
+    const activationDate = new Date(row.created_at || Date.now()).toLocaleDateString('en-GB', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+      timeZone: 'UTC',
+    });
     queue.push({
       chatId: row.telegram_chat_id,
-      text: `✅ Order confirmed\n\n${row.product_name}\nYour order is confirmed. Your Claude Team Plan activation date is 5 October 2026.`,
+      text: `✅ Order confirmed\n\n${row.product_name}\nYour order is confirmed.\n\nWorkspace Activated on : 5Oct\nYour Activation Date: ${activationDate}${row.is_reselling ? '\n(Reseller order - Client email suppressed)' : ''}`,
     });
     return;
   }
@@ -5685,6 +5695,7 @@ export function createHandler(
           createdAt: inserted.rows[0].created_at,
         };
       } else if (action === 'create') {
+        const isReselling = Boolean(body.isReselling || body.suppressClientEmail);
         const selectedPaymentMethod = paymentMethod(body.paymentMethod);
         const selectedPaymentReceiver = paymentReceiverForMethod(
           selectedPaymentMethod,
@@ -5917,6 +5928,11 @@ export function createHandler(
               id,
             ],
           );
+        if (isReselling)
+          await db.query(
+            'UPDATE commerce_orders SET is_reselling=true WHERE id=$1',
+            [id],
+          );
         if (isTeamCoupon && paymentAmount === 0) await fulfillFreeOrder(db, id);
         if (paymentAmount > 0)
           telegramMessages.push({
@@ -5946,6 +5962,7 @@ export function createHandler(
           paymentCurrency: quote.currency,
           paymentAmount: quote.amount,
           paymentWindowMinutes,
+          isReselling,
           ...(preorderProduct
             ? { fulfillmentMode: 'preorder', preorderDate: PREORDER_DELIVERY_DATE }
             : manualActivationProduct
@@ -6280,6 +6297,7 @@ export function createHandler(
             ...(order.shared_account_id && order.status === 'delivered'
               ? { twoFactorCodeAvailable: !sharedTwoFactorChallenge }
               : {}),
+            isReselling: Boolean(order.is_reselling),
             payment: {
               number: ['binance', 'crypto'].includes(order.payment_method)
                 ? paymentReceiverForMethod(order.payment_method)?.number ||
