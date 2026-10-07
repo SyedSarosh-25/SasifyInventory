@@ -46,7 +46,9 @@ function GroupRow({
 
   // Group level pricing state
   const initialGroupPrice = group.groupSellingPrice ? String(group.groupSellingPrice) : '';
+  const initialGroupOriginalPrice = group.groupOriginalPrice != null ? String(group.groupOriginalPrice) : '';
   const [groupPrice, setGroupPrice] = useState<string>(initialGroupPrice);
+  const [groupOriginalPrice, setGroupOriginalPrice] = useState<string>(initialGroupOriginalPrice);
   const [isLive, setIsLive] = useState<boolean>(group.listed);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [errorMessage, setErrorMessage] = useState<string>('');
@@ -56,15 +58,22 @@ function GroupRow({
   const [offerPrices, setOfferPrices] = useState<Record<string, string>>(() =>
     Object.fromEntries(group.products.map((p) => [p.id, p.selling_price ? String(p.selling_price) : '']))
   );
+  const [offerOriginalPrices, setOfferOriginalPrices] = useState<Record<string, string>>(() =>
+    Object.fromEntries(group.products.map((p) => [p.id, p.original_price_pkr != null ? String(p.original_price_pkr) : '']))
+  );
   const [offerEnabled, setOfferEnabled] = useState<Record<string, boolean>>(() =>
     Object.fromEntries(group.products.map((p) => [p.id, p.enabled === true]))
   );
 
   useEffect(() => {
     setGroupPrice(group.groupSellingPrice ? String(group.groupSellingPrice) : '');
+    setGroupOriginalPrice(group.groupOriginalPrice != null ? String(group.groupOriginalPrice) : '');
     setIsLive(group.listed);
     setOfferPrices(
       Object.fromEntries(group.products.map((p) => [p.id, p.selling_price ? String(p.selling_price) : '']))
+    );
+    setOfferOriginalPrices(
+      Object.fromEntries(group.products.map((p) => [p.id, p.original_price_pkr != null ? String(p.original_price_pkr) : '']))
     );
     setOfferEnabled(
       Object.fromEntries(group.products.map((p) => [p.id, p.enabled === true]))
@@ -99,14 +108,20 @@ function GroupRow({
       setErrorMessage('Enter a valid whole PKR price.');
       return;
     }
+    const rawOrig = groupOriginalPrice.trim();
+    const origPriceVal = rawOrig !== '' ? Number(rawOrig) : null;
+    if (origPriceVal !== null && (!Number.isSafeInteger(origPriceVal) || origPriceVal < numericPrice || origPriceVal > 2147483647)) {
+      setErrorMessage('Original price must be a whole PKR amount at least equal to selling price (or leave empty).');
+      return;
+    }
     setSaveStatus('saving');
     setErrorMessage('');
     try {
       if (onSaveOfferPrice) {
-        // Save all offers in the group to this selling price
+        // Save all offers in the group to this selling price and original price
         await Promise.all(
           group.products.map((product) =>
-            onSaveOfferPrice(product, numericPrice, isLive, null)
+            onSaveOfferPrice(product, numericPrice, isLive, origPriceVal)
           )
         );
       }
@@ -125,9 +140,15 @@ function GroupRow({
       setErrorMessage(`Enter a valid price for ${product.name}`);
       return;
     }
+    const rawOrig = (offerOriginalPrices[product.id] || '').trim();
+    const origPriceVal = rawOrig !== '' ? Number(rawOrig) : null;
+    if (origPriceVal !== null && (!Number.isSafeInteger(origPriceVal) || origPriceVal < price || origPriceVal > 2147483647)) {
+      setErrorMessage(`Original price must be >= selling price for ${product.name} (or leave empty).`);
+      return;
+    }
     setSaveStatus('saving');
     try {
-      await onSaveOfferPrice?.(product, price, offerEnabled[product.id] === true, null);
+      await onSaveOfferPrice?.(product, price, offerEnabled[product.id] === true, origPriceVal);
       setSaveStatus('saved');
       setTimeout(() => setSaveStatus('idle'), 2500);
     } catch (err: any) {
@@ -223,6 +244,11 @@ function GroupRow({
           <strong className="text-slate-900 dark:text-slate-100 text-sm font-semibold font-mono">
             {group.groupSellingPrice ? `PKR ${Number(group.groupSellingPrice).toLocaleString('en-PK')}` : 'Unset'}
           </strong>
+          {group.groupOriginalPrice != null && group.groupSellingPrice != null && group.groupOriginalPrice > group.groupSellingPrice && (
+            <span className="line-through text-slate-400 text-[10px] block font-mono">
+              Was PKR {group.groupOriginalPrice.toLocaleString('en-PK')}
+            </span>
+          )}
         </div>
         <div>
           <span className="text-slate-500 dark:text-slate-400 block text-[11px] mb-0.5">Your Profit</span>
@@ -256,33 +282,61 @@ function GroupRow({
 
       {/* 3. 1-Click Simplified Pricing Box (Mobile-first) */}
       <div className="p-3.5 sm:p-4 rounded-xl border border-blue-100 dark:border-blue-950/60 bg-blue-50/40 dark:bg-blue-950/20 space-y-3">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          {/* Selling Price Input */}
-          <div className="flex items-center gap-2 flex-1">
-            <label className="text-xs font-bold text-slate-800 dark:text-slate-200 whitespace-nowrap">
-              Selling Price:
-            </label>
-            <div className="relative flex-1 max-w-[220px]">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400 pointer-events-none">
-                PKR
-              </span>
-              <input
-                type="number"
-                min="1"
-                step="1"
-                value={groupPrice}
-                onChange={(e) => {
-                  setGroupPrice(e.target.value);
-                  setErrorMessage('');
-                }}
-                placeholder="e.g. 2499"
-                className="w-full pl-12 pr-3 py-2 text-sm sm:text-base font-bold font-mono rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-2xs"
-              />
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+          {/* Selling Price & Original Price Inputs */}
+          <div className="flex flex-wrap items-center gap-3 flex-1">
+            {/* Selling Price */}
+            <div className="flex items-center gap-2">
+              <label className="text-xs font-bold text-slate-800 dark:text-slate-200 whitespace-nowrap">
+                Selling Price:
+              </label>
+              <div className="relative w-32 sm:w-36">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400 pointer-events-none">
+                  PKR
+                </span>
+                <input
+                  type="number"
+                  min="1"
+                  step="1"
+                  value={groupPrice}
+                  onChange={(e) => {
+                    setGroupPrice(e.target.value);
+                    setErrorMessage('');
+                  }}
+                  placeholder="e.g. 2499"
+                  className="w-full pl-11 pr-2.5 py-2 text-sm font-bold font-mono rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-2xs"
+                />
+              </div>
+            </div>
+
+            {/* Original Price */}
+            <div className="flex items-center gap-2">
+              <label className="text-xs font-bold text-slate-800 dark:text-slate-200 whitespace-nowrap" title="Shown as strikethrough price (optional)">
+                Original Price:
+              </label>
+              <div className="relative w-32 sm:w-36">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400 pointer-events-none">
+                  PKR
+                </span>
+                <input
+                  type="number"
+                  min="1"
+                  step="1"
+                  value={groupOriginalPrice}
+                  onChange={(e) => {
+                    setGroupOriginalPrice(e.target.value);
+                    setErrorMessage('');
+                  }}
+                  placeholder="Optional"
+                  title="Original price (optional strikethrough reference)"
+                  className="w-full pl-11 pr-2.5 py-2 text-sm font-bold font-mono rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-2xs"
+                />
+              </div>
             </div>
           </div>
 
           {/* Live Checkbox & Save Button */}
-          <div className="flex items-center gap-3 w-full sm:w-auto">
+          <div className="flex items-center gap-3 w-full lg:w-auto">
             <label className="flex items-center gap-1.5 cursor-pointer text-xs font-medium text-slate-700 dark:text-slate-200 select-none">
               <input
                 type="checkbox"
@@ -319,6 +373,18 @@ function GroupRow({
             </button>
           </div>
         </div>
+
+        {/* Customer savings calculation preview */}
+        {groupOriginalPrice && hasValidPrice && Number(groupOriginalPrice) >= numericPrice && (
+          <div className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/40 px-2.5 py-1 rounded-md inline-flex items-center gap-1.5">
+            <span>Customer sees:</span>
+            <span className="line-through text-slate-400">PKR {Number(groupOriginalPrice).toLocaleString('en-PK')}</span>
+            <span className="font-bold text-emerald-800 dark:text-emerald-300">PKR {numericPrice.toLocaleString('en-PK')}</span>
+            <span className="bg-emerald-200/80 dark:bg-emerald-800/60 px-1 py-0.2 rounded text-[10px]">
+              Save PKR {(Number(groupOriginalPrice) - numericPrice).toLocaleString('en-PK')} ({Math.round(((Number(groupOriginalPrice) - numericPrice) / Number(groupOriginalPrice)) * 100)}% OFF)
+            </span>
+          </div>
+        )}
 
         {/* Quick Profit Buttons */}
         <div className="flex flex-wrap items-center gap-1.5 pt-2 border-t border-blue-100/80 dark:border-blue-900/50">
@@ -399,8 +465,8 @@ function GroupRow({
                     </p>
                   </div>
 
-                  <div className="flex items-center gap-2">
-                    <div className="relative w-28">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <div className="relative w-24">
                       <input
                         type="number"
                         min="1"
@@ -409,8 +475,23 @@ function GroupRow({
                         onChange={(e) =>
                           setOfferPrices({ ...offerPrices, [product.id]: e.target.value })
                         }
-                        placeholder="PKR"
-                        className="w-full px-2.5 py-1 text-xs font-mono font-bold rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100"
+                        placeholder="Price"
+                        title="Selling Price PKR"
+                        className="w-full px-2 py-1 text-xs font-mono font-bold rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100"
+                      />
+                    </div>
+                    <div className="relative w-24">
+                      <input
+                        type="number"
+                        min="1"
+                        step="1"
+                        value={offerOriginalPrices[product.id] || ''}
+                        onChange={(e) =>
+                          setOfferOriginalPrices({ ...offerOriginalPrices, [product.id]: e.target.value })
+                        }
+                        placeholder="Orig Price"
+                        title="Original Price PKR (Optional strikethrough)"
+                        className="w-full px-2 py-1 text-xs font-mono font-bold rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100"
                       />
                     </div>
                     <label className="flex items-center gap-1 text-[11px] cursor-pointer">
@@ -460,6 +541,7 @@ export function AdminCatalogStatus({
 }) {
   const [query, setQuery] = useState('');
   const [activeTab, setActiveTab] = useState<'not-listed' | 'listed' | 'in-stock' | 'all'>('not-listed');
+  const [notListedOnlyInStock, setNotListedOnlyInStock] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 20;
 
@@ -470,6 +552,10 @@ export function AdminCatalogStatus({
 
   // Tab counts
   const countNotListed = useMemo(() => allGroups.filter((g) => !g.listed).length, [allGroups]);
+  const countNotListedInStock = useMemo(
+    () => allGroups.filter((g) => !g.listed && g.totalStock > 0).length,
+    [allGroups]
+  );
   const countListed = useMemo(() => allGroups.filter((g) => g.listed).length, [allGroups]);
   const countInStock = useMemo(() => allGroups.filter((g) => g.totalStock > 0).length, [allGroups]);
 
@@ -490,7 +576,7 @@ export function AdminCatalogStatus({
     }
 
     if (activeTab === 'not-listed') {
-      list = list.filter((g) => !g.listed);
+      list = list.filter((g) => !g.listed && (!notListedOnlyInStock || g.totalStock > 0));
     } else if (activeTab === 'listed') {
       list = list.filter((g) => g.listed);
     } else if (activeTab === 'in-stock') {
@@ -498,12 +584,12 @@ export function AdminCatalogStatus({
     }
 
     return list;
-  }, [allGroups, query, activeTab]);
+  }, [allGroups, query, activeTab, notListedOnlyInStock]);
 
   // Reset page when filter or search changes
   useEffect(() => {
     setCurrentPage(1);
-  }, [query, activeTab]);
+  }, [query, activeTab, notListedOnlyInStock]);
 
   // Pagination calculation
   const totalPages = Math.max(1, Math.ceil(filteredGroups.length / itemsPerPage));
@@ -550,40 +636,70 @@ export function AdminCatalogStatus({
       </section>
 
       {/* Filter Tabs (Mobile Scrollable Pill Row) */}
-      <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
-        {[
-          { key: 'not-listed', label: 'Not listed yet', count: countNotListed, icon: TriangleAlert, color: 'text-amber-600' },
-          { key: 'listed', label: 'Listed on website', count: countListed, icon: CircleCheck, color: 'text-emerald-600' },
-          { key: 'in-stock', label: 'In stock only', count: countInStock, icon: Zap, color: 'text-blue-600' },
-          { key: 'all', label: 'All products', count: allGroups.length, icon: Layers3, color: 'text-purple-600' },
-        ].map((tab) => {
-          const isActive = activeTab === tab.key;
-          const Icon = tab.icon;
-          return (
-            <button
-              key={tab.key}
-              type="button"
-              onClick={() => setActiveTab(tab.key as any)}
-              className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition whitespace-nowrap select-none border ${
-                isActive
-                  ? 'bg-blue-600 border-blue-600 text-white shadow-sm'
-                  : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
-              }`}
-            >
-              <Icon size={14} className={isActive ? 'text-white' : tab.color} />
-              <span>{tab.label}</span>
-              <span
-                className={`text-[10px] px-1.5 py-0.2 rounded-full ${
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
+          {[
+            { key: 'not-listed', label: 'Not listed yet', count: countNotListed, icon: TriangleAlert, color: 'text-amber-600' },
+            { key: 'listed', label: 'Listed on website', count: countListed, icon: CircleCheck, color: 'text-emerald-600' },
+            { key: 'in-stock', label: 'In stock only', count: countInStock, icon: Zap, color: 'text-blue-600' },
+            { key: 'all', label: 'All products', count: allGroups.length, icon: Layers3, color: 'text-purple-600' },
+          ].map((tab) => {
+            const isActive = activeTab === tab.key;
+            const Icon = tab.icon;
+            return (
+              <button
+                key={tab.key}
+                type="button"
+                onClick={() => setActiveTab(tab.key as any)}
+                className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition whitespace-nowrap select-none border ${
                   isActive
-                    ? 'bg-white/20 text-white'
-                    : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
+                    ? 'bg-blue-600 border-blue-600 text-white shadow-sm'
+                    : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
                 }`}
               >
-                {tab.count}
+                <Icon size={14} className={isActive ? 'text-white' : tab.color} />
+                <span>{tab.label}</span>
+                <span
+                  className={`text-[10px] px-1.5 py-0.2 rounded-full ${
+                    isActive
+                      ? 'bg-white/20 text-white'
+                      : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
+                  }`}
+                >
+                  {tab.count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Not Listed Sub-Filter: Only Show In-Stock Products */}
+        {activeTab === 'not-listed' && (
+          <div className="flex items-center gap-2 sm:self-center">
+            <button
+              type="button"
+              onClick={() => setNotListedOnlyInStock(!notListedOnlyInStock)}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition border select-none ${
+                notListedOnlyInStock
+                  ? 'bg-amber-500 border-amber-500 text-white shadow-xs'
+                  : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:border-slate-300 dark:hover:border-slate-700'
+              }`}
+            >
+              <Zap size={14} className={notListedOnlyInStock ? 'text-white' : 'text-amber-500'} />
+              <span>Only show in-stock products</span>
+              <span
+                className={`text-[10px] px-1.5 py-0.5 rounded-full font-mono font-bold ${
+                  notListedOnlyInStock
+                    ? 'bg-white/20 text-white'
+                    : 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800/40'
+                }`}
+              >
+                {countNotListedInStock}
               </span>
+              {notListedOnlyInStock && <Check size={14} className="text-white ml-0.5" />}
             </button>
-          );
-        })}
+          </div>
+        )}
       </div>
 
       {/* Pagination Bar Top */}

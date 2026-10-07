@@ -138,6 +138,7 @@ export type SupplierCatalogGroup = {
   providerNames: string[];
   cheapestCost: number | null;
   groupSellingPrice: number | null;
+  groupOriginalPrice: number | null;
   groupDescription: string | null;
 };
 
@@ -170,6 +171,10 @@ export function supplierCatalogGroups(products: SupplierCatalogStatusProduct[]):
       .map((product) => Number(product.selling_price))
       .filter((value) => Number.isFinite(value) && value > 0);
     const distinctPrices = [...new Set(prices)];
+    const origPrices = group
+      .map((product) => product.original_price_pkr)
+      .filter((value): value is number => typeof value === 'number' && Number.isFinite(value) && value > 0);
+    const distinctOrigPrices = [...new Set(origPrices)];
     const descriptions = [...new Set(group.map((product) => String(product.description || '').trim()))];
     const canonicalKey = String(group[0]?.canonical_key || '').trim().toLowerCase();
     const nameKey = supplierDuplicateKey(group[0] || { name: '' });
@@ -185,6 +190,7 @@ export function supplierCatalogGroups(products: SupplierCatalogStatusProduct[]):
       providerNames: [...new Set(group.map((product) => product.provider_name || product.provider_id || 'Supplier'))],
       cheapestCost: costs.length ? Math.min(...costs) : null,
       groupSellingPrice: distinctPrices.length === 1 ? distinctPrices[0] : null,
+      groupOriginalPrice: distinctOrigPrices.length === 1 ? distinctOrigPrices[0] : (distinctOrigPrices.length > 0 ? distinctOrigPrices[0] : null),
       groupDescription: descriptions.length === 1 ? descriptions[0] : null,
     };
   });
