@@ -5173,5 +5173,17 @@ export const supplierUrlRegistry = [
     "aliases": [
       "youtube-premium-12m-1lpp9b"
     ]
+  },
+  {
+    "slug": "chatgpt-pro-x20-30d-warranty-2d",
+    "keys": [
+      "auto:chatgpt-pro-x20-duration-1m"
+    ],
+    "names": [
+      "chatgpt pro x20 30d warranty 2d"
+    ],
+    "aliases": [
+      "chatgpt-pro-x20-30d-warranty-2d-7yeowe"
+    ]
   }
 ];

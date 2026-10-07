@@ -163,7 +163,7 @@ test('shared ChatGPT inventory rotates four slots and allocates profit per slot'
     'x-profit-token': unlocked.data.token,
   });
   assert.equal(snapshot.data.metrics.cost, 1250);
-  assert.equal(snapshot.data.metrics.profit, 3745);
+  assert.equal(snapshot.data.metrics.profit, 4745);
 
   const otpLookup = await request('whatsapp-account-otp', { email: 'shared-one@test.invalid' });
   assert.equal(otpLookup.code, 200, JSON.stringify(otpLookup));

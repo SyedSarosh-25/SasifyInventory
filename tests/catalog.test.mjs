@@ -272,7 +272,7 @@ test('homepage Top 8 keeps distinct plan names and supplier prices from live sto
     'Figma Pro · 2 Years',
     'Hostinger Unlimited · 12 Months',
   ]);
-  assert.deepEqual(selected.map((product) => product.display_price), [3699, 999, 4299, 21999, undefined, undefined, undefined, 4500]);
+  assert.deepEqual(selected.map((product) => product.display_price), [3699, 1199, 4299, 21999, undefined, undefined, undefined, 4500]);
   assert.deepEqual(selected.map((product) => product.display_original_price), [undefined, undefined, undefined, undefined, undefined, undefined, 109440, undefined]);
 });
 

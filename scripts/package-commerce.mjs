@@ -78,6 +78,7 @@ const catalog = products.flatMap((p) => [
     duration: p.duration,
     price: p.sellingPricePkr,
     original_price_pkr: p.originalPricePkr ?? null,
+    ...(p.priceNotice ? { price_notice: p.priceNotice } : {}),
   },
   ...(p.variants || [])
     .filter((v) => v.id)
@@ -87,6 +88,7 @@ const catalog = products.flatMap((p) => [
       duration: v.duration,
       price: v.sellingPricePkr,
       original_price_pkr: v.originalPricePkr ?? null,
+      ...((v.priceNotice || p.priceNotice) ? { price_notice: v.priceNotice || p.priceNotice } : {}),
     })),
 ]);
 await writeFile(

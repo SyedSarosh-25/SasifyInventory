@@ -654,10 +654,10 @@ export default async function ProductPage({ params }: Props) {
                 Choose a KVM package above, then contact us on WhatsApp for
                 availability, payment and activation details.
               </p>
-            ) : product.id === 'p093' ? (
+            ) : ['p093', 'p093-shared'].includes(product.id) ? (
               <div className="price-explanation">
                 <p>
-                  Selected option: <strong>Apple Pay · Ultra Stable</strong>
+                  Selected option: <strong>{product.id === 'p093-shared' ? 'Shared Account · 4 Members Pool' : 'Apple Pay · Ultra Stable'}</strong>
                 </p>
                 <p>Use Pay online here to continue.</p>
                 <p className="price-revision-notice" style={{ fontWeight: 700, color: '#dc2626', margin: '4px 0 0' }}>

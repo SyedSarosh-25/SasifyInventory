@@ -4,8 +4,9 @@
     "name": "ChatGPT Plus · Shared Account",
     "description": "One-month ChatGPT Plus access through a shared account. Each account is shared by up to four members, with the email and password delivered after payment verification and a one-time 2FA login code available on the original checkout device.",
     "duration": "1 Month",
-    "price": 999,
-    "original_price_pkr": 5700
+    "price": 1199,
+    "original_price_pkr": 5700,
+    "price_notice": "Price Revised Due to Increase By Vendors"
   },
   {
     "id": "p093",
