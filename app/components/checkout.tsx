@@ -732,6 +732,11 @@ export function Checkout() {
             {product && product.price > 0 && (
               <div className="checkout-total-summary" aria-live="polite">
                 <div><span>Package amount</span><strong>PKR {product.price.toLocaleString('en-PK')}</strong></div>
+                {((product as any)?.price_notice || isChatGptPlusUltra) && (
+                  <p className="checkout-price-revision-notice" style={{ fontSize: '0.8rem', color: '#d97706', fontWeight: 600, margin: '4px 0 0' }}>
+                    📢 {(product as any)?.price_notice || 'Price Revised Due to Increase By Vendors'}
+                  </p>
+                )}
                 {useSasifyWallet && !walletDiscountExcluded && walletDiscount > 0 && <div className="checkout-total-discount"><span>Sasify Wallet discount (5%)</span><strong>−PKR {walletDiscount.toLocaleString('en-PK')}</strong></div>}
                 {useSasifyWallet && walletDiscountExcluded && (
                   <p>
@@ -3137,7 +3142,7 @@ export function CommerceAdmin() {
                         {item.sharedAccount
                           ? money(999 - Math.ceil(Number(item.purchaseCost || 0) / 4))
                           : ['delivered', 'withdrawn'].includes(item.state)
-                          ? money(3499 - item.purchaseCost)
+                          ? money(3699 - item.purchaseCost)
                           : '-'}
                       </td>
                       <td>{new Date(item.createdAt).toLocaleDateString()}</td>

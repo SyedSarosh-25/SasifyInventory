@@ -21,6 +21,7 @@ export type Product = {
   stockLabel?: string;
   variants?: ProductVariant[];
   details?: string[];
+  priceNotice?: string;
   sourceUrl: string;
   description: string;
 };
@@ -64,8 +65,9 @@ const catalogProducts: Product[] = [
     name: 'ChatGPT Plus',
     duration: '1 Month',
     vendor: 'Sasify Solutions',
-    sellingPricePkr: 3499,
+    sellingPricePkr: 3699,
     originalPrice: 'PKR 5,700/month',
+    priceNotice: 'Price Revised Due to Increase By Vendors',
     originalPricePkr: 5700,
     sourceUrl: 'https://openai.com/chatgpt/pricing/',
     description:
@@ -76,7 +78,7 @@ const catalogProducts: Product[] = [
         id: 'p093-ultra',
         name: 'Ultra Stable Account · Apple Pay',
         duration: '1 Month',
-        sellingPricePkr: 3499,
+        sellingPricePkr: 3699,
         originalPricePkr: 5700,
         warrantyDays: 30,
       },

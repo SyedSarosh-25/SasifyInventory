@@ -436,6 +436,13 @@ export default async function ProductPage({ params }: Props) {
               <div>
                 <span className="section-kicker">{product.category}</span>
                 <h1>{product.name}</h1>
+                {product.priceNotice && (
+                  <div className="product-price-revision-notice">
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 my-1">
+                      📢 {product.priceNotice}
+                    </span>
+                  </div>
+                )}
                 <span className="detail-duration">
                   <CalendarDays className="h-4 w-4" />{' '}
                   {product.duration === '-'
@@ -611,6 +618,13 @@ export default async function ProductPage({ params }: Props) {
                   )}
                 </dd>
               </div>
+              {product.priceNotice && (
+                <div className="price-revision-notice-row">
+                  <span className="text-xs font-bold text-amber-600 dark:text-amber-400">
+                    📢 {product.priceNotice}
+                  </span>
+                </div>
+              )}
               <div className="selling-price">
                 <dt>{product.contactOnly ? 'Full details' : 'Our Pricing'}</dt>
                 <dd>
@@ -645,7 +659,10 @@ export default async function ProductPage({ params }: Props) {
                 <p>
                   Selected option: <strong>Apple Pay · Ultra Stable</strong>
                 </p>
-                <p>Use Pay online here to continue. Pay from your Sasify Wallet to receive 5% off this purchase.</p>
+                <p>Use Pay online here to continue.</p>
+                <p className="price-revision-notice font-semibold text-amber-700 dark:text-amber-400">
+                  Price Revised Due to Increase By Vendors
+                </p>
               </div>
             ) : savings === null ? (
               <p className="price-explanation">

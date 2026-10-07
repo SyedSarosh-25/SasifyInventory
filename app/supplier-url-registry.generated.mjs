@@ -246,13 +246,15 @@ export const supplierUrlRegistry = [
       "auto:500m-credit-api-codex-3-days-full-warranty"
     ],
     "names": [
-      "500m credit api codex 3 days - full warranty"
+      "500m credit api codex 3 days - full warranty",
+      "500m credit api codex 1 day - full warranty"
     ],
     "aliases": [
       "500m-credit-api-codex-3-days-full-warranty-1hk5a2",
       "500m-credit-api-codex-3-days-full-warranty",
       "500m-credit-api-codex-3-days-full-warranty-11u5l2",
-      "500m-credit-api-codex-3-days-full-warranty-2kfrvw"
+      "500m-credit-api-codex-3-days-full-warranty-2kfrvw",
+      "500m-credit-api-codex-1-day-full-warranty-1hk5a2"
     ]
   },
   {
@@ -2986,14 +2988,17 @@ export const supplierUrlRegistry = [
     "slug": "claude-api-1-day",
     "keys": [
       "auto:api-claude-duration-1d",
-      "auto:claude-api-1-day"
+      "auto:claude-api-1-day",
+      "auto:all-api-claude-plans-duration-1d"
     ],
     "names": [
-      "claude api 1 day"
+      "claude api 1 day",
+      "claude api 1 day all plans"
     ],
     "aliases": [
       "claude-api-1-day-1k5ota",
-      "claude-api-1-day-1e927t"
+      "claude-api-1-day-1e927t",
+      "claude-api-1-day-all-plans-1k5ota"
     ]
   },
   {
@@ -3085,13 +3090,16 @@ export const supplierUrlRegistry = [
   {
     "slug": "surfshark-free",
     "keys": [
-      "auto:free-surfshark"
+      "auto:free-surfshark",
+      "auto:auto-free-surfshark-duration-2m"
     ],
     "names": [
-      "surfshark free"
+      "surfshark free",
+      "surfshark 2 months free auto"
     ],
     "aliases": [
-      "surfshark-free-12cgwl"
+      "surfshark-free-12cgwl",
+      "surfshark-2-months-free-auto-12cgwl"
     ]
   },
   {
@@ -3841,11 +3849,13 @@ export const supplierUrlRegistry = [
       "auto:creator-heygen-duration-1m"
     ],
     "names": [
-      "heygen creator 1 month - 5 days warranty"
+      "heygen creator 1 month - 5 days warranty",
+      "heygen creator 1 month (warranty 1 day)"
     ],
     "aliases": [
       "heygen-creator-1-month-5-days-warranty-1hjo8k",
-      "heygen-creator-1-month-5-days-warranty-gqgbev"
+      "heygen-creator-1-month-5-days-warranty-gqgbev",
+      "heygen-creator-1-month-warranty-1-day-gqgbev"
     ]
   },
   {
@@ -4942,6 +4952,223 @@ export const supplierUrlRegistry = [
     ],
     "aliases": [
       "chatgpt-business-invite-1wzvx9"
+    ]
+  },
+  {
+    "slug": "gpt-k12-edu-2-year-warranty",
+    "keys": [
+      "auto:edu-gpt-k12-non-duration-2y"
+    ],
+    "names": [
+      "gpt k12 edu 2-year warranty"
+    ],
+    "aliases": [
+      "gpt-k12-edu-2-year-warranty-1njllf"
+    ]
+  },
+  {
+    "slug": "loveable-pro-lite-12-month-account",
+    "keys": [
+      "auto:account-lite-loveable-pro-duration-12m"
+    ],
+    "names": [
+      "loveable pro lite 12 month account"
+    ],
+    "aliases": [
+      "loveable-pro-lite-12-month-account-vrf1ll"
+    ]
+  },
+  {
+    "slug": "muse-ai-account-1-billion-tokens",
+    "keys": [
+      "auto:1-account-ai-billion-muse-tokens"
+    ],
+    "names": [
+      "muse ai account —1 billion tokens!"
+    ],
+    "aliases": [
+      "muse-ai-account-1-billion-tokens-iqknlo"
+    ]
+  },
+  {
+    "slug": "nord-vpn-3m",
+    "keys": [
+      "auto:nord-vpn-duration-3m"
+    ],
+    "names": [
+      "nord vpn 3m"
+    ],
+    "aliases": [
+      "nord-vpn-3m-do9w02"
+    ]
+  },
+  {
+    "slug": "test-reseller-api",
+    "keys": [
+      "auto:api-reseller-test"
+    ],
+    "names": [
+      "test reseller api"
+    ],
+    "aliases": [
+      "test-reseller-api-avd93w"
+    ]
+  },
+  {
+    "slug": "youtube-3m-link",
+    "keys": [
+      "auto:link-youtube-duration-3m"
+    ],
+    "names": [
+      "youtube 3m link"
+    ],
+    "aliases": [
+      "youtube-3m-link-ja6loq"
+    ]
+  },
+  {
+    "slug": "youtube-premium-3-month-autopay-link",
+    "keys": [
+      "auto:autopay-link-premium-youtube-duration-3m"
+    ],
+    "names": [
+      "youtube premium 3 month autopay link"
+    ],
+    "aliases": [
+      "youtube-premium-3-month-autopay-link-81j430"
+    ]
+  },
+  {
+    "slug": "cdk-perplexity-pro-1m-sub-warranty",
+    "keys": [
+      "auto:perplexity-pro-sub-duration-1m"
+    ],
+    "names": [
+      "cdk perplexity pro 1m (sub-warranty)"
+    ],
+    "aliases": [
+      "cdk-perplexity-pro-1m-sub-warranty-1okhpj"
+    ]
+  },
+  {
+    "slug": "chat-gpt-pro-x5-1-month-5-day-warranty",
+    "keys": [
+      "auto:chat-gpt-pro-x5-duration-1m"
+    ],
+    "names": [
+      "chat gpt pro x5 1 month (5-day warranty)"
+    ],
+    "aliases": [
+      "chat-gpt-pro-x5-1-month-5-day-warranty-1018pm"
+    ]
+  },
+  {
+    "slug": "chatgpt-plus-k12-edu-2-years-24h-warranty",
+    "keys": [
+      "auto:24h-chatgpt-edu-k12-plus-duration-2y"
+    ],
+    "names": [
+      "chatgpt plus k12 edu 2 years - 24h warranty"
+    ],
+    "aliases": [
+      "chatgpt-plus-k12-edu-2-years-24h-warranty-hwzhnq"
+    ]
+  },
+  {
+    "slug": "claude-max-5x-1-month",
+    "keys": [
+      "auto:claude-pro-x5-duration-1m",
+      "auto:5x-claude-max-duration-1m"
+    ],
+    "names": [
+      "claude max 5x 1 month"
+    ],
+    "aliases": [
+      "claude-max-5x-1-month-1m4p9l"
+    ]
+  },
+  {
+    "slug": "coursera-premium-12m-3dw",
+    "keys": [
+      "auto:3dw-coursera-premium-duration-12m"
+    ],
+    "names": [
+      "coursera premium 12m (3dw)"
+    ],
+    "aliases": [
+      "coursera-premium-12m-3dw-fxqj3x"
+    ]
+  },
+  {
+    "slug": "elevenlab-creator-1-month-3d-warranty",
+    "keys": [
+      "auto:creator-elevenlab-duration-1m"
+    ],
+    "names": [
+      "elevenlab creator 1 month 3d warranty"
+    ],
+    "aliases": [
+      "elevenlab-creator-1-month-3d-warranty-asljw5"
+    ]
+  },
+  {
+    "slug": "elevenlabs-creator-3m",
+    "keys": [
+      "auto:creator-elevenlabs-duration-3m"
+    ],
+    "names": [
+      "elevenlabs creator 3m"
+    ],
+    "aliases": [
+      "elevenlabs-creator-3m-7hfmz8"
+    ]
+  },
+  {
+    "slug": "meshy-ai-starter-350-credits-1m",
+    "keys": [
+      "auto:350-ai-credits-meshy-starter-duration-1m"
+    ],
+    "names": [
+      "meshy ai starter 350 credits 1m"
+    ],
+    "aliases": [
+      "meshy-ai-starter-350-credits-1m-1rhss5"
+    ]
+  },
+  {
+    "slug": "n8n-starter-12m",
+    "keys": [
+      "auto:n8n-starter-duration-12m"
+    ],
+    "names": [
+      "n8n starter 12m"
+    ],
+    "aliases": [
+      "n8n-starter-12m-1nxst1"
+    ]
+  },
+  {
+    "slug": "supergrok-7-days-account-6dw",
+    "keys": [
+      "auto:6dw-account-grok-super-duration-7d"
+    ],
+    "names": [
+      "supergrok 7 days account (6dw)"
+    ],
+    "aliases": [
+      "supergrok-7-days-account-6dw-sssepw"
+    ]
+  },
+  {
+    "slug": "youtube-premium-12m",
+    "keys": [
+      "auto:premium-youtube-duration-12m"
+    ],
+    "names": [
+      "youtube premium 12m"
+    ],
+    "aliases": [
+      "youtube-premium-12m-1lpp9b"
     ]
   }
 ];

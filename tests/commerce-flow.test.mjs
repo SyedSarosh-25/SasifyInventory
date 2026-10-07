@@ -189,7 +189,7 @@ test('ChatGPT Plus local inventory supports checkout, verification, delivery and
     const order = created.data;
     const claim = await request('claim', { id: order.id, transactionId: 'TMICFBPK100926055571425207' }, order.recovery);
     assert.equal(claim.code, 200, JSON.stringify(claim));
-    const payload = { subject: 'You got Rs. 3,499 from Bank Alfalah-0388 🎉', text: 'Amount Received\nRs. 3,499\nTransaction ID\nTMICFBPK100926055571425207\nSource Acc. Number\n****0388\nDestination Acc. Title\nSyed Adeen Sarosh', date: new Date().toISOString(), messageId: 'integration-test' };
+    const payload = { subject: 'You got Rs. 3,699 from Bank Alfalah-0388 🎉', text: 'Amount Received\nRs. 3,699\nTransaction ID\nTMICFBPK100926055571425207\nSource Acc. Number\n****0388\nDestination Acc. Title\nSyed Adeen Sarosh', date: new Date().toISOString(), messageId: 'integration-test' };
     assert.equal((await inbound(payload)).code, 200);
     const autoStatus = await request('status', undefined, order.recovery, order.id);
     assert.equal(autoStatus.data.status, 'delivered', JSON.stringify(autoStatus));
@@ -217,9 +217,9 @@ test('ChatGPT Plus local inventory supports checkout, verification, delivery and
     const adminSnapshot = (await request('admin-list', undefined, env.COMMERCE_ADMIN_KEY, '', '', { 'x-profit-token': profitUnlock.data.token })).data;
     assert.ok(adminSnapshot.payments.some((row) => row.transaction_id === 'TMICFBPK100926055571425207'));
     const metrics = adminSnapshot.metrics;
-    assert.equal(metrics.income, 3499);
+    assert.equal(metrics.income, 3699);
     assert.equal(metrics.cost, 1000);
-    assert.equal(metrics.profit, 2499);
+    assert.equal(metrics.profit, 2699);
     assert.equal(adminSnapshot.teamCommissions.ratePkr, 50);
     assert.equal(adminSnapshot.teamCommissions.orders.length, 0);
     assert.equal(adminSnapshot.teamCommissions.totalPkr, 0);
@@ -242,9 +242,9 @@ test('ChatGPT Plus local inventory supports checkout, verification, delivery and
     const htmlTransaction = 'ABPAPKKA140926150945051530';
     assert.equal((await request('claim', { id: htmlOrder.data.id, transactionId: htmlTransaction }, htmlOrder.data.recovery)).code, 200);
     const htmlPayload = {
-      subject: 'You got Rs. 3,499 from Zain Ali 🎉',
+      subject: 'You got Rs. 3,699 from Zain Ali 🎉',
       text: '',
-      html: '<table><tr><td>Amount Received</td><td>Rs. 3,499</td></tr><tr><td>Service Fee (Incl. Tax)</td><td>Rs. 0</td></tr><tr><td>Total Amount</td><td>Rs. 3,499</td></tr><tr><td>Transaction ID</td><td>ABPAPKKA140926150945051530</td></tr><tr><td>Source Acc. Title</td><td>Zain Ali</td></tr><tr><td>Source Bank</td><td>Allied Bank</td></tr><tr><td>Raast ID / IBAN</td><td>••••0015</td></tr><tr><td>Channel</td><td>Raast</td></tr></table>',
+      html: '<table><tr><td>Amount Received</td><td>Rs. 3,699</td></tr><tr><td>Service Fee (Incl. Tax)</td><td>Rs. 0</td></tr><tr><td>Total Amount</td><td>Rs. 3,699</td></tr><tr><td>Transaction ID</td><td>ABPAPKKA140926150945051530</td></tr><tr><td>Source Acc. Title</td><td>Zain Ali</td></tr><tr><td>Source Bank</td><td>Allied Bank</td></tr><tr><td>Raast ID / IBAN</td><td>••••0015</td></tr><tr><td>Channel</td><td>Raast</td></tr></table>',
       date: new Date().toISOString(),
       messageId: 'html-integration-test',
     };
@@ -279,15 +279,15 @@ test('ChatGPT Plus local inventory supports checkout, verification, delivery and
     assert.equal(withdrawal.code, 200, JSON.stringify(withdrawal));
     const withdrawalMetrics = (await request('admin-list', undefined, env.COMMERCE_ADMIN_KEY, '', '', { 'x-profit-token': profitUnlock.data.token })).data.metrics;
     assert.equal(withdrawalMetrics.admin_withdrawals, 1);
-    assert.equal(withdrawalMetrics.income, 17495);
+    assert.equal(withdrawalMetrics.income, 18495);
     assert.equal(withdrawalMetrics.cost, 5000);
-    assert.equal(withdrawalMetrics.profit, 12495);
+    assert.equal(withdrawalMetrics.profit, 13495);
 
     await request('admin-import', { productId: 'p093', accounts: 'unique-one@test.invalid|unique-pass|unique-2fa\nunique-two@test.invalid|unique-pass|unique-2fa', purchaseCost: 1000 }, env.COMMERCE_ADMIN_KEY);
     const firstUnique = await request('create', { productId: 'p093' });
     const secondUnique = await request('create', { productId: 'p093' });
-    assert.equal(firstUnique.data.amount, 3499);
-    assert.ok(secondUnique.data.amount < 3499);
+    assert.equal(firstUnique.data.amount, 3699);
+    assert.ok(secondUnique.data.amount < 3699);
     assert.notEqual(secondUnique.data.amount, firstUnique.data.amount);
     const paidWithoutTransaction = await request('claim', { id: secondUnique.data.id }, secondUnique.data.recovery);
     assert.equal(paidWithoutTransaction.code, 200, JSON.stringify(paidWithoutTransaction));
@@ -369,12 +369,12 @@ test('ChatGPT Plus local inventory supports checkout, verification, delivery and
     await request('admin-import', { productId: 'p093', accounts: 'cust-sale@test.invalid|cust-pass|cust-2fa', purchaseCost: 1000 }, env.COMMERCE_ADMIN_KEY);
     const custOrder = await request('create', { productId: 'p093', couponCode: 'CUST' });
     assert.equal(custOrder.code, 200, JSON.stringify(custOrder));
-    assert.equal(custOrder.data.amount, 3499);
-    assert.equal(custOrder.data.listedAmount, 3499);
+    assert.equal(custOrder.data.amount, 3699);
+    assert.equal(custOrder.data.listedAmount, 3699);
     assert.equal(custOrder.data.couponDiscount, 0);
     assert.equal(custOrder.data.teamCoupon, false);
     assert.equal(custOrder.data.commissionCode, 'CUST');
-    assert.equal(custOrder.data.commissionAmount, 350);
+    assert.equal(custOrder.data.commissionAmount, 370);
     assert.equal((await request('claim', { id: custOrder.data.id }, custOrder.data.recovery)).code, 200);
     const custTransaction = 'CUSTPAY100926055571425777';
     const custPayload = {
@@ -391,7 +391,7 @@ test('ChatGPT Plus local inventory supports checkout, verification, delivery and
     assert.ok(custSummary);
     assert.ok(custSummary.sales >= 1);
     assert.ok(custSummary.total >= 350);
-    assert.ok(commissionDashboard.data.commissions.some((row) => row.order_id === custOrder.data.id && row.commission_amount === 350));
+    assert.ok(commissionDashboard.data.commissions.some((row) => row.order_id === custOrder.data.id && row.commission_amount === 370));
 
     await request('admin-import', { productId: 'p093', accounts: 'bank-delay@test.invalid|bank-pass|bank-2fa\nbank-late@test.invalid|late-pass|late-2fa', purchaseCost: 1000 }, env.COMMERCE_ADMIN_KEY);
     const delayedBankOrder = await request('create', { productId: 'p093', paymentMethod: 'bank' });
