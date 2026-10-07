@@ -733,7 +733,7 @@ export function Checkout() {
               <div className="checkout-total-summary" aria-live="polite">
                 <div><span>Package amount</span><strong>PKR {product.price.toLocaleString('en-PK')}</strong></div>
                 {((product as any)?.price_notice || isChatGptPlusUltra) && (
-                  <p className="checkout-price-revision-notice" style={{ fontSize: '0.8rem', color: '#d97706', fontWeight: 600, margin: '4px 0 0' }}>
+                  <p className="checkout-price-revision-notice" style={{ fontSize: '0.8rem', color: '#dc2626', fontWeight: 600, margin: '4px 0 0' }}>
                     📢 {(product as any)?.price_notice || 'Price Revised Due to Increase By Vendors'}
                   </p>
                 )}

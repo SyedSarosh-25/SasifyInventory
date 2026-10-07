@@ -438,7 +438,7 @@ export default async function ProductPage({ params }: Props) {
                 <h1>{product.name}</h1>
                 {product.priceNotice && (
                   <div className="product-price-revision-notice">
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 my-1">
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20 my-1">
                       📢 {product.priceNotice}
                     </span>
                   </div>
@@ -620,7 +620,7 @@ export default async function ProductPage({ params }: Props) {
               </div>
               {product.priceNotice && (
                 <div className="price-revision-notice-row">
-                  <span className="text-xs font-bold text-amber-600 dark:text-amber-400">
+                  <span className="text-xs font-bold text-red-600 dark:text-red-400">
                     📢 {product.priceNotice}
                   </span>
                 </div>
@@ -660,7 +660,7 @@ export default async function ProductPage({ params }: Props) {
                   Selected option: <strong>Apple Pay · Ultra Stable</strong>
                 </p>
                 <p>Use Pay online here to continue.</p>
-                <p className="price-revision-notice font-semibold text-amber-700 dark:text-amber-400">
+                <p className="price-revision-notice font-semibold text-red-600 dark:text-red-400">
                   Price Revised Due to Increase By Vendors
                 </p>
               </div>

@@ -152,7 +152,7 @@ export function ToolPlanCard({ product }: { product: FeaturedProduct }) {
             </div>
           )}
           {((product as any)?.price_notice || product.id === 'p093' || product.id === 'p093-ultra') && (
-            <div className="text-[11px] font-semibold text-amber-600 dark:text-amber-400 mt-1">
+            <div className="text-[11px] font-semibold text-red-600 dark:text-red-400 mt-1">
               📢 {(product as any)?.price_notice || 'Price Revised Due to Increase By Vendors'}
             </div>
           )}
