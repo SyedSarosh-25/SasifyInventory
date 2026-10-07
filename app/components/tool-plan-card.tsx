@@ -7,6 +7,7 @@ import { supplierOriginalPriceComparison } from '../supplier-price-utils';
 import { originalPricePkr, productHref, whatsappLink } from '../product-utils';
 import { supplierLogo } from '../supplier-product-utils';
 import { ProductLogo } from './product-logo';
+import { getToolPlanFeatures } from '../tool-plan-features';
 
 export function ToolPlanCard({ product }: { product: FeaturedProduct }) {
   const isSupplier = product.source === 'supplier';
@@ -80,6 +81,7 @@ export function ToolPlanCard({ product }: { product: FeaturedProduct }) {
 
   const logo = isSupplier ? supplierLogo(product.name, product.logo_url) : '';
   const waHref = whatsappLink(displayName, durationLabel);
+  const features = getToolPlanFeatures(product, durationLabel);
 
   return (
     <article className={`tool-plan-card${!inStock ? ' is-out-of-stock' : ''}`}>
@@ -115,22 +117,12 @@ export function ToolPlanCard({ product }: { product: FeaturedProduct }) {
         </div>
 
         <ul className="tool-plan-features">
-          <li>
-            <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
-            <span>100% Full Replacement Warranty for entire duration</span>
-          </li>
-          <li>
-            <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
-            <span>{isUltraOrPrivate ? 'Private account on your own personal email' : isShared ? 'Verified login credentials with zero issues' : 'Instant activation code / API quota'}</span>
-          </li>
-          <li>
-            <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
-            <span>Instant delivery to your WhatsApp & Email</span>
-          </li>
-          <li>
-            <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
-            <span>Pay in PKR via JazzCash, Easypaisa, SadaPay, NayaPay or Bank</span>
-          </li>
+          {features.map((feature, idx) => (
+            <li key={idx}>
+              <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+              <span>{feature}</span>
+            </li>
+          ))}
         </ul>
       </div>
 
