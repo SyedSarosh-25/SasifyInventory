@@ -1928,9 +1928,11 @@ export function CommerceAdmin() {
   };
   const orderRows = (data?.orders || []).filter(orderMatchesFilter);
   const orderView = useRecordView(orderRows, (row: any) => `${row.id} ${row.product_id} ${row.supplier_product_name || ''} ${row.supplier_name || ''} ${row.payer_name || ''} ${row.status}`);
-  const manualOrderRows = (data?.orders || []).filter((row: any) =>
-    ['preorder_pending', 'preorder_confirmed', 'manual_activation_pending', 'manually_completed'].includes(String(row.supplier_status || '')),
-  );
+  const manualOrderRows = (data?.orders || [])
+    .filter((row: any) =>
+      ['preorder_pending', 'preorder_confirmed', 'manual_activation_pending', 'manually_completed'].includes(String(row.supplier_status || '')),
+    )
+    .sort((a: any, b: any) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
   const paymentReceivers = data?.paymentReceivers || [];
   const activePaymentReceiver = paymentReceivers.find((receiver: any) => receiver.active);
   const paymentReceiverLabel = (receiverId: string) =>

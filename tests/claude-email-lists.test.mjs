@@ -31,3 +31,24 @@ test('admin export includes confirmed orders beyond the recent 100-order page', 
     assert.equal(confirmedClaudeEmailLists(result.rows)[1].emails.length,1);
   } finally { await db.close(); }
 });
+
+test('confirmedClaudeEmailLists sorts emails by date ascending or descending and records dates', () => {
+  const o1 = { product_id: 'p012', status: 'delivered', supplier_status: 'preorder_confirmed', customer_email: 'first@test.com', created_at: '2026-09-10T10:00:00Z' };
+  const o2 = { product_id: 'p012', status: 'delivered', supplier_status: 'preorder_confirmed', customer_email: 'second@test.com', created_at: '2026-09-15T10:00:00Z' };
+  const o3 = { product_id: 'p012', status: 'delivered', supplier_status: 'preorder_confirmed', customer_email: 'third@test.com', created_at: '2026-09-20T10:00:00Z' };
+
+  // Default / Newest first (desc)
+  const descLists = confirmedClaudeEmailLists([o1, o2, o3]);
+  assert.deepEqual(descLists[0].emails, ['third@test.com', 'second@test.com', 'first@test.com']);
+  assert.equal(descLists[0].orderDates['third@test.com'], '2026-09-20T10:00:00.000Z');
+
+  // Explicit newest first (desc)
+  const explicitDesc = confirmedClaudeEmailLists([o2, o1, o3], 'desc');
+  assert.deepEqual(explicitDesc[0].emails, ['third@test.com', 'second@test.com', 'first@test.com']);
+
+  // Oldest first (asc)
+  const ascLists = confirmedClaudeEmailLists([o3, o1, o2], 'asc');
+  assert.deepEqual(ascLists[0].emails, ['first@test.com', 'second@test.com', 'third@test.com']);
+  assert.equal(ascLists[0].orderDates['first@test.com'], '2026-09-10T10:00:00.000Z');
+});
+
