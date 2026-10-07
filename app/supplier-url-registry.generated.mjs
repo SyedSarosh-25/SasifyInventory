@@ -1042,12 +1042,14 @@ export const supplierUrlRegistry = [
     ],
     "names": [
       "capcut pro 7days (fw)",
-      "capcut pro 7 days"
+      "capcut pro 7 days",
+      "capcut pro 7 d full warranty"
     ],
     "aliases": [
       "capcut-pro-7days-fw-175scj",
       "capcut-pro-7-days-175scj",
-      "capcut-pro-7days-fw-1gofvd"
+      "capcut-pro-7days-fw-1gofvd",
+      "capcut-pro-7-d-full-warranty-175scj"
     ]
   },
   {
@@ -4928,6 +4930,18 @@ export const supplierUrlRegistry = [
     ],
     "aliases": [
       "wink-vip-1-year-full-warranty-bi899x"
+    ]
+  },
+  {
+    "slug": "chatgpt-business-invite",
+    "keys": [
+      "auto:business-chatgpt-invite"
+    ],
+    "names": [
+      "chatgpt business invite"
+    ],
+    "aliases": [
+      "chatgpt-business-invite-1wzvx9"
     ]
   }
 ];

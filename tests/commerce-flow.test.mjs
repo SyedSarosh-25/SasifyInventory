@@ -29,6 +29,7 @@ test('ChatGPT Plus local inventory supports checkout, verification, delivery and
     NAYAPAY_INBOUND_BASIC_PASSWORD: 'postmark-password',
     TELEGRAM_CHAT_ID: 'telegram-test-chat',
     TELEGRAM_WEBHOOK_SECRET: 'telegram-test-secret',
+    DISABLED_PAYMENT_METHODS: '',
   };
   Object.assign(process.env, env);
   let tail = Promise.resolve();

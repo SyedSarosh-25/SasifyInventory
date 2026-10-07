@@ -438,7 +438,7 @@ test('accounts isolate purchases, verified deposits credit once, wallet pays onc
       .account.balance;
     assert.equal(
       balance,
-      5000 - (order.data.amount - Math.floor(order.data.amount * 0.05)),
+      5000 - order.data.amount,
     );
     await request('account-wallet-pay', { id: order.data.id }, cookie);
     assert.equal(
@@ -467,7 +467,7 @@ test('accounts isolate purchases, verified deposits credit once, wallet pays onc
     assert.equal(stats.delivered_orders, 1);
     assert.equal(
       Number(stats.total_spent),
-      order.data.amount - Math.floor(order.data.amount * 0.05),
+      order.data.amount,
     );
     assert.equal(Number(stats.total_deposited), 5000);
     assert.ok(stats.email_verified_at);

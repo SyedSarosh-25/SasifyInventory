@@ -3,7 +3,7 @@ export async function checkSupplierPlan(offers, providers, timeoutMs = 8000) {
   const catalogs = new Map();
   const results = await Promise.all(offers.map(async (offer) => {
     if (offer.provider_id === 'manual') return { offer, available: Number(offer.supplier_stock || 0), verified: true };
-    const provider = providers.find((p) => p.id === offer.provider_id && p.configured && p.id !== 'elitetools');
+    const provider = providers.find((p) => p.id === offer.provider_id && p.configured);
     if (!provider) return { offer, verified: false };
     if (!catalogs.has(provider.id)) {
       catalogs.set(provider.id, (async () => {

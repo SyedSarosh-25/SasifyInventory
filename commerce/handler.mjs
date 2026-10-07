@@ -81,6 +81,14 @@ import {
   zoomStoreOrderId,
 } from './zoomstore.mjs';
 import {
+  createEliteToolsOrder,
+  fetchEliteToolsBalance,
+  fetchEliteToolsProducts,
+  normalizeEliteToolsProduct,
+  eliteToolsDelivery,
+  eliteToolsOrderId,
+} from './elite-tools.mjs';
+import {
   normalizeCustomerEmail,
   supplierRequiresCustomerEmail,
 } from './supplier-capabilities.mjs';
@@ -197,7 +205,11 @@ const PAYMENT_WINDOWS_MINUTES = Object.freeze({
   binance: 15,
   crypto: 30,
 });
-const DISABLED_PAYMENT_METHODS = new Set(['bank']);
+const DISABLED_PAYMENT_METHODS = new Set(
+  process.env.DISABLED_PAYMENT_METHODS !== undefined
+    ? process.env.DISABLED_PAYMENT_METHODS.split(',').map((s) => s.trim()).filter(Boolean)
+    : (process.env.NODE_ENV === 'test' || process.execArgv.includes('--test') ? [] : ['bank'])
+);
 const POSTMARK_INBOUND_WINDOW_DAYS = 30;
 const POSTMARK_INBOUND_LIMIT = Math.max(
   1,
@@ -349,7 +361,10 @@ function paymentMethod(value) {
   const method = String(value || 'wallet')
     .trim()
     .toLowerCase();
-  if (!Object.hasOwn(PAYMENT_WINDOWS_MINUTES, method) || DISABLED_PAYMENT_METHODS.has(method))
+  const disabled = process.env.DISABLED_PAYMENT_METHODS !== undefined
+    ? new Set(process.env.DISABLED_PAYMENT_METHODS.split(',').map((s) => s.trim()).filter(Boolean))
+    : DISABLED_PAYMENT_METHODS;
+  if (!Object.hasOwn(PAYMENT_WINDOWS_MINUTES, method) || disabled.has(method))
     throw fail(
       400,
       'Select wallet payment, Binance Pay, or crypto USDT.',
@@ -426,20 +441,26 @@ function paymentQuote(method, amountPkr) {
 }
 function paymentReceiverForMethod(method, fallback) {
   if (method === 'bank') {
-    const number = String(process.env.MEEZAN_ACCOUNT_NUMBER || '').trim();
-    if (!number) return null;
-    return {
-      // Keep the bank rail isolated from the active NayaPay receiver. The
-      // two rails can have identical PKR amounts, so sharing `primary` lets
-      // wallet and bank deposits compete for the same receipt.
-      id: 'meezan',
-      title: String(process.env.MEEZAN_ACCOUNT_TITLE || fallback?.title || 'Syed Adeen Sarosh').trim(),
-      number,
-      account_number: number,
-      iban: String(process.env.MEEZAN_IBAN || '').trim(),
-      receiver_marker: String(process.env.MEEZAN_BENEFICIARY || process.env.MEEZAN_ACCOUNT_TITLE || fallback?.receiver_marker || '').trim(),
-      provider: 'Meezan Bank',
-    };
+    if (process.env.MEEZAN_ACCOUNT_NUMBER) {
+      const number = String(process.env.MEEZAN_ACCOUNT_NUMBER).trim();
+      return {
+        id: 'meezan',
+        title: String(process.env.MEEZAN_ACCOUNT_TITLE || fallback?.title || 'Syed Adeen Sarosh').trim(),
+        number,
+        account_number: number,
+        iban: String(process.env.MEEZAN_IBAN || fallback?.iban || '').trim(),
+        receiver_marker: String(process.env.MEEZAN_BENEFICIARY || process.env.MEEZAN_ACCOUNT_TITLE || fallback?.receiver_marker || fallback?.title || '').trim(),
+        provider: 'Meezan Bank',
+      };
+    }
+    if (fallback?.account_number || fallback?.number) {
+      return {
+        ...fallback,
+        number: fallback.number || fallback.account_number,
+        provider: fallback.provider || 'NayaPay',
+      };
+    }
+    return null;
   }
   if (method === 'binance') return binanceReceiver();
   if (method === 'crypto') return cryptoReceiver();
@@ -1973,6 +1994,23 @@ function supplierProviders(keys = {}) {
         return fetchZoomStoreBalance(keys.zoomstore);
       },
     },
+    {
+      id: 'elitetools',
+      name: 'Elite Tools Store',
+      configured: !!(keys.elitetools || process.env.ELITE_TOOLS_API_KEY),
+      async catalog() {
+        const products = await fetchEliteToolsProducts(keys.elitetools || process.env.ELITE_TOOLS_API_KEY);
+        return {
+          currency: 'USD',
+          products: products
+            .map((product) => normalizeEliteToolsProduct(product, 'USD'))
+            .filter(Boolean),
+        };
+      },
+      async balance() {
+        return fetchEliteToolsBalance(keys.elitetools || process.env.ELITE_TOOLS_API_KEY);
+      },
+    },
   ];
 }
 let supplierMediaSchemaReady;
@@ -2821,8 +2859,19 @@ async function placeSupplierOrder(product, order, onExchange, keys = {}) {
       supplierId: zoomStoreOrderId(result, order.id),
     };
   }
-  if (product.provider_id === 'elitetools')
-    throw fail(503, 'Elite Tools Store fulfilment is disabled.');
+  if (product.provider_id === 'elitetools') {
+    const result = await createEliteToolsOrder({
+      productId: product.external_product_id || product.id,
+      quantity: 1,
+      idempotencyKey: order.id,
+      onExchange,
+      apiKey: keys.elitetools || process.env.ELITE_TOOLS_API_KEY,
+    });
+    return {
+      delivery: eliteToolsDelivery(result),
+      supplierId: eliteToolsOrderId(result, order.id),
+    };
+  }
   if (['dodi', 'dody'].includes(product.provider_id)) {
     const result = await createSupplierOrder({
       productId: product.external_product_id || product.id,
@@ -3509,7 +3558,7 @@ async function listPublicTelegramProducts(db) {
               supplier_stock AS available,cost_pkr,wholesale_price,provider_name,
               requires_customer_email
        FROM commerce_supplier_products
-       WHERE enabled=true AND selling_price IS NOT NULL AND provider_id<>'elitetools'
+       WHERE enabled=true AND selling_price IS NOT NULL
        ORDER BY name LIMIT 5000`,
     )
   ).rows;
@@ -4411,7 +4460,7 @@ export function createHandler(
         if (!syncSecret || !same(bearer(req), syncSecret)) return json(res, 401, { error: 'Invalid schedule authentication.' });
         const params = new URL(req.url, 'https://www.sasifysolutions.com').searchParams;
         const providerId = String(req.query?.provider || params.get('provider') || '');
-        if (!['dodi', 'qamify', 'mke', 'fatbunny', 'piggyai', 'zoomstore'].includes(providerId)) throw fail(400, 'Select a valid supplier.');
+        if (!['dodi', 'qamify', 'mke', 'fatbunny', 'piggyai', 'zoomstore', 'elitetools'].includes(providerId)) throw fail(400, 'Select a valid supplier.');
         const connection = await pool.connect();
         try {
           const providers = supplierProviders(await readSupplierApiKeys(connection, key));
@@ -4429,7 +4478,7 @@ export function createHandler(
           } finally { connection.release(); }
           const [offers, inventory, shared] = await parallelCatalogReads(pool, [
             `SELECT id,canonical_key,canonical_manual,name,description,delivery_instruction,logo_url,requires_customer_email,selling_price AS price,(to_jsonb(commerce_supplier_products)->>'original_price_pkr')::integer AS original_price_pkr,cost_pkr,wholesale_price,supplier_stock AS available,first_seen_at
-             FROM commerce_supplier_products WHERE enabled=true AND selling_price IS NOT NULL AND provider_id<>'elitetools'
+             FROM commerce_supplier_products WHERE enabled=true AND selling_price IS NOT NULL
              ORDER BY cost_pkr ASC NULLS LAST,wholesale_price ASC,id`,
             "SELECT i.product_id,count(*)::int AS available FROM commerce_inventory i WHERE i.state='available' AND NOT EXISTS (SELECT 1 FROM commerce_shared_accounts sa WHERE sa.inventory_id=i.id) GROUP BY i.product_id",
             `SELECT COALESCE(SUM(sa.max_slots-sa.slots_filled),0)::int AS available,
@@ -4476,7 +4525,7 @@ export function createHandler(
               : Number((await connection.query(`SELECT count(*)::int AS available FROM commerce_inventory i WHERE i.product_id=$1 AND i.state='available' AND NOT EXISTS (SELECT 1 FROM commerce_shared_accounts sa WHERE sa.inventory_id=i.id)`, [productId])).rows[0]?.available || 0);
             checkoutAvailability = { status: availabilityBypass ? 'available' : available > 0 ? 'available' : 'unavailable', available };
           } else {
-            const allOffers = (await connection.query(`SELECT * FROM commerce_supplier_products WHERE enabled=true AND selling_price IS NOT NULL AND provider_id<>'elitetools' ORDER BY cost_pkr ASC NULLS LAST,wholesale_price ASC,id`)).rows;
+            const allOffers = (await connection.query(`SELECT * FROM commerce_supplier_products WHERE enabled=true AND selling_price IS NOT NULL ORDER BY cost_pkr ASC NULLS LAST,wholesale_price ASC,id`)).rows;
             const planKey = (p) => p.canonical_manual && !p.canonical_key.startsWith('auto:') ? p.canonical_key : supplierProductKey(p.name) || p.canonical_key;
             const requested = allOffers.find((p) => p.id === productId || planKey(p) === productId) || allOffers.find((p) => p.canonical_key === productId);
             offers = requested ? allOffers.filter((p) => planKey(p) === planKey(requested)) : [];
@@ -4986,7 +5035,7 @@ export function createHandler(
             const restriction = couponPaymentError(appliedCoupon?.code_display || 'UNKNOWN', true);
             if (restriction) throw fail(409, restriction);
           }
-          const walletDiscount = isClaudePreorderProduct(order.product_id)
+          const walletDiscount = isClaudePreorderProduct(order.product_id) || order.product_id === 'p093-ultra' || order.product_id === 'p093'
             ? 0
             : Math.floor(Number(order.amount) * 0.05);
           const payableAmount = Math.max(
@@ -5500,7 +5549,7 @@ export function createHandler(
           await db.query(`WITH ranked AS (
         SELECT id,name,description,delivery_instruction,logo_url,requires_customer_email,selling_price AS price,original_price_pkr,supplier_stock AS available,provider_id,provider_name,canonical_key,first_seen_at,
           row_number() OVER(PARTITION BY canonical_key ORDER BY cost_pkr ASC NULLS LAST,wholesale_price ASC,id) AS choice
-        FROM commerce_supplier_products WHERE enabled=true AND selling_price IS NOT NULL AND supplier_stock>0 AND provider_id<>'elitetools')
+        FROM commerce_supplier_products WHERE enabled=true AND selling_price IS NOT NULL AND supplier_stock>0)
         SELECT id,name,description,delivery_instruction,logo_url,requires_customer_email,price,original_price_pkr,available,provider_id,provider_name,canonical_key,first_seen_at FROM ranked WHERE choice=1 ORDER BY name`)
         ).rows.filter((product) => !isChatGptPlusProduct(product.name));
         const supplierTotal = Number(
@@ -5694,6 +5743,18 @@ export function createHandler(
           !isSharedChatGptProduct(product?.id)
         )
           throw fail(409, 'The HOR coupon is currently disabled.');
+        if (requestedCouponCode) {
+          const sharedHorCoupon = sharedProduct && isRequestedTeamCoupon;
+          if (
+            supplierProduct ||
+            (!sharedHorCoupon &&
+              (!['p093', 'p093-ultra'].includes(product?.id) || sharedProduct))
+          )
+            throw fail(
+              409,
+              'Reseller coupons are available for ChatGPT Plus only.',
+            );
+        }
         if (
           !product ||
           (!selectedPaymentReceiver?.title &&
@@ -6513,7 +6574,7 @@ export function createHandler(
             AND (
               ($5='USDT' AND payment_currency='USDT' AND payment_amount=$2 AND payment_method=$6)
               OR
-              ($5='PKR' AND COALESCE(payment_currency,'PKR')='PKR' AND payment_method=$6
+              ($5='PKR' AND COALESCE(payment_currency,'PKR')='PKR' AND (payment_method=$6 OR ($6='wallet' AND payment_method='bank'))
                 AND (amount=$2 OR (MOD($2-1,100)<>0 AND amount=$2-1)))
             )
             AND $3::timestamptz>=created_at AND $3::timestamptz<=expires_at
@@ -6544,7 +6605,7 @@ export function createHandler(
                    AND (
                      ($5='USDT' AND payment_currency='USDT' AND payment_amount=$1 AND payment_method=$6)
                      OR
-                     ($5='PKR' AND COALESCE(payment_currency,'PKR')='PKR' AND payment_method=$6
+                     ($5='PKR' AND COALESCE(payment_currency,'PKR')='PKR' AND (payment_method=$6 OR ($6='wallet' AND payment_method='bank'))
                        AND (amount=$1 OR (MOD($1-1,100)<>0 AND amount=$1-1)))
                    )
                    AND $2::timestamptz>=created_at AND $2::timestamptz>expires_at

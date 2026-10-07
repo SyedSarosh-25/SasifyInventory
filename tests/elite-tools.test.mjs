@@ -57,9 +57,9 @@ test('Elite Tools Store adapter sends the API key and camel-case order body', as
     assert.equal(calls[0].init.headers['X-API-Key'], 'test-key');
     assert.equal(calls[1].init.headers['X-API-Key'], 'test-key');
     assert.equal(calls[2].init.headers['X-API-Key'], 'test-key');
-    assert.equal(calls[0].url, 'https://elitetoolz.up.railway.app/api/reseller/products');
-    assert.equal(calls[1].url, 'https://elitetoolz.up.railway.app/api/reseller/balance');
-    assert.equal(calls[2].url, 'https://elitetoolz.up.railway.app/api/reseller/buy');
+    assert.equal(calls[0].url, 'https://api.elitetoolz.store/api/reseller/products');
+    assert.equal(calls[1].url, 'https://api.elitetoolz.store/api/reseller/balance');
+    assert.equal(calls[2].url, 'https://api.elitetoolz.store/api/reseller/buy');
     assert.deepEqual(JSON.parse(calls[2].init.body), {
       productId: '87549554',
       quantity: 1,

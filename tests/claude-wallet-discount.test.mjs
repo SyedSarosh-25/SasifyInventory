@@ -12,6 +12,8 @@ test('wallet payment charges both Claude preorders in full while retaining other
   const calculate = (order) => vm.runInNewContext(`const ids = new Set(${ids}); const isClaudePreorderProduct = id => ids.has(id); ${expression};`, { order });
   assert.equal(calculate({product_id: 'p012', amount: 21999}), 0);
   assert.equal(calculate({product_id: 'p013', amount: 4299}), 0);
+  assert.equal(calculate({product_id: 'p093-ultra', amount: 3499}), 0);
+  assert.equal(calculate({product_id: 'p093', amount: 3499}), 0);
   assert.equal(calculate({product_id: 'p100', amount: 25000}), 1250);
 });
 
@@ -19,4 +21,5 @@ test('checkout excludes both Claude plans and explains the full wallet price', (
   assert.match(checkout, /walletDiscountExcluded = product\?\.id === 'p012' \|\| product\?\.id === 'p013'/);
   assert.match(checkout, /useSasifyWallet && !walletDiscountExcluded/);
   assert.match(checkout, /Claude pre-orders are excluded from the wallet discount/);
+  assert.match(checkout, /Due to Recent Price Hike By Suppliers we can't offer 5% Off In This Product/);
 });

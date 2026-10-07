@@ -371,8 +371,8 @@ export function Checkout() {
     Number(product.available) <= 0
     )
   );
-  const selectedPayment = PAYMENT_METHOD_OPTIONS.find((option) => option.value === paymentMethod) || PAYMENT_METHOD_OPTIONS[0];
-  const walletDiscountExcluded = product?.id === 'p012' || product?.id === 'p013';
+  const walletDiscountExcluded = product?.id === 'p012' || product?.id === 'p013' || product?.id === 'p093-ultra' || product?.id === 'p093';
+  const isChatGptPlusUltra = product?.id === 'p093-ultra' || product?.id === 'p093';
   const walletDiscount = product && useSasifyWallet && !walletDiscountExcluded
     ? Math.floor(Math.max(0, Number(product.price)) * 0.05)
     : 0;
@@ -380,6 +380,9 @@ export function Checkout() {
     ? Math.max(0, Number(product.price) - walletDiscount)
     : 0;
   const checkoutProducts = products.filter((p) => p.id !== 'p093' && !isApiProduct(p));
+  const selectedPayment =
+    PAYMENT_METHOD_OPTIONS.find((opt) => opt.value === paymentMethod) ||
+    PAYMENT_METHOD_OPTIONS[0];
   const CUSTOMER_PAYMENT_DISPLAY_SECONDS = 5 * 60;
   const orderExpiryMs = order ? new Date(order.expiresAt).getTime() : 0;
   const createdAtMs = order?.createdAt ? new Date(order.createdAt).getTime() : NaN;
@@ -660,7 +663,7 @@ export function Checkout() {
                 <span className="sasify-wallet-logo" aria-hidden="true"><img src="/sasify-wallet-user-96.webp" alt="" width={42} height={42} /></span>
                 <span>
                   <strong>Sasify Wallet{useSasifyWallet && <span className="wallet-selected-badge"><Check size={14} aria-hidden="true" /> Selected</span>}</strong>
-                  <small>{checkoutAccount ? `Balance: PKR ${Number(checkoutAccount.balance || 0).toLocaleString('en-PK')}${walletDiscountExcluded ? ' · No discount on Claude pre-orders' : ' · 5% discount on eligible products'}` : walletDiscountExcluded ? 'Sign up to use wallet · No discount on Claude pre-orders' : 'Sign up to unlock · 5% discount on eligible products'}</small>
+                  <small>{checkoutAccount ? `Balance: PKR ${Number(checkoutAccount.balance || 0).toLocaleString('en-PK')}${walletDiscountExcluded ? (isChatGptPlusUltra ? " · Due to Recent Price Hike By Suppliers we can't offer 5% Off In This Product" : ' · No discount on Claude pre-orders') : ' · 5% discount on eligible products'}` : walletDiscountExcluded ? (isChatGptPlusUltra ? "Due to Recent Price Hike By Suppliers we can't offer 5% Off In This Product" : 'Sign up to use wallet · No discount on Claude pre-orders') : 'Sign up to unlock · 5% discount on eligible products'}</small>
                 </span>
                 <a className="payment-method-link" href={checkoutAccount ? '/dashboard?tab=wallet' : '/signup'} onClick={(event) => event.stopPropagation()}>{checkoutAccount ? 'Add funds' : 'Sign up'}</a>
               </label>
@@ -730,7 +733,13 @@ export function Checkout() {
               <div className="checkout-total-summary" aria-live="polite">
                 <div><span>Package amount</span><strong>PKR {product.price.toLocaleString('en-PK')}</strong></div>
                 {useSasifyWallet && !walletDiscountExcluded && walletDiscount > 0 && <div className="checkout-total-discount"><span>Sasify Wallet discount (5%)</span><strong>−PKR {walletDiscount.toLocaleString('en-PK')}</strong></div>}
-                {useSasifyWallet && walletDiscountExcluded && <p>Claude pre-orders are excluded from the wallet discount.</p>}
+                {useSasifyWallet && walletDiscountExcluded && (
+                  <p>
+                    {isChatGptPlusUltra
+                      ? "Due to Recent Price Hike By Suppliers we can't offer 5% Off In This Product"
+                      : "Claude pre-orders are excluded from the wallet discount."}
+                  </p>
+                )}
                 <div className="checkout-total-due"><span>{useSasifyWallet ? 'Final amount from wallet' : 'Amount before any coupon'}</span><strong>PKR {(useSasifyWallet ? walletPayable : product.price).toLocaleString('en-PK')}</strong></div>
               </div>
             )}

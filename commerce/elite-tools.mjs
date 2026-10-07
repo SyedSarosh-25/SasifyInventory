@@ -7,7 +7,7 @@ import {
   supplierLogPayload,
 } from './supplier-api-log.mjs';
 
-const endpoint = 'https://elitetoolz.up.railway.app/api/reseller';
+const endpoint = process.env.ELITE_TOOLS_ENDPOINT || 'https://api.elitetoolz.store/api/reseller';
 const envName = 'ELITE_TOOLS_API_KEY';
 
 function configured(apiKey) {
