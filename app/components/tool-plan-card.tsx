@@ -151,11 +151,6 @@ export function ToolPlanCard({ product }: { product: FeaturedProduct }) {
               Save <Money amount={savings} />
             </div>
           )}
-          {((product as any)?.price_notice || product.id === 'p093' || product.id === 'p093-ultra') && (
-            <div className="tool-plan-price-notice" style={{ fontSize: '11px', fontWeight: 700, color: '#dc2626', marginTop: '4px' }}>
-              🔴 {(product as any)?.price_notice || 'Price Revised Due to Increase By Vendors'}
-            </div>
-          )}
         </div>
 
         <div className="tool-plan-actions">

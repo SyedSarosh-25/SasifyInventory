@@ -732,11 +732,6 @@ export function Checkout() {
             {product && product.price > 0 && (
               <div className="checkout-total-summary" aria-live="polite">
                 <div><span>Package amount</span><strong>PKR {product.price.toLocaleString('en-PK')}</strong></div>
-                {((product as any)?.price_notice || isChatGptPlusUltra) && (
-                  <p className="checkout-price-revision-notice" style={{ fontSize: '0.82rem', color: '#dc2626', backgroundColor: '#fef2f2', border: '1px solid #fca5a5', padding: '6px 10px', borderRadius: '8px', fontWeight: 700, margin: '6px 0 0' }}>
-                    🔴 {(product as any)?.price_notice || 'Price Revised Due to Increase By Vendors'}
-                  </p>
-                )}
                 {useSasifyWallet && !walletDiscountExcluded && walletDiscount > 0 && <div className="checkout-total-discount"><span>Sasify Wallet discount (5%)</span><strong>−PKR {walletDiscount.toLocaleString('en-PK')}</strong></div>}
                 {useSasifyWallet && walletDiscountExcluded && (
                   <p>
