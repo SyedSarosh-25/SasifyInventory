@@ -2998,7 +2998,8 @@ export const supplierUrlRegistry = [
     "aliases": [
       "claude-api-1-day-1k5ota",
       "claude-api-1-day-1e927t",
-      "claude-api-1-day-all-plans-1k5ota"
+      "claude-api-1-day-all-plans-1k5ota",
+      "claude-api-1-day-all-plans-1qdyzv"
     ]
   },
   {
@@ -3099,7 +3100,8 @@ export const supplierUrlRegistry = [
     ],
     "aliases": [
       "surfshark-free-12cgwl",
-      "surfshark-2-months-free-auto-12cgwl"
+      "surfshark-2-months-free-auto-12cgwl",
+      "surfshark-2-months-free-auto-fwbliz"
     ]
   },
   {
@@ -5084,7 +5086,8 @@ export const supplierUrlRegistry = [
       "claude max 5x 1 month"
     ],
     "aliases": [
-      "claude-max-5x-1-month-1m4p9l"
+      "claude-max-5x-1-month-1m4p9l",
+      "claude-max-5x-1-month-nfc9jx"
     ]
   },
   {

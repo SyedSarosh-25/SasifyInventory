@@ -427,6 +427,18 @@ test('ChatGPT Plus local inventory supports checkout, verification, delivery and
     const lateBankPayment = (await request('admin-list', undefined, env.COMMERCE_ADMIN_KEY)).data.payments.find((row) => row.transaction_id === lateBankTransaction);
     assert.equal(lateBankPayment.verified, true);
     assert.equal(lateBankPayment.verification_reason, 'verified_after_order_window');
+
+    const catalogRes = await request('catalog');
+    assert.equal(catalogRes.code, 200);
+    const p093Product = catalogRes.data.products.find((p) => p.id === 'p093');
+    assert.ok(p093Product);
+    assert.equal(p093Product.price, 3699);
+    assert.equal(p093Product.price_notice, 'Price Revised Due to Increase By Vendors');
+
+    process.env.SASIFY_BOT_TOKEN = 'test-token';
+    process.env.SASIFY_BOT_WEBHOOK_SECRET = 'test-secret';
+    const unauthorizedWebhook = await request('public-telegram-webhook', { message: { text: '/start', chat: { id: 123 } } });
+    assert.equal(unauthorizedWebhook.code, 401);
   } finally {
     await database.close();
   }

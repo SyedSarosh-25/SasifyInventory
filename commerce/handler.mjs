@@ -3535,83 +3535,77 @@ async function attachPaymentForManualApproval(db, orderId, paymentId) {
     [payment.transaction_id, order.id],
   );
 }
-async function listPublicTelegramProducts(db) {
-  const localRows = (
-    await db.query(
-      `SELECT product_id,COUNT(*)::int AS available
-       FROM commerce_inventory
-       WHERE state='available'
-       GROUP BY product_id`,
-    )
-  ).rows;
-  const localAvailability = new Map(
-    localRows.map((row) => [row.product_id, Number(row.available || 0)]),
-  );
-  const local = catalog.map((product) => ({
-    ...customerProduct(product),
-    available: localAvailability.get(product.id) || 0,
-    source: 'local',
-  }));
-  const supplierRows = (
-    await db.query(
-      `SELECT id,canonical_key,name,description,delivery_instruction,selling_price AS price,original_price_pkr,
-              supplier_stock AS available,cost_pkr,wholesale_price,provider_name,
-              requires_customer_email
-       FROM commerce_supplier_products
-       WHERE enabled=true AND selling_price IS NOT NULL
-       ORDER BY name LIMIT 5000`,
-    )
-  ).rows;
-  // Keep Telegram's public catalogue aligned with the website stock view:
-  // supplier-side ChatGPT Plus records are alternate fulfilment offers for
-  // the local ChatGPT listings, not additional customer-facing products.
-  // Other ChatGPT products (for example Business or K12) remain visible.
-  const supplier = selectLowestSupplierOffers(supplierRows).filter(
-    (product) => !isChatGptPlusProduct(product.name),
-  );
-  const visibleLocal = local.filter(
-    (product) =>
-      !supplier.some((supplierProduct) =>
-        supplierEquivalentProductName(product.name, supplierProduct.name),
-      ),
-  );
-  return [
-    ...visibleLocal,
-    ...supplier.map((product) => ({
-      ...customerProduct(product),
-      source: 'supplier',
-    })),
+async function readPublicCatalogPayload(poolOrClient) {
+  const isPool = typeof poolOrClient?.connect === 'function';
+  const queries = [
+    `SELECT id,canonical_key,canonical_manual,name,description,delivery_instruction,logo_url,requires_customer_email,selling_price AS price,(to_jsonb(commerce_supplier_products)->>'original_price_pkr')::integer AS original_price_pkr,cost_pkr,wholesale_price,supplier_stock AS available,first_seen_at
+     FROM commerce_supplier_products WHERE enabled=true AND selling_price IS NOT NULL
+     ORDER BY cost_pkr ASC NULLS LAST,wholesale_price ASC,id`,
+    "SELECT i.product_id,count(*)::int AS available FROM commerce_inventory i WHERE i.state='available' AND NOT EXISTS (SELECT 1 FROM commerce_shared_accounts sa WHERE sa.inventory_id=i.id) GROUP BY i.product_id",
+    `SELECT COALESCE(SUM(sa.max_slots-sa.slots_filled),0)::int AS available,
+            COALESCE(SUM(sa.slots_filled),0)::int AS slots_filled,
+            COALESCE(SUM(sa.max_slots),0)::int AS slots_total
+     FROM commerce_shared_accounts sa INNER JOIN commerce_inventory i ON i.id=sa.inventory_id
+     WHERE sa.status='active' AND sa.slots_filled<sa.max_slots AND i.state IN ('available','reserved','delivered')`,
   ];
+  const [offers, inventory, shared] = isPool
+    ? await parallelCatalogReads(poolOrClient, queries)
+    : [
+        await poolOrClient.query(queries[0]),
+        await poolOrClient.query(queries[1]),
+        await poolOrClient.query(queries[2]),
+      ];
+  const supplier = selectLowestSupplierOffers(offers.rows).filter((p) => !isChatGptPlusProduct(p.name));
+  const sharedAvailability = shared.rows[0] || { available: 0, slots_filled: 0, slots_total: 0 };
+  return { ready: true, products: [
+    ...catalog.map((p) => localProductPresentation(p, inventory.rows, sharedAvailability)),
+    ...supplier.map(({ cost_pkr: _cost, wholesale_price: _wholesale, canonical_manual, available, ...p }) => ({
+      ...customerProduct(p), id: canonical_manual && !String(p.canonical_key || '').startsWith('auto:') ? p.canonical_key : supplierProductKey(p.name) || p.canonical_key,
+      source: 'supplier', available: Number(available || 0),
+    })),
+  ] };
+}
+async function listPublicTelegramProducts(dbOrPool) {
+  const payload = await readPublicCatalogPayload(dbOrPool);
+  return payload.products;
 }
 async function createTelegramCommerceOrder(db, options, paymentReceiver) {
   const productId = String(options.productId || '').trim();
   let product = catalog.find((item) => item.id === productId);
   let supplierProduct;
   if (!product) {
-    const requested = (
+    const allOffers = (
       await db.query(
-        'SELECT canonical_key FROM commerce_supplier_products WHERE (id=$1 OR canonical_key=$1) AND enabled=true AND selling_price IS NOT NULL',
-        [productId],
+        `SELECT * FROM commerce_supplier_products
+         WHERE enabled=true AND selling_price IS NOT NULL
+         ORDER BY cost_pkr ASC NULLS LAST,wholesale_price ASC,id`,
       )
-    ).rows[0];
-    if (requested)
+    ).rows;
+    const planKey = (p) =>
+      p.canonical_manual && !String(p.canonical_key || '').startsWith('auto:')
+        ? p.canonical_key
+        : supplierProductKey(p.name) || p.canonical_key;
+    const requested =
+      allOffers.find((p) => p.id === productId || planKey(p) === productId) ||
+      allOffers.find((p) => p.canonical_key === productId);
+    if (requested) {
       supplierProduct = (
         await db.query(
           `SELECT * FROM commerce_supplier_products
-           WHERE canonical_key=$1 AND enabled=true AND selling_price IS NOT NULL
+           WHERE (canonical_key=$1 OR id=$2) AND enabled=true AND selling_price IS NOT NULL
              AND supplier_stock>0
            ORDER BY cost_pkr ASC NULLS LAST,wholesale_price ASC,id
            FOR UPDATE SKIP LOCKED LIMIT 1`,
-          [requested.canonical_key],
+          [requested.canonical_key, requested.id],
         )
-      ).rows[0];
-    if (supplierProduct)
+      ).rows[0] || requested;
       product = {
         id: supplierProduct.id,
         name: supplierProduct.name,
         description: supplierProduct.description,
         price: supplierProduct.selling_price,
       };
+    }
   }
   const selectedPaymentMethod = paymentMethod(
     options.paymentMethod || 'wallet',
@@ -4476,26 +4470,7 @@ export function createHandler(
             await ensureSupplierMediaSchema(connection);
             await rate(connection, hash(`catalog:${req.headers['x-vercel-forwarded-for'] || req.socket?.remoteAddress || 'unknown'}`), 60);
           } finally { connection.release(); }
-          const [offers, inventory, shared] = await parallelCatalogReads(pool, [
-            `SELECT id,canonical_key,canonical_manual,name,description,delivery_instruction,logo_url,requires_customer_email,selling_price AS price,(to_jsonb(commerce_supplier_products)->>'original_price_pkr')::integer AS original_price_pkr,cost_pkr,wholesale_price,supplier_stock AS available,first_seen_at
-             FROM commerce_supplier_products WHERE enabled=true AND selling_price IS NOT NULL
-             ORDER BY cost_pkr ASC NULLS LAST,wholesale_price ASC,id`,
-            "SELECT i.product_id,count(*)::int AS available FROM commerce_inventory i WHERE i.state='available' AND NOT EXISTS (SELECT 1 FROM commerce_shared_accounts sa WHERE sa.inventory_id=i.id) GROUP BY i.product_id",
-            `SELECT COALESCE(SUM(sa.max_slots-sa.slots_filled),0)::int AS available,
-                    COALESCE(SUM(sa.slots_filled),0)::int AS slots_filled,
-                    COALESCE(SUM(sa.max_slots),0)::int AS slots_total
-             FROM commerce_shared_accounts sa INNER JOIN commerce_inventory i ON i.id=sa.inventory_id
-             WHERE sa.status='active' AND sa.slots_filled<sa.max_slots AND i.state IN ('available','reserved','delivered')`,
-          ]);
-          const supplier = selectLowestSupplierOffers(offers.rows).filter((p) => !isChatGptPlusProduct(p.name));
-          const sharedAvailability = shared.rows[0] || { available: 0, slots_filled: 0, slots_total: 0 };
-          return { ready: true, products: [
-            ...catalog.map((p) => localProductPresentation(p, inventory.rows, sharedAvailability)),
-            ...supplier.map(({ cost_pkr: _cost, wholesale_price: _wholesale, canonical_manual, available, ...p }) => ({
-              ...customerProduct(p), id: canonical_manual && !String(p.canonical_key || '').startsWith('auto:') ? p.canonical_key : supplierProductKey(p.name) || p.canonical_key,
-              source: 'supplier', available: Number(available || 0),
-            })),
-          ] };
+          return readPublicCatalogPayload(pool);
         });
         // GET catalog is public; every authenticated/payment response stays no-store.
         if (req.method === 'GET') res.setHeader('Cache-Control', 'public, max-age=0, s-maxage=5, must-revalidate');
@@ -5260,7 +5235,12 @@ export function createHandler(
           receiver: paymentReceiver
             ? { ...paymentReceiver, number: paymentReceiver.account_number }
             : null,
-          listProducts: () => listPublicTelegramProducts(db),
+          listProducts: async () => {
+            const payload = await publicCatalogCache.read(async () => {
+              return readPublicCatalogPayload(pool);
+            });
+            return payload.products;
+          },
           getSession: (chatId) => getTelegramSession(db, chatId),
           setSession: (chatId, state) => setTelegramSession(db, chatId, state),
           setLanguage: (chatId, language) =>

@@ -195,3 +195,28 @@ test('Telegram blocks only crypto below the USDT minimum while keeping Binance P
   assert.match(eligible, /pay:eligible-order:binance/);
   assert.match(eligible, /pay:eligible-order:crypto/);
 });
+
+test('Telegram product message displays price revision notice and honors stock_label', () => {
+  const productWithNotice = {
+    id: 'p093',
+    name: 'ChatGPT Plus',
+    price: 3699,
+    available: 9,
+    price_notice: 'Price Revised Due to Increase By Vendors',
+  };
+  const msg = productMessage(productWithNotice);
+  assert.match(msg.text, /Price Revised Due to Increase By Vendors/);
+  assert.match(msg.text, /9 in stock/);
+  assert.match(JSON.stringify(msg.reply_markup), /Buy now/);
+
+  const manualProduct = {
+    id: 'p100',
+    name: 'Claude Pro Account',
+    price: 4999,
+    available: 999,
+    stock_label: 'In stock · 999',
+  };
+  const manualMsg = productMessage(manualProduct);
+  assert.match(manualMsg.text, /In stock · 999/);
+});
+

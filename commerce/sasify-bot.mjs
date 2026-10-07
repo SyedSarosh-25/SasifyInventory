@@ -220,6 +220,7 @@ function money(value) {
 }
 
 function stockLabel(product) {
+  if (product?.stock_label) return product.stock_label;
   const available = Number(product?.available);
   if (!Number.isFinite(available)) return 'Availability confirmed at checkout';
   return available > 0 ? `${available} in stock` : 'Out of stock';
@@ -422,10 +423,13 @@ export function productMessage(product, language = 'en') {
   const description = String(
     product?.description || 'Product details will be confirmed before payment.',
   ).trim();
+  const notice = product?.price_notice
+    ? `🔴 Notice: ${product.price_notice}\n\n`
+    : '';
   const purchaseAllowed =
     Number(product?.price || 0) > 0 && Number(product?.available ?? 1) !== 0;
   return {
-    text: `🛍 ${product?.name || 'Product'}\n\n${description}\n\n💰 Price: ${money(product?.price)}\n📦 ${stockLabel(product)}\n\n${copy.warning}`,
+    text: `🛍 ${product?.name || 'Product'}\n\n${notice}${description}\n\n💰 Price: ${money(product?.price)}\n📦 ${stockLabel(product)}\n\n${copy.warning}`,
     reply_markup: {
       inline_keyboard: [
         ...(purchaseAllowed
