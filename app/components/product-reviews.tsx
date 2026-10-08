@@ -11,6 +11,7 @@ import {
   AlertCircle,
   Maximize2,
   ChevronRight,
+  Gift,
 } from 'lucide-react';
 
 type Screenshot = {
@@ -162,9 +163,15 @@ export function ProductReviewsSection({
         throw new Error(data.error || 'Failed to submit review.');
       }
 
-      setSubmitSuccess(
-        'Shukriya! Your review and proof have been submitted for verification. It will appear on this page once approved by our team.',
-      );
+      if (screenshotFiles.length > 0 && customerEmail.trim()) {
+        setSubmitSuccess(
+          `Shukriya! Your review and screenshot proof have been submitted. Upon approval by our team, Rs. 50 free credit will be added to your Sasify Wallet (${customerEmail.trim()})!`,
+        );
+      } else {
+        setSubmitSuccess(
+          'Shukriya! Your review and proof have been submitted for verification. It will appear on this page once approved by our team.',
+        );
+      }
       setName('');
       setReviewText('');
       setOrderId('');
@@ -237,12 +244,31 @@ export function ProductReviewsSection({
         </button>
       </div>
 
+      <div className="product-reviews-bonus-banner">
+        <span className="bonus-banner-badge">
+          <Gift className="h-4 w-4" /> Rs. 50 Free Wallet Credit
+        </span>
+        <p>
+          Attach a screenshot of your <strong>WhatsApp chat</strong> or <strong>delivered credentials</strong> with your review to receive <strong>Rs. 50 free credit</strong> directly in your Sasify Wallet!
+        </p>
+      </div>
+
       {isFormOpen && (
         <form
           className="product-review-form-panel"
           onSubmit={handleSubmit}
           aria-label="Submit a customer review"
         >
+          <div className="review-bonus-callout">
+            <div className="callout-header">
+              <Gift className="h-4 w-4" />
+              <span>🎁 Earn Rs. 50 in your Sasify Wallet</span>
+            </div>
+            <p>
+              Attach a screenshot of your WhatsApp chat or credentials delivered below, and enter your registered Sasify account email. Once verified, Rs. 50 will be credited directly to your wallet!
+            </p>
+          </div>
+
           <h3>Share your experience with {productName}</h3>
           <p>
             Help other customers in Pakistan with your honest review. You can also upload a
@@ -313,12 +339,22 @@ export function ProductReviewsSection({
               />
             </label>
             <label>
-              Order ID or registered email <span>(optional, for verified badge)</span>
+              Sasify account email <span className="bonus-tag">(For Rs. 50 wallet reward)</span>
+              <input
+                type="email"
+                value={customerEmail}
+                onChange={(e) => setCustomerEmail(e.target.value)}
+                placeholder="e.g. usman@gmail.com"
+                maxLength={120}
+              />
+            </label>
+            <label>
+              Order ID <span>(optional, for verified badge)</span>
               <input
                 type="text"
                 value={orderId}
                 onChange={(e) => setOrderId(e.target.value)}
-                placeholder="e.g. ord-1234 or your email"
+                placeholder="e.g. ord-1234"
                 maxLength={100}
               />
             </label>
@@ -339,8 +375,8 @@ export function ProductReviewsSection({
 
           <div className="review-screenshot-upload">
             <span className="upload-label">
-              <Camera className="h-4 w-4" /> Add proof screenshot{' '}
-              <small>(WhatsApp chat or account activation, max 800 KB)</small>
+              <Camera className="h-4 w-4" /> Add proof screenshot (WhatsApp chat or website credentials delivered){' '}
+              <small className="bonus-tag">Unlocks Rs. 50 wallet credit (max 800 KB)</small>
             </span>
             <div className="upload-actions">
               <input

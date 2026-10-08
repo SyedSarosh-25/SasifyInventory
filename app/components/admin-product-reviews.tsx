@@ -12,6 +12,7 @@ import {
   X,
   Maximize2,
   Filter,
+  Gift,
 } from 'lucide-react';
 import { products } from '../products';
 
@@ -34,6 +35,9 @@ type Review = {
   order_id?: string | null;
   is_verified_buyer: boolean;
   status: 'pending' | 'approved' | 'rejected';
+  wallet_reward_amount?: number;
+  wallet_reward_credited?: boolean;
+  wallet_reward_account_id?: string | null;
   created_at: string;
   reviewed_at?: string | null;
 };
@@ -63,6 +67,8 @@ export function AdminProductReviews({
   const [selectedProductId, setSelectedProductId] = useState('p093');
   const [customProductName, setCustomProductName] = useState('');
   const [customerName, setCustomerName] = useState('');
+  const [customerEmail, setCustomerEmail] = useState('');
+  const [creditWalletOnCreate, setCreditWalletOnCreate] = useState(false);
   const [rating, setRating] = useState(5);
   const [reviewText, setReviewText] = useState('');
   const [uploadedScreenshots, setUploadedScreenshots] = useState<
@@ -142,6 +148,8 @@ export function AdminProductReviews({
         productId: selectedProductId,
         productName: prodName,
         customerName,
+        customerEmail: customerEmail.trim() || undefined,
+        creditWallet: creditWalletOnCreate,
         rating,
         reviewText,
         screenshots,
@@ -149,6 +157,8 @@ export function AdminProductReviews({
 
       setShowAddModal(false);
       setCustomerName('');
+      setCustomerEmail('');
+      setCreditWalletOnCreate(false);
       setReviewText('');
       setUploadedScreenshots([]);
       setSelectedProofTemplate('');
@@ -162,10 +172,32 @@ export function AdminProductReviews({
 
   const handleUpdateStatus = async (reviewId: string, status: 'approved' | 'rejected') => {
     try {
-      await api('admin-product-review-update', token, { id: reviewId, status });
+      const res = await api('admin-product-review-update', token, { id: reviewId, status });
+      if (res.rewardResult?.credited) {
+        alert(`Review approved! Rs. 50 wallet reward automatically credited to ${res.rewardResult.accountEmail}.`);
+      }
       await onRefresh();
     } catch (err: any) {
       alert(`Error updating review: ${err.message || err}`);
+    }
+  };
+
+  const handleCreditWallet = async (review: Review) => {
+    let email = (review.customer_email || '').trim();
+    if (!email) {
+      const input = prompt('Enter registered Sasify account email to credit Rs. 50:');
+      if (!input || !input.trim()) return;
+      email = input.trim();
+    }
+    try {
+      const res = await api('admin-product-review-credit-wallet', token, {
+        id: review.id,
+        customerEmail: email,
+      });
+      alert(`Success! Rs. 50 credited to wallet of ${res.accountEmail || email}.`);
+      await onRefresh();
+    } catch (err: any) {
+      alert(`Error crediting wallet: ${err.message || err}`);
     }
   };
 
@@ -256,6 +288,7 @@ export function AdminProductReviews({
                   <th>Product</th>
                   <th>Rating</th>
                   <th>Feedback & Proof</th>
+                  <th>Wallet Reward</th>
                   <th>Date</th>
                   <th>Actions</th>
                 </tr>
@@ -272,6 +305,11 @@ export function AdminProductReviews({
                       </td>
                       <td>
                         <strong>{review.customer_name}</strong>
+                        {review.customer_email && (
+                          <span style={{ display: 'block', fontSize: '0.72rem', color: '#2563eb' }}>
+                            {review.customer_email}
+                          </span>
+                        )}
                         {review.is_verified_buyer && (
                           <span style={{ display: 'block', fontSize: '0.72rem', color: '#16a34a' }}>
                             <ShieldCheck className="h-3 w-3 inline" /> Verified
@@ -322,6 +360,64 @@ export function AdminProductReviews({
                             <span>View Proof</span>
                             <Maximize2 className="h-3 w-3" />
                           </button>
+                        )}
+                      </td>
+                      <td>
+                        {review.wallet_reward_credited ? (
+                          <span
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                              fontSize: '0.72rem',
+                              fontWeight: 700,
+                              padding: '2px 8px',
+                              borderRadius: '6px',
+                              background: '#ecfdf5',
+                              color: '#059669',
+                              border: '1px solid #a7f3d0',
+                            }}
+                          >
+                            <Gift className="h-3.5 w-3.5" /> Rs. {review.wallet_reward_amount || 50} Credited
+                          </span>
+                        ) : review.screenshots && review.screenshots.length > 0 ? (
+                          <div style={{ display: 'grid', gap: '4px' }}>
+                            <span
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '4px',
+                                fontSize: '0.72rem',
+                                padding: '2px 6px',
+                                borderRadius: '4px',
+                                background: '#fffbeb',
+                                color: '#b45309',
+                                border: '1px solid #fde68a',
+                              }}
+                            >
+                              <Gift className="h-3 w-3" /> Proof (Rs. 50)
+                            </span>
+                            <button
+                              type="button"
+                              className="action-btn success"
+                              title={review.customer_email ? `Credit Rs. 50 to ${review.customer_email}` : 'Enter email and credit Rs. 50'}
+                              onClick={() => handleCreditWallet(review)}
+                              disabled={busy}
+                              style={{
+                                width: 'auto',
+                                padding: '2px 8px',
+                                fontSize: '0.72rem',
+                                height: 'auto',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '4px',
+                              }}
+                            >
+                              <Gift className="h-3 w-3" /> Credit Rs. 50
+                            </button>
+                          </div>
+                        ) : (
+                          <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>No proof</span>
                         )}
                       </td>
                       <td style={{ whiteSpace: 'nowrap', fontSize: '0.78rem', color: '#64748b' }}>
@@ -419,6 +515,27 @@ export function AdminProductReviews({
                   required
                 />
               </label>
+
+              <label>
+                Customer Sasify Email (Optional - for Rs. 50 wallet reward)
+                <input
+                  type="email"
+                  placeholder="e.g. user@gmail.com"
+                  value={customerEmail}
+                  onChange={(e) => setCustomerEmail(e.target.value)}
+                />
+              </label>
+
+              {customerEmail.trim() && (
+                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.85rem', color: '#047857' }}>
+                  <input
+                    type="checkbox"
+                    checked={creditWalletOnCreate}
+                    onChange={(e) => setCreditWalletOnCreate(e.target.checked)}
+                  />
+                  <span>🎁 Automatically credit Rs. 50 bonus into customer&apos;s Sasify wallet</span>
+                </label>
+              )}
 
               <label>
                 Star Rating

@@ -15,6 +15,10 @@ const schemaSource = await readFile(
   new URL('../commerce/schema.sql', import.meta.url),
   'utf8',
 );
+const accountsSource = await readFile(
+  new URL('../commerce/accounts.mjs', import.meta.url),
+  'utf8',
+);
 const productPageSource = await readFile(
   new URL('../app/products/[id]/page.tsx', import.meta.url),
   'utf8',
@@ -25,6 +29,14 @@ const checkoutSource = await readFile(
 );
 const adminShellSource = await readFile(
   new URL('../app/components/admin-shell.tsx', import.meta.url),
+  'utf8',
+);
+const productReviewsComponentSource = await readFile(
+  new URL('../app/components/product-reviews.tsx', import.meta.url),
+  'utf8',
+);
+const adminProductReviewsComponentSource = await readFile(
+  new URL('../app/components/admin-product-reviews.tsx', import.meta.url),
   'utf8',
 );
 
@@ -171,3 +183,41 @@ test('admin dashboard includes Product reviews tab and management component', ()
   assert.match(checkoutSource, /import \{ AdminProductReviews \} from/);
   assert.match(checkoutSource, /tab === 'productReviews'/);
 });
+
+test('schema and handler support Rs. 50 wallet rewards for reviews with proof', () => {
+  // Schema tracking columns
+  assert.match(schemaSource, /wallet_reward_amount integer NOT NULL DEFAULT 0/);
+  assert.match(schemaSource, /wallet_reward_credited boolean NOT NULL DEFAULT false/);
+  assert.match(schemaSource, /wallet_reward_account_id uuid REFERENCES commerce_accounts\(id\)/);
+
+  // Ledger schema tracking
+  assert.match(accountsSource, /ALTER TABLE commerce_wallet_ledger ADD COLUMN IF NOT EXISTS review_id uuid UNIQUE/);
+
+  // Handler schema ensure
+  assert.match(handlerSource, /ALTER TABLE commerce_product_reviews ADD COLUMN IF NOT EXISTS wallet_reward_amount/);
+  assert.match(
+    handlerSource,
+    /ALTER TABLE commerce_wallet_ledger ADD COLUMN IF NOT EXISTS review_id uuid UNIQUE/,
+  );
+
+  // Wallet crediting helper and endpoint
+  assert.match(handlerSource, /creditProductReviewWalletReward/);
+  assert.match(handlerSource, /action === 'admin-product-review-credit-wallet'/);
+  assert.match(handlerSource, /UPDATE commerce_accounts SET balance = balance \+ \$1/);
+  assert.match(handlerSource, /INSERT INTO commerce_wallet_ledger/);
+  assert.match(handlerSource, /wallet_reward_credited = true/);
+});
+
+test('storefront and admin components display Rs. 50 wallet bonus incentives', () => {
+  // Product page reviews component
+  assert.match(productReviewsComponentSource, /Rs\. 50 Free Wallet Credit/);
+  assert.match(productReviewsComponentSource, /Sasify account email/);
+  assert.match(productReviewsComponentSource, /For Rs\. 50 wallet reward/);
+  assert.match(productReviewsComponentSource, /Unlocks Rs\. 50 wallet credit/);
+
+  // Admin reviews component
+  assert.match(adminProductReviewsComponentSource, /Wallet Reward/);
+  assert.match(adminProductReviewsComponentSource, /Credit Rs\. 50/);
+  assert.match(adminProductReviewsComponentSource, /admin-product-review-credit-wallet/);
+});
+

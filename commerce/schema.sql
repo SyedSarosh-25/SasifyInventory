@@ -331,9 +331,15 @@ CREATE TABLE IF NOT EXISTS commerce_product_reviews (
  order_id text,
  is_verified_buyer boolean NOT NULL DEFAULT true,
  status text NOT NULL DEFAULT 'approved' CHECK(status IN ('pending', 'approved', 'rejected')),
+ wallet_reward_amount integer NOT NULL DEFAULT 0,
+ wallet_reward_credited boolean NOT NULL DEFAULT false,
+ wallet_reward_account_id uuid REFERENCES commerce_accounts(id),
  created_at timestamptz NOT NULL DEFAULT now(),
  reviewed_at timestamptz
 );
 CREATE INDEX IF NOT EXISTS commerce_product_reviews_product ON commerce_product_reviews(product_id, status, created_at DESC);
 CREATE INDEX IF NOT EXISTS commerce_product_reviews_status ON commerce_product_reviews(status, created_at DESC);
+ALTER TABLE commerce_product_reviews ADD COLUMN IF NOT EXISTS wallet_reward_amount integer NOT NULL DEFAULT 0;
+ALTER TABLE commerce_product_reviews ADD COLUMN IF NOT EXISTS wallet_reward_credited boolean NOT NULL DEFAULT false;
+ALTER TABLE commerce_product_reviews ADD COLUMN IF NOT EXISTS wallet_reward_account_id uuid REFERENCES commerce_accounts(id);
 

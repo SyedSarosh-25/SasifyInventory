@@ -2244,6 +2244,9 @@ async function ensureProductReviewSchema(db) {
         order_id text,
         is_verified_buyer boolean NOT NULL DEFAULT true,
         status text NOT NULL DEFAULT 'approved' CHECK(status IN ('pending', 'approved', 'rejected')),
+        wallet_reward_amount integer NOT NULL DEFAULT 0,
+        wallet_reward_credited boolean NOT NULL DEFAULT false,
+        wallet_reward_account_id uuid REFERENCES commerce_accounts(id),
         created_at timestamptz NOT NULL DEFAULT now(),
         reviewed_at timestamptz
       )`);
@@ -2254,6 +2257,23 @@ async function ensureProductReviewSchema(db) {
         'CREATE INDEX IF NOT EXISTS commerce_product_reviews_status ON commerce_product_reviews(status, created_at DESC)',
       );
       await db.query(
+        'ALTER TABLE commerce_product_reviews ADD COLUMN IF NOT EXISTS wallet_reward_amount integer NOT NULL DEFAULT 0',
+      );
+      await db.query(
+        'ALTER TABLE commerce_product_reviews ADD COLUMN IF NOT EXISTS wallet_reward_credited boolean NOT NULL DEFAULT false',
+      );
+      await db.query(
+        'ALTER TABLE commerce_product_reviews ADD COLUMN IF NOT EXISTS wallet_reward_account_id uuid REFERENCES commerce_accounts(id)',
+      );
+      const hasLedger = await db.query(
+        "SELECT 1 FROM information_schema.tables WHERE table_name = 'commerce_wallet_ledger'",
+      );
+      if (hasLedger.rowCount > 0) {
+        await db.query(
+          'ALTER TABLE commerce_wallet_ledger ADD COLUMN IF NOT EXISTS review_id uuid UNIQUE',
+        );
+      }
+      await db.query(
         "DELETE FROM commerce_product_reviews WHERE id::text LIKE 'seed-%' OR customer_name IN ('Saad Rafique', 'Hammad Tariq', 'Abdulrehman Jamil', 'Farhan Siddiqui', 'Ayesha Khan', 'ZaYn Ali', 'Muhammad Bilal') OR review_text LIKE '%Affordable Claude Team seat%'",
       );
     })().catch((error) => {
@@ -2262,6 +2282,56 @@ async function ensureProductReviewSchema(db) {
     });
   }
   await productReviewSchemaReady;
+}
+
+async function creditProductReviewWalletReward(db, reviewId, customEmail = null) {
+  const revRes = await db.query(
+    'SELECT id, product_id, product_name, customer_email, screenshots, wallet_reward_credited FROM commerce_product_reviews WHERE id = $1',
+    [reviewId],
+  );
+  if (!revRes.rowCount) throw fail(404, 'Review not found.');
+  const rev = revRes.rows[0];
+  if (rev.wallet_reward_credited) {
+    return { ok: true, alreadyCredited: true, message: 'Wallet reward already credited for this review.' };
+  }
+  const emailToCredit = (customEmail || rev.customer_email || '').trim().toLowerCase();
+  if (!emailToCredit) {
+    throw fail(400, 'Customer email is required to credit wallet reward.');
+  }
+  const accRes = await db.query(
+    'SELECT id, email, balance FROM commerce_accounts WHERE LOWER(email) = $1',
+    [emailToCredit],
+  );
+  if (!accRes.rowCount) {
+    throw fail(404, `No registered Sasify account found for "${emailToCredit}". Customer must create a Sasify account first.`);
+  }
+  const account = accRes.rows[0];
+  const rewardAmount = 50;
+
+  await db.query('UPDATE commerce_accounts SET balance = balance + $1 WHERE id = $2', [rewardAmount, account.id]);
+  await db.query(
+    `INSERT INTO commerce_wallet_ledger (id, account_id, amount, description, review_id)
+     VALUES ($1, $2, $3, $4, $5)
+     ON CONFLICT (review_id) DO NOTHING`,
+    [
+      randomUUID(),
+      account.id,
+      rewardAmount,
+      `Review reward: Rs. 50 bonus for verified screenshot proof (${rev.product_name || rev.product_id})`,
+      reviewId,
+    ],
+  );
+  await db.query(
+    `UPDATE commerce_product_reviews
+     SET wallet_reward_credited = true, wallet_reward_amount = $1, wallet_reward_account_id = $2
+     WHERE id = $3`,
+    [rewardAmount, account.id, reviewId],
+  );
+  await db.query(
+    "INSERT INTO commerce_audit(action, object_id, details) VALUES('product_review_wallet_reward_credited', $1, $2::jsonb)",
+    [reviewId, JSON.stringify({ accountId: account.id, email: account.email, amount: rewardAmount })],
+  );
+  return { ok: true, credited: true, amount: rewardAmount, accountEmail: account.email };
 }
 let inventoryVariantMigrationReady;
 async function ensureInventoryVariants(db) {
@@ -7735,7 +7805,7 @@ export function createHandler(
           ).rows,
           productReviews: (
             await db.query(
-              'SELECT id,product_id,product_name,customer_name,rating,review_text,screenshots,customer_email,order_id,is_verified_buyer,status,created_at,reviewed_at FROM commerce_product_reviews ORDER BY created_at DESC LIMIT 300',
+              'SELECT id,product_id,product_name,customer_name,rating,review_text,screenshots,customer_email,order_id,is_verified_buyer,status,wallet_reward_amount,wallet_reward_credited,wallet_reward_account_id,created_at,reviewed_at FROM commerce_product_reviews ORDER BY created_at DESC LIMIT 300',
             )
           ).rows,
           resellerRequirements,
@@ -8068,7 +8138,15 @@ export function createHandler(
           "INSERT INTO commerce_audit(action,object_id,details) VALUES('admin_product_review_create',$1,$2::jsonb)",
           [reviewId, JSON.stringify({ productId: review.productId, customerName: review.customerName })],
         );
-        output = { ok: true, id: reviewId, createdAt: inserted.rows[0].created_at };
+        let rewardResult = null;
+        if (body?.creditWallet && review.customerEmail && review.screenshots.length > 0) {
+          try {
+            rewardResult = await creditProductReviewWalletReward(db, reviewId);
+          } catch (err) {
+            rewardResult = { credited: false, reason: err.message };
+          }
+        }
+        output = { ok: true, id: reviewId, createdAt: inserted.rows[0].created_at, rewardResult };
       } else if (action === 'admin-product-review-update') {
         await ensureProductReviewSchema(db);
         const reviewId = String(body?.id || body?.reviewId || '').trim();
@@ -8078,15 +8156,33 @@ export function createHandler(
           `UPDATE commerce_product_reviews
            SET status = $1, reviewed_at = now()
            WHERE id = $2
-           RETURNING id, status`,
+           RETURNING id, status, customer_email, screenshots, wallet_reward_credited`,
           [status, reviewId],
         );
         if (!updated.rowCount) throw fail(404, 'Review not found.');
+        const rev = updated.rows[0];
+        let rewardResult = null;
+        if (status === 'approved' && !rev.wallet_reward_credited && rev.customer_email) {
+          const shots = Array.isArray(rev.screenshots) ? rev.screenshots : [];
+          if (shots.length > 0) {
+            try {
+              rewardResult = await creditProductReviewWalletReward(db, reviewId);
+            } catch (err) {
+              rewardResult = { credited: false, reason: err.message };
+            }
+          }
+        }
         await db.query(
           "INSERT INTO commerce_audit(action,object_id,details) VALUES('admin_product_review_update',$1,$2::jsonb)",
-          [reviewId, JSON.stringify({ status })],
+          [reviewId, JSON.stringify({ status, rewardResult })],
         );
-        output = { ok: true, id: reviewId, status };
+        output = { ok: true, id: reviewId, status, rewardResult };
+      } else if (action === 'admin-product-review-credit-wallet') {
+        await ensureProductReviewSchema(db);
+        const reviewId = String(body?.id || body?.reviewId || '').trim();
+        const customEmail = body?.customerEmail ? String(body.customerEmail).trim() : null;
+        const result = await creditProductReviewWalletReward(db, reviewId, customEmail);
+        output = result;
       } else if (action === 'admin-product-review-delete') {
         await ensureProductReviewSchema(db);
         const reviewId = String(body?.id || body?.reviewId || '').trim();

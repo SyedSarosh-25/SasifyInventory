@@ -213,6 +213,7 @@ CREATE TABLE IF NOT EXISTS commerce_wallet_ledger (
  description text NOT NULL, created_at timestamptz NOT NULL DEFAULT now()
 );
 ALTER TABLE commerce_wallet_ledger ADD COLUMN IF NOT EXISTS refund_request_id uuid UNIQUE REFERENCES commerce_refund_replacement_requests(id);
+ALTER TABLE commerce_wallet_ledger ADD COLUMN IF NOT EXISTS review_id uuid UNIQUE;
 `;
 
 // This refund campaign concerns accounts deactivated on this fixed date.
