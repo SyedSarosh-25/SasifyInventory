@@ -1788,4 +1788,59 @@
   border-color: #dc2626;
 }
 
+/* Product Reviews Admin Table */
+.reviews-admin-table-wrap {
+  width: 100%;
+  max-width: 100%;
+  margin-top: 16px;
+  overflow-x: auto;
+  border: 1px solid #dce4ee;
+  border-radius: 12px;
+  background: #ffffff;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05);
+  scrollbar-width: thin;
+}
+.admin-table,
+.reviews-admin-table {
+  width: 100%;
+  min-width: 980px;
+  border-collapse: separate;
+  border-spacing: 0;
+  text-align: left;
+  font-size: 13px;
+  line-height: 1.45;
+}
+.admin-table thead,
+.reviews-admin-table thead {
+  background: #f3f6fb;
+}
+.admin-table th,
+.reviews-admin-table th {
+  padding: 12px 14px;
+  border-bottom: 1px solid #dce4ee;
+  background: #f3f6fb;
+  color: #52647c;
+  font-size: 11px;
+  font-weight: 750;
+  letter-spacing: 0.045em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.admin-table td,
+.reviews-admin-table td {
+  padding: 13px 14px;
+  border-bottom: 1px solid #e8edf4;
+  color: #26364d;
+  vertical-align: middle;
+}
+.admin-table tbody tr:hover td,
+.reviews-admin-table tbody tr:hover td {
+  background: #f8faff;
+}
+.admin-table tbody tr:last-child td,
+.reviews-admin-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+
 

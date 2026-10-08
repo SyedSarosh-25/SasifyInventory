@@ -276,11 +276,11 @@ export function AdminProductReviews({
           </div>
         </div>
 
-        <div className="reviews-admin-table-wrap">
+        <div className="commerce-table reviews-admin-table-wrap">
           {filteredReviews.length === 0 ? (
             <p className="admin-empty-notice">No reviews found matching the selected filter.</p>
           ) : (
-            <table className="admin-table">
+            <table className="reviews-admin-table admin-table">
               <thead>
                 <tr>
                   <th>Status</th>
@@ -304,31 +304,35 @@ export function AdminProductReviews({
                         </span>
                       </td>
                       <td>
-                        <strong>{review.customer_name}</strong>
-                        {review.customer_email && (
-                          <span style={{ display: 'block', fontSize: '0.72rem', color: '#2563eb' }}>
-                            {review.customer_email}
-                          </span>
-                        )}
-                        {review.is_verified_buyer && (
-                          <span style={{ display: 'block', fontSize: '0.72rem', color: '#16a34a' }}>
-                            <ShieldCheck className="h-3 w-3 inline" /> Verified
-                          </span>
-                        )}
-                        {review.order_id && (
-                          <span style={{ display: 'block', fontSize: '0.7rem', color: '#64748b' }}>
-                            Ord: {review.order_id}
-                          </span>
-                        )}
+                        <div style={{ display: 'grid', gap: '2px' }}>
+                          <strong style={{ fontSize: '0.88rem', color: '#0f172a' }}>{review.customer_name}</strong>
+                          {review.customer_email && (
+                            <span style={{ fontSize: '0.75rem', color: '#2563eb', wordBreak: 'break-all' }}>
+                              {review.customer_email}
+                            </span>
+                          )}
+                          {review.is_verified_buyer && (
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', fontSize: '0.72rem', color: '#16a34a', fontWeight: 600 }}>
+                              <ShieldCheck className="h-3 w-3 inline" /> Verified buyer
+                            </span>
+                          )}
+                          {review.order_id && (
+                            <span style={{ fontSize: '0.7rem', color: '#64748b' }}>
+                              Ord: {review.order_id}
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td>
-                        <span>{review.product_name || review.product_id}</span>
-                        <code style={{ display: 'block', fontSize: '0.68rem', color: '#94a3b8' }}>
-                          {review.product_id}
-                        </code>
+                        <div style={{ display: 'grid', gap: '2px' }}>
+                          <strong style={{ fontSize: '0.85rem', color: '#1e293b' }}>{review.product_name || review.product_id}</strong>
+                          <code style={{ fontSize: '0.7rem', color: '#64748b' }}>
+                            {review.product_id}
+                          </code>
+                        </div>
                       </td>
                       <td>
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '2px', color: '#f59e0b', fontWeight: 700 }}>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', color: '#f59e0b', fontWeight: 700, fontSize: '0.88rem' }}>
                           {review.rating} <Star className="h-3.5 w-3.5" fill="#f59e0b" />
                         </span>
                       </td>
