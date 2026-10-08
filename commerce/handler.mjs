@@ -2253,28 +2253,9 @@ async function ensureProductReviewSchema(db) {
       await db.query(
         'CREATE INDEX IF NOT EXISTS commerce_product_reviews_status ON commerce_product_reviews(status, created_at DESC)',
       );
-      const existing = await db.query('SELECT COUNT(*)::int AS count FROM commerce_product_reviews');
-      if (Number(existing.rows[0]?.count || 0) === 0 && Array.isArray(seedProductReviews)) {
-        for (const item of seedProductReviews) {
-          await db.query(
-            `INSERT INTO commerce_product_reviews (
-              id, product_id, product_name, customer_name, rating, review_text, screenshots, is_verified_buyer, status, created_at
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8, $9, $10)`,
-            [
-              randomUUID(),
-              item.product_id,
-              item.product_name,
-              item.customer_name,
-              item.rating,
-              item.review_text,
-              JSON.stringify(item.screenshots),
-              item.is_verified_buyer,
-              item.status,
-              item.created_at,
-            ],
-          );
-        }
-      }
+      await db.query(
+        "DELETE FROM commerce_product_reviews WHERE id::text LIKE 'seed-%' OR customer_name IN ('Saad Rafique', 'Hammad Tariq', 'Abdulrehman Jamil', 'Farhan Siddiqui', 'Ayesha Khan', 'ZaYn Ali', 'Muhammad Bilal') OR review_text LIKE '%Affordable Claude Team seat%'",
+      );
     })().catch((error) => {
       productReviewSchemaReady = null;
       throw error;

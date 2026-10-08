@@ -12,7 +12,6 @@ import {
   Maximize2,
   ChevronRight,
 } from 'lucide-react';
-import { seedProductReviews } from '../../commerce/product-reviews.mjs';
 
 type Screenshot = {
   url?: string;
@@ -40,32 +39,6 @@ type Props = {
   toolFamily?: string;
 };
 
-function initialCuratedReviews(productId: string, toolFamily?: string): Review[] {
-  const normId = productId.toLowerCase();
-  const normFamily = (toolFamily || '').toLowerCase();
-  return seedProductReviews
-    .filter((r) => {
-      const rProd = (r.product_id || '').toLowerCase();
-      return (
-        rProd === normId ||
-        (normFamily && rProd.includes(normFamily)) ||
-        (normId.includes('chatgpt') && rProd.includes('p093')) ||
-        (normId.includes('claude') && (rProd === 'p012' || rProd === 'p013'))
-      );
-    })
-    .map((r) => ({
-      id: r.id,
-      productId: r.product_id,
-      productName: r.product_name,
-      customerName: r.customer_name,
-      rating: r.rating,
-      reviewText: r.review_text,
-      screenshots: r.screenshots,
-      isVerifiedBuyer: r.is_verified_buyer,
-      createdAt: r.created_at,
-    }));
-}
-
 function formatDate(iso?: string): string {
   if (!iso) return 'Recent purchase';
   const d = new Date(iso);
@@ -79,12 +52,9 @@ export function ProductReviewsSection({
   productName,
   toolFamily,
 }: Props) {
-  const initial = initialCuratedReviews(productId, toolFamily);
-  const [reviews, setReviews] = useState<Review[]>(initial);
-  const [averageRating, setAverageRating] = useState<number>(
-    initial.length ? 5.0 : 5.0,
-  );
-  const [totalCount, setTotalCount] = useState<number>(initial.length);
+  const [reviews, setReviews] = useState<Review[]>([]);
+  const [averageRating, setAverageRating] = useState<number>(5.0);
+  const [totalCount, setTotalCount] = useState<number>(0);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [activeScreenshot, setActiveScreenshot] = useState<Screenshot | null>(null);
 
@@ -223,25 +193,33 @@ export function ProductReviewsSection({
           <span className="section-kicker">Verified customer feedback</span>
           <h2 id="product-reviews-title">Real Reviews & Delivery Proofs</h2>
           <div className="product-reviews-rating-bar">
-            <span className="product-reviews-stars" aria-label={`${averageRating} out of 5 stars`}>
-              {Array.from({ length: 5 }, (_, idx) => (
-                <Star
-                  key={idx}
-                  className="h-5 w-5"
-                  fill={idx < Math.round(averageRating) ? '#f59e0b' : 'none'}
-                  stroke={idx < Math.round(averageRating) ? '#f59e0b' : '#94a3b8'}
-                />
-              ))}
-            </span>
-            <span className="product-reviews-score">
-              <strong>{averageRating.toFixed(1)}</strong> / 5.0
-            </span>
-            <span className="product-reviews-count">
-              ({totalCount} {totalCount === 1 ? 'verified review' : 'verified reviews'})
-            </span>
-            <span className="product-reviews-verified-badge">
-              <ShieldCheck className="h-4 w-4" /> 100% Genuine Purchases
-            </span>
+            {totalCount > 0 ? (
+              <>
+                <span className="product-reviews-stars" aria-label={`${averageRating} out of 5 stars`}>
+                  {Array.from({ length: 5 }, (_, idx) => (
+                    <Star
+                      key={idx}
+                      className="h-5 w-5"
+                      fill={idx < Math.round(averageRating) ? '#f59e0b' : 'none'}
+                      stroke={idx < Math.round(averageRating) ? '#f59e0b' : '#94a3b8'}
+                    />
+                  ))}
+                </span>
+                <span className="product-reviews-score">
+                  <strong>{averageRating.toFixed(1)}</strong> / 5.0
+                </span>
+                <span className="product-reviews-count">
+                  ({totalCount} {totalCount === 1 ? 'verified review' : 'verified reviews'})
+                </span>
+                <span className="product-reviews-verified-badge">
+                  <ShieldCheck className="h-4 w-4" /> 100% Genuine Purchases
+                </span>
+              </>
+            ) : (
+              <span className="product-reviews-count">
+                No reviews published yet for this plan · Be the first to share your experience
+              </span>
+            )}
           </div>
         </div>
 

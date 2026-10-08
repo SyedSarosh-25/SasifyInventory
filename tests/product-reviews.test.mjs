@@ -129,12 +129,9 @@ test('publicProductReview shapes row and preserves verified status', () => {
   assert.equal(pub.order_id, undefined);
 });
 
-test('seedProductReviews contains curated proofs for core products', () => {
-  assert(seedProductReviews.length >= 4);
-  const chatgptSeed = seedProductReviews.find((r) => r.product_id === 'p093');
-  assert(chatgptSeed);
-  assert.equal(chatgptSeed.status, 'approved');
-  assert(chatgptSeed.screenshots.length > 0);
+test('seedProductReviews is empty and no dummy reviews are seeded', () => {
+  assert.equal(seedProductReviews.length, 0);
+  assert.doesNotMatch(handlerSource, /seed-chatgpt-01/);
 });
 
 test('schema includes commerce_product_reviews table and indices', () => {
