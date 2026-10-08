@@ -366,7 +366,7 @@ export function ProductReviewsSection({
           <div className="review-screenshot-upload">
             <span className="upload-label">
               <Camera className="h-4 w-4" /> Add proof screenshot (WhatsApp chat or website credentials delivered){' '}
-              <small className="bonus-tag">Unlocks Rs. 50 wallet credit (max 800 KB)</small>
+              <small className="bonus-tag">Unlocks Rs. 50 wallet credit</small>
             </span>
             <div className="upload-actions">
               <input
