@@ -159,6 +159,7 @@ export function AdminWalletWithdrawals({
 
   const formatMethodLabel = (method: string) => {
     const m = method.toLowerCase();
+    if (m === 'binance' || m.includes('binance')) return 'Binance Pay';
     if (m === 'easypaisa') return 'Easypaisa';
     if (m === 'jazzcash') return 'JazzCash';
     if (m === 'sadapay') return 'SadaPay';
@@ -274,6 +275,7 @@ export function AdminWalletWithdrawals({
               style={{ padding: '6px 10px', fontSize: 12, borderRadius: 6, border: '1px solid #cbd5e1' }}
             >
               <option value="all">All Methods</option>
+              <option value="binance">Binance Pay</option>
               <option value="easypaisa">Easypaisa</option>
               <option value="jazzcash">JazzCash</option>
               <option value="sadapay">SadaPay</option>
@@ -406,13 +408,17 @@ export function AdminWalletWithdrawals({
                       <td>
                         <div style={{ display: 'grid', gap: 3 }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                            <span style={{ fontSize: 11, color: '#64748b' }}>Title:</span>
+                            <span style={{ fontSize: 11, color: '#64748b' }}>
+                              {item.payout_method.toLowerCase().includes('binance') ? 'Binance Name:' : 'Title:'}
+                            </span>
                             <strong style={{ fontSize: 13, color: '#0f172a' }}>
                               {item.account_title}
                             </strong>
                           </div>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                            <span style={{ fontSize: 11, color: '#64748b' }}>Number:</span>
+                            <span style={{ fontSize: 11, color: '#64748b' }}>
+                              {item.payout_method.toLowerCase().includes('binance') ? 'Pay ID / Email:' : 'Number:'}
+                            </span>
                             <code
                               style={{
                                 background: '#f8fafc',

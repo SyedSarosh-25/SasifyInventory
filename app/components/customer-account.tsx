@@ -54,6 +54,9 @@ type Account = {
   username?: string | null;
   role: string;
   balance: number;
+  withdrawable_balance?: number;
+  review_rewards_balance?: number;
+  min_withdrawal_amount?: number;
   reseller_status?: 'none' | 'pending' | 'approved' | 'rejected';
 };
 type CustomerOrder = {
@@ -94,6 +97,9 @@ type Dashboard = {
   deposits: Deposit[];
   ledger: { amount: number; description: string; created_at: string }[];
   withdrawals?: WalletWithdrawal[];
+  withdrawableBalance?: number;
+  reviewRewardsBalance?: number;
+  minWithdrawalAmount?: number;
   requirements: { id: string; tool_name: string; description: string; status: string; response_contact?: string | null; responded_at?: string | null; created_at: string }[];
 };
 const money = (amount: number) =>
@@ -689,7 +695,7 @@ export function CustomerDashboard() {
   const inviteScreenshotInput = useRef<HTMLInputElement>(null);
   const [refundPreview, setRefundPreview] = useState<{ elapsedDays: number; remainingDays: number; perDayCost: number; refundAmount: number } | null>(null);
   const [walletSubView, setWalletSubView] = useState<'topup' | 'withdraw'>('topup');
-  const [withdrawAmount, setWithdrawAmount] = useState('50');
+  const [withdrawAmount, setWithdrawAmount] = useState('1000');
   const [withdrawMethod, setWithdrawMethod] = useState('easypaisa');
   const [withdrawAccountNumber, setWithdrawAccountNumber] = useState('');
   const [withdrawAccountTitle, setWithdrawAccountTitle] = useState('');
@@ -805,21 +811,43 @@ export function CustomerDashboard() {
     setWithdrawError('');
     setWithdrawNotice('');
     const amt = Number(withdrawAmount);
-    if (!Number.isSafeInteger(amt) || amt < 50) {
-      setWithdrawError('Minimum withdrawal amount is PKR 50.');
+    const minWithdrawal = data?.minWithdrawalAmount ?? data?.account?.min_withdrawal_amount ?? 1000;
+    if (!Number.isSafeInteger(amt) || amt < minWithdrawal) {
+      setWithdrawError(`Minimum withdrawal amount is PKR ${minWithdrawal.toLocaleString()}.`);
       return;
     }
-    const currentBal = Number(data?.account?.balance || 0);
-    if (amt > currentBal) {
-      setWithdrawError(`Insufficient wallet balance. You have ${money(currentBal)} available.`);
+    const withdrawableBal =
+      typeof data?.withdrawableBalance === 'number'
+        ? data.withdrawableBalance
+        : typeof data?.account?.withdrawable_balance === 'number'
+          ? data.account.withdrawable_balance
+          : Math.max(0, data?.account?.balance || 0);
+    const reviewRewards = data?.reviewRewardsBalance ?? data?.account?.review_rewards_balance ?? 0;
+
+    if (amt > withdrawableBal) {
+      if (reviewRewards > 0) {
+        setWithdrawError(
+          `Insufficient withdrawable balance. Your withdrawable balance is ${money(withdrawableBal)} (${money(reviewRewards)} is review reward credit eligible only for website purchases).`,
+        );
+      } else {
+        setWithdrawError(`Insufficient withdrawable balance. You have ${money(withdrawableBal)} available to withdraw.`);
+      }
       return;
     }
     if (!withdrawAccountNumber.trim()) {
-      setWithdrawError('Please enter your account or mobile number / IBAN.');
+      setWithdrawError(
+        withdrawMethod === 'binance'
+          ? 'Please enter your Binance Pay ID / UID or registered email.'
+          : 'Please enter your account or mobile number / IBAN.',
+      );
       return;
     }
     if (!withdrawAccountTitle.trim()) {
-      setWithdrawError('Please enter the account holder title.');
+      setWithdrawError(
+        withdrawMethod === 'binance'
+          ? 'Please enter your Binance account nickname or name.'
+          : 'Please enter the account holder title.',
+      );
       return;
     }
 
@@ -833,10 +861,11 @@ export function CustomerDashboard() {
         notes: withdrawNotes.trim(),
       });
       if (res?.ok) {
+        const methodDisplay = withdrawMethod === 'binance' ? 'Binance Pay' : withdrawMethod;
         setWithdrawNotice(
-          `Withdrawal request for ${money(amt)} via ${withdrawMethod} submitted! Admin will transfer funds shortly.`
+          `Withdrawal request for ${money(amt)} via ${methodDisplay} submitted! Admin will transfer funds shortly.`,
         );
-        setWithdrawAmount('50');
+        setWithdrawAmount(String(minWithdrawal));
         setWithdrawNotes('');
         await refresh();
       } else {
@@ -1063,7 +1092,11 @@ export function CustomerDashboard() {
                       <CircleDollarSign size={17} /> WALLET BALANCE
                     </span>
                     <h2>{money(data.account.balance)}</h2>
-                    <p>Pay from your wallet and get 5% off every purchase.</p>
+                    <p>
+                      {(data.reviewRewardsBalance ?? data.account.review_rewards_balance ?? 0) > 0
+                        ? `Includes ${money(data.reviewRewardsBalance ?? data.account.review_rewards_balance ?? 0)} review rewards (website purchases only). ${money(data.withdrawableBalance ?? data.account.withdrawable_balance ?? data.account.balance)} withdrawable.`
+                        : 'Pay from your wallet and get 5% off every purchase.'}
+                    </p>
                     <div className="dashboard-wallet-actions">
                       <button onClick={() => { setTab('wallet'); setWalletSubView('topup'); }}>
                         <ArrowDownToLine size={16} /> Add funds
@@ -1552,138 +1585,239 @@ export function CustomerDashboard() {
                   </>
                 ) : (
                   <>
-                    <section className="account-card wallet-funding-card wallet-withdraw-card">
-                      <div className="wallet-funding-header">
-                        <div>
-                          <span className="wallet-funding-kicker"><ArrowUpRight size={15} /> WITHDRAW BALANCE</span>
-                          <h2>Withdraw Funds</h2>
-                          <p>Withdraw your balance directly to your Easypaisa, JazzCash, SadaPay, NayaPay or Bank account.</p>
-                        </div>
-                        <div className="wallet-balance-pill">
-                          <small>Available to withdraw</small>
-                          <strong>{money(data.account.balance)}</strong>
-                        </div>
-                      </div>
+                    {(() => {
+                      const withdrawableBalance =
+                        typeof data.withdrawableBalance === 'number'
+                          ? data.withdrawableBalance
+                          : typeof data.account.withdrawable_balance === 'number'
+                            ? data.account.withdrawable_balance
+                            : Math.max(0, data.account.balance);
+                      const reviewRewardsBalance =
+                        data.reviewRewardsBalance ?? data.account.review_rewards_balance ?? 0;
+                      const minWithdrawal =
+                        data.minWithdrawalAmount ?? data.account.min_withdrawal_amount ?? 1000;
 
-                      {withdrawNotice && (
-                        <div className="account-notice" style={{ margin: '14px 0', display: 'flex', alignItems: 'center', gap: 8 }}>
-                          <CheckCircle2 size={16} /> {withdrawNotice}
-                        </div>
-                      )}
-                      {withdrawError && (
-                        <div className="account-error" style={{ margin: '14px 0', display: 'flex', alignItems: 'center', gap: 8 }}>
-                          <AlertCircle size={16} /> {withdrawError}
-                        </div>
-                      )}
-
-                      {data.account.balance < 50 ? (
-                        <div style={{ marginTop: 16, padding: '14px 16px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 12, color: '#475569', fontSize: 13 }}>
-                          <strong>Minimum withdrawal amount is PKR 50.</strong>
-                          <p style={{ margin: '6px 0 0', color: '#64748b', fontSize: 12 }}>
-                            Your current wallet balance is {money(data.account.balance)}. Tip: Leave a review with proof on any product you purchased to earn Rs. 50 bonus instantly!
-                          </p>
-                        </div>
-                      ) : (
-                        <form onSubmit={requestWithdrawal} style={{ marginTop: 14 }}>
-                          <label>
-                            Amount to Withdraw (PKR)
-                            <input
-                              name="withdrawAmount"
-                              type="number"
-                              min={50}
-                              max={data.account.balance}
-                              step={1}
-                              value={withdrawAmount}
-                              onChange={(event) => setWithdrawAmount(event.target.value)}
-                              required
-                            />
-                          </label>
-
-                          <div className="wallet-amount-presets" aria-label="Suggested withdrawal amounts">
-                            {[50, 100, 200, 500].filter((amt) => amt <= data.account.balance).map((amt) => (
-                              <button
-                                type="button"
-                                key={amt}
-                                className={withdrawAmount === String(amt) ? 'selected' : ''}
-                                onClick={() => setWithdrawAmount(String(amt))}
-                              >
-                                PKR {amt.toLocaleString()}
-                              </button>
-                            ))}
-                            {data.account.balance >= 50 && (
-                              <button
-                                type="button"
-                                className={withdrawAmount === String(data.account.balance) ? 'selected' : ''}
-                                onClick={() => setWithdrawAmount(String(data.account.balance))}
-                              >
-                                All ({money(data.account.balance)})
-                              </button>
-                            )}
+                      return (
+                        <section className="account-card wallet-funding-card wallet-withdraw-card">
+                          <div className="wallet-funding-header">
+                            <div>
+                              <span className="wallet-funding-kicker">
+                                <ArrowUpRight size={15} /> WITHDRAW BALANCE
+                              </span>
+                              <h2>Withdraw Funds</h2>
+                              <p>
+                                Withdraw your earnings directly via Binance Pay, Easypaisa, JazzCash, SadaPay, NayaPay, or Bank account.
+                              </p>
+                            </div>
+                            <div className="wallet-balance-pill">
+                              <small>Available to withdraw</small>
+                              <strong>{money(withdrawableBalance)}</strong>
+                              {reviewRewardsBalance > 0 && (
+                                <span style={{ fontSize: 11, color: '#64748b', display: 'block', marginTop: 2 }}>
+                                  + {money(reviewRewardsBalance)} review reward (purchases only)
+                                </span>
+                              )}
+                            </div>
                           </div>
 
-                          <label>
-                            Payout Method / Bank
-                            <select
-                              name="withdrawMethod"
-                              value={withdrawMethod}
-                              onChange={(e) => setWithdrawMethod(e.target.value)}
+                          {withdrawNotice && (
+                            <div
+                              className="account-notice"
+                              style={{ margin: '14px 0', display: 'flex', alignItems: 'center', gap: 8 }}
                             >
-                              <option value="easypaisa">Easypaisa</option>
-                              <option value="jazzcash">JazzCash</option>
-                              <option value="sadapay">SadaPay</option>
-                              <option value="nayapay">NayaPay</option>
-                              <option value="bank">Bank Transfer (Any Pakistani Bank)</option>
-                            </select>
-                          </label>
+                              <CheckCircle2 size={16} /> {withdrawNotice}
+                            </div>
+                          )}
+                          {withdrawError && (
+                            <div
+                              className="account-error"
+                              style={{ margin: '14px 0', display: 'flex', alignItems: 'center', gap: 8 }}
+                            >
+                              <AlertCircle size={16} /> {withdrawError}
+                            </div>
+                          )}
 
-                          <label>
-                            Account Title (Account Holder Name)
-                            <input
-                              name="withdrawAccountTitle"
-                              type="text"
-                              placeholder="e.g. Muhammad Ali"
-                              value={withdrawAccountTitle}
-                              onChange={(e) => setWithdrawAccountTitle(e.target.value)}
-                              required
-                            />
-                            <small className="wallet-payment-method-note">
-                              Must match the name registered on your receiving account.
-                            </small>
-                          </label>
+                          {withdrawableBalance < minWithdrawal ? (
+                            <div
+                              style={{
+                                marginTop: 16,
+                                padding: '14px 16px',
+                                background: '#f8fafc',
+                                border: '1px solid #e2e8f0',
+                                borderRadius: 12,
+                                color: '#475569',
+                                fontSize: 13,
+                              }}
+                            >
+                              <strong>Minimum withdrawal amount is PKR {minWithdrawal.toLocaleString()}.</strong>
+                              <p style={{ margin: '6px 0 0', color: '#64748b', fontSize: 12 }}>
+                                Your current withdrawable balance is {money(withdrawableBalance)}.
+                                {reviewRewardsBalance > 0 && (
+                                  <> (You have {money(reviewRewardsBalance)} in review reward credit, which is eligible exclusively for website purchases).</>
+                                )}
+                              </p>
+                              {reviewRewardsBalance > 0 && (
+                                <div
+                                  style={{
+                                    marginTop: 8,
+                                    padding: '8px 10px',
+                                    background: '#eff6ff',
+                                    borderRadius: 8,
+                                    border: '1px solid #bfdbfe',
+                                    color: '#1e40af',
+                                    fontSize: 12,
+                                  }}
+                                >
+                                  ℹ️ Note: Review rewards are store credits to buy tools or services on Sasify and cannot be cashed out.
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            <form onSubmit={requestWithdrawal} style={{ marginTop: 14 }}>
+                              <label>
+                                Amount to Withdraw (PKR)
+                                <input
+                                  name="withdrawAmount"
+                                  type="number"
+                                  min={minWithdrawal}
+                                  max={withdrawableBalance}
+                                  step={1}
+                                  value={withdrawAmount}
+                                  onChange={(event) => setWithdrawAmount(event.target.value)}
+                                  required
+                                />
+                              </label>
 
-                          <label>
-                            Account Number / IBAN
-                            <input
-                              name="withdrawAccountNumber"
-                              type="text"
-                              placeholder={withdrawMethod === 'bank' ? 'e.g. PK36MEZN000...' : 'e.g. 03451234567'}
-                              value={withdrawAccountNumber}
-                              onChange={(e) => setWithdrawAccountNumber(e.target.value)}
-                              required
-                            />
-                          </label>
+                              <div className="wallet-amount-presets" aria-label="Suggested withdrawal amounts">
+                                {[1000, 2500, 5000, 10000]
+                                  .filter((amt) => amt <= withdrawableBalance)
+                                  .map((amt) => (
+                                    <button
+                                      type="button"
+                                      key={amt}
+                                      className={withdrawAmount === String(amt) ? 'selected' : ''}
+                                      onClick={() => setWithdrawAmount(String(amt))}
+                                    >
+                                      PKR {amt.toLocaleString()}
+                                    </button>
+                                  ))}
+                                {withdrawableBalance >= minWithdrawal && (
+                                  <button
+                                    type="button"
+                                    className={withdrawAmount === String(withdrawableBalance) ? 'selected' : ''}
+                                    onClick={() => setWithdrawAmount(String(withdrawableBalance))}
+                                  >
+                                    All Withdrawable ({money(withdrawableBalance)})
+                                  </button>
+                                )}
+                              </div>
 
-                          <label>
-                            Optional Bank Name or Notes
-                            <input
-                              name="withdrawNotes"
-                              type="text"
-                              placeholder="e.g. Meezan Bank, HBL, etc."
-                              value={withdrawNotes}
-                              onChange={(e) => setWithdrawNotes(e.target.value)}
-                            />
-                          </label>
+                              <label>
+                                Payout Method / Destination
+                                <select
+                                  name="withdrawMethod"
+                                  value={withdrawMethod}
+                                  onChange={(e) => setWithdrawMethod(e.target.value)}
+                                >
+                                  <option value="binance">Binance Pay (Pay ID / Email / UID)</option>
+                                  <option value="easypaisa">Easypaisa</option>
+                                  <option value="jazzcash">JazzCash</option>
+                                  <option value="sadapay">SadaPay</option>
+                                  <option value="nayapay">NayaPay</option>
+                                  <option value="bank">Bank Transfer (Any Pakistani Bank)</option>
+                                </select>
+                                <small className="wallet-payment-method-note">
+                                  {withdrawMethod === 'binance'
+                                    ? 'Instant transfer directly to your Binance account via Binance Pay ID, UID, or registered Binance email.'
+                                    : withdrawMethod === 'bank'
+                                      ? 'Direct IBAN or account transfer to any Pakistani commercial bank.'
+                                      : `Direct mobile wallet payout to your ${withdrawMethod === 'easypaisa' ? 'Easypaisa' : withdrawMethod === 'jazzcash' ? 'JazzCash' : withdrawMethod === 'sadapay' ? 'SadaPay' : 'NayaPay'} account.`}
+                                </small>
+                              </label>
 
-                          <button
-                            className="primary-button wallet-funding-submit"
-                            disabled={busy || withdrawSubmitting || data.account.balance < 50}
-                          >
-                            {withdrawSubmitting ? 'Submitting request…' : `Request Withdrawal (${money(Number(withdrawAmount) || 0)})`}
-                            <ArrowRight size={17} />
-                          </button>
-                        </form>
-                      )}
-                    </section>
+                              <label>
+                                {withdrawMethod === 'binance'
+                                  ? 'Binance Nickname / Account Name'
+                                  : 'Account Title (Account Holder Name)'}
+                                <input
+                                  name="withdrawAccountTitle"
+                                  type="text"
+                                  placeholder={
+                                    withdrawMethod === 'binance'
+                                      ? 'e.g. CryptoTrader99 or Your Name'
+                                      : 'e.g. Muhammad Ali'
+                                  }
+                                  value={withdrawAccountTitle}
+                                  onChange={(e) => setWithdrawAccountTitle(e.target.value)}
+                                  required
+                                />
+                                <small className="wallet-payment-method-note">
+                                  {withdrawMethod === 'binance'
+                                    ? 'Must match your Binance account nickname or registered name.'
+                                    : 'Must match the name registered on your receiving account.'}
+                                </small>
+                              </label>
+
+                              <label>
+                                {withdrawMethod === 'binance'
+                                  ? 'Binance Pay ID / UID or Registered Email'
+                                  : withdrawMethod === 'bank'
+                                    ? 'Account Number / IBAN'
+                                    : 'Mobile Account Number'}
+                                <input
+                                  name="withdrawAccountNumber"
+                                  type="text"
+                                  placeholder={
+                                    withdrawMethod === 'binance'
+                                      ? 'e.g. 123456789 (Pay ID/UID) or user@gmail.com'
+                                      : withdrawMethod === 'bank'
+                                        ? 'e.g. PK36MEZN000...'
+                                        : 'e.g. 03451234567'
+                                  }
+                                  value={withdrawAccountNumber}
+                                  onChange={(e) => setWithdrawAccountNumber(e.target.value)}
+                                  required
+                                />
+                                <small className="wallet-payment-method-note">
+                                  {withdrawMethod === 'binance'
+                                    ? 'Enter your 9-digit Binance Pay ID / UID or your Binance registered email address.'
+                                    : withdrawMethod === 'bank'
+                                      ? 'Enter your full bank account number or 24-character IBAN.'
+                                      : 'Enter your registered mobile wallet phone number.'}
+                                </small>
+                              </label>
+
+                              <label>
+                                {withdrawMethod === 'binance'
+                                  ? 'Optional Notes / Binance Details'
+                                  : 'Optional Bank Name or Notes'}
+                                <input
+                                  name="withdrawNotes"
+                                  type="text"
+                                  placeholder={
+                                    withdrawMethod === 'binance'
+                                      ? 'e.g. Send USDT via Binance Pay'
+                                      : 'e.g. Meezan Bank, HBL, etc.'
+                                  }
+                                  value={withdrawNotes}
+                                  onChange={(e) => setWithdrawNotes(e.target.value)}
+                                />
+                              </label>
+
+                              <button
+                                className="primary-button wallet-funding-submit"
+                                disabled={busy || withdrawSubmitting || withdrawableBalance < minWithdrawal}
+                              >
+                                {withdrawSubmitting
+                                  ? 'Submitting request…'
+                                  : `Request Withdrawal (${money(Number(withdrawAmount) || 0)})`}
+                                <ArrowRight size={17} />
+                              </button>
+                            </form>
+                          )}
+                        </section>
+                      );
+                    })()}
 
                     <section className="account-card">
                       <h2>Withdrawal history</h2>
@@ -1696,7 +1830,7 @@ export function CustomerDashboard() {
                             <div>
                               <strong>{money(item.amount)}</strong>
                               <small>
-                                {item.payout_method} · {item.account_number} ({item.account_title}) ·{' '}
+                                {item.payout_method.toLowerCase().includes('binance') ? 'Binance Pay' : item.payout_method} · {item.account_number} ({item.account_title}) ·{' '}
                                 {new Date(item.created_at).toLocaleString()}
                               </small>
                             </div>

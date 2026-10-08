@@ -2372,6 +2372,45 @@ async function ensureWalletWithdrawalSchema(db) {
   }
   await walletWithdrawalSchemaReady;
 }
+async function getAccountWithdrawableBalance(db, accountId, currentBalance) {
+  const hasLedger = await db.query(
+    "SELECT 1 FROM information_schema.tables WHERE table_name = 'commerce_wallet_ledger'",
+  );
+  if (!hasLedger.rowCount && !hasLedger.rows?.length) {
+    return {
+      withdrawableBalance: Number(currentBalance || 0),
+      unspentReviewRewards: 0,
+      totalReviewRewards: 0,
+    };
+  }
+  const rewardsRow = (
+    await db.query(
+      `SELECT COALESCE(SUM(amount), 0)::int AS total
+       FROM commerce_wallet_ledger
+       WHERE account_id = $1 AND (review_id IS NOT NULL OR description ILIKE '%review%reward%') AND amount > 0`,
+      [accountId],
+    )
+  ).rows[0];
+  const purchasesRow = (
+    await db.query(
+      `SELECT COALESCE(SUM(-amount), 0)::int AS total
+       FROM commerce_wallet_ledger
+       WHERE account_id = $1 AND order_id IS NOT NULL AND amount < 0`,
+      [accountId],
+    )
+  ).rows[0];
+
+  const totalReviewRewards = Number(rewardsRow?.total || 0);
+  const totalPurchasesSpent = Number(purchasesRow?.total || 0);
+  const unspentReviewRewards = Math.max(0, totalReviewRewards - totalPurchasesSpent);
+  const withdrawableBalance = Math.max(0, Number(currentBalance || 0) - unspentReviewRewards);
+
+  return {
+    withdrawableBalance,
+    unspentReviewRewards,
+    totalReviewRewards,
+  };
+}
 let inventoryVariantMigrationReady;
 async function ensureInventoryVariants(db) {
   if (!inventoryVariantMigrationReady) {
@@ -4893,6 +4932,14 @@ export function createHandler(
           ])
         ).rows[0];
         account.balance = wallet?.balance ?? account.balance;
+        const withdrawableInfo = await getAccountWithdrawableBalance(
+          db,
+          account.id,
+          account.balance,
+        );
+        account.withdrawable_balance = withdrawableInfo.withdrawableBalance;
+        account.review_rewards_balance = withdrawableInfo.unspentReviewRewards;
+        account.min_withdrawal_amount = 1000;
         const orders = (
           await db.query(
             `SELECT o.id,o.product_id,o.amount,o.listed_amount,o.coupon_discount,o.wallet_discount,o.status,o.created_at,o.payment_method,
@@ -4959,6 +5006,9 @@ export function createHandler(
               [account.id],
             )
           ).rows,
+          withdrawableBalance: withdrawableInfo.withdrawableBalance,
+          reviewRewardsBalance: withdrawableInfo.unspentReviewRewards,
+          minWithdrawalAmount: 1000,
         };
         if (account.role === 'reseller' && account.reseller_status === 'approved') {
           const requirements = (await db.query(
@@ -5257,8 +5307,8 @@ export function createHandler(
         const accountTitle = String(body.accountTitle || body.account_title || '').trim();
         const notes = String(body.notes || '').trim().slice(0, 500);
 
-        if (!Number.isSafeInteger(amount) || amount < 50 || amount > 1000000) {
-          throw fail(400, 'Withdrawal amount must be at least PKR 50.');
+        if (!Number.isSafeInteger(amount) || amount < 1000 || amount > 1000000) {
+          throw fail(400, 'Minimum withdrawal amount is PKR 1,000.');
         }
         if (!payoutMethod || payoutMethod.length > 60) {
           throw fail(400, 'Please select a valid payment method / bank.');
@@ -5281,10 +5331,24 @@ export function createHandler(
           )
         ).rows[0];
 
-        if (!freshAccount || Number(freshAccount.balance) < amount) {
+        if (!freshAccount) throw fail(404, 'Account not found.');
+
+        const { withdrawableBalance, unspentReviewRewards } = await getAccountWithdrawableBalance(
+          db,
+          account.id,
+          freshAccount.balance,
+        );
+
+        if (withdrawableBalance < amount) {
+          if (unspentReviewRewards > 0) {
+            throw fail(
+              400,
+              `Insufficient withdrawable balance. Your withdrawable balance is PKR ${withdrawableBalance.toLocaleString()} (PKR ${unspentReviewRewards.toLocaleString()} is review reward credit eligible only for website purchases).`,
+            );
+          }
           throw fail(
             400,
-            `Insufficient wallet balance. You have PKR ${Number(freshAccount?.balance || 0).toLocaleString()} available.`,
+            `Insufficient withdrawable balance. You have PKR ${withdrawableBalance.toLocaleString()} available to withdraw (minimum PKR 1,000).`,
           );
         }
 
@@ -5337,6 +5401,7 @@ export function createHandler(
           ok: true,
           withdrawal: insertedWithdrawal,
           balance: Number(updatedAcc.balance),
+          withdrawableBalance: withdrawableBalance - amount,
           message: 'Withdrawal request submitted successfully. Admin will process your transfer.',
         };
       } else if (action === 'admin-login') {

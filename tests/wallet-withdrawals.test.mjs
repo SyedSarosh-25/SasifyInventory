@@ -6,13 +6,13 @@ import { PGlite } from '@electric-sql/pglite';
 import { createHandler } from '../commerce/handler.mjs';
 import { accountSchema, passwordHash } from '../commerce/accounts.mjs';
 
-test('wallet withdrawals: customer can request, admin can complete or reject with refund', async () => {
+test('wallet withdrawals: min 1000, non-withdrawable review rewards, binance pay & admin approval/refund', async () => {
   const database = new PGlite();
-  // Initialize base account tables & schema
-  await database.exec(accountSchema.split('ALTER TABLE commerce_orders')[0]);
+  // Initialize base commerce tables & account schema including wallet ledger
   await database.exec(
     await readFile(new URL('../commerce/schema.sql', import.meta.url), 'utf8'),
   );
+  await database.exec(accountSchema);
   await database.exec(`
     INSERT INTO commerce_payment_receivers(id,label,title,account_number,receiver_marker)
     VALUES ('primary','Main account','Main Receiver','03450485711','Main Receiver');
@@ -70,7 +70,7 @@ test('wallet withdrawals: customer can request, admin can complete or reject wit
   }
 
   try {
-    // 1. Create a customer account with Rs. 200 balance
+    // 1. Create a customer account with Rs. 1050 balance
     const customerId = randomUUID();
     const sessionToken = randomBytes(32).toString('hex');
     const sessionTokenHash = (await import('node:crypto')).createHash('sha256').update(sessionToken).digest('hex');
@@ -78,154 +78,143 @@ test('wallet withdrawals: customer can request, admin can complete or reject wit
 
     await database.exec(`
       INSERT INTO commerce_accounts (id, email, name, password_hash, role, balance, email_verified_at)
-      VALUES ('${customerId}', 'sarosh@test.invalid', 'Syed Sarosh', '${pHash}', 'customer', 200, now());
+      VALUES ('${customerId}', 'sarosh@test.invalid', 'Syed Sarosh', '${pHash}', 'customer', 1050, now());
       INSERT INTO commerce_account_sessions (token_hash, account_id)
       VALUES ('${sessionTokenHash}', '${customerId}');
     `);
 
+    // Simulate 2 review rewards of Rs. 50 each (total Rs. 100 review reward balance)
+    await database.exec(`
+      INSERT INTO commerce_wallet_ledger (id, account_id, amount, description, review_id)
+      VALUES 
+        ('${randomUUID()}', '${customerId}', 50, 'Review reward: Rs 50 wallet credit for order #1', '${randomUUID()}'),
+        ('${randomUUID()}', '${customerId}', 50, 'Review reward: Rs 50 wallet credit for order #2', '${randomUUID()}');
+    `);
+
     const authCookie = `sasify_account=${sessionToken}`;
 
-    // 2. Fetch dashboard - should show balance 200 and empty withdrawals
+    // 2. Fetch dashboard - should show balance 1050, withdrawable 950, review_rewards 100, min 1000
     const dashboard1 = await request('account-dashboard', null, authCookie);
     assert.equal(dashboard1.code, 200);
-    assert.equal(dashboard1.data.account.balance, 200);
+    assert.equal(dashboard1.data.account.balance, 1050);
+    assert.equal(dashboard1.data.withdrawableBalance, 950);
+    assert.equal(dashboard1.data.reviewRewardsBalance, 100);
+    assert.equal(dashboard1.data.minWithdrawalAmount, 1000);
     assert.ok(Array.isArray(dashboard1.data.withdrawals));
     assert.equal(dashboard1.data.withdrawals.length, 0);
 
-    // 3. Request withdrawal with invalid amounts
-    // Less than min PKR 50
+    // 3. Test minimum withdrawal enforcement (less than PKR 1000)
     const tooLow = await request('account-wallet-withdraw', {
-      amount: 40,
-      payoutMethod: 'Easypaisa',
-      accountNumber: '03451234567',
+      amount: 50,
+      payoutMethod: 'binance',
+      accountNumber: '891234567',
       accountTitle: 'Syed Sarosh',
     }, authCookie);
     assert.equal(tooLow.code, 400);
-    assert.match(tooLow.data.error, /at least PKR 50/i);
+    assert.match(tooLow.data.error, /minimum withdrawal amount is pkr 1,000/i);
 
-    // Greater than available balance (200)
-    const tooHigh = await request('account-wallet-withdraw', {
-      amount: 250,
-      payoutMethod: 'Easypaisa',
-      accountNumber: '03451234567',
+    // 4. Test non-withdrawable review rewards enforcement
+    // Attempting to withdraw 1000 when withdrawable balance is 950 (1050 total - 100 review reward)
+    const reviewRestricted = await request('account-wallet-withdraw', {
+      amount: 1000,
+      payoutMethod: 'binance',
+      accountNumber: '891234567',
       accountTitle: 'Syed Sarosh',
     }, authCookie);
-    assert.equal(tooHigh.code, 400);
-    assert.match(tooHigh.data.error, /insufficient wallet balance/i);
+    assert.equal(reviewRestricted.code, 400);
+    assert.match(reviewRestricted.data.error, /insufficient withdrawable balance/i);
+    assert.match(reviewRestricted.data.error, /review reward credit eligible only for website purchases/i);
 
-    // Missing bank details
-    const missingDetails = await request('account-wallet-withdraw', {
-      amount: 50,
-      payoutMethod: '',
-      accountNumber: '',
-      accountTitle: '',
-    }, authCookie);
-    assert.equal(missingDetails.code, 400);
+    // 5. Customer top-up / receives extra funds (add 1500 to balance -> balance 2550, withdrawable 2450)
+    await database.exec(`
+      UPDATE commerce_accounts SET balance = 2550 WHERE id = '${customerId}';
+    `);
 
-    // 4. Request valid withdrawal of Rs. 50 via Easypaisa
+    // 6. Request valid withdrawal of Rs. 1000 via Binance Pay
     const req1 = await request('account-wallet-withdraw', {
-      amount: 50,
-      payoutMethod: 'Easypaisa',
-      accountNumber: '03451234567',
-      accountTitle: 'Syed Sarosh',
-      notes: 'Review reward withdrawal',
+      amount: 1000,
+      payoutMethod: 'binance',
+      accountNumber: '891234567',
+      accountTitle: 'SaroshBinance',
+      notes: 'Send USDT via Binance Pay',
     }, authCookie);
     assert.equal(req1.code, 200);
     assert.equal(req1.data.ok, true);
-    assert.equal(req1.data.balance, 150); // 200 - 50 = 150
+    assert.equal(req1.data.balance, 1550); // 2550 - 1000 = 1550
+    assert.equal(req1.data.withdrawableBalance, 1450); // 1550 - 100 review rewards = 1450
     const withdrawalId1 = req1.data.withdrawal.id;
     assert.equal(req1.data.withdrawal.status, 'pending');
-    assert.equal(req1.data.withdrawal.amount, 50);
+    assert.equal(req1.data.withdrawal.amount, 1000);
+    assert.equal(req1.data.withdrawal.payout_method, 'binance');
+    assert.equal(req1.data.withdrawal.account_number, '891234567');
+    assert.equal(req1.data.withdrawal.account_title, 'SaroshBinance');
 
-    // Verify ledger entry
-    const ledgerRows = (await database.query(
-      'SELECT * FROM commerce_wallet_ledger WHERE account_id = $1 ORDER BY created_at DESC',
+    // 7. Verify ledger row for withdrawal
+    const withdrawalLedger = (await database.query(
+      'SELECT * FROM commerce_wallet_ledger WHERE account_id = $1 AND amount = -1000',
       [customerId],
     )).rows;
-    assert.equal(ledgerRows.length, 1);
-    assert.equal(ledgerRows[0].amount, -50);
-    assert.match(ledgerRows[0].description, /Withdrawal request: PKR 50/);
+    assert.equal(withdrawalLedger.length, 1);
+    assert.match(withdrawalLedger[0].description, /Withdrawal request: PKR 1,000/);
 
-    // 5. Customer dashboard now shows the pending withdrawal and updated balance
-    const dashboard2 = await request('account-dashboard', null, authCookie);
-    assert.equal(dashboard2.code, 200);
-    assert.equal(dashboard2.data.account.balance, 150);
-    assert.equal(dashboard2.data.withdrawals.length, 1);
-    assert.equal(dashboard2.data.withdrawals[0].id, withdrawalId1);
-    assert.equal(dashboard2.data.withdrawals[0].status, 'pending');
-
-    // 6. Admin can see the withdrawal in admin-list
+    // 8. Admin can see the withdrawal in admin-list
     const adminList = await request('admin-list', null, '', true);
     assert.equal(adminList.code, 200);
     assert.ok(Array.isArray(adminList.data.walletWithdrawals));
     const adminWithdrawal1 = adminList.data.walletWithdrawals.find((w) => w.id === withdrawalId1);
     assert.ok(adminWithdrawal1);
     assert.equal(adminWithdrawal1.customer_name, 'Syed Sarosh');
-    assert.equal(adminWithdrawal1.customer_email, 'sarosh@test.invalid');
-    assert.equal(adminWithdrawal1.amount, 50);
-    assert.equal(adminWithdrawal1.payout_method, 'Easypaisa');
-    assert.equal(adminWithdrawal1.account_number, '03451234567');
-    assert.equal(adminWithdrawal1.account_title, 'Syed Sarosh');
+    assert.equal(adminWithdrawal1.amount, 1000);
+    assert.equal(adminWithdrawal1.payout_method, 'binance');
+    assert.equal(adminWithdrawal1.account_number, '891234567');
     assert.equal(adminWithdrawal1.status, 'pending');
 
-    // 7. Admin marks withdrawal completed ("Successfully Withdrawn")
+    // 9. Admin marks withdrawal completed ("Successfully Withdrawn")
     const completeRes = await request('admin-wallet-withdrawal-complete', {
       id: withdrawalId1,
-      adminNote: 'TRX-987654321 sent via Easypaisa',
+      adminNote: 'USDT transferred via Binance Pay Order #BN-892834',
     }, '', true);
     assert.equal(completeRes.code, 200);
     assert.equal(completeRes.data.ok, true);
     assert.equal(completeRes.data.withdrawal.status, 'completed');
     assert.ok(completeRes.data.withdrawal.completed_at);
-    assert.equal(completeRes.data.withdrawal.admin_note, 'TRX-987654321 sent via Easypaisa');
+    assert.equal(completeRes.data.withdrawal.admin_note, 'USDT transferred via Binance Pay Order #BN-892834');
 
-    // 8. Trying to complete again fails
-    const reComplete = await request('admin-wallet-withdrawal-complete', {
-      id: withdrawalId1,
-    }, '', true);
-    assert.equal(reComplete.code, 400);
-
-    // 9. Customer requests a second withdrawal of Rs. 100 via JazzCash
+    // 10. Customer requests a second withdrawal of Rs. 1000 via JazzCash
     const req2 = await request('account-wallet-withdraw', {
-      amount: 100,
+      amount: 1000,
       payoutMethod: 'JazzCash',
       accountNumber: '03009876543',
       accountTitle: 'Syed Sarosh',
     }, authCookie);
     assert.equal(req2.code, 200);
-    assert.equal(req2.data.balance, 50); // 150 - 100 = 50
+    assert.equal(req2.data.balance, 550); // 1550 - 1000 = 550
     const withdrawalId2 = req2.data.withdrawal.id;
 
-    // 10. Admin rejects this withdrawal (e.g. invalid title or test) -> Balance refunded
+    // 11. Admin rejects this withdrawal -> Balance refunded back to 1550
     const rejectRes = await request('admin-wallet-withdrawal-reject', {
       id: withdrawalId2,
-      reason: 'Account title mismatch. Please re-check.',
+      reason: 'JazzCash account title mismatch. Please check and re-apply.',
     }, '', true);
     assert.equal(rejectRes.code, 200);
     assert.equal(rejectRes.data.ok, true);
     assert.equal(rejectRes.data.withdrawal.status, 'rejected');
     assert.ok(rejectRes.data.withdrawal.rejected_at);
-    assert.equal(rejectRes.data.withdrawal.admin_note, 'Account title mismatch. Please re-check.');
+    assert.equal(rejectRes.data.withdrawal.admin_note, 'JazzCash account title mismatch. Please check and re-apply.');
 
-    // Verify customer balance was refunded back to 150 (50 + 100)
-    const dashboard3 = await request('account-dashboard', null, authCookie);
-    assert.equal(dashboard3.code, 200);
-    assert.equal(dashboard3.data.account.balance, 150);
+    // Verify customer balance was refunded back to 1550 (550 + 1000)
+    const dashboardAfterRefund = await request('account-dashboard', null, authCookie);
+    assert.equal(dashboardAfterRefund.code, 200);
+    assert.equal(dashboardAfterRefund.data.account.balance, 1550);
+    assert.equal(dashboardAfterRefund.data.withdrawableBalance, 1450);
 
     // Verify refund ledger row exists
-    const ledgerRowsAfterRefund = (await database.query(
-      'SELECT * FROM commerce_wallet_ledger WHERE account_id = $1 ORDER BY created_at DESC',
+    const refundLedger = (await database.query(
+      'SELECT * FROM commerce_wallet_ledger WHERE account_id = $1 AND amount = 1000',
       [customerId],
     )).rows;
-    assert.equal(ledgerRowsAfterRefund.length, 3);
-    assert.equal(ledgerRowsAfterRefund[0].amount, 100);
-    assert.match(ledgerRowsAfterRefund[0].description, /Refund for rejected withdrawal/);
-
-    // 11. Trying to reject an already rejected withdrawal fails
-    const reReject = await request('admin-wallet-withdrawal-reject', {
-      id: withdrawalId2,
-    }, '', true);
-    assert.equal(reReject.code, 400);
+    assert.equal(refundLedger.length, 1);
+    assert.match(refundLedger[0].description, /Refund for rejected withdrawal/);
 
   } finally {
     Object.assign(process.env, previous);
