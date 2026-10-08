@@ -319,3 +319,21 @@ CREATE TABLE IF NOT EXISTS commerce_google_review_sync (
  average_rating numeric(3,2) NOT NULL DEFAULT 0 CHECK(average_rating>=0 AND average_rating<=5),
  synced_at timestamptz, last_error text
 );
+CREATE TABLE IF NOT EXISTS commerce_product_reviews (
+ id uuid PRIMARY KEY,
+ product_id text NOT NULL,
+ product_name text,
+ customer_name text NOT NULL,
+ rating integer NOT NULL CHECK(rating >= 1 AND rating <= 5),
+ review_text text NOT NULL,
+ screenshots jsonb NOT NULL DEFAULT '[]'::jsonb,
+ customer_email text,
+ order_id text,
+ is_verified_buyer boolean NOT NULL DEFAULT true,
+ status text NOT NULL DEFAULT 'approved' CHECK(status IN ('pending', 'approved', 'rejected')),
+ created_at timestamptz NOT NULL DEFAULT now(),
+ reviewed_at timestamptz
+);
+CREATE INDEX IF NOT EXISTS commerce_product_reviews_product ON commerce_product_reviews(product_id, status, created_at DESC);
+CREATE INDEX IF NOT EXISTS commerce_product_reviews_status ON commerce_product_reviews(status, created_at DESC);
+

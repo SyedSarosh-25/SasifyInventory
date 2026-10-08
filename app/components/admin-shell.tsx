@@ -24,6 +24,7 @@ import {
   Mail,
   ChevronDown,
   Bot,
+  Star,
 } from 'lucide-react';
 import {
   Sheet,
@@ -48,6 +49,7 @@ export const adminSections = [
   ['inventory', 'Inventory', Package],
   ['supplier', 'Supplier Store', ShoppingCart],
   ['coupons', 'Coupons', TicketPercent],
+  ['productReviews', 'Product reviews', Star],
   ['commissions', 'Commissions', BadgeDollarSign],
   ['profit', 'Profit', WalletCards],
   ['team', 'Team access', Users],
@@ -76,7 +78,7 @@ const adminSectionGroups: { label: string; items: AdminSection[] }[] = [
   },
   {
     label: 'Catalog & stock',
-    items: ['inventory', 'supplier', 'coupons'],
+    items: ['inventory', 'supplier', 'coupons', 'productReviews'],
   },
   {
     label: 'Resellers & team',
@@ -103,6 +105,7 @@ const sectionDescriptions: Record<string, string> = {
   inventory: 'Organize account stock and monitor availability.',
   supplier: 'Edit product copy, compare costs and set your selling prices.',
   coupons: 'Manage discount codes and their usage limits.',
+  productReviews: 'Manage customer reviews, approve submissions, and upload WhatsApp proof screenshots.',
   commissions: 'Review commissions and partner earnings.',
   profit: 'Understand revenue, costs and business performance.',
   team: 'Manage teammate access to your workspace.',

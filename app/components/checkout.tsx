@@ -18,6 +18,7 @@ import { AdminCatalogStatus } from './admin-catalog-status';
 import { AdminEmailCampaign } from './admin-email-campaign';
 import { AdminClaudeEmailLists } from './admin-claude-email-lists';
 import { AdminWhatsAppBot } from './admin-whatsapp-bot';
+import { AdminProductReviews } from './admin-product-reviews';
 import {
   AdminAuditLogs,
   AdminProducts,
@@ -2246,6 +2247,16 @@ export function CommerceAdmin() {
             )}
           </section>
         </div>
+      )}
+
+      {tab === 'productReviews' && (
+        <AdminProductReviews
+          reviews={data.productReviews || []}
+          api={api}
+          token={key}
+          busy={busy}
+          onRefresh={refresh}
+        />
       )}
 
       {tab === 'scammers' && (

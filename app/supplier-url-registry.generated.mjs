@@ -5185,5 +5185,29 @@ export const supplierUrlRegistry = [
     "aliases": [
       "chatgpt-pro-x20-30d-warranty-2d-7yeowe"
     ]
+  },
+  {
+    "slug": "gmail-random-2020-2023-with-2fa-has-90-ytb-trial-rate",
+    "keys": [
+      "auto:2020-2023-2fa-90-gmail-random-rate-trial-ytb"
+    ],
+    "names": [
+      "gmail random 2020~2023 with 2fa - has 90% ytb trial rate"
+    ],
+    "aliases": [
+      "gmail-random-2020-2023-with-2fa-has-90-ytb-trial-rate-1oij0x"
+    ]
+  },
+  {
+    "slug": "gmails-accounts",
+    "keys": [
+      "auto:accounts-gmails"
+    ],
+    "names": [
+      "gmails accounts"
+    ],
+    "aliases": [
+      "gmails-accounts-vl99ic"
+    ]
   }
 ];

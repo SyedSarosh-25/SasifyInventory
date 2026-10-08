@@ -19,6 +19,7 @@ import {
 import { ProductLogo } from '../../components/product-logo';
 import { StockBuy } from '../../components/checkout';
 import { SupplierLivePurchase } from '../../components/supplier-live-purchase';
+import { ProductReviewsSection } from '../../components/product-reviews';
 import { PurchaseTerms } from '../../components/purchase-terms';
 import { SiteFooter, SiteHeader } from '../../components/site-chrome';
 import { Money, OriginalPrice } from '../../components/currency';
@@ -245,6 +246,7 @@ function SupplierSeoProductPage({ product }: { product: SupplierSeoProduct }) {
             <nav className="detail-jump-links" aria-label="Product sections">
               <a href="#overview">Overview</a>
               <a href="#questions">Questions about this product</a>
+              <a href="#customer-reviews">Reviews & proofs</a>
               <a href="#popular-uses">Popular uses</a>
               <a href="#purchase-options">Purchase options</a>
             </nav>
@@ -326,6 +328,12 @@ function SupplierSeoProductPage({ product }: { product: SupplierSeoProduct }) {
                 ))}
               </div>
             </section>
+            <ProductReviewsSection
+              productId={product.id}
+              productSlug={product.slug}
+              productName={product.name}
+              toolFamily={toolFamilySlug(product.name)}
+            />
             <ProductUseCases name={product.name} slug={product.slug} cases={about.useCases} />
           </article>
 
@@ -457,6 +465,7 @@ export default async function ProductPage({ params }: Props) {
               <a href="#overview">Overview</a>
               {product.variants?.length && product.id !== 'p093' ? <a href="#account-options">Choose your VPS package</a> : null}
               <a href="#questions">Questions about this plan</a>
+              <a href="#customer-reviews">Reviews & proofs</a>
               <a href="#popular-uses">Popular uses</a>
               <a href="#purchase-options">Purchase options</a>
             </nav>
@@ -585,6 +594,12 @@ export default async function ProductPage({ params }: Props) {
                 ))}
               </div>
             </section>
+            <ProductReviewsSection
+              productId={product.id}
+              productSlug={product.slug || product.id}
+              productName={product.name}
+              toolFamily={toolFamilySlug(product.name)}
+            />
             <ProductUseCases name={product.name} slug={product.slug || product.id} cases={about.useCases} />
           </article>
 

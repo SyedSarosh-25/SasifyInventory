@@ -100,6 +100,11 @@ import {
 } from './scam-reports.mjs';
 import { normalizeToolRequest } from './tool-requests.mjs';
 import {
+  normalizeProductReviewSubmission,
+  publicProductReview,
+  seedProductReviews,
+} from './product-reviews.mjs';
+import {
   customerProduct,
   customerProductName,
   customerProductText,
@@ -2222,6 +2227,60 @@ async function ensureResellerRequirementSchema(db) {
     });
   }
   await resellerRequirementSchemaReady;
+}
+let productReviewSchemaReady;
+async function ensureProductReviewSchema(db) {
+  if (!productReviewSchemaReady) {
+    productReviewSchemaReady = (async () => {
+      await db.query(`CREATE TABLE IF NOT EXISTS commerce_product_reviews (
+        id uuid PRIMARY KEY,
+        product_id text NOT NULL,
+        product_name text,
+        customer_name text NOT NULL,
+        rating integer NOT NULL CHECK(rating >= 1 AND rating <= 5),
+        review_text text NOT NULL,
+        screenshots jsonb NOT NULL DEFAULT '[]'::jsonb,
+        customer_email text,
+        order_id text,
+        is_verified_buyer boolean NOT NULL DEFAULT true,
+        status text NOT NULL DEFAULT 'approved' CHECK(status IN ('pending', 'approved', 'rejected')),
+        created_at timestamptz NOT NULL DEFAULT now(),
+        reviewed_at timestamptz
+      )`);
+      await db.query(
+        'CREATE INDEX IF NOT EXISTS commerce_product_reviews_product ON commerce_product_reviews(product_id, status, created_at DESC)',
+      );
+      await db.query(
+        'CREATE INDEX IF NOT EXISTS commerce_product_reviews_status ON commerce_product_reviews(status, created_at DESC)',
+      );
+      const existing = await db.query('SELECT COUNT(*)::int AS count FROM commerce_product_reviews');
+      if (Number(existing.rows[0]?.count || 0) === 0 && Array.isArray(seedProductReviews)) {
+        for (const item of seedProductReviews) {
+          await db.query(
+            `INSERT INTO commerce_product_reviews (
+              id, product_id, product_name, customer_name, rating, review_text, screenshots, is_verified_buyer, status, created_at
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8, $9, $10)`,
+            [
+              randomUUID(),
+              item.product_id,
+              item.product_name,
+              item.customer_name,
+              item.rating,
+              item.review_text,
+              JSON.stringify(item.screenshots),
+              item.is_verified_buyer,
+              item.status,
+              item.created_at,
+            ],
+          );
+        }
+      }
+    })().catch((error) => {
+      productReviewSchemaReady = null;
+      throw error;
+    });
+  }
+  await productReviewSchemaReady;
 }
 let inventoryVariantMigrationReady;
 async function ensureInventoryVariants(db) {
@@ -4531,7 +4590,7 @@ export function createHandler(
       if (typeof body === 'string') body = JSON.parse(body);
       if (
         JSON.stringify(body).length >
-        (action === 'scam-submit'
+        (action === 'scam-submit' || action === 'product-review-submit' || action === 'admin-product-review-create'
           ? 4000000
           : action === 'account-refund-request'
             ? 3000000
@@ -4577,7 +4636,7 @@ export function createHandler(
                 'account-reset-password',
               ].includes(action)
             ? 5
-            : action === 'scam-submit'
+            : (action === 'scam-submit' || action === 'product-review-submit')
               ? 4
               : action === 'tool-request'
                 ? 4
@@ -4626,6 +4685,7 @@ export function createHandler(
           'google-reviews-sync',
           'scam-reports',
           'scam-report',
+          'product-reviews',
           'admin-list',
           'admin-payments',
           'admin-supplier-logs',
@@ -5666,6 +5726,75 @@ export function createHandler(
           ok: true,
           id: inserted.rows[0].id,
           createdAt: inserted.rows[0].created_at,
+        };
+      } else if (action === 'product-reviews') {
+        await ensureProductReviewSchema(db);
+        const productId = String(req.query?.productId || req.query?.product_id || '').trim();
+        const toolFamily = String(req.query?.toolFamily || req.query?.tool_family || '').trim();
+        let rows = [];
+        if (productId || toolFamily) {
+          const result = await db.query(
+            `SELECT id, product_id, product_name, customer_name, rating, review_text, screenshots, is_verified_buyer, status, created_at
+             FROM commerce_product_reviews
+             WHERE status = 'approved' AND (product_id = $1 OR product_id = $2 OR product_id ILIKE $3)
+             ORDER BY created_at DESC LIMIT 50`,
+            [productId, toolFamily, `%${toolFamily || productId}%`],
+          );
+          rows = result.rows;
+        } else {
+          const result = await db.query(
+            `SELECT id, product_id, product_name, customer_name, rating, review_text, screenshots, is_verified_buyer, status, created_at
+             FROM commerce_product_reviews
+             WHERE status = 'approved'
+             ORDER BY created_at DESC LIMIT 50`,
+          );
+          rows = result.rows;
+        }
+        const reviews = rows.map(publicProductReview);
+        const totalRating = reviews.reduce((sum, r) => sum + r.rating, 0);
+        const averageRating = reviews.length ? Number((totalRating / reviews.length).toFixed(1)) : 5.0;
+        output = {
+          reviews,
+          totalCount: reviews.length,
+          averageRating,
+        };
+      } else if (action === 'product-review-submit') {
+        await ensureProductReviewSchema(db);
+        let review;
+        try {
+          review = normalizeProductReviewSubmission(body);
+        } catch (error) {
+          throw fail(400, error.message);
+        }
+        const reviewId = randomUUID();
+        const isVerified = Boolean(review.orderId);
+        const inserted = await db.query(
+          `INSERT INTO commerce_product_reviews (
+            id, product_id, product_name, customer_name, rating, review_text, screenshots, customer_email, order_id, is_verified_buyer, status, created_at
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8, $9, $10, 'pending', now())
+          RETURNING id, created_at`,
+          [
+            reviewId,
+            review.productId,
+            review.productName,
+            review.customerName,
+            review.rating,
+            review.reviewText,
+            JSON.stringify(review.screenshots),
+            review.customerEmail,
+            review.orderId,
+            isVerified,
+          ],
+        );
+        await db.query(
+          "INSERT INTO commerce_audit(action,object_id,details) VALUES('product_review_submit',$1,$2::jsonb)",
+          [reviewId, JSON.stringify({ productId: review.productId, customerName: review.customerName, rating: review.rating })],
+        );
+        output = {
+          ok: true,
+          id: reviewId,
+          createdAt: inserted.rows[0].created_at,
+          message: 'Review submitted successfully! It will appear once verified by our team.',
         };
       } else if (action === 'tool-request') {
         let request;
@@ -7411,6 +7540,7 @@ export function createHandler(
         await db.query("INSERT INTO commerce_audit(action,object_id) VALUES('product_delete',$1)", [productId]);
         output = { ok: true };
       } else if (action === 'admin-list') {
+        await ensureProductReviewSchema(db);
         const adminSettings = Object.fromEntries(
           (await db.query('SELECT key,value FROM commerce_admin_settings ORDER BY key')).rows.map((row) => [row.key, row.value]),
         );
@@ -7620,6 +7750,11 @@ export function createHandler(
                FROM commerce_tool_requests
                ORDER BY CASE priority WHEN 'urgent' THEN 0 WHEN 'moderate' THEN 1 ELSE 2 END, created_at DESC
                LIMIT 200`,
+            )
+          ).rows,
+          productReviews: (
+            await db.query(
+              'SELECT id,product_id,product_name,customer_name,rating,review_text,screenshots,customer_email,order_id,is_verified_buyer,status,created_at,reviewed_at FROM commerce_product_reviews ORDER BY created_at DESC LIMIT 300',
             )
           ).rows,
           resellerRequirements,
@@ -7922,6 +8057,64 @@ export function createHandler(
           [`${status}_scam_report`, body.reportId],
         );
         output = { ok: true, reportId: body.reportId, status };
+      } else if (action === 'admin-product-review-create') {
+        await ensureProductReviewSchema(db);
+        let review;
+        try {
+          review = normalizeProductReviewSubmission(body);
+        } catch (error) {
+          throw fail(400, error.message);
+        }
+        const reviewId = randomUUID();
+        const inserted = await db.query(
+          `INSERT INTO commerce_product_reviews (
+            id, product_id, product_name, customer_name, rating, review_text, screenshots, customer_email, order_id, is_verified_buyer, status, created_at, reviewed_at
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8, $9, true, 'approved', now(), now())
+          RETURNING id, created_at`,
+          [
+            reviewId,
+            review.productId,
+            review.productName,
+            review.customerName,
+            review.rating,
+            review.reviewText,
+            JSON.stringify(review.screenshots),
+            review.customerEmail,
+            review.orderId,
+          ],
+        );
+        await db.query(
+          "INSERT INTO commerce_audit(action,object_id,details) VALUES('admin_product_review_create',$1,$2::jsonb)",
+          [reviewId, JSON.stringify({ productId: review.productId, customerName: review.customerName })],
+        );
+        output = { ok: true, id: reviewId, createdAt: inserted.rows[0].created_at };
+      } else if (action === 'admin-product-review-update') {
+        await ensureProductReviewSchema(db);
+        const reviewId = String(body?.id || body?.reviewId || '').trim();
+        const status = String(body?.status || '').trim();
+        if (!['pending', 'approved', 'rejected'].includes(status)) throw fail(400, 'Invalid review status.');
+        const updated = await db.query(
+          `UPDATE commerce_product_reviews
+           SET status = $1, reviewed_at = now()
+           WHERE id = $2
+           RETURNING id, status`,
+          [status, reviewId],
+        );
+        if (!updated.rowCount) throw fail(404, 'Review not found.');
+        await db.query(
+          "INSERT INTO commerce_audit(action,object_id,details) VALUES('admin_product_review_update',$1,$2::jsonb)",
+          [reviewId, JSON.stringify({ status })],
+        );
+        output = { ok: true, id: reviewId, status };
+      } else if (action === 'admin-product-review-delete') {
+        await ensureProductReviewSchema(db);
+        const reviewId = String(body?.id || body?.reviewId || '').trim();
+        await db.query('DELETE FROM commerce_product_reviews WHERE id = $1', [reviewId]);
+        await db.query(
+          "INSERT INTO commerce_audit(action,object_id) VALUES('admin_product_review_delete',$1)",
+          [reviewId],
+        );
+        output = { ok: true, id: reviewId };
       } else if (action === 'admin-requirement-create') {
         const toolName = String(body.toolName || '').trim();
         const description = String(body.description || '').trim();
