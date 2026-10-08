@@ -259,20 +259,10 @@ export function ProductReviewsSection({
           onSubmit={handleSubmit}
           aria-label="Submit a customer review"
         >
-          <div className="review-bonus-callout">
-            <div className="callout-header">
-              <Gift className="h-4 w-4" />
-              <span>🎁 Earn Rs. 50 in your Sasify Wallet</span>
-            </div>
-            <p>
-              Attach a screenshot of your WhatsApp chat or credentials delivered below, and enter your registered Sasify account email. Once verified, Rs. 50 will be credited directly to your wallet!
-            </p>
-          </div>
-
           <h3>Share your experience with {productName}</h3>
           <p>
-            Help other customers in Pakistan with your honest review. You can also upload a
-            screenshot of your WhatsApp delivery confirmation or activated account.
+            Help other customers in Pakistan with your honest review. Attach a screenshot of your
+            WhatsApp delivery confirmation or activated credentials to receive Rs. 50 in your Sasify Wallet.
           </p>
 
           {submitError && (
