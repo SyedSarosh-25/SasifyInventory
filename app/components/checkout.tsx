@@ -19,6 +19,7 @@ import { AdminEmailCampaign } from './admin-email-campaign';
 import { AdminClaudeEmailLists } from './admin-claude-email-lists';
 import { AdminWhatsAppBot } from './admin-whatsapp-bot';
 import { AdminProductReviews } from './admin-product-reviews';
+import { AdminWalletWithdrawals } from './admin-wallet-withdrawals';
 import {
   AdminAuditLogs,
   AdminProducts,
@@ -2252,6 +2253,16 @@ export function CommerceAdmin() {
       {tab === 'productReviews' && (
         <AdminProductReviews
           reviews={data.productReviews || []}
+          api={api}
+          token={key}
+          busy={busy}
+          onRefresh={refresh}
+        />
+      )}
+
+      {tab === 'walletWithdrawals' && (
+        <AdminWalletWithdrawals
+          withdrawals={data.walletWithdrawals || []}
           api={api}
           token={key}
           busy={busy}

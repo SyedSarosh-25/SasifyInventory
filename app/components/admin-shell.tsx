@@ -25,6 +25,7 @@ import {
   ChevronDown,
   Bot,
   Star,
+  Banknote,
 } from 'lucide-react';
 import {
   Sheet,
@@ -45,6 +46,7 @@ export const adminSections = [
   ['emailCampaign', 'Email campaigns', Mail],
   ['resellerRequests', 'Reseller requests', ClipboardCheck],
   ['payments', 'Payments', WalletCards],
+  ['walletWithdrawals', 'Wallet withdrawals', Banknote],
   ['paymentAccounts', 'Payment accounts', WalletCards],
   ['inventory', 'Inventory', Package],
   ['supplier', 'Supplier Store', ShoppingCart],
@@ -74,7 +76,7 @@ const adminSectionGroups: { label: string; items: AdminSection[] }[] = [
   },
   {
     label: 'Payments & finance',
-    items: ['payments', 'paymentAccounts', 'profit', 'commissions'],
+    items: ['payments', 'walletWithdrawals', 'paymentAccounts', 'profit', 'commissions'],
   },
   {
     label: 'Catalog & stock',
@@ -101,6 +103,7 @@ const sectionDescriptions: Record<string, string> = {
   emailCampaign: 'Send a controlled announcement to registered Sasify users.',
   resellerRequests: 'Review applications to join Sasify as a reseller.',
   payments: 'Review incoming receipts and their verification status.',
+  walletWithdrawals: 'Review customer wallet withdrawal requests and send manual payouts.',
   paymentAccounts: 'Manage receiving accounts and your active payment destination.',
   inventory: 'Organize account stock and monitor availability.',
   supplier: 'Edit product copy, compare costs and set your selling prices.',

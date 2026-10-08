@@ -343,3 +343,20 @@ ALTER TABLE commerce_product_reviews ADD COLUMN IF NOT EXISTS wallet_reward_amou
 ALTER TABLE commerce_product_reviews ADD COLUMN IF NOT EXISTS wallet_reward_credited boolean NOT NULL DEFAULT false;
 ALTER TABLE commerce_product_reviews ADD COLUMN IF NOT EXISTS wallet_reward_account_id uuid REFERENCES commerce_accounts(id);
 
+CREATE TABLE IF NOT EXISTS commerce_wallet_withdrawals (
+  id uuid PRIMARY KEY,
+  account_id uuid NOT NULL REFERENCES commerce_accounts(id) ON DELETE CASCADE,
+  amount integer NOT NULL CHECK(amount > 0),
+  payout_method text NOT NULL,
+  account_number text NOT NULL,
+  account_title text NOT NULL,
+  notes text,
+  status text NOT NULL DEFAULT 'pending' CHECK(status IN ('pending', 'completed', 'rejected')),
+  admin_note text,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  completed_at timestamptz,
+  rejected_at timestamptz
+);
+CREATE INDEX IF NOT EXISTS commerce_wallet_withdrawals_status ON commerce_wallet_withdrawals(status, created_at DESC);
+CREATE INDEX IF NOT EXISTS commerce_wallet_withdrawals_account ON commerce_wallet_withdrawals(account_id, created_at DESC);
+

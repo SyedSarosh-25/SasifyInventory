@@ -22,6 +22,10 @@ import {
   ShoppingBag,
   UserRound,
   WalletCards,
+  ArrowUpRight,
+  Banknote,
+  CheckCircle2,
+  AlertCircle,
 } from 'lucide-react';
 import { SiteHeader, SiteFooter } from './site-chrome';
 import './customer-account.css';
@@ -70,12 +74,26 @@ type Deposit = {
   created_at: string;
   expires_at: string;
 };
+type WalletWithdrawal = {
+  id: string;
+  amount: number;
+  payout_method: string;
+  account_number: string;
+  account_title: string;
+  notes?: string | null;
+  status: 'pending' | 'completed' | 'rejected';
+  admin_note?: string | null;
+  created_at: string;
+  completed_at?: string | null;
+  rejected_at?: string | null;
+};
 type Dashboard = {
   account: Account;
   orders: CustomerOrder[];
   savings?: number;
   deposits: Deposit[];
   ledger: { amount: number; description: string; created_at: string }[];
+  withdrawals?: WalletWithdrawal[];
   requirements: { id: string; tool_name: string; description: string; status: string; response_contact?: string | null; responded_at?: string | null; created_at: string }[];
 };
 const money = (amount: number) =>
@@ -670,6 +688,15 @@ export function CustomerDashboard() {
   const [inviteScreenshot, setInviteScreenshot] = useState<{ name: string; dataUrl: string } | null>(null);
   const inviteScreenshotInput = useRef<HTMLInputElement>(null);
   const [refundPreview, setRefundPreview] = useState<{ elapsedDays: number; remainingDays: number; perDayCost: number; refundAmount: number } | null>(null);
+  const [walletSubView, setWalletSubView] = useState<'topup' | 'withdraw'>('topup');
+  const [withdrawAmount, setWithdrawAmount] = useState('50');
+  const [withdrawMethod, setWithdrawMethod] = useState('easypaisa');
+  const [withdrawAccountNumber, setWithdrawAccountNumber] = useState('');
+  const [withdrawAccountTitle, setWithdrawAccountTitle] = useState('');
+  const [withdrawNotes, setWithdrawNotes] = useState('');
+  const [withdrawSubmitting, setWithdrawSubmitting] = useState(false);
+  const [withdrawNotice, setWithdrawNotice] = useState('');
+  const [withdrawError, setWithdrawError] = useState('');
   const [clock, setClock] = useState(Date.now());
   useEffect(() => {
     const timer = window.setInterval(() => setClock(Date.now()), 1000);
@@ -772,6 +799,54 @@ export function CustomerDashboard() {
           'You already have this top-up open. Reusing its payment instructions and five-minute timer.',
         );
     });
+  }
+  async function requestWithdrawal(event: SyntheticEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setWithdrawError('');
+    setWithdrawNotice('');
+    const amt = Number(withdrawAmount);
+    if (!Number.isSafeInteger(amt) || amt < 50) {
+      setWithdrawError('Minimum withdrawal amount is PKR 50.');
+      return;
+    }
+    const currentBal = Number(data?.account?.balance || 0);
+    if (amt > currentBal) {
+      setWithdrawError(`Insufficient wallet balance. You have ${money(currentBal)} available.`);
+      return;
+    }
+    if (!withdrawAccountNumber.trim()) {
+      setWithdrawError('Please enter your account or mobile number / IBAN.');
+      return;
+    }
+    if (!withdrawAccountTitle.trim()) {
+      setWithdrawError('Please enter the account holder title.');
+      return;
+    }
+
+    setWithdrawSubmitting(true);
+    try {
+      const res = await request('account-wallet-withdraw', {
+        amount: amt,
+        payoutMethod: withdrawMethod,
+        accountNumber: withdrawAccountNumber.trim(),
+        accountTitle: withdrawAccountTitle.trim(),
+        notes: withdrawNotes.trim(),
+      });
+      if (res?.ok) {
+        setWithdrawNotice(
+          `Withdrawal request for ${money(amt)} via ${withdrawMethod} submitted! Admin will transfer funds shortly.`
+        );
+        setWithdrawAmount('50');
+        setWithdrawNotes('');
+        await refresh();
+      } else {
+        setWithdrawError(res?.error || 'Failed to submit withdrawal request.');
+      }
+    } catch (err: any) {
+      setWithdrawError(err.message || 'Failed to submit withdrawal request.');
+    } finally {
+      setWithdrawSubmitting(false);
+    }
   }
   async function copyPaymentValue(value: string, label: string) {
     try {
@@ -990,8 +1065,11 @@ export function CustomerDashboard() {
                     <h2>{money(data.account.balance)}</h2>
                     <p>Pay from your wallet and get 5% off every purchase.</p>
                     <div className="dashboard-wallet-actions">
-                      <button onClick={() => setTab('wallet')}>
+                      <button onClick={() => { setTab('wallet'); setWalletSubView('topup'); }}>
                         <ArrowDownToLine size={16} /> Add funds
+                      </button>
+                      <button onClick={() => { setTab('wallet'); setWalletSubView('withdraw'); }}>
+                        <ArrowUpRight size={16} /> Withdraw
                       </button>
                       {data.account.role === 'reseller' && data.account.reseller_status === 'approved' ? (
                         <button className="dashboard-requirements-button" onClick={() => setTab('requirements')}>
@@ -1276,182 +1354,375 @@ export function CustomerDashboard() {
             )}
             {tab === 'wallet' && (
               <div className="account-wallet-grid">
-                <section className="account-card wallet-funding-card">
-                  <div className="wallet-funding-header">
-                    <div>
-                      <span className="wallet-funding-kicker"><CircleDollarSign size={15} /> WALLET TOP-UP</span>
-                      <h2>Add funds</h2>
-                      <p>Add balance securely and use your Sasify Wallet for instant checkout discounts.</p>
-                    </div>
-                    <div className="wallet-balance-pill">
-                      <small>Available now</small>
-                      <strong>{money(data.account.balance)}</strong>
-                    </div>
-                  </div>
-                  <div className="wallet-funding-steps" aria-label="Add funds steps">
-                    <span><b>1</b> Choose amount</span>
-                    <span><b>2</b> Send payment</span>
-                    <span><b>3</b> Auto-verified</span>
-                  </div>
-                  <form onSubmit={addFunds}>
-                    <label>
-                      Amount (PKR)
-                      <input
-                        name="amount"
-                        type="number"
-                        min={100}
-                        max={1000000}
-                        step={1}
-                        value={depositAmount}
-                        onChange={(event) => setDepositAmount(event.target.value)}
-                        required
-                      />
-                    </label>
-                    <div className="wallet-amount-presets" aria-label="Suggested amounts">
-                      {[1000, 2500, 5000, 10000].map((amount) => (
-                        <button type="button" key={amount} className={depositAmount === String(amount) ? 'selected' : ''} onClick={() => setDepositAmount(String(amount))}>
-                          PKR {amount.toLocaleString()}
-                        </button>
-                      ))}
-                    </div>
-                    <label>
-                      Payment method
-                      <select name="method" value={depositMethod} onChange={(event) => setDepositMethod(event.target.value)}>
-                        <option value="wallet">Wallet transfer</option>
-                        <option value="binance">Binance Pay</option>
-                        <option value="crypto">
-                          Crypto USDT · BEP20 · minimum USDT 6
-                        </option>
-                      </select>
-                      <small className="wallet-payment-method-note">
-                        {depositMethod === 'wallet'
-                          ? 'Transfer from any Easypaisa/JazzCash/SadaPay to our NayaPay account'
-                          : depositMethod === 'binance'
-                            ? 'Transfer through your Binance account'
-                            : 'Send USDT through the displayed BEP20 network'}
-                      </small>
-                    </label>
-                    <button className="primary-button wallet-funding-submit" disabled={busy}>
-                      {busy ? 'Preparing instructions…' : 'Continue to payment'} <ArrowRight size={17} />
-                    </button>
-                  </form>
-                  <div className="wallet-auto-verify" role="status">
-                    <span className={`wallet-auto-verify-icon${checkingDeposits ? ' is-checking' : ''}`}><RefreshCw size={16} /></span>
-                    <div>
-                      <strong>{checkingDeposits ? 'Checking for your payment…' : 'Auto-verification is active'}</strong>
-                      <small>No reference or screenshot needed. We check every 5 seconds and update your balance automatically after a verified payment.</small>
-                    </div>
-                  </div>
-                  {deposit && receiver && (
-                    <div className="account-detail wallet-payment-instructions">
-                      <div className="wallet-instructions-heading">
+                <div className="wallet-subview-nav" role="tablist">
+                  <button
+                    type="button"
+                    className={`wallet-subview-btn ${walletSubView === 'topup' ? 'active' : ''}`}
+                    onClick={() => setWalletSubView('topup')}
+                  >
+                    <ArrowDownToLine size={15} /> Add funds (Top-up)
+                  </button>
+                  <button
+                    type="button"
+                    className={`wallet-subview-btn ${walletSubView === 'withdraw' ? 'active' : ''}`}
+                    onClick={() => setWalletSubView('withdraw')}
+                  >
+                    <ArrowUpRight size={15} /> Withdraw funds
+                  </button>
+                </div>
+
+                {walletSubView === 'topup' ? (
+                  <>
+                    <section className="account-card wallet-funding-card">
+                      <div className="wallet-funding-header">
                         <div>
-                          <span className="wallet-funding-kicker">PAYMENT INSTRUCTIONS</span>
-                          <h3>Send the exact amount</h3>
+                          <span className="wallet-funding-kicker"><CircleDollarSign size={15} /> WALLET TOP-UP</span>
+                          <h2>Add funds</h2>
+                          <p>Add balance securely and use your Sasify Wallet for instant checkout discounts.</p>
                         </div>
-                        <span className="account-deposit-status">Waiting</span>
-                      </div>
-                      <div className="wallet-transfer-amount">
-                        <strong>
-                          {deposit.method === 'crypto'
-                            ? (Number(deposit.payment_amount) + 0.01).toFixed(2)
-                            : Number(deposit.payment_amount).toFixed(
-                                deposit.currency === 'USDT' ? 2 : 0,
-                              )}
-                        </strong>
-                        <span>{deposit.currency}</span>
-                      </div>
-                      <div className="wallet-receiver-row">
-                        <div><small>{deposit.method === 'bank' ? 'Meezan Bank account' : deposit.method === 'wallet' ? 'NayaPay account' : 'Send to'}</small><strong>{receiver.title}</strong></div>
-                        <div className="wallet-receiver-value">
-                          <code>{receiver.number}</code>
-                          <button
-                            type="button"
-                            className="wallet-copy-button"
-                            title="Copy account number"
-                            aria-label="Copy account number"
-                            onClick={() => void copyPaymentValue(receiver.number, 'Account number')}
-                          >
-                            <Copy size={14} /> Copy
-                          </button>
+                        <div className="wallet-balance-pill">
+                          <small>Available now</small>
+                          <strong>{money(data.account.balance)}</strong>
                         </div>
                       </div>
-                      {deposit.method === 'bank' && receiver.iban && (
-                        <div className="wallet-receiver-row">
-                          <div><small>IBAN</small></div>
-                          <div className="wallet-receiver-value">
-                            <code>{receiver.iban}</code>
-                            <button
-                              type="button"
-                              className="wallet-copy-button"
-                              title="Copy IBAN"
-                              aria-label="Copy IBAN"
-                              onClick={() => void copyPaymentValue(receiver.iban || '', 'IBAN')}
-                            >
-                              <Copy size={14} /> Copy
+                      <div className="wallet-funding-steps" aria-label="Add funds steps">
+                        <span><b>1</b> Choose amount</span>
+                        <span><b>2</b> Send payment</span>
+                        <span><b>3</b> Auto-verified</span>
+                      </div>
+                      <form onSubmit={addFunds}>
+                        <label>
+                          Amount (PKR)
+                          <input
+                            name="amount"
+                            type="number"
+                            min={100}
+                            max={1000000}
+                            step={1}
+                            value={depositAmount}
+                            onChange={(event) => setDepositAmount(event.target.value)}
+                            required
+                          />
+                        </label>
+                        <div className="wallet-amount-presets" aria-label="Suggested amounts">
+                          {[1000, 2500, 5000, 10000].map((amount) => (
+                            <button type="button" key={amount} className={depositAmount === String(amount) ? 'selected' : ''} onClick={() => setDepositAmount(String(amount))}>
+                              PKR {amount.toLocaleString()}
                             </button>
-                          </div>
+                          ))}
                         </div>
-                      )}
-                      {deposit.method === 'crypto' && (
-                        <p className="wallet-instructions-note">
-                          BEP20 only. Your deposit must arrive as{' '}
-                          {Number(deposit.payment_amount).toFixed(2)} USDT net.
-                          Confirm your sending platform&apos;s fee before
-                          transferring.
-                        </p>
-                      )}
-                      <p className="wallet-credit-note"><ShieldCheck size={15} /> Wallet credit: {money(deposit.amount)} · expires in 5 minutes</p>
-                    </div>
-                  )}
-                </section>
-                <section className="account-card">
-                  <h2>Deposit history</h2>
-                  {!data.deposits.length && <p>No deposits yet.</p>}
-                  {data.deposits.map((item) => (
-                    <div className="account-deposit" key={item.id}>
-                      <div className="account-deposit-heading">
-                        <div>
-                          <strong>{money(item.amount)}</strong>
-                          <small>
-                            {item.method} ·{' '}
-                            {new Date(item.created_at).toLocaleString()}
+                        <label>
+                          Payment method
+                          <select name="method" value={depositMethod} onChange={(event) => setDepositMethod(event.target.value)}>
+                            <option value="wallet">Wallet transfer</option>
+                            <option value="binance">Binance Pay</option>
+                            <option value="crypto">
+                              Crypto USDT · BEP20 · minimum USDT 6
+                            </option>
+                          </select>
+                          <small className="wallet-payment-method-note">
+                            {depositMethod === 'wallet'
+                              ? 'Transfer from any Easypaisa/JazzCash/SadaPay to our NayaPay account'
+                              : depositMethod === 'binance'
+                                ? 'Transfer through your Binance account'
+                                : 'Send USDT through the displayed BEP20 network'}
                           </small>
+                        </label>
+                        <button className="primary-button wallet-funding-submit" disabled={busy}>
+                          {busy ? 'Preparing instructions…' : 'Continue to payment'} <ArrowRight size={17} />
+                        </button>
+                      </form>
+                      <div className="wallet-auto-verify" role="status">
+                        <span className={`wallet-auto-verify-icon${checkingDeposits ? ' is-checking' : ''}`}><RefreshCw size={16} /></span>
+                        <div>
+                          <strong>{checkingDeposits ? 'Checking for your payment…' : 'Auto-verification is active'}</strong>
+                          <small>No reference or screenshot needed. We check every 5 seconds and update your balance automatically after a verified payment.</small>
                         </div>
-                        <span className={`account-deposit-status status-${item.status === 'pending' && Date.parse(item.expires_at) <= clock ? 'expired' : item.status}`}>
-                          {item.status === 'credited'
-                            ? 'Added to wallet'
-                            : item.status === 'review'
-                              ? 'Needs review'
-                              : item.status === 'cancelled'
-                                ? 'Request cancelled'
-                              : item.status === 'expired' || Date.parse(item.expires_at) <= clock
-                                ? 'Request expired'
-                                : 'Waiting for payment'}
-                        </span>
                       </div>
-                      {item.status === 'pending' && Date.parse(item.expires_at) > clock && (
-                        <p>
-                          Expires in {Math.floor((Date.parse(item.expires_at) - clock) / 60000)}:{String(Math.floor(((Date.parse(item.expires_at) - clock) % 60000) / 1000)).padStart(2, '0')}. A verified payment received before expiry will be credited automatically.
-                        </p>
-                      )}
-                      {(item.status === 'expired' || (item.status === 'pending' && Date.parse(item.expires_at) <= clock)) && (
-                        <p>This request expired after five minutes. Start a new top-up to get fresh payment instructions.</p>
-                      )}
-                      {item.status === 'review' && (
-                        <p>
-                          Please contact support and share the deposit date and
-                          amount so we can check it safely.
-                        </p>
-                      )}
-                      {['pending', 'review'].includes(item.status) && Date.parse(item.expires_at) > clock && (
-                        <div className="account-deposit-actions">
-                          <button className="account-deposit-cancel" disabled={busy} onClick={() => cancelDepositRequest(item.id)}>Cancel request</button>
+                      {deposit && receiver && (
+                        <div className="account-detail wallet-payment-instructions">
+                          <div className="wallet-instructions-heading">
+                            <div>
+                              <span className="wallet-funding-kicker">PAYMENT INSTRUCTIONS</span>
+                              <h3>Send the exact amount</h3>
+                            </div>
+                            <span className="account-deposit-status">Waiting</span>
+                          </div>
+                          <div className="wallet-transfer-amount">
+                            <strong>
+                              {deposit.method === 'crypto'
+                                ? (Number(deposit.payment_amount) + 0.01).toFixed(2)
+                                : Number(deposit.payment_amount).toFixed(
+                                    deposit.currency === 'USDT' ? 2 : 0,
+                                  )}
+                            </strong>
+                            <span>{deposit.currency}</span>
+                          </div>
+                          <div className="wallet-receiver-row">
+                            <div><small>{deposit.method === 'bank' ? 'Meezan Bank account' : deposit.method === 'wallet' ? 'NayaPay account' : 'Send to'}</small><strong>{receiver.title}</strong></div>
+                            <div className="wallet-receiver-value">
+                              <code>{receiver.number}</code>
+                              <button
+                                type="button"
+                                className="wallet-copy-button"
+                                title="Copy account number"
+                                aria-label="Copy account number"
+                                onClick={() => void copyPaymentValue(receiver.number, 'Account number')}
+                              >
+                                <Copy size={14} /> Copy
+                              </button>
+                            </div>
+                          </div>
+                          {deposit.method === 'bank' && receiver.iban && (
+                            <div className="wallet-receiver-row">
+                              <div><small>IBAN</small></div>
+                              <div className="wallet-receiver-value">
+                                <code>{receiver.iban}</code>
+                                <button
+                                  type="button"
+                                  className="wallet-copy-button"
+                                  title="Copy IBAN"
+                                  aria-label="Copy IBAN"
+                                  onClick={() => void copyPaymentValue(receiver.iban || '', 'IBAN')}
+                                >
+                                  <Copy size={14} /> Copy
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                          {deposit.method === 'crypto' && (
+                            <p className="wallet-instructions-note">
+                              BEP20 only. Your deposit must arrive as{' '}
+                              {Number(deposit.payment_amount).toFixed(2)} USDT net.
+                              Confirm your sending platform&apos;s fee before
+                              transferring.
+                            </p>
+                          )}
+                          <p className="wallet-credit-note"><ShieldCheck size={15} /> Wallet credit: {money(deposit.amount)} · expires in 5 minutes</p>
                         </div>
                       )}
-                    </div>
-                  ))}
-                </section>
+                    </section>
+                    <section className="account-card">
+                      <h2>Deposit history</h2>
+                      {!data.deposits.length && <p>No deposits yet.</p>}
+                      {data.deposits.map((item) => (
+                        <div className="account-deposit" key={item.id}>
+                          <div className="account-deposit-heading">
+                            <div>
+                              <strong>{money(item.amount)}</strong>
+                              <small>
+                                {item.method} ·{' '}
+                                {new Date(item.created_at).toLocaleString()}
+                              </small>
+                            </div>
+                            <span className={`account-deposit-status status-${item.status === 'pending' && Date.parse(item.expires_at) <= clock ? 'expired' : item.status}`}>
+                              {item.status === 'credited'
+                                ? 'Added to wallet'
+                                : item.status === 'review'
+                                  ? 'Needs review'
+                                  : item.status === 'cancelled'
+                                    ? 'Request cancelled'
+                                  : item.status === 'expired' || Date.parse(item.expires_at) <= clock
+                                    ? 'Request expired'
+                                    : 'Waiting for payment'}
+                            </span>
+                          </div>
+                          {item.status === 'pending' && Date.parse(item.expires_at) > clock && (
+                            <p>
+                              Expires in {Math.floor((Date.parse(item.expires_at) - clock) / 60000)}:{String(Math.floor(((Date.parse(item.expires_at) - clock) % 60000) / 1000)).padStart(2, '0')}. A verified payment received before expiry will be credited automatically.
+                            </p>
+                          )}
+                          {(item.status === 'expired' || (item.status === 'pending' && Date.parse(item.expires_at) <= clock)) && (
+                            <p>This request expired after five minutes. Start a new top-up to get fresh payment instructions.</p>
+                          )}
+                          {item.status === 'review' && (
+                            <p>
+                              Please contact support and share the deposit date and
+                              amount so we can check it safely.
+                            </p>
+                          )}
+                          {['pending', 'review'].includes(item.status) && Date.parse(item.expires_at) > clock && (
+                            <div className="account-deposit-actions">
+                              <button className="account-deposit-cancel" disabled={busy} onClick={() => cancelDepositRequest(item.id)}>Cancel request</button>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </section>
+                  </>
+                ) : (
+                  <>
+                    <section className="account-card wallet-funding-card wallet-withdraw-card">
+                      <div className="wallet-funding-header">
+                        <div>
+                          <span className="wallet-funding-kicker"><ArrowUpRight size={15} /> WITHDRAW BALANCE</span>
+                          <h2>Withdraw Funds</h2>
+                          <p>Withdraw your balance directly to your Easypaisa, JazzCash, SadaPay, NayaPay or Bank account.</p>
+                        </div>
+                        <div className="wallet-balance-pill">
+                          <small>Available to withdraw</small>
+                          <strong>{money(data.account.balance)}</strong>
+                        </div>
+                      </div>
+
+                      {withdrawNotice && (
+                        <div className="account-notice" style={{ margin: '14px 0', display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <CheckCircle2 size={16} /> {withdrawNotice}
+                        </div>
+                      )}
+                      {withdrawError && (
+                        <div className="account-error" style={{ margin: '14px 0', display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <AlertCircle size={16} /> {withdrawError}
+                        </div>
+                      )}
+
+                      {data.account.balance < 50 ? (
+                        <div style={{ marginTop: 16, padding: '14px 16px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 12, color: '#475569', fontSize: 13 }}>
+                          <strong>Minimum withdrawal amount is PKR 50.</strong>
+                          <p style={{ margin: '6px 0 0', color: '#64748b', fontSize: 12 }}>
+                            Your current wallet balance is {money(data.account.balance)}. Tip: Leave a review with proof on any product you purchased to earn Rs. 50 bonus instantly!
+                          </p>
+                        </div>
+                      ) : (
+                        <form onSubmit={requestWithdrawal} style={{ marginTop: 14 }}>
+                          <label>
+                            Amount to Withdraw (PKR)
+                            <input
+                              name="withdrawAmount"
+                              type="number"
+                              min={50}
+                              max={data.account.balance}
+                              step={1}
+                              value={withdrawAmount}
+                              onChange={(event) => setWithdrawAmount(event.target.value)}
+                              required
+                            />
+                          </label>
+
+                          <div className="wallet-amount-presets" aria-label="Suggested withdrawal amounts">
+                            {[50, 100, 200, 500].filter((amt) => amt <= data.account.balance).map((amt) => (
+                              <button
+                                type="button"
+                                key={amt}
+                                className={withdrawAmount === String(amt) ? 'selected' : ''}
+                                onClick={() => setWithdrawAmount(String(amt))}
+                              >
+                                PKR {amt.toLocaleString()}
+                              </button>
+                            ))}
+                            {data.account.balance >= 50 && (
+                              <button
+                                type="button"
+                                className={withdrawAmount === String(data.account.balance) ? 'selected' : ''}
+                                onClick={() => setWithdrawAmount(String(data.account.balance))}
+                              >
+                                All ({money(data.account.balance)})
+                              </button>
+                            )}
+                          </div>
+
+                          <label>
+                            Payout Method / Bank
+                            <select
+                              name="withdrawMethod"
+                              value={withdrawMethod}
+                              onChange={(e) => setWithdrawMethod(e.target.value)}
+                            >
+                              <option value="easypaisa">Easypaisa</option>
+                              <option value="jazzcash">JazzCash</option>
+                              <option value="sadapay">SadaPay</option>
+                              <option value="nayapay">NayaPay</option>
+                              <option value="bank">Bank Transfer (Any Pakistani Bank)</option>
+                            </select>
+                          </label>
+
+                          <label>
+                            Account Title (Account Holder Name)
+                            <input
+                              name="withdrawAccountTitle"
+                              type="text"
+                              placeholder="e.g. Muhammad Ali"
+                              value={withdrawAccountTitle}
+                              onChange={(e) => setWithdrawAccountTitle(e.target.value)}
+                              required
+                            />
+                            <small className="wallet-payment-method-note">
+                              Must match the name registered on your receiving account.
+                            </small>
+                          </label>
+
+                          <label>
+                            Account Number / IBAN
+                            <input
+                              name="withdrawAccountNumber"
+                              type="text"
+                              placeholder={withdrawMethod === 'bank' ? 'e.g. PK36MEZN000...' : 'e.g. 03451234567'}
+                              value={withdrawAccountNumber}
+                              onChange={(e) => setWithdrawAccountNumber(e.target.value)}
+                              required
+                            />
+                          </label>
+
+                          <label>
+                            Optional Bank Name or Notes
+                            <input
+                              name="withdrawNotes"
+                              type="text"
+                              placeholder="e.g. Meezan Bank, HBL, etc."
+                              value={withdrawNotes}
+                              onChange={(e) => setWithdrawNotes(e.target.value)}
+                            />
+                          </label>
+
+                          <button
+                            className="primary-button wallet-funding-submit"
+                            disabled={busy || withdrawSubmitting || data.account.balance < 50}
+                          >
+                            {withdrawSubmitting ? 'Submitting request…' : `Request Withdrawal (${money(Number(withdrawAmount) || 0)})`}
+                            <ArrowRight size={17} />
+                          </button>
+                        </form>
+                      )}
+                    </section>
+
+                    <section className="account-card">
+                      <h2>Withdrawal history</h2>
+                      {!(data.withdrawals || []).length && (
+                        <p>No withdrawal requests yet.</p>
+                      )}
+                      {(data.withdrawals || []).map((item) => (
+                        <div className="account-deposit" key={item.id}>
+                          <div className="account-deposit-heading">
+                            <div>
+                              <strong>{money(item.amount)}</strong>
+                              <small>
+                                {item.payout_method} · {item.account_number} ({item.account_title}) ·{' '}
+                                {new Date(item.created_at).toLocaleString()}
+                              </small>
+                            </div>
+                            <span className={`account-deposit-status status-${item.status}`}>
+                              {item.status === 'completed'
+                                ? '✓ Successfully withdrawn'
+                                : item.status === 'rejected'
+                                  ? '✕ Rejected & refunded'
+                                  : '⏳ Pending payout'}
+                            </span>
+                          </div>
+                          {item.admin_note && (
+                            <p style={{ fontSize: 12, marginTop: 6, color: '#475569' }}>
+                              <strong>Note from Sasify:</strong> {item.admin_note}
+                            </p>
+                          )}
+                          {item.status === 'pending' && (
+                            <p style={{ fontSize: 12, marginTop: 4, color: '#b45309' }}>
+                              Our admin will manually process the payout to your account details.
+                            </p>
+                          )}
+                        </div>
+                      ))}
+                    </section>
+                  </>
+                )}
                 <section className="account-card">
                   <h2>Wallet activity</h2>
                   {!data.ledger.length && (

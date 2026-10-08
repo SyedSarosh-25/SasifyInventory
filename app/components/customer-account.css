@@ -1720,3 +1720,49 @@
   .wallet-receiver-value { width: 100%; justify-content: space-between; }
   .wallet-receiver-value code { width: auto; flex: 1 1 auto; }
 }
+
+/* Wallet Subview Switcher & Withdraw Card */
+.wallet-subview-nav {
+  grid-column: 1 / -1;
+  display: inline-flex;
+  gap: 8px;
+  padding: 4px;
+  border-radius: 12px;
+  background: #eef2f9;
+  width: fit-content;
+  margin-bottom: 8px;
+}
+.wallet-subview-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 16px;
+  border: none;
+  border-radius: 9px;
+  background: transparent;
+  color: #55657d;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.wallet-subview-btn:hover {
+  color: #1e293b;
+}
+.wallet-subview-btn.active {
+  background: #ffffff;
+  color: #2563eb;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
+}
+.wallet-withdraw-card {
+  background: radial-gradient(circle at 100% 0%, #e0f2fe 0, #e0f2fe 180px, transparent 181px), linear-gradient(145deg, #ffffff 0%, #f8fafc 100%);
+  border-color: #cbd5e1;
+}
+.account-deposit-status.status-completed {
+  background: #dcfce7;
+  color: #15803d;
+}
+.account-deposit-status.status-rejected {
+  background: #fee2e2;
+  color: #b91c1c;
+}

@@ -2333,6 +2333,45 @@ async function creditProductReviewWalletReward(db, reviewId, customEmail = null)
   );
   return { ok: true, credited: true, amount: rewardAmount, accountEmail: account.email };
 }
+let walletWithdrawalSchemaReady;
+async function ensureWalletWithdrawalSchema(db) {
+  if (!walletWithdrawalSchemaReady) {
+    walletWithdrawalSchemaReady = (async () => {
+      await db.query(`CREATE TABLE IF NOT EXISTS commerce_wallet_withdrawals (
+        id uuid PRIMARY KEY,
+        account_id uuid NOT NULL REFERENCES commerce_accounts(id) ON DELETE CASCADE,
+        amount integer NOT NULL CHECK(amount > 0),
+        payout_method text NOT NULL,
+        account_number text NOT NULL,
+        account_title text NOT NULL,
+        notes text,
+        status text NOT NULL DEFAULT 'pending' CHECK(status IN ('pending', 'completed', 'rejected')),
+        admin_note text,
+        created_at timestamptz NOT NULL DEFAULT now(),
+        completed_at timestamptz,
+        rejected_at timestamptz
+      )`);
+      await db.query(
+        'CREATE INDEX IF NOT EXISTS commerce_wallet_withdrawals_status ON commerce_wallet_withdrawals(status, created_at DESC)',
+      );
+      await db.query(
+        'CREATE INDEX IF NOT EXISTS commerce_wallet_withdrawals_account ON commerce_wallet_withdrawals(account_id, created_at DESC)',
+      );
+      const hasLedger = await db.query(
+        "SELECT 1 FROM information_schema.tables WHERE table_name = 'commerce_wallet_ledger'",
+      );
+      if (hasLedger.rowCount > 0) {
+        await db.query(
+          'ALTER TABLE commerce_wallet_ledger ADD COLUMN IF NOT EXISTS withdrawal_id uuid UNIQUE',
+        );
+      }
+    })().catch((error) => {
+      walletWithdrawalSchemaReady = null;
+      throw error;
+    });
+  }
+  await walletWithdrawalSchemaReady;
+}
 let inventoryVariantMigrationReady;
 async function ensureInventoryVariants(db) {
   if (!inventoryVariantMigrationReady) {
@@ -4846,6 +4885,7 @@ export function createHandler(
         output = await applyForReseller(db, customerAccount);
       } else if (action === 'account-dashboard') {
         const account = requireAccount(customerAccount);
+        await ensureWalletWithdrawalSchema(db);
         await syncWalletDeposits(db, account);
         const wallet = (
           await db.query('SELECT balance FROM commerce_accounts WHERE id=$1', [
@@ -4911,6 +4951,14 @@ export function createHandler(
             ...item,
             status: display_status,
           })),
+          withdrawals: (
+            await db.query(
+              `SELECT id, amount, payout_method, account_number, account_title, notes, status, admin_note, created_at, completed_at, rejected_at
+               FROM commerce_wallet_withdrawals WHERE account_id=$1
+               ORDER BY created_at DESC LIMIT 50`,
+              [account.id],
+            )
+          ).rows,
         };
         if (account.role === 'reseller' && account.reseller_status === 'approved') {
           const requirements = (await db.query(
@@ -5200,6 +5248,97 @@ export function createHandler(
             };
           }
         }
+      } else if (action === 'account-wallet-withdraw') {
+        const account = requireAccount(customerAccount);
+        await ensureWalletWithdrawalSchema(db);
+        const amount = Number(body.amount);
+        const payoutMethod = String(body.payoutMethod || body.payout_method || '').trim();
+        const accountNumber = String(body.accountNumber || body.account_number || '').trim();
+        const accountTitle = String(body.accountTitle || body.account_title || '').trim();
+        const notes = String(body.notes || '').trim().slice(0, 500);
+
+        if (!Number.isSafeInteger(amount) || amount < 50 || amount > 1000000) {
+          throw fail(400, 'Withdrawal amount must be at least PKR 50.');
+        }
+        if (!payoutMethod || payoutMethod.length > 60) {
+          throw fail(400, 'Please select a valid payment method / bank.');
+        }
+        if (!accountNumber || accountNumber.length < 3 || accountNumber.length > 64) {
+          throw fail(400, 'Please provide a valid account or mobile number / IBAN.');
+        }
+        if (!accountTitle || accountTitle.length < 2 || accountTitle.length > 100) {
+          throw fail(400, 'Please provide the account holder title.');
+        }
+
+        await db.query('SELECT pg_advisory_xact_lock(hashtext($1))', [
+          `wallet-withdraw:${account.id}`,
+        ]);
+
+        const freshAccount = (
+          await db.query(
+            'SELECT id, balance, email, name FROM commerce_accounts WHERE id=$1 FOR UPDATE',
+            [account.id],
+          )
+        ).rows[0];
+
+        if (!freshAccount || Number(freshAccount.balance) < amount) {
+          throw fail(
+            400,
+            `Insufficient wallet balance. You have PKR ${Number(freshAccount?.balance || 0).toLocaleString()} available.`,
+          );
+        }
+
+        const updatedAcc = (
+          await db.query(
+            'UPDATE commerce_accounts SET balance = balance - $1 WHERE id=$2 RETURNING balance',
+            [amount, account.id],
+          )
+        ).rows[0];
+
+        const withdrawalId = randomUUID();
+        const insertedWithdrawal = (
+          await db.query(
+            `INSERT INTO commerce_wallet_withdrawals
+             (id, account_id, amount, payout_method, account_number, account_title, notes, status)
+             VALUES($1, $2, $3, $4, $5, $6, $7, 'pending')
+             RETURNING *`,
+            [withdrawalId, account.id, amount, payoutMethod, accountNumber, accountTitle, notes || null],
+          )
+        ).rows[0];
+
+        await db.query(
+          `INSERT INTO commerce_wallet_ledger(id, account_id, amount, description, withdrawal_id)
+           VALUES($1, $2, $3, $4, $5)`,
+          [
+            randomUUID(),
+            account.id,
+            -amount,
+            `Withdrawal request: PKR ${amount.toLocaleString()} via ${payoutMethod} (${accountNumber})`,
+            withdrawalId,
+          ],
+        );
+
+        await db.query(
+          "INSERT INTO commerce_audit(action,object_id,details) VALUES('wallet_withdrawal_request',$1,$2::jsonb)",
+          [
+            withdrawalId,
+            JSON.stringify({
+              accountId: account.id,
+              amount,
+              payoutMethod,
+              accountNumber,
+              accountTitle,
+              newBalance: updatedAcc.balance,
+            }),
+          ],
+        );
+
+        output = {
+          ok: true,
+          withdrawal: insertedWithdrawal,
+          balance: Number(updatedAcc.balance),
+          message: 'Withdrawal request submitted successfully. Admin will process your transfer.',
+        };
       } else if (action === 'admin-login') {
         const email = String(body.email || '')
           .trim()
@@ -7470,7 +7609,11 @@ export function createHandler(
         const ledger = (await db.query(
           `SELECT id,amount,description,order_id,deposit_id,created_at FROM commerce_wallet_ledger
            WHERE account_id=$1 ORDER BY created_at DESC LIMIT 100`, [accountId])).rows;
-        output = { account, orders, deposits, ledger };
+        await ensureWalletWithdrawalSchema(db);
+        const withdrawals = (await db.query(
+          `SELECT id,amount,payout_method,account_number,account_title,notes,status,admin_note,created_at,completed_at,rejected_at
+           FROM commerce_wallet_withdrawals WHERE account_id=$1 ORDER BY created_at DESC LIMIT 50`, [accountId])).rows;
+        output = { account, orders, deposits, ledger, withdrawals };
       } else if (action === 'admin-wallet-adjust') {
         const accountId = String(body.accountId || '');
         const amount = Number(body.amount);
@@ -7490,6 +7633,88 @@ export function createHandler(
           ['wallet_adjustment', accountId, JSON.stringify({ amount, note })],
         );
         output = { ok: true, balance: changed.balance };
+      } else if (action === 'admin-wallet-withdrawal-complete') {
+        await ensureWalletWithdrawalSchema(db);
+        const withdrawalId = String(body.id || body.withdrawalId || '').trim();
+        const adminNote = body.adminNote ? String(body.adminNote).trim().slice(0, 500) : null;
+        if (!withdrawalId) throw fail(400, 'Withdrawal ID is required.');
+
+        const updated = (
+          await db.query(
+            `UPDATE commerce_wallet_withdrawals
+             SET status = 'completed', completed_at = now(),
+                 admin_note = COALESCE($1, admin_note)
+             WHERE id = $2 AND status = 'pending'
+             RETURNING *`,
+            [adminNote, withdrawalId],
+          )
+        ).rows[0];
+
+        if (!updated) {
+          throw fail(400, 'Withdrawal request not found or not in pending status.');
+        }
+
+        await db.query(
+          "INSERT INTO commerce_audit(action,object_id,details) VALUES('wallet_withdrawal_completed',$1,$2::jsonb)",
+          [withdrawalId, JSON.stringify({ adminNote, amount: updated.amount, accountId: updated.account_id })],
+        );
+
+        output = { ok: true, withdrawal: updated };
+      } else if (action === 'admin-wallet-withdrawal-reject') {
+        await ensureWalletWithdrawalSchema(db);
+        const withdrawalId = String(body.id || body.withdrawalId || '').trim();
+        const adminNote = String(body.adminNote || body.reason || 'Rejected by admin').trim().slice(0, 500);
+        if (!withdrawalId) throw fail(400, 'Withdrawal ID is required.');
+
+        await db.query('SELECT pg_advisory_xact_lock(hashtext($1))', [
+          `wallet-withdraw-action:${withdrawalId}`,
+        ]);
+
+        const existing = (
+          await db.query(
+            'SELECT * FROM commerce_wallet_withdrawals WHERE id = $1 FOR UPDATE',
+            [withdrawalId],
+          )
+        ).rows[0];
+
+        if (!existing) throw fail(404, 'Withdrawal request not found.');
+        if (existing.status !== 'pending') {
+          throw fail(400, `Withdrawal request is already ${existing.status}.`);
+        }
+
+        const updated = (
+          await db.query(
+            `UPDATE commerce_wallet_withdrawals
+             SET status = 'rejected', rejected_at = now(), admin_note = $1
+             WHERE id = $2 RETURNING *`,
+            [adminNote, withdrawalId],
+          )
+        ).rows[0];
+
+        // Refund balance to customer
+        await db.query(
+          'UPDATE commerce_accounts SET balance = balance + $1 WHERE id = $2',
+          [existing.amount, existing.account_id],
+        );
+
+        // Record refund reversal in ledger
+        await db.query(
+          `INSERT INTO commerce_wallet_ledger(id, account_id, amount, description)
+           VALUES($1, $2, $3, $4)`,
+          [
+            randomUUID(),
+            existing.account_id,
+            existing.amount,
+            `Refund for rejected withdrawal (${existing.payout_method}: ${existing.account_number}) - ${adminNote}`,
+          ],
+        );
+
+        await db.query(
+          "INSERT INTO commerce_audit(action,object_id,details) VALUES('wallet_withdrawal_rejected',$1,$2::jsonb)",
+          [withdrawalId, JSON.stringify({ reason: adminNote, amount: existing.amount, accountId: existing.account_id })],
+        );
+
+        output = { ok: true, withdrawal: updated };
       } else if (action === 'admin-support-update') {
         const ticketId = String(body.ticketId || '');
         const status = String(body.status || '').trim();
@@ -7592,6 +7817,7 @@ export function createHandler(
         output = { ok: true };
       } else if (action === 'admin-list') {
         await ensureProductReviewSchema(db);
+        await ensureWalletWithdrawalSchema(db);
         const adminSettings = Object.fromEntries(
           (await db.query('SELECT key,value FROM commerce_admin_settings ORDER BY key')).rows.map((row) => [row.key, row.value]),
         );
@@ -7806,6 +8032,18 @@ export function createHandler(
           productReviews: (
             await db.query(
               'SELECT id,product_id,product_name,customer_name,rating,review_text,screenshots,customer_email,order_id,is_verified_buyer,status,wallet_reward_amount,wallet_reward_credited,wallet_reward_account_id,created_at,reviewed_at FROM commerce_product_reviews ORDER BY created_at DESC LIMIT 300',
+            )
+          ).rows,
+          walletWithdrawals: (
+            await db.query(
+              `SELECT w.id, w.account_id, w.amount, w.payout_method, w.account_number, w.account_title,
+                      w.notes, w.status, w.admin_note, w.created_at, w.completed_at, w.rejected_at,
+                      a.name AS customer_name, a.email AS customer_email, a.balance AS customer_balance
+               FROM commerce_wallet_withdrawals w
+               INNER JOIN commerce_accounts a ON a.id = w.account_id
+               ORDER BY CASE w.status WHEN 'pending' THEN 0 WHEN 'completed' THEN 1 ELSE 2 END,
+                        w.created_at DESC
+               LIMIT 300`,
             )
           ).rows,
           resellerRequirements,
