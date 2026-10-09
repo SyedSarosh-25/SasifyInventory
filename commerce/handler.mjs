@@ -6230,9 +6230,11 @@ export function createHandler(
         const pricePkr = calculateRetailPricePkr(costUsd, usdRate);
 
         let supplierMaxPriceUsd;
-        if (pricePkr <= 100) {
+        if (pricePkr <= 99) {
           supplierMaxPriceUsd = 0.10;
-        } else if (pricePkr <= 250) {
+        } else if (pricePkr <= 150) {
+          supplierMaxPriceUsd = 0.28;
+        } else if (pricePkr <= 200) {
           supplierMaxPriceUsd = 0.50;
         } else {
           supplierMaxPriceUsd = Number((costUsd * 1.15).toFixed(4));

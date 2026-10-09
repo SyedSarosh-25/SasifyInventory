@@ -18,7 +18,7 @@ import { siteOrigin } from '../site-config';
 
 const title = 'Virtual Phone Numbers in Pakistan · WhatsApp & Telegram OTP | Sasify';
 const description =
-  'Buy disposable virtual numbers in Pakistan for WhatsApp, Telegram, ChatGPT & Google SMS OTP. Instant code delivery & auto-refund guarantee from Rs 100.';
+  'Buy disposable virtual numbers in Pakistan for WhatsApp, Telegram, ChatGPT & Google SMS OTP. Instant code delivery & auto-refund guarantee from Rs 99.';
 const path = '/virtual-numbers';
 const shareCardImage = `${siteOrigin}/virtual-numbers-og.png`;
 
@@ -71,7 +71,7 @@ const questions = [
   {
     question: 'How much do virtual numbers cost in Pakistan?',
     answer:
-      'Prices start from as low as Rs 100 PKR for lightweight apps and Rs 250 PKR for standard platforms like WhatsApp, Telegram, ChatGPT, and Claude. Dedicated premium lines are calculated dynamically in PKR. The exact price is always shown clearly before you activate the number.',
+      'Prices start from as low as Rs 99 PKR for lightweight apps, Rs 150 PKR for WhatsApp and standard platforms, and Rs 200 PKR for premium lines. Dedicated high-tier routes are calculated with a competitive 50% margin. The exact price is always shown clearly before you activate the number.',
   },
   {
     question: 'How do I pay for virtual numbers in Pakistan?',
@@ -111,8 +111,8 @@ const productStructuredData = {
   offers: {
     '@type': 'AggregateOffer',
     priceCurrency: 'PKR',
-    lowPrice: '100',
-    highPrice: '250',
+    lowPrice: '99',
+    highPrice: '200',
     offerCount: '100+',
     availability: 'https://schema.org/InStock',
     seller: {

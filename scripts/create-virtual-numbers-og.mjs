@@ -49,7 +49,7 @@ export function virtualNumbersShareSvg(logoUri = logoDataUri) {
   <!-- 4 Feature Badges in 2x2 grid -->
   <g transform="translate(64, 396)">
     <rect x="0" y="0" width="310" height="52" rx="12" fill="#ffffff" stroke="#d1fae5" stroke-width="1.5"/>
-    <text x="18" y="33" fill="#065f46" font-family="Arial, sans-serif" font-size="16" font-weight="700">💰 Flat Rates from Rs 100 PKR</text>
+    <text x="18" y="33" fill="#065f46" font-family="Arial, sans-serif" font-size="16" font-weight="700">💰 Flat Rates from Rs 99 PKR</text>
 
     <rect x="326" y="0" width="320" height="52" rx="12" fill="#ffffff" stroke="#d1fae5" stroke-width="1.5"/>
     <text x="344" y="33" fill="#065f46" font-family="Arial, sans-serif" font-size="16" font-weight="700">🛡️ 100% Auto-Refund Guarantee</text>

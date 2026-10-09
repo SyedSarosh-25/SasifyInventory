@@ -14,18 +14,21 @@ import {
 } from '../commerce/smscode.mjs';
 
 test('calculateRetailPricePkr calculates margin and minimum price correctly', () => {
-  // Below $0.10: Fixed 100 PKR
-  assert.equal(calculateRetailPricePkr(0.05, 285), 100);
-  assert.equal(calculateRetailPricePkr(0.09, 285), 100);
-  // From $0.10 up to $0.50: Fixed 250 PKR
-  assert.equal(calculateRetailPricePkr(0.10, 285), 250);
-  assert.equal(calculateRetailPricePkr(0.35, 285), 250);
-  assert.equal(calculateRetailPricePkr(0.50, 285), 250);
-  // Above $0.50: 100% margin (2x cost * rate)
-  // $0.60 * 2 * 285 = 342 -> rounds to 350 PKR
-  assert.equal(calculateRetailPricePkr(0.60, 285), 350);
-  // $1.00 * 2 * 285 = 570 PKR
-  assert.equal(calculateRetailPricePkr(1.00, 285), 570);
+  // 1st slab (Below $0.10): Fixed 99 PKR
+  assert.equal(calculateRetailPricePkr(0.05, 285), 99);
+  assert.equal(calculateRetailPricePkr(0.09, 285), 99);
+  // 2nd slab (From $0.10 up to $0.28): Fixed 150 PKR
+  assert.equal(calculateRetailPricePkr(0.10, 285), 150);
+  assert.equal(calculateRetailPricePkr(0.20, 285), 150);
+  assert.equal(calculateRetailPricePkr(0.28, 285), 150);
+  // 3rd slab (From $0.28 up to $0.50): Fixed 200 PKR
+  assert.equal(calculateRetailPricePkr(0.35, 285), 200);
+  assert.equal(calculateRetailPricePkr(0.50, 285), 200);
+  // 4th slab (Above $0.50): 50% margin (1.5x cost * rate)
+  // $0.60 * 1.5 * 285 = 256.5 -> rounds to 260 PKR
+  assert.equal(calculateRetailPricePkr(0.60, 285), 260);
+  // $1.00 * 1.5 * 285 = 427.5 -> rounds to 430 PKR
+  assert.equal(calculateRetailPricePkr(1.00, 285), 430);
 });
 
 test('smscode catalog returns rich fallback when unconfigured', async () => {
@@ -151,12 +154,12 @@ test('virtual numbers API: catalog, wallet rent, live status, and cancel refund'
     assert.ok(rentRes.orderId);
     assert.ok(rentRes.phoneNumber);
     assert.equal(rentRes.status, 'ACTIVE');
-    assert.equal(rentRes.pricePkr, 250);
-    assert.equal(rentRes.balance, 250); // 500 - 250 = 250
+    assert.equal(rentRes.pricePkr, 200);
+    assert.equal(rentRes.balance, 300); // 500 - 200 = 300
 
     // Verify wallet debit in database
     const walletCheck = (await database.query('SELECT balance FROM commerce_accounts WHERE id=$1', [accountId])).rows[0];
-    assert.equal(Number(walletCheck.balance), 250);
+    assert.equal(Number(walletCheck.balance), 300);
 
     // 4. Poll status
     const statusRes = await request('virtual-number-status', { id: rentRes.orderId }, cookie);
@@ -174,8 +177,8 @@ test('virtual numbers API: catalog, wallet rent, live status, and cancel refund'
     const cancelRes = await request('virtual-number-cancel', { id: rentRes.orderId }, cookie);
     assert.equal(cancelRes.ok, true);
     assert.equal(cancelRes.status, 'CANCELLED');
-    assert.equal(cancelRes.refundedAmount, 250);
-    assert.equal(cancelRes.newBalance, 500); // 250 + 250 = 500 restored!
+    assert.equal(cancelRes.refundedAmount, 200);
+    assert.equal(cancelRes.newBalance, 500); // 300 + 200 = 500 restored!
 
     // Verify wallet refunded in database
     const restoredWallet = (await database.query('SELECT balance FROM commerce_accounts WHERE id=$1', [accountId])).rows[0];
