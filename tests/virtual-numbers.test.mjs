@@ -72,10 +72,11 @@ test('virtual numbers API: catalog, wallet rent, live status, and cancel refund'
     }),
   }));
 
-  async function request(action, body, cookie = '') {
+  async function request(action, body, cookie = '', token = '') {
     let result;
     const headers = {};
     if (cookie) headers.cookie = cookie;
+    if (token) headers.authorization = `Bearer ${token}`;
     await handler(
       {
         method: body ? 'POST' : 'GET',
@@ -176,6 +177,15 @@ test('virtual numbers API: catalog, wallet rent, live status, and cancel refund'
     // Double cancel should fail
     const doubleCancel = await request('virtual-number-cancel', { id: rentRes.orderId }, cookie);
     assert.ok(doubleCancel.error);
+
+    // 7. Verify admin-list includes virtual numbers
+    const adminRes = await request('admin-list', null, '', adminKey);
+    assert.ok(adminRes.virtualNumbers || adminRes.data?.virtualNumbers);
+    const vnList = adminRes.virtualNumbers || adminRes.data?.virtualNumbers;
+    assert.equal(vnList.length, 1);
+    assert.equal(vnList[0].service_name, 'WhatsApp');
+    assert.equal(vnList[0].customer_email, 'buyer@sasify.test');
+    assert.equal(vnList[0].status, 'CANCELLED');
   } finally {
     process.env = previous;
   }

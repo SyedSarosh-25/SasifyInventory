@@ -28,6 +28,7 @@ import {
   AdminSupport,
   AdminTransactionHistory,
   AdminUserDetail,
+  AdminVirtualNumbers,
 } from './admin-enhancements';
 import { supplierOfferDecision } from './admin-catalog-status-model';
 import { isApiProduct } from '../product-visibility';
@@ -1546,6 +1547,7 @@ export function CommerceAdmin() {
       | 'settings'
       | 'transactions'
       | 'emailCampaign'
+      | 'virtualNumbers'
     >('overview'),
     [inventorySearch, setInventorySearch] = useState(''),
     [supplierSearch, setSupplierSearch] = useState(''),
@@ -2797,6 +2799,7 @@ export function CommerceAdmin() {
       {tab === 'products' && <AdminProducts products={data.supplierProducts || []} api={api} token={key} busy={busy} onRefresh={refresh} />}
       {tab === 'support' && <AdminSupport tickets={data.supportTickets || []} api={api} token={key} busy={busy} onRefresh={refresh} />}
       {tab === 'whatsappBot' && <AdminWhatsAppBot />}
+      {tab === 'virtualNumbers' && <AdminVirtualNumbers virtualNumbers={data?.virtualNumbers || []} />}
       {tab === 'auditLogs' && <AdminAuditLogs logs={data.auditLogs || []} />}
       {tab === 'settings' && <AdminSettings settings={data.adminSettings || {}} api={api} token={key} busy={busy} onRefresh={refresh} />}
       {tab === 'transactions' && <AdminTransactionHistory payments={data.payments || []} orders={data.orders || []} />}

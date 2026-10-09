@@ -133,3 +133,142 @@ export function AdminTransactionHistory({ payments, orders }: { payments: any[];
     <div className="commerce-table admin-history-table mobile-records"><table><thead><tr><th>Transaction</th><th>Payer</th><th>Amount</th><th>Receiver</th><th>Order / state</th><th>Received</th></tr></thead><tbody>{rows.length ? rows.map((payment) => { const order = orderMap.get(payment.order_id); return <tr key={payment.id}><td data-label="Transaction"><strong>{payment.transaction_id || payment.id}</strong><small>{payment.currency || 'PKR'} · {payment.verified ? 'Verified' : payment.verification_reason || 'Pending review'}</small></td><td data-label="Payer">{payment.payer_name || 'Unknown'}<small>{payment.subject || '—'}</small></td><td data-label="Amount"><strong>PKR {Number(payment.amount || payment.payment_amount || 0).toLocaleString('en-PK')}</strong></td><td data-label="Receiver">{payment.receiver_id || '—'}</td><td data-label="Order / state">{order ? <><strong>{order.id}</strong><small>{order.status}</small></> : <><strong>{payment.order_id || 'Unlinked'}</strong><small>Payment record</small></>}</td><td data-label="Received">{payment.received_at || payment.created_at ? new Date(payment.received_at || payment.created_at).toLocaleString() : '—'}</td></tr>; }) : <tr><td colSpan={6}><div className="admin-empty-state"><h3>No transactions match</h3><p>Try a different search or filter.</p></div></td></tr>}</tbody></table></div>
   </section>;
 }
+
+export function AdminVirtualNumbers({ virtualNumbers }: { virtualNumbers: any[] }) {
+  const [query, setQuery] = useState('');
+  const [filter, setFilter] = useState('all');
+
+  const rows = (virtualNumbers || []).filter((item) => {
+    const haystack = [item.customer_email, item.phone_number, item.service_name, item.country_name, item.otp_code, item.status]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase();
+    const matchesQuery = !query.trim() || haystack.includes(query.trim().toLowerCase());
+    const matchesFilter = filter === 'all' || item.status?.toLowerCase() === filter.toLowerCase();
+    return matchesQuery && matchesFilter;
+  });
+
+  const totalRented = (virtualNumbers || []).length;
+  const receivedCodes = (virtualNumbers || []).filter((v) => v.status === 'RECEIVED' || v.status === 'COMPLETED').length;
+  const totalRevenue = (virtualNumbers || []).reduce((sum, v) => sum + (v.status !== 'CANCELLED' ? Number(v.price_pkr || 0) : 0), 0);
+  const totalProfit = (virtualNumbers || []).reduce((sum, v) => sum + (v.status !== 'CANCELLED' ? Number(v.profit_pkr || 0) : 0), 0);
+
+  return (
+    <section className={card}>
+      <div className="admin-enhancement-heading">
+        <div>
+          <span className="admin-eyebrow">Virtual Numbers & SMS OTP</span>
+          <h2>Virtual Phone Numbers</h2>
+          <p>Real-time records of all rented temporary numbers, incoming verification SMS codes, wholesale costs and retail margins.</p>
+        </div>
+        <span className="admin-count-badge">{rows.length} shown</span>
+      </div>
+
+      <div className="admin-metrics-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, margin: '16px 0' }}>
+        <div style={{ background: '#f8fafc', padding: 14, borderRadius: 10, border: '1px solid #e2e8f0' }}>
+          <small style={{ color: '#64748b', fontWeight: 600, textTransform: 'uppercase', fontSize: 11 }}>Total Rented</small>
+          <div style={{ fontSize: 20, fontWeight: 700, color: '#0f172a', marginTop: 4 }}>{totalRented}</div>
+        </div>
+        <div style={{ background: '#f0fdf4', padding: 14, borderRadius: 10, border: '1px solid #bbf7d0' }}>
+          <small style={{ color: '#166534', fontWeight: 600, textTransform: 'uppercase', fontSize: 11 }}>Codes Delivered</small>
+          <div style={{ fontSize: 20, fontWeight: 700, color: '#15803d', marginTop: 4 }}>
+            {receivedCodes} {totalRented > 0 ? `(${Math.round((receivedCodes / totalRented) * 100)}%)` : ''}
+          </div>
+        </div>
+        <div style={{ background: '#f8fafc', padding: 14, borderRadius: 10, border: '1px solid #e2e8f0' }}>
+          <small style={{ color: '#64748b', fontWeight: 600, textTransform: 'uppercase', fontSize: 11 }}>Total Sales (PKR)</small>
+          <div style={{ fontSize: 20, fontWeight: 700, color: '#0f172a', marginTop: 4 }}>Rs {totalRevenue.toLocaleString()}</div>
+        </div>
+        <div style={{ background: '#f0fdf4', padding: 14, borderRadius: 10, border: '1px solid #bbf7d0' }}>
+          <small style={{ color: '#166534', fontWeight: 600, textTransform: 'uppercase', fontSize: 11 }}>Net Profit (PKR)</small>
+          <div style={{ fontSize: 20, fontWeight: 700, color: '#15803d', marginTop: 4 }}>Rs {totalProfit.toLocaleString()}</div>
+        </div>
+      </div>
+
+      <div className="admin-history-toolbar">
+        <input
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Search customer email, phone number, service or OTP..."
+        />
+        <select value={filter} onChange={(e) => setFilter(e.target.value)}>
+          <option value="all">All numbers ({virtualNumbers.length})</option>
+          <option value="received">Code Received</option>
+          <option value="active">Waiting for SMS</option>
+          <option value="completed">Completed</option>
+          <option value="cancelled">Cancelled & Refunded</option>
+        </select>
+      </div>
+
+      <div className="commerce-table admin-history-table mobile-records">
+        <table>
+          <thead>
+            <tr>
+              <th>Order / Customer</th>
+              <th>Platform & Country</th>
+              <th>Phone Number</th>
+              <th>Received OTP</th>
+              <th>Price (PKR)</th>
+              <th>Wholesale Cost</th>
+              <th>Profit</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.length ? (
+              rows.map((vn) => (
+                <tr key={vn.id}>
+                  <td data-label="Order / Customer">
+                    <strong>{vn.customer_email || 'Guest / User'}</strong>
+                    <small>{vn.created_at ? new Date(vn.created_at).toLocaleString() : '—'}</small>
+                  </td>
+                  <td data-label="Platform & Country">
+                    <strong>{vn.service_name}</strong>
+                    <small>{vn.country_name} ({vn.country_code?.toUpperCase()})</small>
+                  </td>
+                  <td data-label="Phone Number" style={{ fontFamily: 'monospace', fontWeight: 600 }}>
+                    {vn.phone_number}
+                  </td>
+                  <td data-label="Received OTP">
+                    {vn.otp_code ? (
+                      <span style={{ background: '#dcfce7', color: '#166534', padding: '4px 8px', borderRadius: 6, fontWeight: 700, fontFamily: 'monospace' }}>
+                        {vn.otp_code}
+                      </span>
+                    ) : (
+                      <small style={{ color: '#64748b' }}>Waiting...</small>
+                    )}
+                  </td>
+                  <td data-label="Price (PKR)">
+                    <strong>Rs {vn.price_pkr}</strong>
+                  </td>
+                  <td data-label="Wholesale Cost">
+                    <small>${vn.cost_usd} (~Rs {vn.cost_pkr})</small>
+                  </td>
+                  <td data-label="Profit">
+                    <strong style={{ color: vn.profit_pkr > 0 ? '#15803d' : '#64748b' }}>
+                      {vn.profit_pkr > 0 ? `+Rs ${vn.profit_pkr}` : 'Rs 0'}
+                    </strong>
+                  </td>
+                  <td data-label="Status">
+                    <span className={`admin-state ${vn.status?.toLowerCase() === 'received' || vn.status?.toLowerCase() === 'completed' ? 'delivered' : vn.status?.toLowerCase() === 'cancelled' ? 'cancelled' : 'active'}`}>
+                      {vn.status}
+                    </span>
+                  </td>
+                </tr>
+              ))
+            ) : (
+              <tr>
+                <td colSpan={8}>
+                  <div className="admin-empty-state">
+                    <h3>No virtual numbers match</h3>
+                    <p>Try a different search or filter.</p>
+                  </div>
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+}

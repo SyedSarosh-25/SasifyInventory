@@ -8209,6 +8209,7 @@ export function createHandler(
       } else if (action === 'admin-list') {
         await ensureProductReviewSchema(db);
         await ensureWalletWithdrawalSchema(db);
+        await ensureVirtualNumberSchema(db);
         const adminSettings = Object.fromEntries(
           (await db.query('SELECT key,value FROM commerce_admin_settings ORDER BY key')).rows.map((row) => [row.key, row.value]),
         );
@@ -8572,6 +8573,17 @@ export function createHandler(
               })),
             ],
           },
+          virtualNumbers: (
+            await db.query(`
+              SELECT v.id, v.account_id, a.email AS customer_email, v.service_name, v.country_name, v.country_code,
+                     v.phone_number, v.cost_usd, ROUND(COALESCE(v.cost_usd, 0) * 285)::int AS cost_pkr, v.price_pkr, v.status, v.otp_code, v.otp_message,
+                     v.refunded, v.created_at, v.expires_at, v.completed_at,
+                     (v.price_pkr - ROUND(COALESCE(v.cost_usd, 0) * 285)::int) AS profit_pkr
+              FROM commerce_virtual_number_orders v
+              LEFT JOIN commerce_accounts a ON a.id = v.account_id
+              ORDER BY v.created_at DESC LIMIT 150
+            `)
+          ).rows,
         };
       } else if (action === 'admin-supplier-logs') {
         const logOrderId = req.query?.id || null;

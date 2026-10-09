@@ -26,6 +26,7 @@ import {
   Bot,
   Star,
   Banknote,
+  Smartphone,
 } from 'lucide-react';
 import {
   Sheet,
@@ -38,6 +39,7 @@ import {
 export const adminSections = [
   ['overview', 'Overview', LayoutDashboard],
   ['orders', 'Orders', ClipboardList],
+  ['virtualNumbers', 'Virtual Numbers', Smartphone],
   ['whatsappBot', 'WhatsApp Bot', Bot],
   ['manualOrders', 'Manual orders', ClipboardCheck],
   ['customers', 'Registered users', Users],
@@ -72,7 +74,7 @@ export type AdminSection =
 const adminSectionGroups: { label: string; items: AdminSection[] }[] = [
   {
     label: 'Workspace',
-    items: ['overview', 'orders', 'whatsappBot', 'manualOrders', 'customers', 'userDetail', 'refunds', 'emailCampaign'],
+    items: ['overview', 'orders', 'virtualNumbers', 'whatsappBot', 'manualOrders', 'customers', 'userDetail', 'refunds', 'emailCampaign'],
   },
   {
     label: 'Payments & finance',
@@ -95,6 +97,7 @@ const adminSectionGroups: { label: string; items: AdminSection[] }[] = [
 const sectionDescriptions: Record<string, string> = {
   overview: 'Your business at a glance. Every order, every day.',
   orders: 'Track purchases, review order details and manage delivery.',
+  virtualNumbers: 'Monitor rented virtual phone lines, incoming OTP verification codes, customer emails, and wholesale margins.',
   whatsappBot: 'Control AI WhatsApp assistant, real-time message stream, escalations, and answer training.',
   manualOrders: 'Handle Claude pre-orders and manual Hostinger activations.',
   customers: 'Customer and reseller accounts, wallet balances and purchase activity.',
