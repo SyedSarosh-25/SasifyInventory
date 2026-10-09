@@ -379,6 +379,9 @@ CREATE TABLE IF NOT EXISTS commerce_virtual_number_orders (
   can_cancel boolean NOT NULL DEFAULT true,
   can_finish boolean NOT NULL DEFAULT false,
   idempotency_key text UNIQUE,
+  guest_email text,
+  payment_method text NOT NULL DEFAULT 'wallet',
+  transaction_id text,
   expires_at timestamptz,
   created_at timestamptz NOT NULL DEFAULT now(),
   completed_at timestamptz,
@@ -386,3 +389,4 @@ CREATE TABLE IF NOT EXISTS commerce_virtual_number_orders (
 );
 CREATE INDEX IF NOT EXISTS commerce_virtual_number_orders_account ON commerce_virtual_number_orders(account_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS commerce_virtual_number_orders_status ON commerce_virtual_number_orders(status, created_at DESC);
+CREATE INDEX IF NOT EXISTS commerce_virtual_number_orders_guest ON commerce_virtual_number_orders(guest_email, created_at DESC);

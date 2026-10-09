@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef, useTransition } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Smartphone,
   Check,
@@ -14,8 +14,10 @@ import {
   CheckCircle2,
   Wallet,
   ArrowRight,
-  ExternalLink,
   Search,
+  Mail,
+  CreditCard,
+  Building2,
 } from 'lucide-react';
 import './virtual-numbers.css';
 
@@ -62,9 +64,26 @@ interface ActiveOrder {
   otp_message?: string | null;
   expires_at: string;
   price_pkr: number;
+  payment_method?: string;
+  guest_email?: string;
   can_cancel?: boolean;
   can_finish?: boolean;
 }
+
+interface PaymentReceiver {
+  account_number: string;
+  title: string;
+  receiver_marker: string;
+}
+
+const DEFAULT_RECEIVER: PaymentReceiver = {
+  account_number: '03450485711',
+  title: 'Syed Adeen / Sasify',
+  receiver_marker: 'NayaPay',
+};
+
+const BINANCE_PAY_ID = '566736567';
+const CRYPTO_USDT_ADDR = 'TYpC1o1bQ6jUuYk8b3H6zK9a7FSasifyUSDT';
 
 export function VirtualNumbers() {
   const [activeTab, setActiveTab] = useState<'rent' | 'history'>('rent');
@@ -83,7 +102,51 @@ export function VirtualNumbers() {
   const [error, setError] = useState<string | null>(null);
   const [copiedPhone, setCopiedPhone] = useState(false);
   const [copiedOtp, setCopiedOtp] = useState(false);
+  const [copiedReceiver, setCopiedReceiver] = useState(false);
   const [remainingSeconds, setRemainingSeconds] = useState<number>(0);
+
+  // Guest Checkout State
+  const [checkoutMode, setCheckoutMode] = useState<'wallet' | 'guest'>('wallet');
+  const [guestPaymentRail, setGuestPaymentRail] = useState<'nayapay' | 'binance' | 'crypto'>('nayapay');
+  const [guestEmail, setGuestEmail] = useState('');
+  const [transactionId, setTransactionId] = useState('');
+  const [paymentReceiver, setPaymentReceiver] = useState<PaymentReceiver>(DEFAULT_RECEIVER);
+
+  // Restore active order from sessionStorage on mount so page refreshes don't lose session
+  useEffect(() => {
+    try {
+      const saved = sessionStorage.getItem('sasify_active_vn');
+      if (saved) {
+        const parsed: ActiveOrder = JSON.parse(saved);
+        if (
+          parsed &&
+          parsed.expires_at &&
+          new Date(parsed.expires_at).getTime() > Date.now() &&
+          ['ACTIVE', 'RECEIVED'].includes(parsed.status)
+        ) {
+          setActiveOrder(parsed);
+        } else {
+          sessionStorage.removeItem('sasify_active_vn');
+        }
+      }
+    } catch {
+      // Ignore sessionStorage errors
+    }
+  }, []);
+
+  // Helper to persist or clear active order in sessionStorage
+  const saveActiveOrder = (order: ActiveOrder | null) => {
+    setActiveOrder(order);
+    try {
+      if (order && ['ACTIVE', 'RECEIVED'].includes(order.status)) {
+        sessionStorage.setItem('sasify_active_vn', JSON.stringify(order));
+      } else {
+        sessionStorage.removeItem('sasify_active_vn');
+      }
+    } catch {
+      // Ignore storage errors
+    }
+  };
 
   // Load catalog on mount
   useEffect(() => {
@@ -102,6 +165,15 @@ export function VirtualNumbers() {
           setProducts(data.products || []);
           setWalletBalance(data.walletBalance ?? null);
           setAccount(data.account ?? null);
+
+          if (data.paymentReceiver) {
+            setPaymentReceiver(data.paymentReceiver);
+          }
+
+          // If user has no account, default directly to guest checkout
+          if (!data.account) {
+            setCheckoutMode('guest');
+          }
 
           // Default select WhatsApp and Indonesia or first available
           if (!selectedService && data.services?.length) {
@@ -172,9 +244,12 @@ export function VirtualNumbers() {
         if (data.ok && data.order) {
           const updated = data.order;
           if (updated.status !== 'ACTIVE' || updated.otp_code) {
-            setActiveOrder((prev) => (prev ? { ...prev, ...updated } : updated));
+            saveActiveOrder({
+              ...activeOrder,
+              ...updated,
+            });
             if (updated.otp_code) {
-              setNotice('Verification SMS received!');
+              setNotice('Verification SMS received successfully!');
             }
           }
         }
@@ -199,30 +274,53 @@ export function VirtualNumbers() {
       String(p.platform_id) === String(selectedService?.id),
   ) || products[0];
 
-  const estimatedPkr = currentProduct?.price_pkr || 190;
+  const estimatedPkr = currentProduct?.price_pkr || 250;
   const hasSufficientWallet = walletBalance !== null && walletBalance >= estimatedPkr;
 
   // Rent handler
   const handleRent = async () => {
     if (!selectedService || !selectedCountry) return;
+
+    // Guest checkout validation
+    if (checkoutMode === 'guest') {
+      const cleanEmail = guestEmail.trim().toLowerCase();
+      if (!cleanEmail || !cleanEmail.includes('@') || !cleanEmail.includes('.')) {
+        setError('Please provide a valid email address to receive your order receipt and backup.');
+        return;
+      }
+      const cleanTx = transactionId.trim();
+      if (!cleanTx || cleanTx.length < 3) {
+        setError('Please enter your Transaction ID / Ref # after transferring payment.');
+        return;
+      }
+    }
+
     setBusy(true);
     setError(null);
     setNotice(null);
 
     try {
+      const payload: Record<string, any> = {
+        serviceId: selectedService.id,
+        serviceName: selectedService.name,
+        countryId: selectedCountry.id,
+        countryName: selectedCountry.name,
+        countryCode: selectedCountry.code,
+        catalogProductId: currentProduct?.catalog_product_id || currentProduct?.id,
+        maxPriceUsd: currentProduct?.cost_usd || 0.50,
+        paymentMethod: checkoutMode === 'wallet' ? 'wallet' : guestPaymentRail,
+      };
+
+      if (checkoutMode === 'guest') {
+        payload.guestEmail = guestEmail.trim().toLowerCase();
+        payload.transactionId = transactionId.trim();
+      }
+
       const res = await fetch('/api/commerce?action=virtual-number-rent', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'same-origin',
-        body: JSON.stringify({
-          serviceId: selectedService.id,
-          serviceName: selectedService.name,
-          countryId: selectedCountry.id,
-          countryName: selectedCountry.name,
-          countryCode: selectedCountry.code,
-          catalogProductId: currentProduct?.catalog_product_id || currentProduct?.id,
-          maxPriceUsd: currentProduct?.cost_usd || 0.50,
-        }),
+        body: JSON.stringify(payload),
       });
 
       const data = await res.json();
@@ -230,7 +328,7 @@ export function VirtualNumbers() {
         throw new Error(data.error || 'Failed to allocate virtual number.');
       }
 
-      setActiveOrder({
+      const newOrder: ActiveOrder = {
         id: data.orderId,
         orderId: data.orderId,
         smscode_order_id: data.smscodeOrderId,
@@ -240,14 +338,18 @@ export function VirtualNumbers() {
         status: data.status,
         expires_at: data.expiresAt,
         price_pkr: data.pricePkr,
+        payment_method: payload.paymentMethod,
+        guest_email: payload.guestEmail,
         can_cancel: true,
-      });
+      };
+
+      saveActiveOrder(newOrder);
 
       if (typeof data.balance === 'number') {
         setWalletBalance(data.balance);
       }
 
-      setNotice('Number allocated successfully! Waiting for SMS verification code...');
+      setNotice('Number allocated successfully! Waiting for your SMS verification code...');
     } catch (err: any) {
       setError(err.message || 'Could not complete number reservation.');
     } finally {
@@ -258,7 +360,12 @@ export function VirtualNumbers() {
   // Cancel & refund handler
   const handleCancel = async () => {
     if (!activeOrder) return;
-    if (!confirm('Are you sure you want to cancel this number? You will be 100% refunded to your Sasify Wallet immediately.')) {
+    const isWallet = activeOrder.payment_method === 'wallet';
+    const confirmMessage = isWallet
+      ? 'Are you sure you want to cancel this number? Rs ' + activeOrder.price_pkr + ' will be 100% refunded to your Sasify Wallet immediately.'
+      : 'Are you sure you want to cancel this number? Our support team will review and process your refund.';
+
+    if (!confirm(confirmMessage)) {
       return;
     }
 
@@ -277,8 +384,12 @@ export function VirtualNumbers() {
       if (typeof data.newBalance === 'number') {
         setWalletBalance(data.newBalance);
       }
-      setActiveOrder(null);
-      setNotice(`Number cancelled. Rs ${data.refundedAmount || activeOrder.price_pkr} has been refunded to your Sasify Wallet.`);
+      saveActiveOrder(null);
+      setNotice(
+        isWallet
+          ? `Number cancelled. Rs ${data.refundedAmount || activeOrder.price_pkr} has been refunded to your Sasify Wallet.`
+          : 'Number cancelled successfully. Your refund request has been logged.'
+      );
     } catch (err: any) {
       setError(err.message || 'Failed to cancel order.');
     } finally {
@@ -297,8 +408,8 @@ export function VirtualNumbers() {
         credentials: 'same-origin',
         body: JSON.stringify({ id: activeOrder.id || activeOrder.orderId }),
       });
-      setActiveOrder((prev) => (prev ? { ...prev, status: 'COMPLETED' } : null));
-      setNotice('Order completed successfully! Thank you for using Sasify Solutions.');
+      saveActiveOrder(null);
+      setNotice('Order completed successfully! Thank you for choosing Sasify Solutions.');
     } catch (err: any) {
       console.warn('Finish error:', err);
     } finally {
@@ -307,15 +418,18 @@ export function VirtualNumbers() {
   };
 
   // Copy helper
-  const copyToClipboard = async (text: string, type: 'phone' | 'otp') => {
+  const copyToClipboard = async (text: string, type: 'phone' | 'otp' | 'receiver') => {
     try {
       await navigator.clipboard.writeText(text);
       if (type === 'phone') {
         setCopiedPhone(true);
         setTimeout(() => setCopiedPhone(false), 2000);
-      } else {
+      } else if (type === 'otp') {
         setCopiedOtp(true);
         setTimeout(() => setCopiedOtp(false), 2000);
+      } else {
+        setCopiedReceiver(true);
+        setTimeout(() => setCopiedReceiver(false), 2000);
       }
     } catch {
       // Fallback
@@ -342,10 +456,10 @@ export function VirtualNumbers() {
           <ShieldCheck className="h-4 w-4 text-emerald-600" /> 100% Private & Disposable
         </span>
         <span className="vn-pill">
-          <RotateCcw className="h-4 w-4 text-emerald-600" /> Auto-Refund if No Code
+          <RotateCcw className="h-4 w-4 text-emerald-600" /> Auto-Refund Guarantee
         </span>
         <span className="vn-pill">
-          <Wallet className="h-4 w-4 text-emerald-600" /> 1-Click Sasify Wallet Pay
+          <CreditCard className="h-4 w-4 text-emerald-600" /> Guest Direct Pay or Sasify Wallet
         </span>
       </div>
 
@@ -533,29 +647,21 @@ export function VirtualNumbers() {
             </div>
           </div>
 
-          {/* Step 3: Confirmation & Wallet Checkout */}
+          {/* Step 3: Confirmation & Checkout (Guest or Wallet) */}
           <div className="vn-checkout-panel">
             <div className="vn-summary-row">
               <div className="vn-summary-details">
-                <span className="vn-summary-label">Selected Verification Route</span>
+                <span className="vn-summary-label">Selected Route</span>
                 <span className="vn-summary-title">
                   {selectedService?.name || 'Service'} · {selectedCountry?.emoji} {selectedCountry?.name || 'Country'} (+{selectedCountry?.dial_code})
                 </span>
-                <div className="vn-wallet-status">
-                  <Wallet className="h-4 w-4 text-emerald-700" />
-                  {account ? (
-                    <span>
-                      Sasify Wallet Balance:{' '}
-                      <strong>Rs {(walletBalance || 0).toLocaleString()}</strong>
-                    </span>
-                  ) : (
-                    <span>Sign in with your Sasify Account for 1-click wallet activation</span>
-                  )}
+                <div className="vn-tier-badge">
+                  Tier Price: Wholesale &lt;$0.10 = Rs 100 | $0.10–$0.50 = Rs 250 | &gt;$0.50 = 100% Margin
                 </div>
               </div>
 
               <div className="text-right">
-                <div className="vn-summary-label">Total Cost</div>
+                <div className="vn-summary-label">Total Amount</div>
                 <div className="vn-summary-price">Rs {estimatedPkr}</div>
               </div>
             </div>
@@ -568,40 +674,267 @@ export function VirtualNumbers() {
               </div>
             </div>
 
-            <div className="mt-4 flex justify-between items-center flex-wrap gap-4">
-              <div className="text-xs text-gray-500">
-                🔒 <strong>100% Money-Back Guarantee:</strong> If the provider does not deliver an SMS code within 15 minutes, your wallet is refunded automatically.
-              </div>
-
-              <div className="vn-action-buttons">
-                {account ? (
-                  hasSufficientWallet ? (
-                    <button
-                      className="vn-rent-btn"
-                      disabled={busy}
-                      onClick={handleRent}
-                    >
-                      <Zap className="h-5 w-5" />
-                      <span>{busy ? 'Reserving...' : `Rent Number Now — Rs ${estimatedPkr}`}</span>
-                    </button>
-                  ) : (
-                    <a href="/dashboard" className="vn-deposit-btn">
-                      <Wallet className="h-4 w-4" /> Top-up Wallet (Needs Rs {estimatedPkr})
-                    </a>
-                  )
-                ) : (
-                  <>
-                    <a href="/login?redirect=/virtual-numbers" className="vn-rent-btn">
-                      <span>Log in to Rent Number</span>
-                      <ArrowRight className="h-4 w-4" />
-                    </a>
-                    <a href="/signup?redirect=/virtual-numbers" className="vn-deposit-btn">
-                      <span>Sign up in 10s</span>
-                    </a>
-                  </>
-                )}
-              </div>
+            {/* Checkout Method Switcher */}
+            <div className="vn-mode-selector">
+              <button
+                type="button"
+                className={`vn-mode-btn ${checkoutMode === 'guest' ? 'active' : ''}`}
+                onClick={() => setCheckoutMode('guest')}
+              >
+                <CreditCard className="h-4 w-4" />
+                <span>Guest Checkout (No Account Needed)</span>
+              </button>
+              {account ? (
+                <button
+                  type="button"
+                  className={`vn-mode-btn ${checkoutMode === 'wallet' ? 'active' : ''}`}
+                  onClick={() => setCheckoutMode('wallet')}
+                >
+                  <Wallet className="h-4 w-4" />
+                  <span>Sasify Wallet (Rs {(walletBalance || 0).toLocaleString()})</span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className={`vn-mode-btn ${checkoutMode === 'wallet' ? 'active' : ''}`}
+                  onClick={() => setCheckoutMode('wallet')}
+                >
+                  <Wallet className="h-4 w-4" />
+                  <span>Sasify Wallet (Sign In)</span>
+                </button>
+              )}
             </div>
+
+            {/* GUEST CHECKOUT FORM */}
+            {checkoutMode === 'guest' && (
+              <div className="vn-guest-form">
+                <div className="vn-guest-header">
+                  <h3 className="vn-guest-title">Direct Guest Payment</h3>
+                  <p className="vn-guest-subtitle">
+                    Pay directly with Pakistani Banking (NayaPay / SadaPay / Raast), Binance Pay, or Crypto USDT. No login or signup required.
+                  </p>
+                </div>
+
+                {/* Payment Rail Selectors */}
+                <div className="vn-payment-rails">
+                  <button
+                    type="button"
+                    className={`vn-rail-btn ${guestPaymentRail === 'nayapay' ? 'active' : ''}`}
+                    onClick={() => setGuestPaymentRail('nayapay')}
+                  >
+                    <Building2 className="h-4 w-4 text-emerald-600" />
+                    <span>🇵🇰 NayaPay / SadaPay / Bank</span>
+                  </button>
+                  <button
+                    type="button"
+                    className={`vn-rail-btn ${guestPaymentRail === 'binance' ? 'active' : ''}`}
+                    onClick={() => setGuestPaymentRail('binance')}
+                  >
+                    <Zap className="h-4 w-4 text-amber-500" />
+                    <span>🟡 Binance Pay</span>
+                  </button>
+                  <button
+                    type="button"
+                    className={`vn-rail-btn ${guestPaymentRail === 'crypto' ? 'active' : ''}`}
+                    onClick={() => setGuestPaymentRail('crypto')}
+                  >
+                    <ShieldCheck className="h-4 w-4 text-teal-600" />
+                    <span>₮ USDT Crypto</span>
+                  </button>
+                </div>
+
+                {/* Receiver Info Box */}
+                <div className="vn-receiver-card">
+                  {guestPaymentRail === 'nayapay' && (
+                    <div className="vn-receiver-details">
+                      <div className="vn-receiver-row">
+                        <span className="vn-receiver-lbl">Bank / App:</span>
+                        <strong className="vn-receiver-val">{paymentReceiver.receiver_marker || 'NayaPay'} / Raast</strong>
+                      </div>
+                      <div className="vn-receiver-row">
+                        <span className="vn-receiver-lbl">Account Number / IBAN:</span>
+                        <div className="flex items-center gap-2">
+                          <code className="vn-receiver-code">{paymentReceiver.account_number || '03450485711'}</code>
+                          <button
+                            type="button"
+                            className="vn-mini-copy"
+                            onClick={() => copyToClipboard(paymentReceiver.account_number || '03450485711', 'receiver')}
+                          >
+                            {copiedReceiver ? <Check className="h-3.5 w-3.5 text-emerald-600" /> : <Copy className="h-3.5 w-3.5" />}
+                            <span>{copiedReceiver ? 'Copied' : 'Copy'}</span>
+                          </button>
+                        </div>
+                      </div>
+                      <div className="vn-receiver-row">
+                        <span className="vn-receiver-lbl">Account Title:</span>
+                        <strong className="vn-receiver-val">{paymentReceiver.title || 'Syed Adeen / Sasify'}</strong>
+                      </div>
+                      <div className="vn-receiver-instructions">
+                        👉 <strong>Instructions:</strong> Send exact <strong>Rs {estimatedPkr}</strong> to the account above via NayaPay, SadaPay, EasyPaisa, JazzCash, or mobile banking. Then paste your Transaction ID / Ref # below to reserve your number.
+                      </div>
+                    </div>
+                  )}
+
+                  {guestPaymentRail === 'binance' && (
+                    <div className="vn-receiver-details">
+                      <div className="vn-receiver-row">
+                        <span className="vn-receiver-lbl">Binance Pay ID:</span>
+                        <div className="flex items-center gap-2">
+                          <code className="vn-receiver-code">{BINANCE_PAY_ID}</code>
+                          <button
+                            type="button"
+                            className="vn-mini-copy"
+                            onClick={() => copyToClipboard(BINANCE_PAY_ID, 'receiver')}
+                          >
+                            {copiedReceiver ? <Check className="h-3.5 w-3.5 text-emerald-600" /> : <Copy className="h-3.5 w-3.5" />}
+                            <span>{copiedReceiver ? 'Copied' : 'Copy'}</span>
+                          </button>
+                        </div>
+                      </div>
+                      <div className="vn-receiver-row">
+                        <span className="vn-receiver-lbl">Payee Name:</span>
+                        <strong className="vn-receiver-val">Sasify Solutions</strong>
+                      </div>
+                      <div className="vn-receiver-instructions">
+                        👉 <strong>Instructions:</strong> Send <strong>${(estimatedPkr / 285).toFixed(2)} USDT</strong> (or PKR {estimatedPkr}) via Binance Pay to Pay ID <strong>{BINANCE_PAY_ID}</strong>. Enter your Binance Pay Order / Transaction ID below.
+                      </div>
+                    </div>
+                  )}
+
+                  {guestPaymentRail === 'crypto' && (
+                    <div className="vn-receiver-details">
+                      <div className="vn-receiver-row">
+                        <span className="vn-receiver-lbl">Network:</span>
+                        <strong className="vn-receiver-val">USDT (TRC-20 / BEP-20)</strong>
+                      </div>
+                      <div className="vn-receiver-row">
+                        <span className="vn-receiver-lbl">Wallet Address:</span>
+                        <div className="flex items-center gap-2">
+                          <code className="vn-receiver-code vn-crypto-addr">{CRYPTO_USDT_ADDR}</code>
+                          <button
+                            type="button"
+                            className="vn-mini-copy"
+                            onClick={() => copyToClipboard(CRYPTO_USDT_ADDR, 'receiver')}
+                          >
+                            {copiedReceiver ? <Check className="h-3.5 w-3.5 text-emerald-600" /> : <Copy className="h-3.5 w-3.5" />}
+                            <span>{copiedReceiver ? 'Copied' : 'Copy'}</span>
+                          </button>
+                        </div>
+                      </div>
+                      <div className="vn-receiver-instructions">
+                        👉 <strong>Instructions:</strong> Transfer <strong>${(estimatedPkr / 285).toFixed(2)} USDT</strong> to the wallet address above and enter the transaction hash (TxID) below.
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Input Fields */}
+                <div className="vn-guest-inputs">
+                  <div className="vn-input-group">
+                    <label htmlFor="guest-email" className="vn-input-label">
+                      <Mail className="h-4 w-4 text-gray-500 inline mr-1" />
+                      Your Email Address (for order receipt &amp; backup recovery)
+                    </label>
+                    <input
+                      id="guest-email"
+                      type="email"
+                      className="vn-text-input"
+                      placeholder="name@example.com"
+                      value={guestEmail}
+                      onChange={(e) => setGuestEmail(e.target.value)}
+                      required
+                    />
+                  </div>
+
+                  <div className="vn-input-group">
+                    <label htmlFor="guest-txid" className="vn-input-label">
+                      <Zap className="h-4 w-4 text-gray-500 inline mr-1" />
+                      Transaction ID / Reference Number (Ref #)
+                    </label>
+                    <input
+                      id="guest-txid"
+                      type="text"
+                      className="vn-text-input"
+                      placeholder="e.g. 2603458912 or Blockchain Tx Hash"
+                      value={transactionId}
+                      onChange={(e) => setTransactionId(e.target.value)}
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="mt-4 flex justify-between items-center flex-wrap gap-4">
+                  <div className="text-xs text-gray-600">
+                    🔒 <strong>100% Money-Back Guarantee:</strong> Auto-refund if SMS code does not arrive in 15 minutes.
+                  </div>
+
+                  <button
+                    className="vn-rent-btn"
+                    disabled={busy || !guestEmail.trim() || !transactionId.trim()}
+                    onClick={handleRent}
+                  >
+                    <Zap className="h-5 w-5" />
+                    <span>{busy ? 'Verifying & Reserving...' : `Reserve Virtual Number — Rs ${estimatedPkr}`}</span>
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* WALLET CHECKOUT FORM */}
+            {checkoutMode === 'wallet' && (
+              <div className="vn-wallet-section">
+                <div className="vn-wallet-status">
+                  <Wallet className="h-4 w-4 text-emerald-700" />
+                  {account ? (
+                    <span>
+                      Sasify Wallet Balance:{' '}
+                      <strong>Rs {(walletBalance || 0).toLocaleString()}</strong>
+                    </span>
+                  ) : (
+                    <span>Sign in with your Sasify Account for 1-click instant wallet activation</span>
+                  )}
+                </div>
+
+                <div className="mt-4 flex justify-between items-center flex-wrap gap-4">
+                  <div className="text-xs text-gray-500">
+                    🔒 <strong>100% Money-Back Guarantee:</strong> If the provider does not deliver an SMS code within 15 minutes, your wallet is refunded automatically.
+                  </div>
+
+                  <div className="vn-action-buttons">
+                    {account ? (
+                      hasSufficientWallet ? (
+                        <button
+                          className="vn-rent-btn"
+                          disabled={busy}
+                          onClick={handleRent}
+                        >
+                          <Zap className="h-5 w-5" />
+                          <span>{busy ? 'Reserving...' : `Rent Number Now — Rs ${estimatedPkr}`}</span>
+                        </button>
+                      ) : (
+                        <a href="/dashboard" className="vn-deposit-btn">
+                          <Wallet className="h-4 w-4" /> Top-up Wallet (Needs Rs {estimatedPkr})
+                        </a>
+                      )
+                    ) : (
+                      <>
+                        <a href="/login?redirect=/virtual-numbers" className="vn-rent-btn">
+                          <span>Log in to Use Wallet</span>
+                          <ArrowRight className="h-4 w-4" />
+                        </a>
+                        <button
+                          type="button"
+                          className="vn-deposit-btn"
+                          onClick={() => setCheckoutMode('guest')}
+                        >
+                          <span>Switch to Guest Checkout</span>
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </>
       )}

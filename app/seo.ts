@@ -460,6 +460,7 @@ export function sitemapEntries() {
     '/about',
     '/buying-guide',
     '/otp',
+    '/virtual-numbers',
     '/scammers',
     '/warranty',
     '/refunds',

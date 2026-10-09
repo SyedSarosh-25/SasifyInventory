@@ -14,12 +14,18 @@ import {
 } from '../commerce/smscode.mjs';
 
 test('calculateRetailPricePkr calculates margin and minimum price correctly', () => {
-  // $0.50 wholesale at 285 rate = ~142.5 PKR -> +30% = ~185.25 -> rounds to 190 PKR
-  assert.equal(calculateRetailPricePkr(0.50, 285), 190);
-  // Low cost: $0.10 at 285 = 28.5 -> +30% = 37.05 -> clamped to min 120 PKR
-  assert.equal(calculateRetailPricePkr(0.10, 285), 120);
-  // $1.00 wholesale at 285 = 285 -> +30% = 370.5 -> 380 PKR
-  assert.equal(calculateRetailPricePkr(1.00, 285), 380);
+  // Below $0.10: Fixed 100 PKR
+  assert.equal(calculateRetailPricePkr(0.05, 285), 100);
+  assert.equal(calculateRetailPricePkr(0.09, 285), 100);
+  // From $0.10 up to $0.50: Fixed 250 PKR
+  assert.equal(calculateRetailPricePkr(0.10, 285), 250);
+  assert.equal(calculateRetailPricePkr(0.35, 285), 250);
+  assert.equal(calculateRetailPricePkr(0.50, 285), 250);
+  // Above $0.50: 100% margin (2x cost * rate)
+  // $0.60 * 2 * 285 = 342 -> rounds to 350 PKR
+  assert.equal(calculateRetailPricePkr(0.60, 285), 350);
+  // $1.00 * 2 * 285 = 570 PKR
+  assert.equal(calculateRetailPricePkr(1.00, 285), 570);
 });
 
 test('smscode catalog returns rich fallback when unconfigured', async () => {
@@ -144,12 +150,12 @@ test('virtual numbers API: catalog, wallet rent, live status, and cancel refund'
     assert.ok(rentRes.orderId);
     assert.ok(rentRes.phoneNumber);
     assert.equal(rentRes.status, 'ACTIVE');
-    assert.equal(rentRes.pricePkr, 190);
-    assert.equal(rentRes.balance, 310); // 500 - 190 = 310
+    assert.equal(rentRes.pricePkr, 250);
+    assert.equal(rentRes.balance, 250); // 500 - 250 = 250
 
     // Verify wallet debit in database
     const walletCheck = (await database.query('SELECT balance FROM commerce_accounts WHERE id=$1', [accountId])).rows[0];
-    assert.equal(Number(walletCheck.balance), 310);
+    assert.equal(Number(walletCheck.balance), 250);
 
     // 4. Poll status
     const statusRes = await request('virtual-number-status', { id: rentRes.orderId }, cookie);
@@ -167,8 +173,8 @@ test('virtual numbers API: catalog, wallet rent, live status, and cancel refund'
     const cancelRes = await request('virtual-number-cancel', { id: rentRes.orderId }, cookie);
     assert.equal(cancelRes.ok, true);
     assert.equal(cancelRes.status, 'CANCELLED');
-    assert.equal(cancelRes.refundedAmount, 190);
-    assert.equal(cancelRes.newBalance, 500); // 310 + 190 = 500 restored!
+    assert.equal(cancelRes.refundedAmount, 250);
+    assert.equal(cancelRes.newBalance, 500); // 250 + 250 = 500 restored!
 
     // Verify wallet refunded in database
     const restoredWallet = (await database.query('SELECT balance FROM commerce_accounts WHERE id=$1', [accountId])).rows[0];
@@ -186,6 +192,30 @@ test('virtual numbers API: catalog, wallet rent, live status, and cancel refund'
     assert.equal(vnList[0].service_name, 'WhatsApp');
     assert.equal(vnList[0].customer_email, 'buyer@sasify.test');
     assert.equal(vnList[0].status, 'CANCELLED');
+
+    // 8. Test Guest Checkout (no cookie, guestEmail + direct payment)
+    const guestRent = await request('virtual-number-rent', {
+      serviceId: 2,
+      serviceName: 'Telegram',
+      countryId: 7,
+      countryName: 'Indonesia',
+      countryCode: 'id',
+      maxPriceUsd: 0.05, // < 0.10 -> 100 PKR
+      guestEmail: 'guest_otp@sasify.test',
+      paymentMethod: 'nayapay',
+      transactionId: 'NP-GUEST-12345',
+    }, '');
+    assert.equal(guestRent.ok, true);
+    assert.ok(guestRent.orderId);
+    assert.ok(guestRent.phoneNumber);
+    assert.equal(guestRent.pricePkr, 100);
+    assert.equal(guestRent.status, 'ACTIVE');
+
+    // Poll guest order without auth
+    const guestPoll = await request('virtual-number-status', { id: guestRent.orderId }, '');
+    assert.equal(guestPoll.ok, true);
+    assert.equal(guestPoll.order.phone_number, guestRent.phoneNumber);
+    assert.equal(guestPoll.order.guest_email, 'guest_otp@sasify.test');
   } finally {
     process.env = previous;
   }

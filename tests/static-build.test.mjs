@@ -236,7 +236,7 @@ test('export includes crawlable sitemap and robots files using the final domain'
   assert.equal(await read('sitemap.xml'), sitemapXml());
   assert.match(await read('llms.txt'), /Sasify Solutions/);
   assert.match(await read('llms.txt'), /\/products\/chatgpt-plus-1-month/);
-  assert.equal((await read('sitemap.xml')).match(/<loc>/g).length, products.length + supplierSeoProducts.length + 12 + storefrontCategories.length + knownToolFamilySlugs.length);
+  assert.equal((await read('sitemap.xml')).match(/<loc>/g).length, products.length + supplierSeoProducts.length + 13 + storefrontCategories.length + knownToolFamilySlugs.length);
 });
 
 test('Vercel export preserves canonical routes without hiding missing pages', async () => {

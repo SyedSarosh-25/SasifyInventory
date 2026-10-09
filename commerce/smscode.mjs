@@ -17,14 +17,23 @@ export function getSmscodeToken(apiKey) {
 }
 
 /**
- * Converts wholesale USD cost from SMSCode to retail PKR price with a healthy margin.
- * Applies 30% margin, rounds up to nearest 10 PKR, minimum 120 PKR.
+ * Converts wholesale USD cost from SMSCode to retail PKR price based on tiered pricing:
+ * - Below $0.10: Fixed 100 PKR
+ * - From $0.10 up to $0.50: Fixed 250 PKR
+ * - Above $0.50: 100% margin (double the wholesale cost), converted to PKR and rounded to nearest 10 PKR
  */
 export function calculateRetailPricePkr(wholesaleUsd, usdRate = 285) {
   const cost = Number(wholesaleUsd || 0);
   const rate = Number(usdRate) > 0 ? Number(usdRate) : 285;
-  const wholesalePkr = cost * rate;
-  return Math.max(120, Math.ceil((wholesalePkr * 1.30) / 10) * 10);
+  if (cost < 0.10) {
+    return 100;
+  }
+  if (cost <= 0.50) {
+    return 250;
+  }
+  // Above $0.50: 100% margin (cost * 2 in PKR)
+  const retailPkr = cost * 2 * rate;
+  return Math.ceil(retailPkr / 10) * 10;
 }
 
 // Built-in curated popular platforms and fallback data
