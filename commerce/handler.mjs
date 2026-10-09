@@ -634,6 +634,14 @@ function localProductSellingPrice(productId) {
   );
   return Number.isSafeInteger(price) && price > 0 ? price : 0;
 }
+function localProductDefaultPurchaseCost(productId) {
+  if (productId === 'p013') return 3300; // Claude Team Plan Standard
+  if (productId === 'p012') return 16500; // Claude Team Plan Premium
+  const cost = Number(
+    catalog.find((product) => product.id === productId)?.purchase_cost_pkr,
+  );
+  return Number.isSafeInteger(cost) && cost > 0 ? cost : 0;
+}
 const SHARED_CHATGPT_PRODUCT_ID = 'p093-shared';
 const SHARED_CHATGPT_MAX_SLOTS = 4;
 const CLAUDE_PREORDER_PRODUCT_IDS = new Set(['p012', 'p013']);
@@ -823,10 +831,17 @@ function summarizeProfit(deliveredRows, withdrawnRows, now = new Date()) {
     // in the customer discount totals.
     const couponDiscount = isTeamCoupon ? 0 : recordedCouponDiscount;
     const income = netIncome + (isTeamCoupon ? recordedCouponDiscount : 0);
+    const defaultCost = localProductDefaultPurchaseCost(row.product_id);
     const cost = row.shared_account_id
       ? (row.fulfillment_cost_pkr ??
         sharedSlotCost(row.purchase_cost, row.shared_slot))
-      : (row.purchase_cost ?? row.supplier_cost_pkr ?? 0);
+      : (Number(row.fulfillment_cost_pkr) > 0
+          ? Number(row.fulfillment_cost_pkr)
+          : (Number(row.purchase_cost) > 0
+              ? Number(row.purchase_cost)
+              : (Number(row.supplier_cost_pkr) > 0
+                  ? Number(row.supplier_cost_pkr)
+                  : defaultCost)));
     add(
       row,
       income,
@@ -845,7 +860,7 @@ function summarizeProfit(deliveredRows, withdrawnRows, now = new Date()) {
     add(
       row,
       localProductSellingPrice(row.product_id),
-      row.purchase_cost,
+      row.purchase_cost || localProductDefaultPurchaseCost(row.product_id),
       'local',
       row.created_at,
       { withdrawal: true },
@@ -1400,6 +1415,16 @@ async function ensureOrderFinanceSchema(db) {
          WHERE status='delivered'
            AND fulfillment_cost_pkr IS NULL
            AND supplier_product_id IS NOT NULL`,
+      );
+      await db.query(
+        `UPDATE commerce_orders
+         SET fulfillment_cost_pkr = 3300
+         WHERE product_id = 'p013' AND (fulfillment_cost_pkr IS NULL OR fulfillment_cost_pkr = 0)`,
+      );
+      await db.query(
+        `UPDATE commerce_orders
+         SET fulfillment_cost_pkr = 16500
+         WHERE product_id = 'p012' AND (fulfillment_cost_pkr IS NULL OR fulfillment_cost_pkr = 0)`,
       );
     })().catch((error) => {
       orderFinanceSchemaReady = null;
@@ -3144,9 +3169,10 @@ async function fulfill(
       'UPDATE commerce_payments SET order_id=$1,verification_reason=$3 WHERE id=$2',
       [order.id, payment.id, manual ? 'manually_approved' : 'verified_preorder'],
     );
+    const claudeCost = order.product_id === 'p012' ? 16500 : 3300;
     await db.query(
-      "UPDATE commerce_orders SET status='delivered',delivered_at=now(),fulfillment_cost_pkr=0,supplier_status='preorder_confirmed' WHERE id=$1",
-      [order.id],
+      "UPDATE commerce_orders SET status='delivered',delivered_at=now(),fulfillment_cost_pkr=$2,supplier_status='preorder_confirmed' WHERE id=$1",
+      [order.id, claudeCost],
     );
     await db.query(
       "INSERT INTO commerce_audit(action,object_id,details) VALUES('preorder_payment_confirmed',$1,$2::jsonb)",
@@ -8171,9 +8197,18 @@ export function createHandler(
                  o.payment_submitted_at,o.supplier_order_id,o.supplier_status,c.code_display AS coupon_code,
                  o.shared_account_id,o.shared_slot,
                 sp.provider_id,sp.provider_name AS supplier_name,sp.name AS supplier_product_name,o.created_at,o.delivered_at,
-                o.fulfillment_cost_pkr AS cost_pkr,
+                COALESCE(
+                  NULLIF(o.fulfillment_cost_pkr, 0),
+                  CASE WHEN o.product_id='p012' THEN 16500 WHEN o.product_id='p013' THEN 3300 ELSE o.fulfillment_cost_pkr END,
+                  0
+                ) AS cost_pkr,
                 CASE WHEN o.status='delivered' THEN
-                  (CASE WHEN c.code_display='HOR' THEN o.amount+COALESCE(o.coupon_discount,0) ELSE o.amount END)-COALESCE(o.fulfillment_cost_pkr,0)
+                  (CASE WHEN c.code_display='HOR' THEN o.amount+COALESCE(o.coupon_discount,0) ELSE o.amount END)
+                  - COALESCE(
+                      NULLIF(o.fulfillment_cost_pkr, 0),
+                      CASE WHEN o.product_id='p012' THEN 16500 WHEN o.product_id='p013' THEN 3300 ELSE o.fulfillment_cost_pkr END,
+                      0
+                    )
                   ELSE NULL END AS profit_pkr
                FROM commerce_orders o
                LEFT JOIN commerce_coupons c ON c.id=o.coupon_id

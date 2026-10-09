@@ -5209,5 +5209,41 @@ export const supplierUrlRegistry = [
     "aliases": [
       "gmails-accounts-vl99ic"
     ]
+  },
+  {
+    "slug": "chatgpt-pro-x5-1-month-7-days-warranty",
+    "keys": [
+      "auto:chatgpt-pro-x5-duration-1m"
+    ],
+    "names": [
+      "chatgpt pro x5 1 month - 7 days warranty"
+    ],
+    "aliases": [
+      "chatgpt-pro-x5-1-month-7-days-warranty-1cs703"
+    ]
+  },
+  {
+    "slug": "chatgpt-pro-x200-1-month-7d-warranty",
+    "keys": [
+      "auto:chatgpt-pro-x200-duration-1m"
+    ],
+    "names": [
+      "chatgpt pro x200 1 month (7d warranty)"
+    ],
+    "aliases": [
+      "chatgpt-pro-x200-1-month-7d-warranty-ub89ru"
+    ]
+  },
+  {
+    "slug": "chatgpt-pro-x500-1-month",
+    "keys": [
+      "auto:chatgpt-pro-x500-duration-1m"
+    ],
+    "names": [
+      "chatgpt pro x500 1 month full warranty"
+    ],
+    "aliases": [
+      "chatgpt-pro-x500-1-month-full-warranty-137y1i"
+    ]
   }
 ];
