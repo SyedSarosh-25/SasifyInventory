@@ -15,12 +15,12 @@ import { StructuredData } from '../components/structured-data';
 import { VirtualNumbers } from '../components/virtual-numbers';
 import { breadcrumbData, faqData } from '../seo';
 import { siteOrigin } from '../site-config';
-import { shareImage, shareImageUrl } from '../share-metadata';
 
-const title = 'Virtual Phone Numbers in Pakistan · WhatsApp, Telegram & ChatGPT SMS OTP | Sasify Solutions';
+const title = 'Virtual Phone Numbers in Pakistan · WhatsApp & Telegram OTP | Sasify';
 const description =
-  'Buy temporary virtual phone numbers in Pakistan for one-time SMS OTP verification on WhatsApp, Telegram, ChatGPT, Claude, and Google. Fixed pricing starting from Rs 100 with 1-click Sasify Wallet activation and instant auto-refund guarantee.';
+  'Buy disposable virtual numbers in Pakistan for WhatsApp, Telegram, ChatGPT & Google SMS OTP. Instant code delivery & auto-refund guarantee from Rs 100.';
 const path = '/virtual-numbers';
+const shareCardImage = `${siteOrigin}/virtual-numbers-og.png`;
 
 export const metadata: Metadata = {
   title,
@@ -40,8 +40,26 @@ export const metadata: Metadata = {
     'one-time OTP verification',
   ],
   alternates: { canonical: `${siteOrigin}${path}` },
-  openGraph: { title, description, url: `${siteOrigin}${path}`, images: shareImage(title) },
-  twitter: { card: 'summary_large_image', title, description, images: [shareImageUrl] },
+  openGraph: {
+    title,
+    description,
+    url: `${siteOrigin}${path}`,
+    siteName: 'Sasify Solutions',
+    type: 'website',
+    images: [{
+      url: shareCardImage,
+      width: 1200,
+      height: 630,
+      type: 'image/png',
+      alt: 'Virtual Phone Numbers in Pakistan · SMS OTP Verification',
+    }],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title,
+    description,
+    images: [shareCardImage],
+  },
 };
 
 const questions = [
