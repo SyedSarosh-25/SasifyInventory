@@ -291,6 +291,7 @@
   cursor: pointer;
   text-align: left;
   transition: all 0.15s ease;
+  position: relative;
 }
 
 .vn-country-btn:hover {
@@ -304,25 +305,73 @@
   box-shadow: 0 0 0 2px rgba(5, 150, 105, 0.2);
 }
 
+.vn-country-btn.no-stock {
+  opacity: 0.62;
+  background: #fafafa;
+}
+
 .vn-country-flag {
   font-size: 20px;
   line-height: 1;
+  flex-shrink: 0;
 }
 
 .vn-country-details {
   display: flex;
   flex-direction: column;
+  min-width: 0;
+  flex: 1;
 }
 
 .vn-country-name {
   font-size: 13px;
   font-weight: 600;
   color: #111827;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .vn-country-code {
   font-size: 11px;
   color: #6b7280;
+}
+
+.vn-country-pricing-wrap {
+  display: flex;
+  align-items: center;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.vn-country-price {
+  display: inline-flex;
+  align-items: center;
+  font-size: 12px;
+  font-weight: 700;
+  color: #047857;
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  padding: 3px 7px;
+  border-radius: 6px;
+  white-space: nowrap;
+  letter-spacing: -0.01em;
+}
+
+.vn-country-price.cheap {
+  background: #d1fae5;
+  border-color: #6ee7b7;
+  color: #065f46;
+  font-weight: 800;
+  box-shadow: 0 1px 2px rgba(5, 150, 105, 0.12);
+}
+
+.vn-country-price.na {
+  background: #f3f4f6;
+  border-color: #e5e7eb;
+  color: #9ca3af;
+  font-size: 10.5px;
+  font-weight: 500;
 }
 
 /* Purchase / Action Panel */
@@ -408,6 +457,19 @@
 .vn-rent-btn:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+.vn-rent-btn.vn-disabled-btn {
+  background: #9ca3af;
+  border-color: #9ca3af;
+  cursor: not-allowed;
+  opacity: 0.85;
+  box-shadow: none;
+}
+
+.vn-rent-btn.vn-disabled-btn:hover {
+  background: #9ca3af;
+  transform: none;
 }
 
 .vn-deposit-btn {
@@ -1042,6 +1104,21 @@
 
   .vn-country-code {
     font-size: 10.5px;
+  }
+
+  .vn-country-pricing-wrap {
+    margin-left: auto;
+  }
+
+  .vn-country-price {
+    font-size: 10px;
+    padding: 2px 4px;
+    border-radius: 4px;
+  }
+
+  .vn-country-price.na {
+    font-size: 9px;
+    padding: 1px 3px;
   }
 
   /* Checkout Panel */

@@ -6144,7 +6144,7 @@ export function createHandler(
           req.query?.country_id ||
           searchParams.get('countryId') ||
           searchParams.get('country_id') ||
-          7;
+          null;
         const serviceId =
           body.serviceId ||
           body.service_id ||
@@ -6167,6 +6167,7 @@ export function createHandler(
         const productsRaw = await fetchSmscodeProducts(smscodeKey, {
           countryId,
           platformId: serviceId,
+          limit: 1000,
         });
         const usdRate = supplierUsdRate() || 285;
         const products = productsRaw

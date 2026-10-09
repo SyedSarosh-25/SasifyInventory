@@ -298,6 +298,28 @@ export async function fetchSmscodeProducts(apiKey, { countryId, platformId, oper
     tiktok: 0.30,
     microsoft: 0.35,
   };
+  if (!countryId) {
+    const fallbackList = [
+      { country_id: 2, cost: 0.0429, name: 'Standard Line' },
+      { country_id: 7, cost: 0.14, name: 'Standard Line' },
+      { country_id: 23, cost: 0.22, name: 'Direct Route' },
+      { country_id: 188, cost: 0.35, name: 'Standard Route' },
+      { country_id: 17, cost: 0.45, name: 'Standard Route' },
+    ];
+    return fallbackList.map((f, i) => ({
+      id: 100 + i,
+      catalog_product_id: 100 + i,
+      name: f.name,
+      country_id: f.country_id,
+      platform_id: platformId || 1,
+      operator_id: null,
+      operator_name: 'Direct Route',
+      available: 95,
+      cost_usd: f.cost,
+      active: true,
+    }));
+  }
+
   const baseCost = 0.45;
   return [
     {

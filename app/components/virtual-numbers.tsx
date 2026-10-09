@@ -216,18 +216,17 @@ export function VirtualNumbers() {
     };
   }, []);
 
-  // Fetch real-time products & pricing whenever service or country selection changes
+  // Fetch real-time products & pricing whenever service selection changes
   useEffect(() => {
-    if (!selectedService || !selectedCountry) return;
+    if (!selectedService) return;
     const svcId = String(selectedService.id);
-    const cntId = String(selectedCountry.id);
     let active = true;
     async function loadDynamicProducts() {
       try {
         const res = await fetch(
           `/api/commerce?action=virtual-numbers-catalog&serviceId=${encodeURIComponent(
             svcId,
-          )}&countryId=${encodeURIComponent(cntId)}`,
+          )}`,
           { cache: 'no-store' },
         );
         if (!res.ok) return;
@@ -243,7 +242,7 @@ export function VirtualNumbers() {
     return () => {
       active = false;
     };
-  }, [selectedService?.id, selectedCountry?.id]);
+  }, [selectedService?.id]);
 
   // Load history if logged in and tab switched to history
   useEffect(() => {
@@ -329,34 +328,125 @@ export function VirtualNumbers() {
     return catMatches;
   }, [services, serviceSearch, serviceCategory, showAllServices]);
 
-  // Filter countries by search or popularity
+  // Map of country_id -> cheapest available product offer for the selected service
+  const countryPriceMap = React.useMemo(() => {
+    const map = new Map<string, {
+      price_pkr: number;
+      cost_usd: number;
+      available: number;
+      catalog_product_id: string | number;
+      id: string | number;
+    }>();
+
+    for (const p of products) {
+      const cId = String(p.country_id);
+      const isForSelectedService =
+        !selectedService ||
+        String(p.platform_id) === String(selectedService.id) ||
+        String((p as any).service_id) === String(selectedService.id);
+
+      if (!isForSelectedService) continue;
+
+      const avail = Number(p.available || 0);
+      const existing = map.get(cId);
+
+      if (!existing) {
+        map.set(cId, {
+          price_pkr: p.price_pkr,
+          cost_usd: p.cost_usd,
+          available: avail,
+          catalog_product_id: p.catalog_product_id || p.id,
+          id: p.id,
+        });
+      } else {
+        // Prefer offers with stock over 0-stock
+        if (existing.available === 0 && avail > 0) {
+          map.set(cId, {
+            price_pkr: p.price_pkr,
+            cost_usd: p.cost_usd,
+            available: avail,
+            catalog_product_id: p.catalog_product_id || p.id,
+            id: p.id,
+          });
+        } else if (existing.available > 0 && avail > 0 && p.price_pkr < existing.price_pkr) {
+          // If both have stock, take lower price
+          map.set(cId, {
+            price_pkr: p.price_pkr,
+            cost_usd: p.cost_usd,
+            available: avail,
+            catalog_product_id: p.catalog_product_id || p.id,
+            id: p.id,
+          });
+        }
+      }
+    }
+    return map;
+  }, [products, selectedService]);
+
+  // Filter and sort countries by dynamic pricing, stock, search, and popularity
   const filteredCountries = React.useMemo(() => {
     const q = countrySearch.trim().toLowerCase();
-    if (q) {
-      return countries
-        .filter(
-          (c) =>
-            c.name.toLowerCase().includes(q) ||
-            c.code.toLowerCase().includes(q) ||
-            String(c.dial_code).includes(q),
-        )
-        .slice(0, 36);
-    }
-    if (showAllCountries) {
-      return countries;
-    }
-    const popular = countries.filter((c) => c.popular);
-    return popular.length > 0 ? popular : countries.slice(0, 16);
-  }, [countries, countrySearch, showAllCountries]);
+    let list: Country[] = countries;
 
-  // Find matching price/product
+    if (q) {
+      list = countries.filter(
+        (c) =>
+          c.name.toLowerCase().includes(q) ||
+          c.code.toLowerCase().includes(q) ||
+          String(c.dial_code).includes(q),
+      );
+    } else if (!showAllCountries) {
+      if (countryPriceMap.size > 0) {
+        const inStock = countries.filter((c) => {
+          const p = countryPriceMap.get(String(c.id));
+          return p && p.available > 0;
+        });
+        const popular = countries.filter((c) => c.popular);
+        const combined = Array.from(new Set([...inStock, ...popular]));
+        list = combined.length > 0 ? combined.slice(0, 36) : countries.slice(0, 24);
+      } else {
+        const popular = countries.filter((c) => c.popular);
+        list = popular.length > 0 ? popular : countries.slice(0, 16);
+      }
+    }
+
+    // Sort: Available stock first, then lowest price first
+    if (countryPriceMap.size > 0) {
+      return [...list].sort((a, b) => {
+        const pA = countryPriceMap.get(String(a.id));
+        const pB = countryPriceMap.get(String(b.id));
+
+        const availA = pA && pA.available > 0 ? 1 : pA ? 0 : -1;
+        const availB = pB && pB.available > 0 ? 1 : pB ? 0 : -1;
+
+        if (availA !== availB) {
+          return availB - availA; // Available stock first
+        }
+
+        const priceA = pA ? pA.price_pkr : 999999;
+        const priceB = pB ? pB.price_pkr : 999999;
+        if (priceA !== priceB) {
+          return priceA - priceB; // Lowest price first
+        }
+
+        return a.name.localeCompare(b.name);
+      });
+    }
+
+    return list;
+  }, [countries, countrySearch, showAllCountries, countryPriceMap]);
+
+  // Find matching price/product for selected country & service
+  const currentPricing = selectedCountry ? countryPriceMap.get(String(selectedCountry.id)) : null;
+
   const currentProduct = products.find(
     (p) =>
       String(p.country_id) === String(selectedCountry?.id) &&
       (String(p.platform_id) === String(selectedService?.id) || String((p as any).service_id) === String(selectedService?.id)),
   ) || (products.length > 0 && String(products[0].country_id) === String(selectedCountry?.id) ? products[0] : null);
 
-  const estimatedPkr = currentProduct?.price_pkr || 250;
+  const estimatedPkr = currentPricing?.price_pkr || currentProduct?.price_pkr || 250;
+  const isSelectedOutOfStock = Boolean(currentPricing && currentPricing.available === 0);
   const hasSufficientWallet = walletBalance !== null && walletBalance >= estimatedPkr;
 
   // Rent handler
@@ -382,9 +472,9 @@ export function VirtualNumbers() {
           countryId: selectedCountry.id,
           countryName: selectedCountry.name,
           countryCode: selectedCountry.code,
-          catalogProductId: currentProduct?.catalog_product_id,
-          productId: currentProduct?.id,
-          maxPriceUsd: currentProduct?.cost_usd || (estimatedPkr <= 100 ? 0.08 : 0.35),
+          catalogProductId: currentPricing?.catalog_product_id || currentProduct?.catalog_product_id,
+          productId: currentPricing?.id || currentProduct?.id,
+          maxPriceUsd: currentPricing?.cost_usd || currentProduct?.cost_usd || (estimatedPkr <= 100 ? 0.08 : 0.35),
         }),
       });
 
@@ -779,20 +869,42 @@ export function VirtualNumbers() {
             </div>
 
             <div className="vn-countries-grid">
-              {filteredCountries.map((country) => (
-                <button
-                  key={country.id}
-                  type="button"
-                  className={`vn-country-btn ${selectedCountry?.id === country.id ? 'selected' : ''}`}
-                  onClick={() => setSelectedCountry(country)}
-                >
-                  <span className="vn-country-flag">{country.emoji}</span>
-                  <div className="vn-country-details">
-                    <span className="vn-country-name">{country.name}</span>
-                    <span className="vn-country-code">+{country.dial_code}</span>
-                  </div>
-                </button>
-              ))}
+              {filteredCountries.map((country) => {
+                const pricing = countryPriceMap.get(String(country.id));
+                const isOutOfStock = pricing && pricing.available === 0;
+                const isSelected = selectedCountry?.id === country.id;
+
+                return (
+                  <button
+                    key={country.id}
+                    type="button"
+                    className={`vn-country-btn ${isSelected ? 'selected' : ''} ${isOutOfStock ? 'no-stock' : ''}`}
+                    onClick={() => setSelectedCountry(country)}
+                  >
+                    <span className="vn-country-flag">{country.emoji}</span>
+                    <div className="vn-country-details">
+                      <span className="vn-country-name">{country.name}</span>
+                      <span className="vn-country-code">+{country.dial_code}</span>
+                    </div>
+                    <div className="vn-country-pricing-wrap">
+                      {pricing ? (
+                        pricing.available > 0 ? (
+                          <span
+                            className={`vn-country-price ${pricing.price_pkr <= 99 ? 'cheap' : ''}`}
+                            title={`Wholesale: $${pricing.cost_usd.toFixed(2)} | In stock: ${pricing.available}`}
+                          >
+                            <Money amount={pricing.price_pkr} />
+                          </span>
+                        ) : (
+                          <span className="vn-country-price na">Out of stock</span>
+                        )
+                      ) : (
+                        <span className="vn-country-price na">—</span>
+                      )}
+                    </div>
+                  </button>
+                );
+              })}
             </div>
 
             {!countrySearch && (
@@ -870,7 +982,11 @@ export function VirtualNumbers() {
 
               <div className="vn-action-buttons">
                 {account ? (
-                  hasSufficientWallet ? (
+                  isSelectedOutOfStock ? (
+                    <button className="vn-rent-btn vn-disabled-btn" disabled>
+                      <span>Temporarily Out of Stock in {selectedCountry?.name || 'Selected Country'}</span>
+                    </button>
+                  ) : hasSufficientWallet ? (
                     <button
                       className="vn-rent-btn"
                       disabled={busy}
