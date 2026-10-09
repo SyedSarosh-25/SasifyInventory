@@ -130,6 +130,9 @@ export function SiteFooter() {
         <a href="/otp" className="founder-link">
           Get OTP / 2FA code
         </a>
+        <a href="/virtual-numbers" className="founder-link">
+          Virtual Numbers (SMS OTP)
+        </a>
         <a href="/scammers" className="founder-link">
           Scam reports
         </a>

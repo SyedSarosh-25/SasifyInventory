@@ -119,6 +119,17 @@ import {
   supplierProductKey,
 } from './supplier-matching.mjs';
 import { DEFAULT_REVIEWS_URL, fetchGoogleReviews, googleReviewsConfig } from './google-reviews.mjs';
+import {
+  isSmscodeConfigured,
+  fetchSmscodeServices,
+  fetchSmscodeCountries,
+  fetchSmscodeProducts,
+  createSmscodeOrder,
+  getSmscodeOrder,
+  cancelSmscodeOrder,
+  finishSmscodeOrder,
+  calculateRetailPricePkr,
+} from './smscode.mjs';
 import catalog from './catalog.json' with { type: 'json' };
 
 const fail = (status, message) => Object.assign(new Error(message), { status });
@@ -4628,6 +4639,44 @@ export function createHandler(
     }
     await accountSchemaReady;
   };
+  let virtualNumberSchemaReady;
+  const ensureVirtualNumberSchema = async (db) => {
+    if (!virtualNumberSchemaReady) {
+      virtualNumberSchemaReady = (async () => {
+        await db.query(`
+          CREATE TABLE IF NOT EXISTS commerce_virtual_number_orders (
+            id uuid PRIMARY KEY,
+            account_id uuid REFERENCES commerce_accounts(id) ON DELETE SET NULL,
+            smscode_order_id text,
+            service_id text NOT NULL,
+            service_name text NOT NULL,
+            country_id text NOT NULL,
+            country_name text NOT NULL,
+            country_code text NOT NULL,
+            phone_number text,
+            price_pkr integer NOT NULL CHECK(price_pkr >= 0),
+            cost_usd numeric(10,4),
+            status text NOT NULL DEFAULT 'ACTIVE' CHECK(status IN ('ACTIVE','RECEIVED','COMPLETED','CANCELLED','EXPIRED','FAILED')),
+            otp_code text,
+            otp_message text,
+            can_cancel boolean NOT NULL DEFAULT true,
+            can_finish boolean NOT NULL DEFAULT false,
+            idempotency_key text UNIQUE,
+            expires_at timestamptz,
+            created_at timestamptz NOT NULL DEFAULT now(),
+            completed_at timestamptz,
+            refunded boolean NOT NULL DEFAULT false
+          )
+        `);
+        await db.query(`CREATE INDEX IF NOT EXISTS commerce_virtual_number_orders_account ON commerce_virtual_number_orders(account_id, created_at DESC)`);
+        await db.query(`CREATE INDEX IF NOT EXISTS commerce_virtual_number_orders_status ON commerce_virtual_number_orders(status, created_at DESC)`);
+      })().catch((err) => {
+        virtualNumberSchemaReady = null;
+        console.warn('[smscode-schema] Failed to ensure virtual number table:', err.message);
+      });
+    }
+    await virtualNumberSchemaReady;
+  };
   return async function handler(req, res) {
     res.setHeader('Cache-Control', 'no-store');
     res.setHeader('X-Content-Type-Options', 'nosniff');
@@ -4833,23 +4882,27 @@ export function createHandler(
       )
         throw fail(401, 'Invalid public Telegram webhook secret.');
       if (
-        [
-          'stock',
-          'status',
-          'google-reviews',
-          'google-reviews-sync',
-          'scam-reports',
-          'scam-report',
-          'product-reviews',
-          'admin-list',
-          'admin-payments',
-          'admin-supplier-logs',
-          'admin-scam-report',
-          'team-stock',
-          'account-dashboard',
-        ].includes(action)
-          ? req.method !== 'GET'
-          : req.method !== 'POST'
+        (action === 'virtual-number-status'
+          ? !['GET', 'POST'].includes(req.method)
+          : [
+              'stock',
+              'status',
+              'google-reviews',
+              'google-reviews-sync',
+              'scam-reports',
+              'scam-report',
+              'product-reviews',
+              'admin-list',
+              'admin-payments',
+              'admin-supplier-logs',
+              'admin-scam-report',
+              'team-stock',
+              'account-dashboard',
+              'virtual-numbers-catalog',
+              'virtual-numbers-my-orders',
+            ].includes(action)
+            ? req.method !== 'GET'
+            : req.method !== 'POST')
       )
         throw fail(405, 'Method not allowed.');
       if (action === 'admin-payments') {
@@ -6077,6 +6130,253 @@ export function createHandler(
           createdAt: inserted.rows[0].created_at,
           message: 'Review submitted successfully! It will appear once verified by our team.',
         };
+      } else if (action === 'virtual-numbers-catalog') {
+        await ensureVirtualNumberSchema(db);
+        const countryId = body.countryId || req.query?.countryId || null;
+        const serviceId = body.serviceId || req.query?.serviceId || null;
+        const smscodeKey = supplierApiKeys.smscode || process.env.SMSCODE_TOKEN || process.env.SMSCODE_API_KEY;
+        const [services, countries] = await Promise.all([
+          fetchSmscodeServices(smscodeKey, countryId),
+          fetchSmscodeCountries(smscodeKey, serviceId),
+        ]);
+        const productsRaw = await fetchSmscodeProducts(smscodeKey, {
+          countryId,
+          platformId: serviceId,
+        });
+        const usdRate = supplierUsdRate() || 285;
+        const products = productsRaw.map((p) => ({
+          ...p,
+          price_pkr: calculateRetailPricePkr(p.cost_usd, usdRate),
+        }));
+        output = {
+          ok: true,
+          configured: isSmscodeConfigured(smscodeKey),
+          services,
+          countries,
+          products,
+          walletBalance: customerAccount ? Number(customerAccount.balance || 0) : null,
+          account: customerAccount ? { id: customerAccount.id, email: customerAccount.email } : null,
+        };
+      } else if (action === 'virtual-numbers-my-orders') {
+        const account = requireAccount(customerAccount);
+        await ensureVirtualNumberSchema(db);
+        const rows = (
+          await db.query(
+            'SELECT * FROM commerce_virtual_number_orders WHERE account_id=$1 ORDER BY created_at DESC LIMIT 30',
+            [account.id],
+          )
+        ).rows;
+        output = { ok: true, orders: rows };
+      } else if (action === 'virtual-number-rent') {
+        const account = requireAccount(customerAccount);
+        await ensureVirtualNumberSchema(db);
+        const {
+          serviceId,
+          serviceName,
+          countryId,
+          countryName,
+          countryCode,
+          catalogProductId,
+          productId,
+          maxPriceUsd,
+          operatorId,
+        } = body;
+        if (!serviceName || !countryName) {
+          throw fail(400, 'Service and country are required.');
+        }
+        const costUsd = Number(maxPriceUsd || 0.50);
+        const usdRate = supplierUsdRate() || 285;
+        const pricePkr = calculateRetailPricePkr(costUsd, usdRate);
+
+        const debited = await db.query(
+          'UPDATE commerce_accounts SET balance=balance-$1 WHERE id=$2 AND balance>=$1 RETURNING id,balance',
+          [pricePkr, account.id],
+        );
+        if (!debited.rows.length) {
+          throw fail(409, `Insufficient wallet balance. You need Rs ${pricePkr} in your Sasify Wallet.`);
+        }
+
+        const idempotencyKey = randomUUID();
+        const smscodeKey = supplierApiKeys.smscode || process.env.SMSCODE_TOKEN || process.env.SMSCODE_API_KEY;
+        let smscodeOrder;
+        try {
+          smscodeOrder = await createSmscodeOrder(smscodeKey, {
+            catalogProductId,
+            productId,
+            maxPrice: costUsd,
+            operatorId,
+            idempotencyKey,
+            onExchange: captureSupplierExchange,
+          });
+        } catch (supplierErr) {
+          await db.query(
+            'UPDATE commerce_accounts SET balance=balance+$1 WHERE id=$2',
+            [pricePkr, account.id],
+          );
+          throw fail(supplierErr.status || 503, supplierErr.message || 'Unable to allocate virtual number. Your wallet was not charged.');
+        }
+
+        const orderUuid = randomUUID();
+        await db.query(
+          'INSERT INTO commerce_wallet_ledger(id,account_id,amount,description) VALUES($1,$2,$3,$4)',
+          [randomUUID(), account.id, -pricePkr, `Virtual Number · ${serviceName} (${countryName})`],
+        );
+        await db.query(
+          `INSERT INTO commerce_virtual_number_orders(
+            id, account_id, smscode_order_id, service_id, service_name,
+            country_id, country_name, country_code, phone_number, price_pkr,
+            cost_usd, status, idempotency_key, expires_at, created_at, can_cancel, can_finish
+          ) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'ACTIVE',$12,$13,now(),true,false)`,
+          [
+            orderUuid,
+            account.id,
+            smscodeOrder.id,
+            String(serviceId || ''),
+            String(serviceName),
+            String(countryId || ''),
+            String(countryName),
+            String(countryCode || ''),
+            smscodeOrder.phone_number,
+            pricePkr,
+            costUsd,
+            idempotencyKey,
+            smscodeOrder.expires_at || new Date(Date.now() + 15 * 60 * 1000).toISOString(),
+          ],
+        );
+
+        output = {
+          ok: true,
+          orderId: orderUuid,
+          smscodeOrderId: smscodeOrder.id,
+          phoneNumber: smscodeOrder.phone_number,
+          expiresAt: smscodeOrder.expires_at,
+          pricePkr,
+          status: 'ACTIVE',
+          balance: Number(debited.rows[0].balance),
+        };
+      } else if (action === 'virtual-number-status') {
+        await ensureVirtualNumberSchema(db);
+        const orderId = body.orderId || body.id || req.query?.id;
+        if (!orderId) throw fail(400, 'Order ID is required.');
+        const orderRow = (
+          await db.query(
+            'SELECT * FROM commerce_virtual_number_orders WHERE id::text=$1 OR smscode_order_id=$1',
+            [orderId],
+          )
+        ).rows[0];
+        if (!orderRow) throw fail(404, 'Virtual number order not found.');
+
+        if (orderRow.status === 'ACTIVE') {
+          const smscodeKey = supplierApiKeys.smscode || process.env.SMSCODE_TOKEN || process.env.SMSCODE_API_KEY;
+          try {
+            const live = await getSmscodeOrder(smscodeKey, orderRow.smscode_order_id);
+            if (live.otp_code) {
+              await db.query(
+                "UPDATE commerce_virtual_number_orders SET otp_code=$1, otp_message=$2, status='RECEIVED', can_finish=true, can_cancel=false, completed_at=now() WHERE id=$3",
+                [live.otp_code, live.otp_message, orderRow.id],
+              );
+              orderRow.otp_code = live.otp_code;
+              orderRow.otp_message = live.otp_message;
+              orderRow.status = 'RECEIVED';
+              orderRow.can_finish = true;
+              orderRow.can_cancel = false;
+            } else if (live.status === 'CANCELED' || live.status === 'EXPIRED') {
+              if (!orderRow.refunded && orderRow.account_id) {
+                await db.query('UPDATE commerce_accounts SET balance=balance+$1 WHERE id=$2', [
+                  orderRow.price_pkr,
+                  orderRow.account_id,
+                ]);
+                await db.query(
+                  'INSERT INTO commerce_wallet_ledger(id,account_id,amount,description) VALUES($1,$2,$3,$4)',
+                  [
+                    randomUUID(),
+                    orderRow.account_id,
+                    orderRow.price_pkr,
+                    `Refund · Virtual Number Expired (${orderRow.service_name})`,
+                  ],
+                );
+              }
+              await db.query(
+                "UPDATE commerce_virtual_number_orders SET status=$1, refunded=true, can_cancel=false, can_finish=false WHERE id=$2",
+                [live.status, orderRow.id],
+              );
+              orderRow.status = live.status;
+              orderRow.refunded = true;
+              orderRow.can_cancel = false;
+              orderRow.can_finish = false;
+            }
+          } catch (pollErr) {
+            console.warn('[smscode-poll] Polling warning:', pollErr.message);
+          }
+        }
+        output = { ok: true, order: orderRow };
+      } else if (action === 'virtual-number-cancel') {
+        const account = requireAccount(customerAccount);
+        await ensureVirtualNumberSchema(db);
+        const orderId = body.orderId || body.id;
+        if (!orderId) throw fail(400, 'Order ID is required.');
+        const orderRow = (
+          await db.query(
+            'SELECT * FROM commerce_virtual_number_orders WHERE (id::text=$1 OR smscode_order_id=$1) AND account_id=$2 FOR UPDATE',
+            [orderId, account.id],
+          )
+        ).rows[0];
+        if (!orderRow) throw fail(404, 'Order not found.');
+        if (orderRow.status !== 'ACTIVE' || orderRow.refunded || !orderRow.can_cancel) {
+          throw fail(409, 'This number cannot be cancelled or an OTP has already arrived.');
+        }
+        const smscodeKey = supplierApiKeys.smscode || process.env.SMSCODE_TOKEN || process.env.SMSCODE_API_KEY;
+        try {
+          await cancelSmscodeOrder(smscodeKey, orderRow.smscode_order_id);
+        } catch (err) {
+          console.warn('[smscode-cancel] Provider cancel issue:', err.message);
+        }
+        const restored = await db.query(
+          'UPDATE commerce_accounts SET balance=balance+$1 WHERE id=$2 RETURNING balance',
+          [orderRow.price_pkr, account.id],
+        );
+        await db.query(
+          'INSERT INTO commerce_wallet_ledger(id,account_id,amount,description) VALUES($1,$2,$3,$4)',
+          [
+            randomUUID(),
+            account.id,
+            orderRow.price_pkr,
+            `Refund · Cancelled Virtual Number ${orderRow.service_name} (${orderRow.country_name})`,
+          ],
+        );
+        await db.query(
+          "UPDATE commerce_virtual_number_orders SET status='CANCELLED', refunded=true, can_cancel=false, can_finish=false WHERE id=$1",
+          [orderRow.id],
+        );
+        output = {
+          ok: true,
+          status: 'CANCELLED',
+          refundedAmount: orderRow.price_pkr,
+          newBalance: Number(restored.rows[0].balance),
+        };
+      } else if (action === 'virtual-number-finish') {
+        const account = requireAccount(customerAccount);
+        await ensureVirtualNumberSchema(db);
+        const orderId = body.orderId || body.id;
+        if (!orderId) throw fail(400, 'Order ID is required.');
+        const orderRow = (
+          await db.query(
+            'SELECT * FROM commerce_virtual_number_orders WHERE (id::text=$1 OR smscode_order_id=$1) AND account_id=$2',
+            [orderId, account.id],
+          )
+        ).rows[0];
+        if (!orderRow) throw fail(404, 'Order not found.');
+        const smscodeKey = supplierApiKeys.smscode || process.env.SMSCODE_TOKEN || process.env.SMSCODE_API_KEY;
+        try {
+          await finishSmscodeOrder(smscodeKey, orderRow.smscode_order_id);
+        } catch (err) {
+          console.warn('[smscode-finish] Provider finish issue:', err.message);
+        }
+        await db.query(
+          "UPDATE commerce_virtual_number_orders SET status='COMPLETED', can_finish=false, can_cancel=false, completed_at=now() WHERE id=$1",
+          [orderRow.id],
+        );
+        output = { ok: true, status: 'COMPLETED' };
       } else if (action === 'tool-request') {
         let request;
         try {

@@ -12,6 +12,7 @@ import {
   Headphones,
   HeartHandshake,
   KeyRound,
+  Smartphone,
   Landmark,
   Maximize2,
   RotateCcw,
@@ -566,6 +567,9 @@ export default function Home() {
               </a>
               <a href="/otp" className="secondary-button otp-hero-button">
                 <KeyRound className="h-4 w-4" /> Get your 2FA code
+              </a>
+              <a href="/virtual-numbers" className="secondary-button virtual-numbers-hero-button">
+                <Smartphone className="h-4 w-4" /> Virtual Numbers (SMS OTP)
               </a>
             </div>
           </div>

@@ -549,6 +549,7 @@ const copy: Array<[string, string, string]> = [
   ['See top plans and prices', 'Top plans aur prices dekhain', 'Xem các gói nổi bật và giá'],
   ['Request a missing tool', 'Jo tool na mile, uski request karain', 'Yêu cầu công cụ còn thiếu'],
   ['Get your 2FA code', 'Apna 2FA code lein', 'Lấy mã 2FA của bạn'],
+  ['Virtual Numbers (SMS OTP)', 'Virtual Numbers (SMS OTP)', 'Số điện thoại ảo (SMS OTP)'],
   ['See price and buy', 'Price dekhain aur khareedain', 'Xem giá và mua'],
   ['Every plan shows its access type, length and PKR price.', 'Har plan par access type, muddat aur PKR price likhi hai.', 'Mỗi gói hiển thị loại quyền truy cập, thời hạn và giá PKR.'],
   ['Available plans', 'Available plans', 'Các gói hiện có'],

@@ -360,3 +360,29 @@ CREATE TABLE IF NOT EXISTS commerce_wallet_withdrawals (
 CREATE INDEX IF NOT EXISTS commerce_wallet_withdrawals_status ON commerce_wallet_withdrawals(status, created_at DESC);
 CREATE INDEX IF NOT EXISTS commerce_wallet_withdrawals_account ON commerce_wallet_withdrawals(account_id, created_at DESC);
 
+
+CREATE TABLE IF NOT EXISTS commerce_virtual_number_orders (
+  id uuid PRIMARY KEY,
+  account_id uuid REFERENCES commerce_accounts(id) ON DELETE SET NULL,
+  smscode_order_id text,
+  service_id text NOT NULL,
+  service_name text NOT NULL,
+  country_id text NOT NULL,
+  country_name text NOT NULL,
+  country_code text NOT NULL,
+  phone_number text,
+  price_pkr integer NOT NULL CHECK(price_pkr >= 0),
+  cost_usd numeric(10,4),
+  status text NOT NULL DEFAULT 'ACTIVE' CHECK(status IN ('ACTIVE','RECEIVED','COMPLETED','CANCELLED','EXPIRED','FAILED')),
+  otp_code text,
+  otp_message text,
+  can_cancel boolean NOT NULL DEFAULT true,
+  can_finish boolean NOT NULL DEFAULT false,
+  idempotency_key text UNIQUE,
+  expires_at timestamptz,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  completed_at timestamptz,
+  refunded boolean NOT NULL DEFAULT false
+);
+CREATE INDEX IF NOT EXISTS commerce_virtual_number_orders_account ON commerce_virtual_number_orders(account_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS commerce_virtual_number_orders_status ON commerce_virtual_number_orders(status, created_at DESC);

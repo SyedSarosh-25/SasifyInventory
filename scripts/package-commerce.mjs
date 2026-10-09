@@ -69,6 +69,7 @@ for (const name of [
   'google-reviews.mjs',
   'product-reviews.mjs',
   'sasify-bot.mjs',
+  'smscode.mjs',
 ])
   await cp(path.join(root, 'commerce', name), path.join(func, name));
 const catalog = products.flatMap((p) => [

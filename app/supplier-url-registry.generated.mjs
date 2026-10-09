@@ -4986,7 +4986,8 @@ export const supplierUrlRegistry = [
       "auto:1-account-ai-billion-muse-tokens"
     ],
     "names": [
-      "muse ai account —1 billion tokens!"
+      "muse ai account —1 billion tokens!",
+      "muse ai account —1 billion tokens"
     ],
     "aliases": [
       "muse-ai-account-1-billion-tokens-iqknlo"
