@@ -655,9 +655,6 @@ export function VirtualNumbers() {
                 <span className="vn-summary-title">
                   {selectedService?.name || 'Service'} · {selectedCountry?.emoji} {selectedCountry?.name || 'Country'} (+{selectedCountry?.dial_code})
                 </span>
-                <div className="vn-tier-badge">
-                  Tier Price: Wholesale &lt;$0.10 = Rs 100 | $0.10–$0.50 = Rs 250 | &gt;$0.50 = 100% Margin
-                </div>
               </div>
 
               <div className="text-right">
