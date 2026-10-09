@@ -498,6 +498,7 @@
   padding: 28px;
   box-shadow: 0 8px 30px rgba(16, 185, 129, 0.12);
   margin-bottom: 24px;
+  scroll-margin-top: 90px;
 }
 
 .vn-active-header {
@@ -1189,6 +1190,7 @@
     padding: 14px 12px;
     border-radius: 14px;
     margin-bottom: 14px;
+    scroll-margin-top: 75px;
   }
 
   .vn-active-header {

@@ -139,6 +139,7 @@ export function VirtualNumbers() {
   const [copiedPhone, setCopiedPhone] = useState(false);
   const [copiedOtp, setCopiedOtp] = useState(false);
   const [remainingSeconds, setRemainingSeconds] = useState<number>(0);
+  const activeOrderRef = React.useRef<HTMLDivElement>(null);
 
   // Restore active order from sessionStorage on mount
   useEffect(() => {
@@ -503,6 +504,20 @@ export function VirtualNumbers() {
       }
 
       setNotice('Number allocated successfully! Waiting for your SMS verification code...');
+
+      // Auto-scroll screen smoothly up to where the assigned number is displayed
+      const scrollToOrder = (attempts = 0) => {
+        const target =
+          activeOrderRef.current ||
+          document.getElementById('vn-active-order') ||
+          document.querySelector('.vn-active-banner');
+        if (target) {
+          target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        } else if (attempts < 12) {
+          setTimeout(() => scrollToOrder(attempts + 1), 40);
+        }
+      };
+      setTimeout(() => scrollToOrder(0), 50);
     } catch (err: any) {
       setError(err.message || 'Could not complete number reservation.');
     } finally {
@@ -640,7 +655,7 @@ export function VirtualNumbers() {
 
       {/* ACTIVE ORDER CARD */}
       {activeOrder && activeOrder.status !== 'COMPLETED' && (
-        <div className="vn-active-banner">
+        <div ref={activeOrderRef} id="vn-active-order" className="vn-active-banner">
           <div className="vn-active-header">
             <div className="vn-pulse-badge">
               <span className="vn-pulse-dot" />
