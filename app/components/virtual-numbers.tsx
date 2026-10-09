@@ -141,12 +141,12 @@ export function VirtualNumbers() {
           // Default select WhatsApp and Indonesia or first available
           if (!selectedService && data.services?.length) {
             const defaultService =
-              data.services.find((s: Service) => s.code === 'whatsapp') || data.services[0];
+              data.services.find((s: Service) => String(s.code).toLowerCase() === 'whatsapp') || data.services[0];
             setSelectedService(defaultService);
           }
           if (!selectedCountry && data.countries?.length) {
             const defaultCountry =
-              data.countries.find((c: Country) => c.code === 'id') || data.countries[0];
+              data.countries.find((c: Country) => String(c.code).toLowerCase() === 'id') || data.countries[0];
             setSelectedCountry(defaultCountry);
           }
         }
@@ -159,6 +159,33 @@ export function VirtualNumbers() {
       mounted = false;
     };
   }, []);
+
+  // Fetch real-time products & pricing whenever service or country selection changes
+  useEffect(() => {
+    if (!selectedService || !selectedCountry) return;
+    let active = true;
+    async function loadDynamicProducts() {
+      try {
+        const res = await fetch(
+          `/api/commerce?action=virtual-numbers-catalog&serviceId=${encodeURIComponent(
+            String(selectedService.id),
+          )}&countryId=${encodeURIComponent(String(selectedCountry.id))}`,
+          { cache: 'no-store' },
+        );
+        if (!res.ok) return;
+        const data = await res.json();
+        if (active && data.ok && Array.isArray(data.products) && data.products.length > 0) {
+          setProducts(data.products);
+        }
+      } catch {
+        // Retain current products on network hiccup
+      }
+    }
+    loadDynamicProducts();
+    return () => {
+      active = false;
+    };
+  }, [selectedService?.id, selectedCountry?.id]);
 
   // Load history if logged in and tab switched to history
   useEffect(() => {

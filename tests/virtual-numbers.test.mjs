@@ -66,6 +66,7 @@ test('virtual numbers API: catalog, wallet rent, live status, and cancel refund'
     COMMERCE_ADMIN_KEY: adminKey,
     PAYMENT_ACCOUNT_TITLE: 'Test Receiver',
     PAYMENT_ACCOUNT_NUMBER: '03450485711',
+    SMSCODE_TOKEN: '',
   });
 
   const handler = createHandler(() => ({

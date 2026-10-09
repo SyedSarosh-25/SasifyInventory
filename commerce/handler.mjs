@@ -129,6 +129,7 @@ import {
   cancelSmscodeOrder,
   finishSmscodeOrder,
   calculateRetailPricePkr,
+  getSmscodeToken,
 } from './smscode.mjs';
 import catalog from './catalog.json' with { type: 'json' };
 
@@ -506,6 +507,7 @@ const SUPPLIER_API_ENV = Object.freeze({
   piggyai: 'PIGGYAI_API_KEY',
   zoomstore: 'ZOOMSTORE_API_KEY',
   elitetools: 'ELITE_TOOLS_API_KEY',
+  smscode: 'SMSCODE_TOKEN',
 });
 const SUPPLIER_PROVIDER_NAMES = Object.freeze({
   dodi: 'DODI Store',
@@ -515,6 +517,7 @@ const SUPPLIER_PROVIDER_NAMES = Object.freeze({
   piggyai: 'PiggyAi',
   zoomstore: 'Zoom Store',
   elitetools: 'Elite Tools Store',
+  smscode: 'SMSCode.gg (Virtual Numbers)',
 });
 const bearer = (req) =>
   String(req.headers.authorization || '').replace(/^Bearer /, '');
@@ -6138,7 +6141,7 @@ export function createHandler(
         await ensureVirtualNumberSchema(db);
         const countryId = body.countryId || req.query?.countryId || null;
         const serviceId = body.serviceId || req.query?.serviceId || null;
-        const smscodeKey = supplierApiKeys.smscode || process.env.SMSCODE_TOKEN || process.env.SMSCODE_API_KEY;
+        const smscodeKey = getSmscodeToken(supplierApiKeys.smscode);
         const [services, countries] = await Promise.all([
           fetchSmscodeServices(smscodeKey, countryId),
           fetchSmscodeCountries(smscodeKey, serviceId),
@@ -6148,10 +6151,12 @@ export function createHandler(
           platformId: serviceId,
         });
         const usdRate = supplierUsdRate() || 285;
-        const products = productsRaw.map((p) => ({
-          ...p,
-          price_pkr: calculateRetailPricePkr(p.cost_usd, usdRate),
-        }));
+        const products = productsRaw
+          .map((p) => ({
+            ...p,
+            price_pkr: calculateRetailPricePkr(p.cost_usd, usdRate),
+          }))
+          .sort((a, b) => a.price_pkr - b.price_pkr);
         const activeReceiver = (await db.query(`
           SELECT r.account_number, r.title, r.receiver_marker
           FROM commerce_payment_receiver_state s
@@ -6218,12 +6223,15 @@ export function createHandler(
         const debitedBalance = Number(debited.rows[0].balance);
 
         const idempotencyKey = randomUUID();
-        const smscodeKey = supplierApiKeys.smscode || process.env.SMSCODE_TOKEN || process.env.SMSCODE_API_KEY;
+        const smscodeKey = getSmscodeToken(supplierApiKeys.smscode);
         let smscodeOrder;
         try {
           smscodeOrder = await createSmscodeOrder(smscodeKey, {
             catalogProductId,
             productId,
+            countryId,
+            serviceId,
+            platformId: serviceId,
             maxPrice: costUsd,
             operatorId,
             idempotencyKey,
@@ -6291,7 +6299,7 @@ export function createHandler(
         if (!orderRow) throw fail(404, 'Virtual number order not found.');
 
         if (orderRow.status === 'ACTIVE') {
-          const smscodeKey = supplierApiKeys.smscode || process.env.SMSCODE_TOKEN || process.env.SMSCODE_API_KEY;
+          const smscodeKey = getSmscodeToken(supplierApiKeys.smscode);
           try {
             const live = await getSmscodeOrder(smscodeKey, orderRow.smscode_order_id);
             if (live.otp_code) {
@@ -6351,7 +6359,7 @@ export function createHandler(
         if (customerAccount && orderRow.account_id && orderRow.account_id !== customerAccount.id) {
           throw fail(403, 'Unauthorized.');
         }
-        const smscodeKey = supplierApiKeys.smscode || process.env.SMSCODE_TOKEN || process.env.SMSCODE_API_KEY;
+        const smscodeKey = getSmscodeToken(supplierApiKeys.smscode);
         try {
           await cancelSmscodeOrder(smscodeKey, orderRow.smscode_order_id);
         } catch (err) {
@@ -6397,7 +6405,7 @@ export function createHandler(
           )
         ).rows[0];
         if (!orderRow) throw fail(404, 'Order not found.');
-        const smscodeKey = supplierApiKeys.smscode || process.env.SMSCODE_TOKEN || process.env.SMSCODE_API_KEY;
+        const smscodeKey = getSmscodeToken(supplierApiKeys.smscode);
         try {
           await finishSmscodeOrder(smscodeKey, orderRow.smscode_order_id);
         } catch (err) {
