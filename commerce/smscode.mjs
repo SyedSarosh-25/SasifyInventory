@@ -269,6 +269,7 @@ export async function fetchSmscodeProducts(apiKey, { countryId, platformId, oper
             name: p.name,
             country_id: p.country_id,
             platform_id: p.platform_id,
+            service_id: p.platform_id,
             operator_id: p.operator_id || null,
             operator_name: p.operator_name || 'Any',
             available: Number(p.available || 0),
@@ -356,13 +357,13 @@ export async function createSmscodeOrder(apiKey, {
 
     const body = {
       quantity: 1,
-      policy: 'cheapest',
+      routing_policy: 'cheapest',
       ...(resolvedCatalogProductId
         ? { catalog_product_id: resolvedCatalogProductId }
         : resolvedProductId
         ? { product_id: resolvedProductId }
         : {}),
-      ...(maxPrice ? { max_price: String(maxPrice) } : {}),
+      ...(maxPrice ? { max_price: String(Number(maxPrice).toFixed(4)) } : {}),
       ...(operatorId ? { operator_id: Number(operatorId) } : {}),
     };
 

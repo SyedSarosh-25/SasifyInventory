@@ -4689,11 +4689,9 @@ export function createHandler(
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('Referrer-Policy', 'no-referrer');
     res.setHeader('X-Robots-Tag', 'noindex, nofollow');
-    const action =
-      req.query?.action ||
-      new URL(req.url, 'https://www.sasifysolutions.com').searchParams.get(
-        'action',
-      );
+    const urlObj = new URL(req.url, 'https://www.sasifysolutions.com');
+    const searchParams = urlObj.searchParams;
+    const action = req.query?.action || searchParams.get('action');
     const key = process.env.COMMERCE_ENCRYPTION_KEY;
     if (!process.env.DATABASE_URL || !/^[a-f0-9]{64}$/i.test(key || ''))
       return json(res, 503, {
@@ -6139,8 +6137,28 @@ export function createHandler(
         };
       } else if (action === 'virtual-numbers-catalog') {
         await ensureVirtualNumberSchema(db);
-        const countryId = body.countryId || req.query?.countryId || null;
-        const serviceId = body.serviceId || req.query?.serviceId || null;
+        const countryId =
+          body.countryId ||
+          body.country_id ||
+          req.query?.countryId ||
+          req.query?.country_id ||
+          searchParams.get('countryId') ||
+          searchParams.get('country_id') ||
+          7;
+        const serviceId =
+          body.serviceId ||
+          body.service_id ||
+          body.platformId ||
+          body.platform_id ||
+          req.query?.serviceId ||
+          req.query?.service_id ||
+          req.query?.platformId ||
+          req.query?.platform_id ||
+          searchParams.get('serviceId') ||
+          searchParams.get('service_id') ||
+          searchParams.get('platformId') ||
+          searchParams.get('platform_id') ||
+          1;
         const smscodeKey = getSmscodeToken(supplierApiKeys.smscode);
         const [services, countries] = await Promise.all([
           fetchSmscodeServices(smscodeKey, countryId),
@@ -6211,6 +6229,15 @@ export function createHandler(
         const usdRate = supplierUsdRate() || 285;
         const pricePkr = calculateRetailPricePkr(costUsd, usdRate);
 
+        let supplierMaxPriceUsd;
+        if (pricePkr <= 100) {
+          supplierMaxPriceUsd = 0.10;
+        } else if (pricePkr <= 250) {
+          supplierMaxPriceUsd = 0.50;
+        } else {
+          supplierMaxPriceUsd = Number((costUsd * 1.15).toFixed(4));
+        }
+
         const account = requireAccount(customerAccount);
 
         const debited = await db.query(
@@ -6232,7 +6259,7 @@ export function createHandler(
             countryId,
             serviceId,
             platformId: serviceId,
-            maxPrice: costUsd,
+            maxPrice: supplierMaxPriceUsd,
             operatorId,
             idempotencyKey,
             onExchange: captureSupplierExchange,
@@ -6242,7 +6269,11 @@ export function createHandler(
             'UPDATE commerce_accounts SET balance=balance+$1 WHERE id=$2',
             [pricePkr, account.id],
           );
-          throw fail(supplierErr.status || 503, supplierErr.message || 'Unable to allocate virtual number right now. Please try another country or platform.');
+          let userFriendlyMsg = supplierErr.message;
+          if (/no offer matches/i.test(userFriendlyMsg) || supplierErr.code === 'NO_OFFER_AVAILABLE') {
+            userFriendlyMsg = `Currently no virtual numbers are available for ${serviceName} in ${countryName}. Please select another country or try again shortly.`;
+          }
+          throw fail(supplierErr.status || 503, userFriendlyMsg || 'Unable to allocate virtual number right now. Please try another country or platform.');
         }
 
         const orderUuid = randomUUID();

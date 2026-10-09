@@ -353,8 +353,8 @@ export function VirtualNumbers() {
   const currentProduct = products.find(
     (p) =>
       String(p.country_id) === String(selectedCountry?.id) &&
-      String(p.platform_id) === String(selectedService?.id),
-  ) || products[0];
+      (String(p.platform_id) === String(selectedService?.id) || String((p as any).service_id) === String(selectedService?.id)),
+  ) || (products.length > 0 && String(products[0].country_id) === String(selectedCountry?.id) ? products[0] : null);
 
   const estimatedPkr = currentProduct?.price_pkr || 250;
   const hasSufficientWallet = walletBalance !== null && walletBalance >= estimatedPkr;
@@ -382,8 +382,9 @@ export function VirtualNumbers() {
           countryId: selectedCountry.id,
           countryName: selectedCountry.name,
           countryCode: selectedCountry.code,
-          catalogProductId: currentProduct?.catalog_product_id || currentProduct?.id,
-          maxPriceUsd: currentProduct?.cost_usd || 0.50,
+          catalogProductId: currentProduct?.catalog_product_id,
+          productId: currentProduct?.id,
+          maxPriceUsd: currentProduct?.cost_usd || (estimatedPkr <= 100 ? 0.08 : 0.35),
         }),
       });
 
