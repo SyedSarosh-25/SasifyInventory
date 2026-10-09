@@ -6206,34 +6206,16 @@ export function createHandler(
         const usdRate = supplierUsdRate() || 285;
         const pricePkr = calculateRetailPricePkr(costUsd, usdRate);
 
-        let account = customerAccount || null;
-        const rawEmail = String(guestEmail || account?.email || '').trim().toLowerCase();
-        if (!account && (!rawEmail || !rawEmail.includes('@'))) {
-          throw fail(400, 'Please enter a valid email address or sign in to complete checkout.');
-        }
+        const account = requireAccount(customerAccount);
 
-        let debitedBalance = null;
-        if (paymentMethod === 'wallet') {
-          if (!account) {
-            throw fail(401, 'Please log in to your Sasify account to pay with Sasify Wallet.');
-          }
-          const debited = await db.query(
-            'UPDATE commerce_accounts SET balance=balance-$1 WHERE id=$2 AND balance>=$1 RETURNING id,balance',
-            [pricePkr, account.id],
-          );
-          if (!debited.rows.length) {
-            throw fail(409, `Insufficient wallet balance. You need Rs ${pricePkr} in your Sasify Wallet.`);
-          }
-          debitedBalance = Number(debited.rows[0].balance);
-        } else {
-          // Guest direct payment (nayapay, bank, binance, crypto)
-          if (!account && rawEmail) {
-            const existing = (await db.query('SELECT id,email FROM commerce_accounts WHERE email=$1', [rawEmail])).rows[0];
-            if (existing) {
-              account = { id: existing.id, email: existing.email };
-            }
-          }
+        const debited = await db.query(
+          'UPDATE commerce_accounts SET balance=balance-$1 WHERE id=$2 AND balance>=$1 RETURNING id,balance',
+          [pricePkr, account.id],
+        );
+        if (!debited.rows.length) {
+          throw fail(409, `Insufficient wallet balance. You need Rs ${pricePkr} in your Sasify Wallet.`);
         }
+        const debitedBalance = Number(debited.rows[0].balance);
 
         const idempotencyKey = randomUUID();
         const smscodeKey = supplierApiKeys.smscode || process.env.SMSCODE_TOKEN || process.env.SMSCODE_API_KEY;
@@ -6248,37 +6230,29 @@ export function createHandler(
             onExchange: captureSupplierExchange,
           });
         } catch (supplierErr) {
-          if (paymentMethod === 'wallet' && account) {
-            await db.query(
-              'UPDATE commerce_accounts SET balance=balance+$1 WHERE id=$2',
-              [pricePkr, account.id],
-            );
-          }
+          await db.query(
+            'UPDATE commerce_accounts SET balance=balance+$1 WHERE id=$2',
+            [pricePkr, account.id],
+          );
           throw fail(supplierErr.status || 503, supplierErr.message || 'Unable to allocate virtual number right now. Please try another country or platform.');
         }
 
         const orderUuid = randomUUID();
-        if (paymentMethod === 'wallet' && account) {
-          await db.query(
-            'INSERT INTO commerce_wallet_ledger(id,account_id,amount,description) VALUES($1,$2,$3,$4)',
-            [randomUUID(), account.id, -pricePkr, `Virtual Number · ${serviceName} (${countryName})`],
-          );
-        }
+        await db.query(
+          'INSERT INTO commerce_wallet_ledger(id,account_id,amount,description) VALUES($1,$2,$3,$4)',
+          [randomUUID(), account.id, -pricePkr, `Virtual Number · ${serviceName} (${countryName})`],
+        );
 
-        const cleanTxId = transactionId ? String(transactionId).trim() : null;
         await db.query(
           `INSERT INTO commerce_virtual_number_orders(
-            id, account_id, guest_email, payment_method, transaction_id,
+            id, account_id, payment_method,
             smscode_order_id, service_id, service_name,
             country_id, country_name, country_code, phone_number, price_pkr,
             cost_usd, status, idempotency_key, expires_at, created_at, can_cancel, can_finish
-          ) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,'ACTIVE',$15,$16,now(),true,false)`,
+          ) VALUES($1,$2,'wallet',$3,$4,$5,$6,$7,$8,$9,$10,$11,'ACTIVE',$12,$13,now(),true,false)`,
           [
             orderUuid,
-            account?.id || null,
-            rawEmail || null,
-            paymentMethod,
-            cleanTxId,
+            account.id,
             smscodeOrder.id,
             String(serviceId || ''),
             String(serviceName),

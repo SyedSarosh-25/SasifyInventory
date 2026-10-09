@@ -19,7 +19,7 @@ import { shareImage, shareImageUrl } from '../share-metadata';
 
 const title = 'Virtual Phone Numbers in Pakistan · WhatsApp, Telegram & ChatGPT SMS OTP | Sasify Solutions';
 const description =
-  'Buy temporary virtual phone numbers in Pakistan for one-time SMS OTP verification on WhatsApp, Telegram, ChatGPT, Claude, and Google. Fixed pricing starting from Rs 100 with instant auto-refund guarantee. Pay with NayaPay, SadaPay, Binance, or Sasify Wallet.';
+  'Buy temporary virtual phone numbers in Pakistan for one-time SMS OTP verification on WhatsApp, Telegram, ChatGPT, Claude, and Google. Fixed pricing starting from Rs 100 with 1-click Sasify Wallet activation and instant auto-refund guarantee.';
 const path = '/virtual-numbers';
 
 export const metadata: Metadata = {
@@ -35,8 +35,7 @@ export const metadata: Metadata = {
     'temporary phone number for OTP Pakistan',
     'fake number for WhatsApp Pakistan',
     'online SMS receiver Pakistan',
-    'NayaPay virtual number',
-    'SadaPay virtual number',
+    'Sasify wallet virtual number',
     'single-use phone number',
     'one-time OTP verification',
   ],
@@ -57,9 +56,9 @@ const questions = [
       'Sasify offers transparent, fair pricing tailored for Pakistani users: Low-cost routes (wholesale under $0.10) cost a flat Rs 100 PKR. Standard popular services (wholesale $0.10 to $0.50, including most WhatsApp and Telegram routes) are a flat Rs 250 PKR. Premium dedicated lines (wholesale over $0.50) are priced with a transparent 100% margin.',
   },
   {
-    question: 'Can I purchase as a guest without creating an account?',
+    question: 'How do I pay for virtual numbers in Pakistan?',
     answer:
-      'Yes! We provide full Guest Checkout. You can rent a virtual number instantly without registering an account. Simply enter your email for receipt delivery, pay directly via NayaPay, SadaPay, Bank Transfer, Binance Pay, or Crypto USDT, and provide your Transaction ID / Ref #.',
+      'You can pay instantly using your Sasify Wallet with 1-click activation. You can top up your prepaid wallet balance anytime via NayaPay, SadaPay, Raast, Bank Transfer, Binance Pay, or Crypto USDT, where payments are automatically verified by our automated system.',
   },
   {
     question: 'Are these numbers permanent or reusable?',
@@ -120,8 +119,8 @@ const howToStructuredData = {
     },
     {
       '@type': 'HowToStep',
-      name: 'Select Payment Method',
-      text: 'Pay with your Sasify Wallet balance (1-click instant) or use Guest Checkout with NayaPay, SadaPay, Raast, Binance Pay, or Crypto USDT.',
+      name: 'Activate with Sasify Wallet',
+      text: 'Pay instantly with your Sasify Wallet balance (1-click). Top up anytime via NayaPay, SadaPay, Raast, Bank Transfer, Binance Pay, or Crypto USDT with automated verification.',
     },
     {
       '@type': 'HowToStep',
@@ -161,7 +160,7 @@ export default function VirtualNumbersPage() {
           <span className="section-kicker">Disposable Single-Use Verification in Pakistan</span>
           <h1>Virtual Phone Numbers (One-Time SMS OTP)</h1>
           <p>
-            Rent private, disposable international virtual numbers strictly for one-time SMS verification on WhatsApp, Telegram, Claude, ChatGPT, Google, and other global services with automated delivery, guest checkout, and auto-refund protection.
+            Rent private, disposable international virtual numbers strictly for one-time SMS verification on WhatsApp, Telegram, Claude, ChatGPT, Google, and other global services with automated delivery, 1-click Sasify Wallet pay, and auto-refund protection.
           </p>
         </div>
 

@@ -193,29 +193,17 @@ test('virtual numbers API: catalog, wallet rent, live status, and cancel refund'
     assert.equal(vnList[0].customer_email, 'buyer@sasify.test');
     assert.equal(vnList[0].status, 'CANCELLED');
 
-    // 8. Test Guest Checkout (no cookie, guestEmail + direct payment)
-    const guestRent = await request('virtual-number-rent', {
+    // 8. Unauthenticated rent must be rejected (Wallet authentication required)
+    const unauthRent = await request('virtual-number-rent', {
       serviceId: 2,
       serviceName: 'Telegram',
       countryId: 7,
       countryName: 'Indonesia',
       countryCode: 'id',
-      maxPriceUsd: 0.05, // < 0.10 -> 100 PKR
-      guestEmail: 'guest_otp@sasify.test',
-      paymentMethod: 'nayapay',
-      transactionId: 'NP-GUEST-12345',
+      maxPriceUsd: 0.05,
     }, '');
-    assert.equal(guestRent.ok, true);
-    assert.ok(guestRent.orderId);
-    assert.ok(guestRent.phoneNumber);
-    assert.equal(guestRent.pricePkr, 100);
-    assert.equal(guestRent.status, 'ACTIVE');
-
-    // Poll guest order without auth
-    const guestPoll = await request('virtual-number-status', { id: guestRent.orderId }, '');
-    assert.equal(guestPoll.ok, true);
-    assert.equal(guestPoll.order.phone_number, guestRent.phoneNumber);
-    assert.equal(guestPoll.order.guest_email, 'guest_otp@sasify.test');
+    assert.ok(unauthRent.error);
+    assert.match(unauthRent.error, /log in/i);
   } finally {
     process.env = previous;
   }
