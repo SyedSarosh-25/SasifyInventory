@@ -66,16 +66,16 @@ const POPULAR_SERVICES = [
 ];
 
 const POPULAR_COUNTRIES = [
-  { id: 7, code: 'id', name: 'Indonesia', dial_code: '62', emoji: '🇮🇩', active: true },
-  { id: 1, code: 'us', name: 'United States', dial_code: '1', emoji: '🇺🇸', active: true },
-  { id: 2, code: 'gb', name: 'United Kingdom', dial_code: '44', emoji: '🇬🇧', active: true },
-  { id: 3, code: 'nl', name: 'Netherlands', dial_code: '31', emoji: '🇳🇱', active: true },
-  { id: 4, code: 'my', name: 'Malaysia', dial_code: '60', emoji: '🇲🇾', active: true },
-  { id: 5, code: 'in', name: 'India', dial_code: '91', emoji: '🇮🇳', active: true },
-  { id: 6, code: 'de', name: 'Germany', dial_code: '49', emoji: '🇩🇪', active: true },
-  { id: 8, code: 'ph', name: 'Philippines', dial_code: '63', emoji: '🇵🇭', active: true },
-  { id: 9, code: 'vn', name: 'Vietnam', dial_code: '84', emoji: '🇻🇳', active: true },
-  { id: 10, code: 'br', name: 'Brazil', dial_code: '55', emoji: '🇧🇷', active: true },
+  { id: 7, code: 'id', name: 'Indonesia', dial_code: '62', emoji: '🇮🇩', active: true, popular: true },
+  { id: 1, code: 'us', name: 'United States', dial_code: '1', emoji: '🇺🇸', active: true, popular: true },
+  { id: 2, code: 'gb', name: 'United Kingdom', dial_code: '44', emoji: '🇬🇧', active: true, popular: true },
+  { id: 3, code: 'nl', name: 'Netherlands', dial_code: '31', emoji: '🇳🇱', active: true, popular: true },
+  { id: 4, code: 'my', name: 'Malaysia', dial_code: '60', emoji: '🇲🇾', active: true, popular: true },
+  { id: 5, code: 'in', name: 'India', dial_code: '91', emoji: '🇮🇳', active: true, popular: true },
+  { id: 6, code: 'de', name: 'Germany', dial_code: '49', emoji: '🇩🇪', active: true, popular: true },
+  { id: 8, code: 'ph', name: 'Philippines', dial_code: '63', emoji: '🇵🇭', active: true, popular: true },
+  { id: 9, code: 'vn', name: 'Vietnam', dial_code: '84', emoji: '🇻🇳', active: true, popular: true },
+  { id: 10, code: 'br', name: 'Brazil', dial_code: '55', emoji: '🇧🇷', active: true, popular: true },
 ];
 
 async function smscodeRequest(path, init = {}, onExchange, apiKey) {
@@ -221,14 +221,19 @@ export async function fetchSmscodeCountries(apiKey, serviceId) {
     try {
       const data = await smscodeRequest('/v2/catalog/countries', {}, undefined, apiKey);
       if (Array.isArray(data.data) && data.data.length > 0) {
-        const mapped = data.data.map((c) => ({
-          id: c.id,
-          code: String(c.code || '').toLowerCase(),
-          name: c.name,
-          dial_code: String(c.dial_code || '').replace(/^\+/, ''),
-          emoji: c.emoji || '🌐',
-          active: c.active !== false,
-        }));
+        const POPULAR_COUNTRY_CODES = ['id', 'us', 'gb', 'nl', 'my', 'in', 'de', 'ph', 'vn', 'br', 'ro', 'ca', 'fr', 'tr', 'ae', 'sa'];
+        const mapped = data.data.map((c) => {
+          const code = String(c.code || '').toLowerCase();
+          return {
+            id: c.id,
+            code,
+            name: c.name,
+            dial_code: String(c.dial_code || '').replace(/^\+/, ''),
+            emoji: c.emoji || '🌐',
+            active: c.active !== false,
+            popular: POPULAR_COUNTRY_CODES.includes(code),
+          };
+        });
         if (!serviceId) {
           countriesCache = mapped;
           countriesCacheTimestamp = Date.now();

@@ -89,21 +89,134 @@
   margin: -8px 0 16px;
 }
 
-/* Service Grid */
-.vn-service-search {
+/* Category Pills */
+.vn-category-pills {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+  margin-bottom: 14px;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.vn-category-pills::-webkit-scrollbar {
+  display: none;
+}
+
+.vn-category-pill {
+  flex-shrink: 0;
+  background: #f3f4f6;
+  color: #374151;
+  border: 1px solid #e5e7eb;
+  padding: 7px 14px;
+  border-radius: 9999px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.vn-category-pill:hover {
+  background: #e5e7eb;
+  color: #111827;
+}
+
+.vn-category-pill.active {
+  background: #059669;
+  color: #ffffff;
+  border-color: #059669;
+  box-shadow: 0 2px 6px rgba(5, 150, 105, 0.25);
+}
+
+/* Search input with icons */
+.vn-search-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.vn-search-icon {
+  position: absolute;
+  left: 14px;
+  color: #9ca3af;
+  pointer-events: none;
+}
+
+.vn-search-wrap .vn-service-search {
   width: 100%;
-  padding: 12px 16px;
+  padding: 12px 38px 12px 40px;
   font-size: 15px;
   border: 1px solid #d1d5db;
   border-radius: 12px;
-  margin-bottom: 16px;
+  margin-bottom: 0;
   box-sizing: border-box;
 }
 
-.vn-service-search:focus {
+.vn-search-wrap .vn-service-search:focus {
   outline: none;
   border-color: #059669;
   box-shadow: 0 0 0 3px rgba(5, 150, 105, 0.15);
+}
+
+.vn-search-clear {
+  position: absolute;
+  right: 12px;
+  background: transparent;
+  border: none;
+  color: #9ca3af;
+  padding: 4px;
+  cursor: pointer;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.vn-search-clear:hover {
+  background: #f3f4f6;
+  color: #374151;
+}
+
+/* Results metadata */
+.vn-results-meta {
+  font-size: 12px;
+  color: #6b7280;
+  margin-bottom: 14px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+/* Load more toggle */
+.vn-load-more-wrap {
+  display: flex;
+  justify-content: center;
+  margin-top: 14px;
+  margin-bottom: 6px;
+}
+
+.vn-load-more-btn {
+  background: #ffffff;
+  border: 1px solid #d1d5db;
+  color: #374151;
+  padding: 9px 18px;
+  border-radius: 9999px;
+  font-size: 13px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.vn-load-more-btn:hover {
+  background: #f9fafb;
+  border-color: #9ca3af;
+  color: #111827;
 }
 
 .vn-services-grid {

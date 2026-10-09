@@ -15,6 +15,9 @@ import {
   Wallet,
   ArrowRight,
   Search,
+  X,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 import './virtual-numbers.css';
 
@@ -33,6 +36,52 @@ interface Country {
   dial_code: string;
   emoji: string;
   active: boolean;
+  popular?: boolean;
+}
+
+type ServiceCategory = 'popular' | 'social' | 'ai' | 'finance' | 'shopping' | 'all';
+
+const CATEGORIES: { id: ServiceCategory; label: string }[] = [
+  { id: 'popular', label: '🔥 Popular' },
+  { id: 'social', label: '💬 Social & Chat' },
+  { id: 'ai', label: '🤖 AI & Tech' },
+  { id: 'finance', label: '💳 Crypto & Finance' },
+  { id: 'shopping', label: '🛍️ Shopping & Delivery' },
+  { id: 'all', label: '🌐 All Apps (1,200+)' },
+];
+
+function matchCategory(service: Service, cat: ServiceCategory): boolean {
+  if (cat === 'all') return true;
+  if (cat === 'popular') return Boolean(service.popular);
+  const text = `${service.name} ${service.code}`.toLowerCase();
+  if (cat === 'social') {
+    return [
+      'whatsapp', 'telegram', 'discord', 'instagram', 'tiktok', 'snapchat',
+      'twitter', 'facebook', 'wechat', 'viber', 'signal', 'reddit', 'line',
+      'vk', 'imo', 'tinder', 'bumble', 'hinge', 'badoo',
+    ].some((k) => text.includes(k));
+  }
+  if (cat === 'ai') {
+    return [
+      'openai', 'chatgpt', 'claude', 'anthropic', 'google', 'microsoft',
+      'apple', 'github', 'midjourney', 'cohere', 'perplexity',
+    ].some((k) => text.includes(k));
+  }
+  if (cat === 'finance') {
+    return [
+      'binance', 'bybit', 'okx', 'crypto', 'coinbase', 'paypal', 'wise',
+      'revolut', 'payoneer', 'cashapp', 'stripe', 'skrill', 'alipay',
+      'picpay', 'dana', 'ovo',
+    ].some((k) => text.includes(k));
+  }
+  if (cat === 'shopping') {
+    return [
+      'amazon', 'ebay', 'aliexpress', 'temu', 'shein', 'uber', 'foodpanda',
+      'doordash', 'deliveroo', 'airbnb', 'netflix', 'spotify', 'steam',
+      'roblox', 'epic',
+    ].some((k) => text.includes(k));
+  }
+  return false;
 }
 
 interface Product {
@@ -73,6 +122,10 @@ export function VirtualNumbers() {
   const [selectedService, setSelectedService] = useState<Service | null>(null);
   const [selectedCountry, setSelectedCountry] = useState<Country | null>(null);
   const [serviceSearch, setServiceSearch] = useState('');
+  const [serviceCategory, setServiceCategory] = useState<ServiceCategory>('popular');
+  const [showAllServices, setShowAllServices] = useState(false);
+  const [countrySearch, setCountrySearch] = useState('');
+  const [showAllCountries, setShowAllCountries] = useState(false);
   const [walletBalance, setWalletBalance] = useState<number | null>(null);
   const [account, setAccount] = useState<{ id: string; email: string } | null>(null);
   const [activeOrder, setActiveOrder] = useState<ActiveOrder | null>(null);
@@ -251,11 +304,44 @@ export function VirtualNumbers() {
     return () => clearInterval(poller);
   }, [activeOrder]);
 
-  // Filter services by search
-  const filteredServices = services.filter((s) =>
-    s.name.toLowerCase().includes(serviceSearch.toLowerCase()) ||
-    s.code.toLowerCase().includes(serviceSearch.toLowerCase()),
-  );
+  // Filter services by search or category
+  const filteredServices = React.useMemo(() => {
+    const q = serviceSearch.trim().toLowerCase();
+    if (q) {
+      return services
+        .filter(
+          (s) =>
+            s.name.toLowerCase().includes(q) ||
+            s.code.toLowerCase().includes(q),
+        )
+        .slice(0, 36);
+    }
+    const catMatches = services.filter((s) => matchCategory(s, serviceCategory));
+    if (serviceCategory === 'all' && !showAllServices) {
+      return catMatches.slice(0, 36);
+    }
+    return catMatches;
+  }, [services, serviceSearch, serviceCategory, showAllServices]);
+
+  // Filter countries by search or popularity
+  const filteredCountries = React.useMemo(() => {
+    const q = countrySearch.trim().toLowerCase();
+    if (q) {
+      return countries
+        .filter(
+          (c) =>
+            c.name.toLowerCase().includes(q) ||
+            c.code.toLowerCase().includes(q) ||
+            String(c.dial_code).includes(q),
+        )
+        .slice(0, 36);
+    }
+    if (showAllCountries) {
+      return countries;
+    }
+    const popular = countries.filter((c) => c.popular);
+    return popular.length > 0 ? popular : countries.slice(0, 16);
+  }, [countries, countrySearch, showAllCountries]);
 
   // Find matching price/product
   const currentProduct = products.find(
@@ -547,17 +633,59 @@ export function VirtualNumbers() {
               1. Choose Service / App
             </h2>
             <p className="vn-card-subtitle">
-              Select the service you want to verify or create an account on.
+              Select the service you want to verify. Top popular apps shown below or search any of 1,200+ global apps.
             </p>
 
-            <div className="relative">
+            {/* Category Filter Pills */}
+            <div className="vn-category-pills">
+              {CATEGORIES.map((cat) => (
+                <button
+                  key={cat.id}
+                  type="button"
+                  className={`vn-category-pill ${serviceCategory === cat.id && !serviceSearch ? 'active' : ''}`}
+                  onClick={() => {
+                    setServiceCategory(cat.id);
+                    setServiceSearch('');
+                  }}
+                >
+                  {cat.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Search Input with Clear Button */}
+            <div className="vn-search-wrap">
+              <Search className="vn-search-icon h-4 w-4" />
               <input
                 type="text"
                 className="vn-service-search"
-                placeholder="Search app (WhatsApp, Telegram, ChatGPT...)"
+                placeholder="Search any app (e.g. WhatsApp, Claude, Binance, Tinder, Steam...)"
                 value={serviceSearch}
                 onChange={(e) => setServiceSearch(e.target.value)}
               />
+              {serviceSearch && (
+                <button
+                  type="button"
+                  className="vn-search-clear"
+                  onClick={() => setServiceSearch('')}
+                  title="Clear search"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              )}
+            </div>
+
+            {/* Meta indicator */}
+            <div className="vn-results-meta">
+              {serviceSearch ? (
+                <span>
+                  Showing {filteredServices.length} match{filteredServices.length === 1 ? '' : 'es'} for &quot;{serviceSearch}&quot; (searched 1,200+ apps)
+                </span>
+              ) : (
+                <span>
+                  Showing {filteredServices.length} {serviceCategory === 'popular' ? 'popular' : serviceCategory} services
+                </span>
+              )}
             </div>
 
             <div className="vn-services-grid">
@@ -575,6 +703,26 @@ export function VirtualNumbers() {
                 </button>
               ))}
             </div>
+
+            {!serviceSearch && serviceCategory === 'all' && (
+              <div className="vn-load-more-wrap">
+                <button
+                  type="button"
+                  className="vn-load-more-btn"
+                  onClick={() => setShowAllServices((prev) => !prev)}
+                >
+                  {showAllServices ? (
+                    <>
+                      <ChevronUp className="h-4 w-4" /> Show Top 36 Apps
+                    </>
+                  ) : (
+                    <>
+                      <ChevronDown className="h-4 w-4" /> Show All {services.length} Apps
+                    </>
+                  )}
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Step 2: Select Country */}
@@ -584,11 +732,45 @@ export function VirtualNumbers() {
               2. Choose Country
             </h2>
             <p className="vn-card-subtitle">
-              Select the country origin for your virtual phone number.
+              Select the country origin for your virtual phone number. Most popular low-cost routes shown first.
             </p>
 
+            {/* Country Search */}
+            <div className="vn-search-wrap">
+              <Search className="vn-search-icon h-4 w-4" />
+              <input
+                type="text"
+                className="vn-service-search"
+                placeholder="Search country or dial code (e.g. Indonesia, USA, UK, +62, +1...)"
+                value={countrySearch}
+                onChange={(e) => setCountrySearch(e.target.value)}
+              />
+              {countrySearch && (
+                <button
+                  type="button"
+                  className="vn-search-clear"
+                  onClick={() => setCountrySearch('')}
+                  title="Clear search"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              )}
+            </div>
+
+            <div className="vn-results-meta">
+              {countrySearch ? (
+                <span>
+                  Showing {filteredCountries.length} matching countries
+                </span>
+              ) : (
+                <span>
+                  Showing {filteredCountries.length} {showAllCountries ? 'total' : 'popular'} countries
+                </span>
+              )}
+            </div>
+
             <div className="vn-countries-grid">
-              {countries.map((country) => (
+              {filteredCountries.map((country) => (
                 <button
                   key={country.id}
                   type="button"
@@ -603,6 +785,26 @@ export function VirtualNumbers() {
                 </button>
               ))}
             </div>
+
+            {!countrySearch && (
+              <div className="vn-load-more-wrap">
+                <button
+                  type="button"
+                  className="vn-load-more-btn"
+                  onClick={() => setShowAllCountries((prev) => !prev)}
+                >
+                  {showAllCountries ? (
+                    <>
+                      <ChevronUp className="h-4 w-4" /> Show Top Popular Countries
+                    </>
+                  ) : (
+                    <>
+                      <ChevronDown className="h-4 w-4" /> Show All {countries.length || 242} Countries
+                    </>
+                  )}
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Step 3: Confirmation & Wallet Checkout */}
