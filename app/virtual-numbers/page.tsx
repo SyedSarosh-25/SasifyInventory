@@ -51,9 +51,9 @@ const questions = [
       'When you select a platform (such as WhatsApp, Telegram, Claude, or ChatGPT) and country, Sasify automatically reserves a dedicated temporary virtual phone line. Enter this phone number into your app. When the carrier sends the verification SMS, our automated system captures and displays your one-time code on screen within seconds.',
   },
   {
-    question: 'What are the pricing tiers for virtual numbers in Pakistan?',
+    question: 'How much do virtual numbers cost in Pakistan?',
     answer:
-      'Sasify offers transparent, fair pricing tailored for Pakistani users: Low-cost routes (wholesale under $0.10) cost a flat Rs 100 PKR. Standard popular services (wholesale $0.10 to $0.50, including most WhatsApp and Telegram routes) are a flat Rs 250 PKR. Premium dedicated lines (wholesale over $0.50) are priced with a transparent 100% margin.',
+      'Prices start from as low as Rs 100 PKR for lightweight apps and Rs 250 PKR for standard platforms like WhatsApp, Telegram, ChatGPT, and Claude. Dedicated premium lines are calculated dynamically in PKR. The exact price is always shown clearly before you activate the number.',
   },
   {
     question: 'How do I pay for virtual numbers in Pakistan?',
@@ -165,65 +165,6 @@ export default function VirtualNumbersPage() {
         </div>
 
         <VirtualNumbers />
-
-        {/* SECTION: Pricing Tiers */}
-        <section className="vn-seo-section">
-          <h2>
-            <CreditCard className="h-6 w-6 text-emerald-600" />
-            Transparent Pricing Tiers in Pakistan (PKR)
-          </h2>
-          <p>
-            Sasify provides upfront, tiered pricing designed specifically for Pakistani digital creators, developers, and businesses. No hidden foreign currency transaction fees or surprise billing.
-          </p>
-
-          <div className="vn-table-wrap">
-            <table className="vn-pricing-tier-table">
-              <thead>
-                <tr>
-                  <th>Tier &amp; Wholesale Range</th>
-                  <th>Fixed Selling Price (PKR)</th>
-                  <th>Common Supported Services</th>
-                  <th>Features</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td>
-                    <strong>Tier 1: Micro / Low-Cost</strong>
-                    <div className="text-xs text-gray-500">Wholesale &lt; $0.10 USD</div>
-                  </td>
-                  <td>
-                    <span className="vn-price-highlight">Rs 100 PKR</span>
-                  </td>
-                  <td>Discord, TikTok, Steam, Twitter / X, Microsoft, various regional apps</td>
-                  <td>15-minute active window, instant code capture, auto-refund guarantee</td>
-                </tr>
-                <tr>
-                  <td>
-                    <strong>Tier 2: Standard Services</strong>
-                    <div className="text-xs text-gray-500">Wholesale $0.10 to $0.50 USD</div>
-                  </td>
-                  <td>
-                    <span className="vn-price-highlight">Rs 250 PKR</span>
-                  </td>
-                  <td>WhatsApp, Telegram, OpenAI ChatGPT, Anthropic Claude, Google / Gmail</td>
-                  <td>Dedicated private carrier line, rapid delivery, zero public sharing</td>
-                </tr>
-                <tr>
-                  <td>
-                    <strong>Tier 3: Dedicated / Premium Lines</strong>
-                    <div className="text-xs text-gray-500">Wholesale &gt; $0.50 USD</div>
-                  </td>
-                  <td>
-                    <span className="vn-price-highlight">100% Margin (Cost × 2)</span>
-                  </td>
-                  <td>Rare high-demand countries (US Physical SIMs, UK Mobile, EU carriers)</td>
-                  <td>Real non-VoIP mobile numbers, bypass strict fraud filters</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </section>
 
         {/* SECTION: Popular Use Cases */}
         <section className="vn-seo-section">
