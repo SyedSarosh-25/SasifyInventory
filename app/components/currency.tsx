@@ -13,7 +13,7 @@ const CurrencyContext = createContext<{
   selectCurrency: (currency: Currency) => void;
 } | null>(null);
 
-function useCurrency() {
+export function useCurrency() {
   const value = useContext(CurrencyContext);
   if (!value) throw new Error('CurrencyProvider is required');
   return value;

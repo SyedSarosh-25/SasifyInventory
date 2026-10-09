@@ -20,6 +20,8 @@ import {
   ChevronUp,
 } from 'lucide-react';
 import './virtual-numbers.css';
+import { Money, useCurrency } from './currency';
+import { formatMoney } from '../currency-utils';
 
 interface Service {
   id: number | string;
@@ -115,6 +117,7 @@ interface ActiveOrder {
 }
 
 export function VirtualNumbers() {
+  const { currency } = useCurrency();
   const [activeTab, setActiveTab] = useState<'rent' | 'history'>('rent');
   const [services, setServices] = useState<Service[]>([]);
   const [countries, setCountries] = useState<Country[]>([]);
@@ -183,7 +186,7 @@ export function VirtualNumbers() {
           credentials: 'same-origin',
         });
         if (!res.ok) return;
-        const data = await res.json();
+        const data: any = await res.json();
         if (mounted && data.ok) {
           setServices(data.services || []);
           setCountries(data.countries || []);
@@ -216,17 +219,19 @@ export function VirtualNumbers() {
   // Fetch real-time products & pricing whenever service or country selection changes
   useEffect(() => {
     if (!selectedService || !selectedCountry) return;
+    const svcId = String(selectedService.id);
+    const cntId = String(selectedCountry.id);
     let active = true;
     async function loadDynamicProducts() {
       try {
         const res = await fetch(
           `/api/commerce?action=virtual-numbers-catalog&serviceId=${encodeURIComponent(
-            String(selectedService.id),
-          )}&countryId=${encodeURIComponent(String(selectedCountry.id))}`,
+            svcId,
+          )}&countryId=${encodeURIComponent(cntId)}`,
           { cache: 'no-store' },
         );
         if (!res.ok) return;
-        const data = await res.json();
+        const data: any = await res.json();
         if (active && data.ok && Array.isArray(data.products) && data.products.length > 0) {
           setProducts(data.products);
         }
@@ -247,8 +252,8 @@ export function VirtualNumbers() {
         credentials: 'same-origin',
         cache: 'no-store',
       })
-        .then((r) => (r.ok ? r.json() : null))
-        .then((data) => {
+        .then((r) => (r.ok ? (r.json() as Promise<any>) : null))
+        .then((data: any) => {
           if (data?.ok) setPastOrders(data.orders || []);
         })
         .catch(() => {});
@@ -274,7 +279,8 @@ export function VirtualNumbers() {
   // Polling for incoming SMS / OTP code when order is ACTIVE
   useEffect(() => {
     if (!activeOrder || activeOrder.status !== 'ACTIVE') return;
-    const pollId = activeOrder.id || activeOrder.orderId;
+    const pollId = String(activeOrder.id || activeOrder.orderId || '');
+    if (!pollId) return;
 
     const poller = setInterval(async () => {
       try {
@@ -283,7 +289,7 @@ export function VirtualNumbers() {
           credentials: 'same-origin',
         });
         if (!res.ok) return;
-        const data = await res.json();
+        const data: any = await res.json();
         if (data.ok && data.order) {
           const updated = data.order;
           if (updated.status !== 'ACTIVE' || updated.otp_code) {
@@ -381,7 +387,7 @@ export function VirtualNumbers() {
         }),
       });
 
-      const data = await res.json();
+      const data: any = await res.json();
       if (!res.ok || !data.ok) {
         throw new Error(data.error || 'Failed to allocate virtual number.');
       }
@@ -416,7 +422,8 @@ export function VirtualNumbers() {
   // Cancel & refund handler
   const handleCancel = async () => {
     if (!activeOrder) return;
-    if (!confirm(`Are you sure you want to cancel this number? Rs ${activeOrder.price_pkr} will be 100% refunded to your Sasify Wallet immediately.`)) {
+    const refundFormatted = formatMoney(activeOrder.price_pkr, 'PKR', currency);
+    if (!confirm(`Are you sure you want to cancel this number? ${refundFormatted} will be 100% refunded to your Sasify Wallet immediately.`)) {
       return;
     }
 
@@ -428,7 +435,7 @@ export function VirtualNumbers() {
         credentials: 'same-origin',
         body: JSON.stringify({ id: activeOrder.id || activeOrder.orderId }),
       });
-      const data = await res.json();
+      const data: any = await res.json();
       if (!res.ok || !data.ok) {
         throw new Error(data.error || 'Could not cancel order.');
       }
@@ -436,7 +443,8 @@ export function VirtualNumbers() {
         setWalletBalance(data.newBalance);
       }
       saveActiveOrder(null);
-      setNotice(`Number cancelled. Rs ${data.refundedAmount || activeOrder.price_pkr} has been refunded to your Sasify Wallet.`);
+      const refundedVal = data.refundedAmount || activeOrder.price_pkr;
+      setNotice(`Number cancelled. ${formatMoney(refundedVal, 'PKR', currency)} has been refunded to your Sasify Wallet.`);
     } catch (err: any) {
       setError(err.message || 'Failed to cancel order.');
     } finally {
@@ -607,7 +615,7 @@ export function VirtualNumbers() {
                 disabled={busy}
                 onClick={handleCancel}
               >
-                <RotateCcw className="h-4 w-4" /> Cancel &amp; Refund (Rs {activeOrder.price_pkr})
+                <RotateCcw className="h-4 w-4" /> Cancel &amp; Refund ({formatMoney(activeOrder.price_pkr, 'PKR', currency)})
               </button>
             )}
             {activeOrder.otp_code && (
@@ -820,7 +828,12 @@ export function VirtualNumbers() {
                   {account ? (
                     <span>
                       Sasify Wallet Balance:{' '}
-                      <strong>Rs {(walletBalance || 0).toLocaleString()}</strong>
+                      <strong><Money amount={walletBalance || 0} /></strong>
+                      {currency !== 'PKR' && (
+                        <span className="text-xs text-gray-500 ml-1">
+                          (PKR {(walletBalance || 0).toLocaleString()})
+                        </span>
+                      )}
                     </span>
                   ) : (
                     <span>Sign in with your Sasify Account for 1-click instant wallet activation</span>
@@ -830,7 +843,14 @@ export function VirtualNumbers() {
 
               <div className="text-right">
                 <div className="vn-summary-label">Total Amount</div>
-                <div className="vn-summary-price">Rs {estimatedPkr}</div>
+                <div className="vn-summary-price">
+                  <Money amount={estimatedPkr} />
+                </div>
+                {currency !== 'PKR' && (
+                  <div className="text-xs text-gray-500 font-medium">
+                    ≈ PKR {estimatedPkr.toLocaleString()}
+                  </div>
+                )}
               </div>
             </div>
 
@@ -856,11 +876,11 @@ export function VirtualNumbers() {
                       onClick={handleRent}
                     >
                       <Zap className="h-5 w-5" />
-                      <span>{busy ? 'Reserving...' : `Rent Number Now — Rs ${estimatedPkr}`}</span>
+                      <span>{busy ? 'Reserving...' : `Rent Number Now — ${formatMoney(estimatedPkr, 'PKR', currency)}`}</span>
                     </button>
                   ) : (
                     <a href="/dashboard" className="vn-deposit-btn">
-                      <Wallet className="h-4 w-4" /> Top-up Wallet (Needs Rs {estimatedPkr})
+                      <Wallet className="h-4 w-4" /> Top-up Wallet (Needs {formatMoney(estimatedPkr, 'PKR', currency)})
                     </a>
                   )
                 ) : (
@@ -913,7 +933,7 @@ export function VirtualNumbers() {
                       <td className="font-mono font-bold text-emerald-700">
                         {order.otp_code || '—'}
                       </td>
-                      <td>Rs {order.price_pkr}</td>
+                      <td><Money amount={order.price_pkr} /></td>
                       <td>
                         <span className={`vn-badge vn-badge-${order.status.toLowerCase()}`}>
                           {order.status}
