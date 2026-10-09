@@ -6346,7 +6346,9 @@ export function createHandler(
               orderRow.status = 'RECEIVED';
               orderRow.can_finish = true;
               orderRow.can_cancel = false;
-            } else if (live.status === 'CANCELED' || live.status === 'EXPIRED') {
+            } else {
+              const isTimeExpired = orderRow.expires_at && new Date(orderRow.expires_at).getTime() < Date.now();
+              if (live.status === 'CANCELED' || live.status === 'EXPIRED' || (isTimeExpired && !live.otp_code)) {
               if (!orderRow.refunded && orderRow.account_id && orderRow.payment_method === 'wallet') {
                 await db.query('UPDATE commerce_accounts SET balance=balance+$1 WHERE id=$2', [
                   orderRow.price_pkr,
@@ -6358,20 +6360,28 @@ export function createHandler(
                     randomUUID(),
                     orderRow.account_id,
                     orderRow.price_pkr,
-                    `Refund · Virtual Number Expired (${orderRow.service_name})`,
+                    `Auto-Refund · Virtual Number Expired (${orderRow.service_name})`,
                   ],
                 );
               }
+              const finalStatus = live.status === 'CANCELED' ? 'CANCELLED' : 'EXPIRED';
               await db.query(
                 "UPDATE commerce_virtual_number_orders SET status=$1, refunded=true, can_cancel=false, can_finish=false WHERE id=$2",
-                [live.status, orderRow.id],
+                [finalStatus, orderRow.id],
               );
-              orderRow.status = live.status;
+              const smscodeOrderId = orderRow.smscode_order_id || orderRow.id;
+              if (smscodeOrderId && live.status !== 'CANCELED' && !String(smscodeOrderId).startsWith('sim_')) {
+                try {
+                  await cancelSmscodeOrder(smscodeKey, smscodeOrderId);
+                } catch {}
+              }
+              orderRow.status = finalStatus;
               orderRow.refunded = true;
               orderRow.can_cancel = false;
               orderRow.can_finish = false;
             }
-          } catch (pollErr) {
+          }
+        } catch (pollErr) {
             console.warn('[smscode-poll] Polling warning:', pollErr.message);
           }
         }
@@ -6394,8 +6404,11 @@ export function createHandler(
           throw fail(403, 'Unauthorized.');
         }
         const smscodeKey = getSmscodeToken(supplierApiKeys.smscode);
+        const smscodeOrderId = orderRow.smscode_order_id || orderRow.id;
         try {
-          await cancelSmscodeOrder(smscodeKey, orderRow.smscode_order_id);
+          if (smscodeOrderId && !String(smscodeOrderId).startsWith('sim_')) {
+            await cancelSmscodeOrder(smscodeKey, smscodeOrderId);
+          }
         } catch (err) {
           console.warn('[smscode-cancel] Provider cancel issue:', err.message);
         }

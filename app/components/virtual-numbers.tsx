@@ -114,6 +114,7 @@ interface ActiveOrder {
   price_pkr: number;
   can_cancel?: boolean;
   can_finish?: boolean;
+  created_at?: string;
 }
 
 export function VirtualNumbers() {
@@ -139,6 +140,7 @@ export function VirtualNumbers() {
   const [copiedPhone, setCopiedPhone] = useState(false);
   const [copiedOtp, setCopiedOtp] = useState(false);
   const [remainingSeconds, setRemainingSeconds] = useState<number>(0);
+  const [nowTimestamp, setNowTimestamp] = useState<number>(Date.now());
   const activeOrderRef = React.useRef<HTMLDivElement>(null);
 
   // Restore active order from sessionStorage on mount
@@ -266,10 +268,19 @@ export function VirtualNumbers() {
     const expiryTime = new Date(activeOrder.expires_at).getTime();
 
     const interval = setInterval(() => {
+      setNowTimestamp(Date.now());
       const remaining = Math.max(0, Math.floor((expiryTime - Date.now()) / 1000));
       setRemainingSeconds(remaining);
       if (remaining <= 0) {
         clearInterval(interval);
+        // Automatically check status to trigger server-side auto-refund
+        const pollId = String(activeOrder.id || activeOrder.orderId || '');
+        if (pollId) {
+          fetch(`/api/commerce?action=virtual-number-status&id=${encodeURIComponent(pollId)}`, {
+            cache: 'no-store',
+            credentials: 'same-origin',
+          }).catch(() => {});
+        }
       }
     }, 1000);
 
@@ -293,12 +304,31 @@ export function VirtualNumbers() {
         if (data.ok && data.order) {
           const updated = data.order;
           if (updated.status !== 'ACTIVE' || updated.otp_code) {
-            saveActiveOrder({
-              ...activeOrder,
-              ...updated,
-            });
-            if (updated.otp_code) {
-              setNotice('Verification SMS received successfully!');
+            if (updated.status === 'EXPIRED' || updated.status === 'CANCELLED' || updated.status === 'CANCELED') {
+              saveActiveOrder(null);
+              setNotice(
+                `Order ${updated.status === 'EXPIRED' ? 'expired' : 'cancelled'}. ${formatMoney(
+                  updated.price_pkr || activeOrder.price_pkr,
+                  'PKR',
+                  currency,
+                )} has been automatically refunded to your Sasify Wallet.`,
+              );
+              fetch('/api/commerce?action=account-session')
+                .then((r) => r.json())
+                .then((d: any) => {
+                  if (typeof d?.account?.balance === 'number') {
+                    setWalletBalance(d.account.balance);
+                  }
+                })
+                .catch(() => {});
+            } else {
+              saveActiveOrder({
+                ...activeOrder,
+                ...updated,
+              });
+              if (updated.otp_code) {
+                setNotice('Verification SMS received successfully!');
+              }
             }
           }
         }
@@ -493,6 +523,7 @@ export function VirtualNumbers() {
         phone_number: data.phoneNumber,
         status: data.status,
         expires_at: data.expiresAt,
+        created_at: new Date().toISOString(),
         price_pkr: data.pricePkr,
         can_cancel: true,
       };
@@ -550,7 +581,7 @@ export function VirtualNumbers() {
       }
       saveActiveOrder(null);
       const refundedVal = data.refundedAmount || activeOrder.price_pkr;
-      setNotice(`Number cancelled. ${formatMoney(refundedVal, 'PKR', currency)} has been refunded to your Sasify Wallet.`);
+      setNotice(`Number cancelled. ${formatMoney(refundedVal, 'PKR', currency)} has been 100% refunded to your Sasify Wallet. You can now request a fresh number.`);
     } catch (err: any) {
       setError(err.message || 'Failed to cancel order.');
     } finally {
@@ -709,31 +740,69 @@ export function VirtualNumbers() {
               </div>
             </div>
           ) : (
-            <p className="text-sm text-gray-600 bg-gray-50 p-4 rounded-xl border border-gray-200">
-              💡 Enter this number in <strong>{activeOrder.service_name}</strong>. This is a <strong>one-time disposable number</strong> for single activation. Keep this page open — your code will display automatically as soon as it arrives!
-            </p>
+            <div className="vn-waiting-guidance">
+              <p className="vn-waiting-hint">
+                💡 Enter this number in <strong>{activeOrder.service_name}</strong>. Keep this page open — your verification code will display automatically as soon as it arrives!
+              </p>
+
+              <div className="vn-speed-notice">
+                <div className="vn-speed-notice-header">
+                  <RotateCcw className="h-4 w-4 text-amber-700 shrink-0" />
+                  <strong>Code nahi aa raha? Timer khatam hone ka intezar na karein!</strong>
+                </div>
+                <p className="vn-speed-notice-body">
+                  Agar verification code aane mein der ho rahi ho, toh poora timer khatam hone ka intezar karne ke bajaye neeche <strong>&quot;Cancel &amp; Request New Number&quot;</strong> dabayein. Foran 100% wallet refund mil jayega aur aap turant doosra number select kar sakte hain.
+                </p>
+                <div className="vn-speed-notice-footer">
+                  <ShieldCheck className="h-4 w-4 text-emerald-600 shrink-0" />
+                  <span>Timer end hone par agar koi code na aya ho toh payment 100% automatically refund ho jayegi.</span>
+                </div>
+              </div>
+            </div>
           )}
 
-          <div className="vn-active-actions">
-            {activeOrder.can_cancel && !activeOrder.otp_code && (
-              <button
-                className="vn-cancel-btn"
-                disabled={busy}
-                onClick={handleCancel}
-              >
-                <RotateCcw className="h-4 w-4" /> Cancel &amp; Refund ({formatMoney(activeOrder.price_pkr, 'PKR', currency)})
-              </button>
-            )}
-            {activeOrder.otp_code && (
-              <button
-                className="vn-finish-btn"
-                disabled={busy}
-                onClick={handleFinish}
-              >
-                <Check className="h-4 w-4" /> Mark as Done
-              </button>
-            )}
-          </div>
+          {(() => {
+            const orderCreatedAt = activeOrder.created_at
+              ? new Date(activeOrder.created_at).getTime()
+              : null;
+            const secondsSinceCreated = orderCreatedAt
+              ? Math.max(0, Math.floor((nowTimestamp - orderCreatedAt) / 1000))
+              : 120;
+            const cancelCooldown = Math.max(0, 120 - secondsSinceCreated);
+
+            return (
+              <div className="vn-active-actions">
+                {activeOrder.can_cancel && !activeOrder.otp_code && (
+                  <button
+                    className={`vn-cancel-btn ${cancelCooldown > 0 ? 'cooldown' : ''}`}
+                    disabled={busy || cancelCooldown > 0}
+                    onClick={handleCancel}
+                    title={
+                      cancelCooldown > 0
+                        ? `SMS carrier is transmitting your code. Cancel will be unlocked in ${cancelCooldown}s.`
+                        : 'Cancel line for 100% instant wallet refund and request a fresh number'
+                    }
+                  >
+                    <RotateCcw className="h-4 w-4" />
+                    {cancelCooldown > 0 ? (
+                      <span>Carrier transmitting SMS... (Cancel &amp; Replace in {cancelCooldown}s)</span>
+                    ) : (
+                      <span>Cancel &amp; Request New Number ({formatMoney(activeOrder.price_pkr, 'PKR', currency)} Instant Refund)</span>
+                    )}
+                  </button>
+                )}
+                {activeOrder.otp_code && (
+                  <button
+                    className="vn-finish-btn"
+                    disabled={busy}
+                    onClick={handleFinish}
+                  >
+                    <Check className="h-4 w-4" /> Mark as Done
+                  </button>
+                )}
+              </div>
+            );
+          })()}
         </div>
       )}
 

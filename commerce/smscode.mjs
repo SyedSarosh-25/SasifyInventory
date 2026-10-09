@@ -9,18 +9,24 @@ const SMSCODE_BASE_URL = 'https://api.smscode.gg';
 const SMSCODE_DEFAULT_TOKEN = '0eeb097ddb7a7ed8e5494068e6d0761a6d12b9ea1dbb7d4c09e53cffdc959b42';
 
 export function isSmscodeConfigured(apiKey) {
+  if (apiKey === '' || apiKey === null || apiKey === false) {
+    return false;
+  }
   const token = getSmscodeToken(apiKey);
   return typeof token === 'string' && token.trim().length > 0;
 }
 
 export function getSmscodeToken(apiKey) {
-  if (apiKey !== undefined && apiKey !== null) {
-    return String(apiKey).trim();
+  if (apiKey === '' || apiKey === null || apiKey === false) {
+    return '';
   }
-  if (process.env.SMSCODE_TOKEN !== undefined) {
+  if (typeof apiKey === 'string' && apiKey.trim().length > 0) {
+    return apiKey.trim();
+  }
+  if (process.env.SMSCODE_TOKEN && process.env.SMSCODE_TOKEN.trim().length > 0) {
     return String(process.env.SMSCODE_TOKEN).trim();
   }
-  if (process.env.SMSCODE_API_KEY !== undefined) {
+  if (process.env.SMSCODE_API_KEY && process.env.SMSCODE_API_KEY.trim().length > 0) {
     return String(process.env.SMSCODE_API_KEY).trim();
   }
   if (process.env.NODE_ENV === 'test') {
@@ -435,8 +441,9 @@ export async function createSmscodeOrder(apiKey, {
  * Fetch latest order status and OTP code
  */
 export async function getSmscodeOrder(apiKey, orderId) {
-  if (isSmscodeConfigured(apiKey) && !String(orderId).startsWith('sim_')) {
-    const data = await smscodeRequest(`/v2/orders/${orderId}`, {}, undefined, apiKey);
+  const token = getSmscodeToken(apiKey);
+  if (isSmscodeConfigured(token) && orderId && !String(orderId).startsWith('sim_')) {
+    const data = await smscodeRequest(`/v2/orders/${orderId}`, {}, undefined, token);
     const order = data.data;
     return {
       id: String(order.id),
@@ -469,11 +476,15 @@ export async function getSmscodeOrder(apiKey, orderId) {
  * Cancel an active number and refund
  */
 export async function cancelSmscodeOrder(apiKey, orderId) {
-  if (isSmscodeConfigured(apiKey) && !String(orderId).startsWith('sim_')) {
+  const token = getSmscodeToken(apiKey);
+  if (isSmscodeConfigured(token) && orderId && !String(orderId).startsWith('sim_')) {
     const data = await smscodeRequest('/v2/orders/cancel', {
       method: 'POST',
-      body: JSON.stringify({ id: Number(orderId) || orderId }),
-    }, undefined, apiKey);
+      body: JSON.stringify({
+        id: Number(orderId) || orderId,
+        order_id: Number(orderId) || orderId,
+      }),
+    }, undefined, token);
     return data.data;
   }
   return { status: 'CANCELED', simulated: true };
@@ -483,11 +494,15 @@ export async function cancelSmscodeOrder(apiKey, orderId) {
  * Finish a completed order once OTP is verified
  */
 export async function finishSmscodeOrder(apiKey, orderId) {
-  if (isSmscodeConfigured(apiKey) && !String(orderId).startsWith('sim_')) {
+  const token = getSmscodeToken(apiKey);
+  if (isSmscodeConfigured(token) && orderId && !String(orderId).startsWith('sim_')) {
     const data = await smscodeRequest('/v2/orders/finish', {
       method: 'POST',
-      body: JSON.stringify({ id: Number(orderId) || orderId }),
-    }, undefined, apiKey);
+      body: JSON.stringify({
+        id: Number(orderId) || orderId,
+        order_id: Number(orderId) || orderId,
+      }),
+    }, undefined, token);
     return data;
   }
   return { success: true, simulated: true };
