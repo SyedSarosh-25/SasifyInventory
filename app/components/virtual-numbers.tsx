@@ -596,7 +596,7 @@ export function VirtualNumbers() {
               <input
                 type="text"
                 className="vn-service-search"
-                placeholder="Search app (WhatsApp, Telegram, Claude, ChatGPT, Google, Discord...)"
+                placeholder="Search app (WhatsApp, Telegram, ChatGPT...)"
                 value={serviceSearch}
                 onChange={(e) => setServiceSearch(e.target.value)}
               />

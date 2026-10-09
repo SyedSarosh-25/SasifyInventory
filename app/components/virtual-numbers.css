@@ -542,17 +542,7 @@
 .vn-badge-cancelled { background: #fee2e2; color: #991b1b; }
 .vn-badge-expired { background: #f3f4f6; color: #6b7280; }
 
-@media (max-width: 640px) {
-  .vn-services-grid { grid-template-columns: 1fr; }
-  .vn-countries-grid { grid-template-columns: 1fr 1fr; }
-  .vn-summary-row { flex-direction: column; align-items: flex-start; }
-  .vn-action-buttons { width: 100%; flex-direction: column; }
-  .vn-rent-btn, .vn-deposit-btn { width: 100%; justify-content: center; }
-  .vn-phone-section { flex-direction: column; gap: 12px; align-items: flex-start; }
-  .vn-phone-number { font-size: 21px; }
-  .vn-otp-digits { font-size: 28px; letter-spacing: 3px; }
-  .vn-disclaimer-card { padding: 18px 16px; }
-}
+
 
 /* One-Time OTP disclaimer banner in checkout panel */
 .vn-one-time-banner {
@@ -846,11 +836,7 @@
   margin-bottom: 14px;
 }
 
-@media (max-width: 640px) {
-  .vn-guest-inputs {
-    grid-template-columns: 1fr;
-  }
-}
+
 
 .vn-input-group {
   display: flex;
@@ -984,11 +970,7 @@
   margin: 20px 0;
 }
 
-@media (max-width: 640px) {
-  .vn-comparison-grid {
-    grid-template-columns: 1fr;
-  }
-}
+
 
 .vn-comp-bad {
   background: #fef2f2;
@@ -1032,6 +1014,542 @@
 .vn-comp-good .vn-comp-list {
   color: #064e3b;
 }
+
+/* =========================================================
+   COMPREHENSIVE MOBILE OPTIMIZATION (max-width: 640px)
+   ========================================================= */
+@media (max-width: 640px) {
+  /* Page & Intro Shell */
+  .virtual-numbers-page {
+    padding-top: 12px !important;
+    padding-bottom: 36px !important;
+    padding-inline: 12px !important;
+  }
+
+  .virtual-numbers-page .breadcrumbs {
+    margin-bottom: 8px;
+    font-size: 0.72rem;
+  }
+
+  .virtual-numbers-page .otp-page-intro {
+    margin: 0 auto 12px;
+  }
+
+  .virtual-numbers-page .otp-page-intro h1 {
+    font-size: 1.45rem !important;
+    line-height: 1.2 !important;
+    margin: 4px 0 8px !important;
+  }
+
+  .virtual-numbers-page .otp-page-intro p {
+    font-size: 0.84rem !important;
+    line-height: 1.48 !important;
+    color: #4b5563;
+  }
+
+  .virtual-numbers-page .section-kicker {
+    font-size: 0.68rem !important;
+    letter-spacing: 0.04em !important;
+  }
+
+  .vn-shell {
+    padding: 0;
+    margin-bottom: 24px;
+  }
+
+  /* Horizontal Swipeable Ribbon for Intro Badges */
+  .vn-intro-badges {
+    display: flex;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    gap: 6px;
+    margin: 6px -12px 14px;
+    padding: 2px 12px 6px;
+  }
+
+  .vn-intro-badges::-webkit-scrollbar {
+    display: none;
+  }
+
+  .vn-pill {
+    flex-shrink: 0;
+    padding: 5px 10px;
+    font-size: 11.5px;
+    white-space: nowrap;
+  }
+
+  /* Native Mobile Segmented Tabs */
+  .vn-tabs {
+    display: flex;
+    background: #f1f5f9;
+    padding: 4px;
+    border-radius: 12px;
+    border-bottom: none;
+    margin: 8px 0 14px;
+    gap: 4px;
+  }
+
+  .vn-tab {
+    flex: 1;
+    justify-content: center;
+    padding: 8px 10px;
+    font-size: 13px;
+    border-radius: 9px;
+    border-bottom: none;
+    margin-bottom: 0;
+    color: #64748b;
+  }
+
+  .vn-tab.active {
+    background: #ffffff;
+    color: #065f46;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+    font-weight: 700;
+  }
+
+  /* Card Containers */
+  .vn-card {
+    padding: 14px 12px;
+    border-radius: 14px;
+    margin-bottom: 12px;
+  }
+
+  .vn-card-title {
+    font-size: 15px;
+    margin-bottom: 4px;
+  }
+
+  .vn-card-subtitle {
+    font-size: 12px;
+    margin: 0 0 10px;
+    line-height: 1.4;
+  }
+
+  .vn-service-search {
+    font-size: 16px !important; /* Prevents auto-zoom on iOS Safari */
+    padding: 10px 12px;
+    border-radius: 10px;
+    margin-bottom: 10px;
+  }
+
+  /* 2-Column Compact Scrollable Grids */
+  .vn-services-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 6px;
+    max-height: 270px;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    padding-right: 2px;
+    margin-bottom: 8px;
+  }
+
+  .vn-service-btn {
+    padding: 8px 9px;
+    border-radius: 9px;
+  }
+
+  .vn-service-name {
+    font-size: 12px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .vn-service-tag {
+    font-size: 9px;
+    padding: 1px 4px;
+  }
+
+  .vn-countries-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 6px;
+    max-height: 250px;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    padding-right: 2px;
+    margin-bottom: 8px;
+  }
+
+  .vn-country-btn {
+    padding: 8px 9px;
+    border-radius: 9px;
+    gap: 6px;
+  }
+
+  .vn-country-flag {
+    font-size: 16px;
+  }
+
+  .vn-country-name {
+    font-size: 12px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .vn-country-code {
+    font-size: 10.5px;
+  }
+
+  /* Checkout Panel */
+  .vn-checkout-panel {
+    padding: 14px 12px;
+    border-radius: 14px;
+    margin-top: 12px;
+  }
+
+  .vn-summary-row {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .vn-summary-details {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .vn-summary-label {
+    font-size: 11.5px;
+  }
+
+  .vn-summary-title {
+    font-size: 14.5px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .vn-summary-price {
+    font-size: 22px;
+    font-weight: 800;
+  }
+
+  .vn-tier-badge {
+    font-size: 10px;
+    padding: 2px 6px;
+    line-height: 1.35;
+    white-space: normal;
+  }
+
+  .vn-one-time-banner {
+    padding: 9px 11px;
+    margin: 10px 0;
+    gap: 8px;
+    font-size: 11.5px;
+    line-height: 1.45;
+  }
+
+  .vn-mode-selector {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    margin: 10px 0;
+  }
+
+  .vn-mode-btn {
+    width: 100%;
+    justify-content: center;
+    padding: 9px 10px;
+    font-size: 12px;
+    border-radius: 9px;
+  }
+
+  /* Guest Form on Mobile */
+  .vn-guest-form {
+    padding: 12px 10px;
+    border-radius: 12px;
+    margin-top: 8px;
+  }
+
+  .vn-guest-title {
+    font-size: 14px;
+  }
+
+  .vn-guest-subtitle {
+    font-size: 11.5px;
+    margin-bottom: 10px;
+  }
+
+  .vn-payment-rails {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    margin-bottom: 10px;
+  }
+
+  .vn-rail-btn {
+    width: 100%;
+    justify-content: center;
+    padding: 9px 10px;
+    font-size: 12px;
+    border-radius: 8px;
+  }
+
+  .vn-receiver-card {
+    padding: 10px;
+    margin-bottom: 10px;
+    border-radius: 10px;
+  }
+
+  .vn-receiver-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+    font-size: 12px;
+  }
+
+  .vn-receiver-row > div {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .vn-receiver-code {
+    font-size: 13px;
+    padding: 2px 6px;
+  }
+
+  .vn-crypto-addr {
+    max-width: 170px;
+    font-size: 10.5px;
+  }
+
+  .vn-receiver-instructions {
+    font-size: 11px;
+    line-height: 1.4;
+    padding-top: 8px;
+    margin-top: 6px;
+  }
+
+  .vn-guest-inputs {
+    grid-template-columns: 1fr;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+
+  .vn-text-input {
+    font-size: 16px !important; /* Important: prevents iOS zoom on focus */
+    padding: 9px 11px;
+    border-radius: 8px;
+  }
+
+  .vn-action-buttons {
+    width: 100%;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .vn-rent-btn,
+  .vn-deposit-btn {
+    width: 100%;
+    justify-content: center;
+    padding: 12px 14px;
+    font-size: 14px;
+    border-radius: 10px;
+  }
+
+  /* Active Order Banner on Mobile */
+  .vn-active-banner {
+    padding: 14px 12px;
+    border-radius: 14px;
+    margin-bottom: 14px;
+  }
+
+  .vn-active-header {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 14px;
+  }
+
+  .vn-pulse-badge {
+    padding: 4px 10px;
+    font-size: 12px;
+  }
+
+  .vn-timer {
+    padding: 4px 8px;
+    font-size: 12.5px;
+  }
+
+  .vn-phone-section {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+    padding: 10px;
+    text-align: center;
+    margin-bottom: 14px;
+  }
+
+  .vn-phone-number {
+    font-size: 21px;
+    letter-spacing: 0.5px;
+  }
+
+  .vn-copy-btn {
+    width: 100%;
+    justify-content: center;
+    padding: 9px 12px;
+    font-size: 13px;
+  }
+
+  .vn-otp-display {
+    padding: 14px 10px;
+    margin: 12px 0;
+  }
+
+  .vn-otp-digits {
+    font-size: 28px;
+    letter-spacing: 3px;
+    margin: 6px 0;
+  }
+
+  .vn-otp-message {
+    max-width: 100%;
+    font-size: 11.5px;
+  }
+
+  .vn-otp-notice {
+    font-size: 11px;
+    padding: 8px;
+    margin-top: 8px;
+  }
+
+  .vn-active-actions {
+    flex-direction: column;
+    width: 100%;
+    gap: 6px;
+    margin-top: 14px;
+  }
+
+  .vn-cancel-btn,
+  .vn-finish-btn {
+    width: 100%;
+    justify-content: center;
+    padding: 10px;
+    font-size: 13px;
+  }
+
+  /* SEO Informational Sections on Mobile */
+  .vn-seo-section {
+    padding: 16px 12px;
+    border-radius: 14px;
+    margin-top: 18px;
+  }
+
+  .vn-seo-section h2 {
+    font-size: 16px;
+    margin-bottom: 6px;
+    gap: 8px;
+  }
+
+  .vn-seo-section h2 svg {
+    width: 20px;
+    height: 20px;
+  }
+
+  .vn-seo-section p {
+    font-size: 12.5px;
+    line-height: 1.5;
+    margin-bottom: 10px;
+  }
+
+  .vn-table-wrap {
+    margin: 8px -12px;
+    padding: 0 12px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .vn-pricing-tier-table {
+    min-width: 440px;
+    font-size: 12px;
+    margin: 10px 0 16px;
+  }
+
+  .vn-pricing-tier-table th,
+  .vn-pricing-tier-table td {
+    padding: 8px 10px;
+  }
+
+  .vn-price-highlight {
+    font-size: 13.5px;
+  }
+
+  .vn-feature-grid {
+    grid-template-columns: 1fr;
+    gap: 8px;
+    margin: 12px 0;
+  }
+
+  .vn-feature-card {
+    padding: 12px;
+  }
+
+  .vn-feature-title {
+    font-size: 13.5px;
+  }
+
+  .vn-feature-desc {
+    font-size: 11.5px;
+    line-height: 1.45;
+  }
+
+  .vn-comparison-grid {
+    grid-template-columns: 1fr;
+    gap: 8px;
+    margin: 12px 0;
+  }
+
+  .vn-comp-bad,
+  .vn-comp-good {
+    padding: 12px 10px;
+  }
+
+  .vn-comp-bad h4,
+  .vn-comp-good h4 {
+    font-size: 13.5px;
+    margin-bottom: 6px;
+  }
+
+  .vn-comp-list {
+    font-size: 11.5px;
+    line-height: 1.45;
+    padding-left: 14px;
+  }
+
+  .vn-disclaimer-card {
+    padding: 12px 10px;
+    margin-top: 14px;
+  }
+
+  .vn-disclaimer-header h3 {
+    font-size: 14px;
+  }
+
+  .vn-disclaimer-lead {
+    font-size: 12px !important;
+    margin-bottom: 8px !important;
+  }
+
+  .vn-disclaimer-list {
+    padding-left: 14px;
+    gap: 6px;
+  }
+
+  .vn-disclaimer-list li {
+    font-size: 11.5px;
+    line-height: 1.4;
+  }
+}
+
 
 
 
