@@ -332,11 +332,14 @@ export function VirtualNumbers() {
     <div className="vn-shell">
       {/* Intro Badges */}
       <div className="vn-intro-badges">
+        <span className="vn-pill vn-pill-warning">
+          <AlertCircle className="h-4 w-4 text-amber-600" /> One-Time OTP Use Only
+        </span>
         <span className="vn-pill">
           <Zap className="h-4 w-4 text-emerald-600" /> Instant SMS Delivery
         </span>
         <span className="vn-pill">
-          <ShieldCheck className="h-4 w-4 text-emerald-600" /> 100% Private & Temporary
+          <ShieldCheck className="h-4 w-4 text-emerald-600" /> 100% Private & Disposable
         </span>
         <span className="vn-pill">
           <RotateCcw className="h-4 w-4 text-emerald-600" /> Auto-Refund if No Code
@@ -415,7 +418,7 @@ export function VirtualNumbers() {
           {/* OTP display when received */}
           {activeOrder.otp_code ? (
             <div className="vn-otp-display">
-              <div className="vn-otp-label">Verification Code</div>
+              <div className="vn-otp-label">Verification Code (Single-Use OTP)</div>
               <div className="vn-otp-digits">{activeOrder.otp_code}</div>
               {activeOrder.otp_message && (
                 <div className="vn-otp-message">"{activeOrder.otp_message}"</div>
@@ -429,10 +432,13 @@ export function VirtualNumbers() {
                   <span>{copiedOtp ? 'Copied Code!' : 'Copy Verification Code'}</span>
                 </button>
               </div>
+              <div className="vn-otp-notice">
+                ⚠️ <strong>Important Account Notice:</strong> This one-time number is now closed and cannot receive future SMS. Go to your {activeOrder.service_name} settings immediately to add an email address or authenticator app for future logins.
+              </div>
             </div>
           ) : (
             <p className="text-sm text-gray-600 bg-gray-50 p-4 rounded-xl border border-gray-200">
-              💡 Enter this number in <strong>{activeOrder.service_name}</strong>. Keep this page open — your code will display automatically as soon as it arrives!
+              💡 Enter this number in <strong>{activeOrder.service_name}</strong>. This is a <strong>one-time disposable number</strong> for single activation. Keep this page open — your code will display automatically as soon as it arrives!
             </p>
           )}
 
@@ -554,7 +560,15 @@ export function VirtualNumbers() {
               </div>
             </div>
 
-            <div className="mt-6 flex justify-between items-center flex-wrap gap-4">
+            {/* One-Time OTP Usage Disclaimer */}
+            <div className="vn-one-time-banner">
+              <AlertCircle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
+              <div className="vn-one-time-text">
+                <strong>One-Time Verification Only:</strong> This temporary line is valid for a single SMS code during this 15-minute session. It is disposable and cannot be reused for future logins or repeated 2FA. Remember to configure email or authenticator app backup in your account settings after signing up.
+              </div>
+            </div>
+
+            <div className="mt-4 flex justify-between items-center flex-wrap gap-4">
               <div className="text-xs text-gray-500">
                 🔒 <strong>100% Money-Back Guarantee:</strong> If the provider does not deliver an SMS code within 15 minutes, your wallet is refunded automatically.
               </div>
